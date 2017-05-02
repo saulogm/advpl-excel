@@ -9,7 +9,7 @@ https://github.com/saulogm/advpl-excel/projects/1
 
 ![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel2.png)
 
-Fonte:
+Exemplo de uso:
 						
 	Local nPosCor,nPosFont,nPosStyle,nPosMoeda,nPosQuebra
 	Local oExcel := YExcel:New("Pasta2")
