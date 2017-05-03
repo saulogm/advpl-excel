@@ -10,13 +10,17 @@ https://github.com/saulogm/advpl-excel/projects/1
 ![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel2.png)
 
 Exemplo de uso:
-						
+
+	#include 'protheus.ch'
+	#include 'parmtype.ch'
+
+	user function tstyexcel()						
 	Local nPosCor,nPosFont,nPosStyle,nPosMoeda,nPosQuebra
 	Local oExcel := YExcel:New("Pasta2")
 	ConOut(Time())
 	
 	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
-	//Defini√ß√£o de Cor Transparecia+RGB
+	//DefiniÁ„o de Cor Transparecia+RGB
 	nPosCor		:= oExcel:CorPreenc("FF0000FF",)	//Cor de Fundo Azul
 
 						//cHorizontal,cVertical,lReduzCaber,lQuebraTexto,ntextRotation
@@ -46,18 +50,18 @@ Exemplo de uso:
 	oExcel:Cell(3,2,2,"1+1")					//B3	Formula simples
 	oExcel:Cell(4,"A",102,"A3+B3")			//A4	Formula com celulas
 	oExcel:Cell(4,2,202,"SUM(A3:A4)")		//B4	Formula com fun√ß√µes
-	oExcel:Cell(5,1,"Ol√° Mundo!",,nPosBorVerm)			//A5	Texto simples
+	oExcel:Cell(5,1,"Ol· Mundo!",,nPosBorVerm)			//A5	Texto simples
 	oExcel:Cell(5,2,date())					//B5	Data
 	oExcel:Cell(5,3,.T.)						//C5	Campo Logico
 	oExcel:Cell(5,4,1000,,nPosMoeda)			//D5	Campo Numerico formato moeda
 	oExcel:nTamLinha	:= 30.75				//Defini o tamanho das proximas linha criadas
 	oExcel:Cell(6,3,.F.)						//C6	Campo Logico falso
 	oExcel:Cell(6,5,"Texto grande para quebra em linhas",,nPosQuebra)		//E6	Texto grande	
-	oExcel:Cell(6,6,0,oExcel:Ref(3,1)+"+"+oExcel:Ref(3,2),)				//F6	Usando metodo RefSTR para localizar posi√ß√£o da celula
+	oExcel:Cell(6,6,0,oExcel:Ref(3,1)+"+"+oExcel:Ref(3,2),)				//F6	Usando metodo RefSTR para localizar posiÁ„o da celula
 	oExcel:Cell(6,7,"Negrito,Italico,Sublinhado,Tachado",,nPosFonts)		//E6	Texto grande	
 	oExcel:nTamLinha	:= nil
 	
-	oExcel:Cell(7,1,"FORMATA√á√ÉO CONDICIONAL")
+	oExcel:Cell(7,1,"FORMATA«√O CONDICIONAL")
 	oExcel:mergeCells(7,1,7,3)
 	oExcel:Cell(8,1,-10)
 	oExcel:Cell(9,1,0)
@@ -66,8 +70,8 @@ Exemplo de uso:
 	oExcel:Cell(12,1,20)
 	oExcel:Cell(13,1,25)
 	
-	//FORMATA√á√ÉO CONDICIONAL
-	//Cria objetos para ser usado na formata√ß√£o
+	//FORMATA«√O CONDICIONAL
+	//Cria objetos para ser usado na formataÁ„o
 	oFont	:= oExcel:Font(12,"FFFFFF","Calibri","2",,.T.,.F.,.F.,.F.)	//Cor Branca Negrito
 	oCorPre	:= oExcel:Preenc("FF0000")									//Fundo Vermelho
 	oCorPre2:= oExcel:Preenc("00FF00")									//Fundo Verde
