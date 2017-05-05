@@ -50,7 +50,7 @@ user function tstyexcel()
 	oExcel:Cell(3,2,2,"1+1")					//B3	Formula simples
 	oExcel:Cell(4,"A",102,"A3+B3")					//A4	Formula com celulas
 	oExcel:Cell(4,2,202,"SUM(A3:A4)")				//B4	Formula com funções
-	oExcel:Cell(5,1,"Olá Mundo!",,nPosBorVerm)	//A5	Texto simples
+	oExcel:Cell(5,1,"Olá Mundo!",,nPosBorVerm)			//A5	Texto simples
 	oExcel:Cell(5,2,date())						//B5	Data
 	oExcel:Cell(5,3,.T.)						//C5	Campo Logico
 	oExcel:Cell(5,4,1000,,nPosMoeda)				//D5	Campo Numerico formato moeda
@@ -132,8 +132,8 @@ Return
 # Instalação
 1. Instalar o 7-Zip (http://www.7-zip.org/)
 2. Configurar o appserver.ini com o caminho do 7-Zip.
-	[GENERAL]
-	LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
+	> [GENERAL]
+	> LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
 3. Aplicar patch yexcel.ptm
 
 ### Dúvidas
