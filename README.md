@@ -132,8 +132,10 @@ Return
 # Instalação
 1. Instalar o 7-Zip (http://www.7-zip.org/)
 2. Configurar o appserver.ini com o caminho do 7-Zip.
-	> [GENERAL]
-	> LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
+```
+[GENERAL]
+LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
+```
 3. Aplicar patch yexcel.ptm
 
 ### Dúvidas
