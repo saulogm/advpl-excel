@@ -10,7 +10,7 @@ https://github.com/saulogm/advpl-excel/projects/1
 ![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel2.png)
 
 Exemplo de uso:
-
+```advpl
 	#include 'protheus.ch'
 	#include 'parmtype.ch'
 
@@ -45,19 +45,19 @@ Exemplo de uso:
 	nPosBorDt	:= oExcel:AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,nPosBorda2/*borderId*/,/*xfId*/,)	//borda com data
 	
 	oExcel:Cell(1,1,"TESTE EXCEL",,nPosStyle)
-	oExcel:mergeCells(1,1,2,6)				//Mescla as Celulas A1:B2
+	oExcel:mergeCells(1,1,2,6)					//Mescla as Celulas A1:B2
 	oExcel:Cell(3,1,100)						//A3	Numero
 	oExcel:Cell(3,2,2,"1+1")					//B3	Formula simples
-	oExcel:Cell(4,"A",102,"A3+B3")			//A4	Formula com celulas
-	oExcel:Cell(4,2,202,"SUM(A3:A4)")		//B4	Formula com funÃ§Ãµes
-	oExcel:Cell(5,1,"Olá Mundo!",,nPosBorVerm)			//A5	Texto simples
-	oExcel:Cell(5,2,date())					//B5	Data
+	oExcel:Cell(4,"A",102,"A3+B3")				//A4	Formula com celulas
+	oExcel:Cell(4,2,202,"SUM(A3:A4)")			//B4	Formula com funÃ§Ãµes
+	oExcel:Cell(5,1,"Olá Mundo!",,nPosBorVerm)	//A5	Texto simples
+	oExcel:Cell(5,2,date())						//B5	Data
 	oExcel:Cell(5,3,.T.)						//C5	Campo Logico
 	oExcel:Cell(5,4,1000,,nPosMoeda)			//D5	Campo Numerico formato moeda
 	oExcel:nTamLinha	:= 30.75				//Defini o tamanho das proximas linha criadas
 	oExcel:Cell(6,3,.F.)						//C6	Campo Logico falso
 	oExcel:Cell(6,5,"Texto grande para quebra em linhas",,nPosQuebra)		//E6	Texto grande	
-	oExcel:Cell(6,6,0,oExcel:Ref(3,1)+"+"+oExcel:Ref(3,2),)				//F6	Usando metodo RefSTR para localizar posição da celula
+	oExcel:Cell(6,6,0,oExcel:Ref(3,1)+"+"+oExcel:Ref(3,2),)					//F6	Usando metodo RefSTR para localizar posição da celula
 	oExcel:Cell(6,7,"Negrito,Italico,Sublinhado,Tachado",,nPosFonts)		//E6	Texto grande	
 	oExcel:nTamLinha	:= nil
 	
@@ -76,7 +76,7 @@ Exemplo de uso:
 	oCorPre	:= oExcel:Preenc("FF0000")									//Fundo Vermelho
 	oCorPre2:= oExcel:Preenc("00FF00")									//Fundo Verde
 	oCorPre3:= oExcel:Preenc("FFFF00")									//Fundo Amarelo
-	oBorda	:= oExcel:ObjBorda("ALL","000000")					//Borda Preta
+	oBorda	:= oExcel:ObjBorda("ALL","000000")							//Borda Preta
 	//Cria o Estilo			oFont,oCorPreenc,oBorda
 	nPosVerm	:= oExcel:ADDdxf(oFont,oCorPre,oBorda)
 	nPosVerd	:= oExcel:ADDdxf(oFont,oCorPre2,oBorda)
@@ -128,6 +128,13 @@ Exemplo de uso:
 	oExcel:Gravar("c:\temp",.T.,.T.)
 	ConOut(Time())
 	Return
+```
+# Instalação
+1. Instalar o 7-Zip (http://www.7-zip.org/)
+2. Configurar o appserver.ini com o caminho do 7-Zip.
+	[GENERAL]
+	LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
+3. Aplicar patch yexcel.ptm
 
 ### Dúvidas
 - Email: saulomax@gmail.com
