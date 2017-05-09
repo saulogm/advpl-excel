@@ -18,15 +18,15 @@ Gerar Excel formato xlsx com menor consumo de memoria e mais otimizado possível.
 * Formatar como tabela
 
 # Testes
-![Exemplo1](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel1.png)
+![Exemplo1](/exemplo/excel1.png)
 
 Auto Filtros,Congelar painéis:
 
-![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel2.png)
+![Exemplo2](/exemplo/excel2.png)
 
 Formatar como tabela:
 
-![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel3.png)
+![Exemplo2](/exemplo/excel3.png)
 
 Exemplo de uso:
 
