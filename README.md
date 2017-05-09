@@ -21,13 +21,16 @@ Gerar Excel formato xlsx com menor consumo de memoria e mais otimizado possível.
 ![Exemplo1](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel1.png)
 
 Auto Filtros,Congelar painéis:
+
 ![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel2.png)
 
 Formatar como tabela:
+
 ![Exemplo2](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel3.png)
 
 Exemplo de uso:
-(exemplo/tstyexcel.prw)
+
+[tstyexcel.prw](exemplo/tstyexcel.prw)
 ```advpl
 #include 'protheus.ch'
 #include 'parmtype.ch'
