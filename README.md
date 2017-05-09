@@ -2,20 +2,20 @@
 Gerar Excel formato xlsx com menor consumo de memoria e mais otimizado possível.
 
 # Recursos disponíveis
--Definir células String,Numerica,data,Logica,formula
--Adicionar novas planilhas
--Cor de preenchimento
--Alinhamento
--Formato da celula
--Mesclar células
--Auto Filtro
--Congelar Paineis(colunas e linhas)
--Definir tamanho da coluna
--Definir tamanho da linha
--Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
--Bordas: (Left,Right,Top,Bottom),Cor,Estilo
--Formatação condicional:(operador,formula)(font,fundo,bordas)
--Formatar como tabela
+* Definir células String,Numerica,data,Logica,formula
+* Adicionar novas planilhas
+* Cor de preenchimento
+* Alinhamento
+* Formato da celula
+* Mesclar células
+* Auto Filtro
+* Congelar Paineis(colunas e linhas)
+* Definir tamanho da coluna
+* Definir tamanho da linha
+* Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
+* Bordas: (Left,Right,Top,Bottom),Cor,Estilo
+* Formatação condicional:(operador,formula)(font,fundo,bordas)
+* Formatar como tabela
 
 # Testes
 ![Exemplo1](https://github.com/saulogm/advpl-excel/raw/master/exemplo/excel1.png)
