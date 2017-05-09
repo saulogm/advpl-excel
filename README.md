@@ -201,7 +201,7 @@ return
 [GENERAL]
 LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
 ```
-3. Aplicar patch yexcel.ptm (patch/yexcel.ptm)
+3. Aplicar patch [yexcel.ptm](patch/yexcel.ptm)
 
 ### Dúvidas
 - Email: saulomax@gmail.com
