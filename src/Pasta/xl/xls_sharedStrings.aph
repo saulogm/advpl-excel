@@ -1,0 +1,12 @@
+<%
+Local aString
+oSelf:oString:list(@aString)
+aSort(aString,,,{|x,y| x[2]<y[2] })
+%><?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="<%=Len(aString)%>" uniqueCount="<%=Len(aString)%>">
+<%For nCont:=1 to Len(aString)%>
+	<si>
+		<t><![CDATA[<%=aString[nCont][1]%>]]></t>
+	</si>
+<%Next%>
+</sst>
