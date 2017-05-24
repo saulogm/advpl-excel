@@ -154,7 +154,7 @@ METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha) CLASS YE
 	Default cPlanilha	:= ::cPlanilhaAt
 	odefinedName:SetAtributo("name",cNome)
 	If ValType(cRefPar)=="U"
-		cRef	:= cPlanilha+"!"+::Ref(nLinha,nColuna,.T.,.T.)
+		cRef	:= "'"+cPlanilha+"'!"+::Ref(nLinha,nColuna,.T.,.T.)
 		If Valtype(nLinha2)<>"U" .and. Valtype(nColuna2)<>"U"
 			cRef	+= ":"+::Ref(nLinha2,nColuna2,.T.,.T.)
 		Endif
