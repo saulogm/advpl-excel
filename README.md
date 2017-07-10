@@ -20,6 +20,8 @@ Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo 
 * Agrupamento de linha
 
 # Testes
+Arquivo excel gerado: [pasta2.xlsx](exemplo/pasta2.xlsx)
+
 ![Exemplo1](/exemplo/excel1.png)
 
 Auto Filtros,Congelar painéis,Agrupar linhas:
