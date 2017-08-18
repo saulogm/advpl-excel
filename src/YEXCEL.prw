@@ -1247,7 +1247,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	If !FindFunction("FZIP")
 		WaitRunSrv('"'+cAr7Zip+'" a -tzip "'+cRootPath+cArquivo+'" "'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'\*"',.T.,"C:\")
 	Else
-		fZip(cArquivo,::aFiles)
+		fZip(cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 	EndIf
 	
 	For nCont:=1 to Len(::aFiles)
