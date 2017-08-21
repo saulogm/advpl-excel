@@ -37,6 +37,7 @@ Exemplo de uso:
 [tstyexcel.prw](exemplo/tstyexcel.prw)
 
 # Instalação
+Com a disponibilização da função FZip em builds iguais ou superiores a 7.00.131227 - 13.2.3.17 não é necessario mais instalar o 7-Zip, ir para passo 3.
 1. Instalar o 7-Zip (http://www.7-zip.org/)
 2. Configurar o appserver.ini com o caminho do 7-Zip.
 ```
