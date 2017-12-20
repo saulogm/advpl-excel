@@ -78,16 +78,16 @@ CLASS YExcel From LongClassName
 	Data nRowoutlineLevel
 	Data lRowcollapsed
 	Data lRowHidden
-	
+
 	METHOD New() CONSTRUCTOR
 	METHOD ClassName()
-	
+
 	//Controle das planilhas
 	METHOD ADDPlan()		//Adiciona nova planilha ao arquivo
 	METHOD Gravar()			//Grava em disco
 	METHOD Cell()			//Grava as células
 	METHOD mergeCells()		//Mescla células
-	METHOD NumToString()	//Algoritimo para converte numero em string A=1,B=2	
+	METHOD NumToString()	//Algoritimo para converte numero em string A=1,B=2
 	METHOD StringToNum()	//Algoritimo para converte string em numero 1=A,2=B
 	METHOD Ref()			//Passa a localização numerica e transforma em referencia da celula
 	METHOD SetDefRow()		//Defini as colunas da linha. Habilita a gravação automatica de cada coluna. Importante para prover performace na gravação de varias linhas
@@ -96,7 +96,7 @@ CLASS YExcel From LongClassName
 	METHOD AutoFilter()		//Cria os Filtros na planilha
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD NivelLinha()
-	
+
 	//Interno
 	METHOD CriarFile()		//Cria arquivos temporarios
 	METHOD GravaFile()		//Grava em arquivos temporarios
@@ -109,17 +109,17 @@ CLASS YExcel From LongClassName
 	//Estilo
 	METHOD CorPreenc()		//Cria um nova cor para ser usada
 	METHOD EfeitoPreenc()	//Cria um novo efeito de preenchimento
-	METHOD AddFont()		//Cria objeto de font 
+	METHOD AddFont()		//Cria objeto de font
 	METHOD AddStyles()		//Adiciona Estilos
 	METHOD Alinhamento()	//Adiciona alinhamento
-	METHOD Borda()			//Adiciona borda(auxiliar)	
-	
+	METHOD Borda()			//Adiciona borda(auxiliar)
+
 	//Formatação condicional
 	METHOD FormatCond()		//Definir formatação condicional(auxiliar)
-	METHOD Font()			//Cria objeto de font 
+	METHOD Font()			//Cria objeto de font
 	METHOD Preenc()			//Cria objeto de Preenchimento
 	METHOD ObjBorda()		//Cria objeto de borda
-	METHOD gradientFill()	//Cria objeto de efeito de preenchimento	
+	METHOD gradientFill()	//Cria objeto de efeito de preenchimento
 	METHOD ADDdxf()			//Cria o estilo para formatação condicional
 	//Tabela
 	METHOD AddTabela()
@@ -132,7 +132,7 @@ CLASS YExcel From LongClassName
 		METHOD AddTotal()
 		METHOD AddTotais()
 		METHOD Finish()
-	*/	
+	*/
 ENDCLASS
 
 /*/{Protheus.doc} AddNome
@@ -173,7 +173,7 @@ Construtor da classe
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
-@param cNomeFile, characters, Nome do arquivo para gerar 
+@param cNomeFile, characters, Nome do arquivo para gerar
 @type function
 /*/
 METHOD New(cNomeFile) CLASS YExcel
@@ -215,7 +215,7 @@ METHOD New(cNomeFile) CLASS YExcel
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\workbook.xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\_rels\workbook.xml.rels")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\theme\theme1.xml")
-	
+
 	oRelationship	:= yExcelTag():New("Relationship",)
 	oRelationship:SetAtributo("Id","rId1")
 	oRelationship:SetAtributo("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme")
@@ -231,7 +231,7 @@ METHOD New(cNomeFile) CLASS YExcel
 	oRelationship:SetAtributo("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings")
 	oRelationship:SetAtributo("Target","sharedStrings.xml")
 	AADD(::aRelsWorkBook,oRelationship)
-	
+
 
 	AADD(::aCorPreenc,yExcel_CorPreenc():New("none"))
 	AADD(::aCorPreenc,yExcel_CorPreenc():New("gray125"))
@@ -273,7 +273,7 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 		h_xls_sheet(nFile)
 		fClose(nFile)
 		fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml")
-		
+
 		If !Empty(::atable)
 			::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
 			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlanilhas)+".xml.rels")
@@ -317,12 +317,12 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	::nRowoutlineLevel	:= nil
 	::lRowcollapsed		:= .F.
 	::lRowHidden		:= .F.
-	
+
 	//Cria arquivo temporario de gravação das linhas
 	::CriarFile("\"+::cNomeFile+"\xl\worksheets"	,"tmprow.xml"			,""			,)
 	GravaFile(@::nFileTmpRow,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","tmprow.xml")
 	//Cria nova planilha
-	nQtdPlanilhas++	
+	nQtdPlanilhas++
 	oPlanilha		:= yExcelTag():New("sheet",)
 	oPlanilha:SetAtributo("name",cNome)
 	oPlanilha:SetAtributo("sheetId",nQtdPlanilhas)
@@ -446,10 +446,20 @@ Mescla células
 @type function
 /*/
 Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) CLASS YExcel
-	Local oMergeCell,cColuna,cColuna2
+	Local oMergeCell,cColuna,cColuna2,nPos
 	Local oExcelRow
+	If nLinha2<nLinha
+		UserException("YExcel - metodo mergeCells. Linha final não pode ser menor que linha inicial.")
+	EndIf
+	If nColuna2<nColuna
+		UserException("YExcel - metodo mergeCells. Coluna final não pode ser menor que Coluna inicial.")
+	EndIf
 	cColuna		:= NumToString(nColuna)
 	cColuna2	:= NumToString(nColuna2)
+	nPos		:= aScan(::oMergeCells:GetValor(),{|x| Replace(cColuna+cValToChar(nLinha),"$","") $ Replace(x:GetAtributo("ref"),"$","") .OR. Replace(cColuna2+cValToChar(nLinha2),"$","") $ Replace(x:GetAtributo("ref"),"$","") })
+	If nPos>0
+		UserException("YExcel - metodo mergeCells. Célula "+cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2)+" não pode ser mesclada, essa célula já foi mesclada!")
+	EndIf
 	oMergeCell	:= yExcelTag():New("mergeCell",)
 	oMergeCell:SetAtributo("ref",cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2))
 	::oMergeCells:AddValor(oMergeCell)
@@ -458,7 +468,7 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) CLASS YExcel
 		If oExcelRow:aspans[2]<nColuna2
 			oExcelRow:aspans[2]	:= nColuna2
 			oExcelRow:SetAtributo("spans","1:"+cValToChar(nColuna2))
-		EndIf		
+		EndIf
 	EndIf
 Return
 
@@ -480,7 +490,7 @@ Cria objeto de fonte para ser usado na criação de estilos para formatação condic
 /*/
 METHOD Font(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado) CLASS YExcel
 	oFont	:= YExcelFont():New()
-	oFont:Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado)	
+	oFont:Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado)
 Return oFont:GetValor(1)
 
 /*/{Protheus.doc} Preenc
@@ -502,7 +512,7 @@ Cria objeto de bordas para ser usado na criação de estilos para formatação condi
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
-@param cTipo, characters, "C"-Cima|"B"-Baixo|"E"-Esquerda|"D"-Direita|T-TODAS("CBED") OU "T"-TOP|"B"-Bottom|"L"-Left|"R"-Right|A-ALL("TBLR") OU "DIAGONAL"-Diagonal 
+@param cTipo, characters, "C"-Cima|"B"-Baixo|"E"-Esquerda|"D"-Direita|T-TODAS("CBED") OU "T"-TOP|"B"-Bottom|"L"-Left|"R"-Right|A-ALL("TBLR") OU "DIAGONAL"-Diagonal
 @param cCor, characters, Cor em Aplha+RGB da borda
 @param cModelo, characters, Modelo da borda
 @type function
@@ -527,12 +537,12 @@ Cria estilo para formatação condicional
 METHOD ADDdxf(oFont,oCorPreenc,oBorda) CLASS YExcel
 	Local odxf
 	Local nPos
-	
+
 	::odxfs:AddValor(yExcelTag():New("dxf",{}))
 	nPos	:= Len(::odxfs:GetValor())
-	::odxfs:SetAtributo("count",nPos)	
-	odxf	:= ::odxfs:GetValor(nPos)	
-	
+	::odxfs:SetAtributo("count",nPos)
+	odxf	:= ::odxfs:GetValor(nPos)
+
 	//Font
 	If ValType(oFont)<>"U"
 		odxf:AddValor(oFont)
@@ -648,7 +658,7 @@ METHOD AddFormatCond(cRefDe,cRefAte,nEstilo,cType,xFormula,operator,nPrioridade)
 	oRule:SetAtributo("dxfId",nEstilo)
 	oRule:SetAtributo("priority",nPrioridade)
 	If ValType(operator)<>"U"
-		oRule:SetAtributo("operator",operator)	
+		oRule:SetAtributo("operator",operator)
 	EndIf
 	nPos	:= aScan(::aConditionalFormatting,{|x| x:GetAtributo("sqref")==cRef})
 	If nPos==0
@@ -705,7 +715,7 @@ Adiciona cor com efeito de preenchimento
 @param aCores, array, Cores de preenchimento {{CorRGB,nPerc},{"FF0000",0.5}}
 @param [ctype], characters, Tipo de efeito (linear ou path)
 @param [nleft], numeric, para efeito path posição esquerda
-@param [nright], numeric, para efeito path posição direita 
+@param [nright], numeric, para efeito path posição direita
 @param [ntop], numeric, para efeito path posição topo
 @param [nbottom], numeric, para efeito path posição inferior
 @return nPos, Posição para criação de estilo
@@ -775,7 +785,7 @@ Cria borda para ser usado no estilo das células
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
-@param cTipo, characters, "C"-Cima|"B"-Baixo|"E"-Esquerda|"D"-Direita|T-TODAS("CBED") OU "T"-TOP|"B"-Bottom|"L"-Left|"R"-Right|A-ALL("TBLR") OU "DIAGONAL"-Diagonal 
+@param cTipo, characters, "C"-Cima|"B"-Baixo|"E"-Esquerda|"D"-Direita|T-TODAS("CBED") OU "T"-TOP|"B"-Bottom|"L"-Left|"R"-Right|A-ALL("TBLR") OU "DIAGONAL"-Diagonal
 @param cCor, characters, Cor em Aplha+RGB da borda
 @param cModelo, characters, Modelo da borda
 
@@ -929,36 +939,36 @@ Cria um estilo para ser usado nas células
 @type function
 
 @obs
-0 General 
-1 0 
-2 0.00 
-3 #,##0 
-4 #,##0.00 
-9 0% 
-10 0.00% 
-11 0.00E+00 
-12 # ?/? 
-13 # ??/?? 
-14 mm-dd-yy 
-15 d-mmm-yy 
-16 d-mmm 
-17 mmm-yy 
-18 h:mm AM/PM 
-19 h:mm:ss AM/PM 
-20 h:mm 
-21 h:mm:ss 
-22 m/d/yy h:mm 
-37 #,##0 ;(#,##0) 
-38 #,##0 ;[Red](#,##0) 
-39 #,##0.00;(#,##0.00) 
-40 #,##0.00;[Red](#,##0.00) 
-45 mm:ss 
-46 [h]:mm:ss 
-47 mmss.0 
-48 ##0.0E+0 
-49 @ 
+0 General
+1 0
+2 0.00
+3 #,##0
+4 #,##0.00
+9 0%
+10 0.00%
+11 0.00E+00
+12 # ?/?
+13 # ??/??
+14 mm-dd-yy
+15 d-mmm-yy
+16 d-mmm
+17 mmm-yy
+18 h:mm AM/PM
+19 h:mm:ss AM/PM
+20 h:mm
+21 h:mm:ss
+22 m/d/yy h:mm
+37 #,##0 ;(#,##0)
+38 #,##0 ;[Red](#,##0)
+39 #,##0.00;(#,##0.00)
+40 #,##0.00;[Red](#,##0.00)
+45 mm:ss
+46 [h]:mm:ss
+47 mmss.0
+48 ##0.0E+0
+49 @
 
-166 $#,##0.00 
+166 $#,##0.00
 44 - Contabil R$  #.##0,00
 /*/
 METHOD AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) CLASS YExcel
@@ -984,7 +994,7 @@ Cria objeto de alinhamento da célula para ser usado na criação de estilo
 	justify
 	left
 	right
-	
+
 	VERTICAL
 	bottom
 	center
@@ -998,7 +1008,7 @@ METHOD Alinhamento(cHorizontal,cVertical,lReduzCaber,lQuebraTexto,ntextRotation)
 	Default cHorizontal	:= "bottom"
 	Default lReduzCaber	:= .F.
 	Default lQuebraTexto	:= .F.
-	oAlinhamento:SetAtributo("horizontal",cHorizontal)	
+	oAlinhamento:SetAtributo("horizontal",cHorizontal)
 	oAlinhamento:SetAtributo("vertical",cVertical)
 	If ValType(ntextRotation)=="N" .and. ntextRotation>0
 		oAlinhamento:SetAtributo("textRotation",ntextRotation)
@@ -1046,7 +1056,7 @@ METHOD Pane(cActivePane,cState,cRef,nySplit,nxSplit) CLASS YExcel
 	bottomRight - Painel inferior direito, quando as divisões verticais e horizontais são aplicadas.
 	topLeft		- Painel superior esquerdo, quando as divisões verticais e horizontais são aplicadas.
 	topRight	- Painel superior direito, quando as divisões verticais e horizontais são aplicadas
-	*/	
+	*/
 	osheetView:GetValor(nPos):SetAtributo("activePane",cActivePane)
 	/*
 	frozen		- Panes são congelados, mas não foram divididos sendo congelados. Nesse estado, quando os painéis são desbloqueados novamente, um único painel resulta, sem divisão. Nesse estado, as barras de divisão não são ajustáveis.
@@ -1060,7 +1070,7 @@ METHOD Pane(cActivePane,cState,cRef,nySplit,nxSplit) CLASS YExcel
 	osheetView:GetValor(nPos):SetAtributo("xSplit",nxSplit)
 	//Posição vertical da divisão, em 1/20º de um ponto; 0 (zero) se nenhum. Se o painel estiver congelado, este valor indica o número de linhas visíveis no painel esquerdo.
 	osheetView:GetValor(nPos):SetAtributo("ySplit",nySplit)
-	
+
 	osheetView:AddValor(yExcelTag():New("selection",,{{"pane",cActivePane}}))
 	aSort(osheetView:xValor,,,{|x,y| If(x:getnome()=="pane",1,2)<If(y:getnome()=="pane",1,2) })
 Return nPos
@@ -1109,7 +1119,7 @@ Return cColuna+NumToString(nColuna)+cLinha+cValToChar(nLinha)
 
 
 /*/{Protheus.doc} NumToString
-Retorna a letra da coluna de acordo com a posição numerica 
+Retorna a letra da coluna de acordo com a posição numerica
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -1150,18 +1160,18 @@ METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
 	nPos	:= ::nQtdTables
 	::otableParts:AddValor(yExcelTag():New("tablePart",nil,{{"r:id","rId"+cValToChar(nPos)}}))
 	::otableParts:SetAtributo("count",Len(::atable)+1)
-	
+
 	oTable	:= yExcel_Table():New(self,nLinha,nColuna,cNome) //yExcelTag():New("table",{},)
 	oTable:SetAtributo("xmlns","http://schemas.openxmlformats.org/spreadsheetml/2006/main")
 	oTable:SetAtributo("id",nPos)
 	oTable:SetAtributo("name",cNome)
 	oTable:SetAtributo("displayName",cNome)
-	
+
 	oTable:AddValor(yExcelTag():New("autoFilter",{}))
 
 	oTable:oTableColumns	:= yExcelTag():New("tableColumns",{},{{"count",0}})	//Pag 1743
 	oTable:AddValor(oTable:oTableColumns)
-	
+
 	oTable:otableStyleInfo	:= yExcelTag():New("tableStyleInfo",nil,)
 	oTable:otableStyleInfo:SetAtributo("name","TableStyleMedium2")
 	oTable:otableStyleInfo:SetAtributo("showFirstColumn",0)
@@ -1205,22 +1215,22 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	Private oSelf			:= Self
 	//Grava a ultima linha
 	::GravaRow(::adimension[1][1])
-	
+
 	If Empty(::oCols:GetValor())
 		::AddTamCol(::adimension[2][2],::adimension[1][2],12.00)
 	EndIf
-	
+
 	::CriarFile("\"+::cNomeFile						,"[Content_Types].xml"	,h_xls_Content_Types()	,)
 	::CriarFile("\"+::cNomeFile+"\_rels"			,".rels"				,h_xls_rels()			,)
 	::CriarFile("\"+::cNomeFile+"\docProps"			,"app.xml"				,h_xls_app()			,)
 	::CriarFile("\"+::cNomeFile+"\docProps"			,"core.xml"				,h_xls_core()			,)
-	
+
 	::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,h_xls_sharedStrings()	,)
 	::CriarFile("\"+::cNomeFile+"\xl"				,"styles.xml"			,h_xls_styles()			,)
 	::CriarFile("\"+::cNomeFile+"\xl"				,"workbook.xml"			,h_xls_workbook()		,)
 	::CriarFile("\"+::cNomeFile+"\xl\_rels"			,"workbook.xml.rels"	,h_xls_rworkbook()		,)
 	::CriarFile("\"+::cNomeFile+"\xl\theme"			,"theme1.xml"			,h_xls_theme()			,)
-	
+
 	nQtdPlanilhas	:= Len(::aPlanilhas)
 	::CriarFile("\"+::cNomeFile+"\xl\worksheets"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml"			,""			,)
 	GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","sheet"+cValToChar(nQtdPlanilhas)+".xml")
@@ -1249,14 +1259,14 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	Else
 		fZip(cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 	EndIf
-	
+
 	For nCont:=1 to Len(::aFiles)
 		If fErase(::aFiles[nCont])<>0
 			ConOut(::aFiles[nCont])
 			ConOut("Ferror:"+cValToChar(ferror()))
 		EndIf
 	Next
-	
+
 	DelPasta("\tmpxls\"+::cTmpFile+"\"+::cNomeFile)	//Apaga arquivos temporarios
 	If substr(cArquivo,1,8)<>"\tmpxls\"
 		DelPasta("\tmpxls\"+::cTmpFile)
@@ -1345,9 +1355,9 @@ Static Function GravaFile(nFile,cString,cLocal,cArquivo)
 	EndIf
 	cString	:= EncodeUTF8(cString)
 	FSeek(nFile, 0, FS_END)
-	IF FWrite(nFile, cString, Len(cString)) < Len(cString)
-	 	lOk	:= .F.
-	EndIf
+		IF FWrite(nFile, cString, Len(cString)) < Len(cString)
+		 	lOk	:= .F.
+		EndIf
 Return lOk
 
 //EM DESENVOLVIMENTO
@@ -1447,12 +1457,16 @@ Method SetVal(v,f,nStyle) Class yExcelc
 		::SetAtributo("s","1")	//Adiciona o estilo padrão de data
 		//::SetAtributo("t","d")	//Adiciona o estilo padrão de data
 		//::SetV(SUBSTR(DTOS(v),1,4)+"-"+SUBSTR(DTOS(v),5,2)+"-"+SUBSTR(DTOS(v),7,2))
-		::SetV(v-STOD("19000101")+2)		
+		::SetV(v-STOD("19000101")+2)
 	Else
 		::SetV(v)
 	EndIf
 	If ValType(nStyle)=="N"
-		::SetAtributo("s",nStyle)
+		If nStyle+1>Len(::oyExcel:oSyles:GetValor())
+			UserException("YExcel - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
+		Else
+			::SetAtributo("s",nStyle)
+		EndIf
 	EndIf
 Return self
 
@@ -1473,7 +1487,7 @@ Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,
 	Default lItalico	:= .F.
 	Default lSublinhado:= .F.
 	Default lTachado	:= .F.
-	
+
 	If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
 		cCorRGB	:= "FF"+cCorRGB
 	EndIf
@@ -1481,7 +1495,7 @@ Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,
 	nTamFonts	:= Len(::GetValor())
 	::SetAtributo("count",nTamFonts)
 	::SetAtributo("x14ac:knownFonts",1)
-	
+
 	If lNegrito
 		AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("b"))
 	EndIf
@@ -1499,7 +1513,7 @@ Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,
 	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("sz"))
 	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
 	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",nTamanho)
-	
+
 	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("color"))
 	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
 	If ValType(cCorRGB)=="N"
@@ -1510,11 +1524,11 @@ Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,
 		EndIf
 		::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("rgb",cCorRGB)
 	EndIf
-	
+
 	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("name"))
 	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
 	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",cNome)
-	
+
 	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("family"))
 	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
 	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",cfamily)
@@ -1524,7 +1538,7 @@ Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,
 	2 Swiss
 	3 Modern
 	4 Script
-	5 Decorative	
+	5 Decorative
 	*/
 	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("scheme"))
 	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
@@ -1586,7 +1600,7 @@ EndClass
 
 /*
 @see http://www.datypic.com/sc/ooxml/a-patternType-1.html
-cType	
+cType
 	none
 	solid
 	mediumGray
@@ -1618,9 +1632,9 @@ Method New(cType,cFgCor,cBgCor) Class yExcel_CorPreenc
 		EndIf
 		ofgColor:SetAtributo("rgb",cFgCor)
 	Elseif ValType(cFgCor)=="N"
-		ofgColor:SetAtributo("indexed",cFgCor)	//indexed="65" System Background n/a 	pag:1775 
+		ofgColor:SetAtributo("indexed",cFgCor)	//indexed="65" System Background n/a 	pag:1775
 	Else
-		ofgColor:SetAtributo("indexed",65)	//indexed="65" System Background n/a 	pag:1775 
+		ofgColor:SetAtributo("indexed",65)	//indexed="65" System Background n/a 	pag:1775
 	EndiF
 	obgColor	:= yExcelTag():New("bgColor")
 	If ValType(cBgCor)=="C"
@@ -1629,9 +1643,9 @@ Method New(cType,cFgCor,cBgCor) Class yExcel_CorPreenc
 		EndIf
 		obgColor:SetAtributo("rgb",cBgCor)
 	Elseif ValType(cBgCor)=="N"
-		obgColor:SetAtributo("indexed",cFgCor) 
+		obgColor:SetAtributo("indexed",cFgCor)
 	Else
-		obgColor:SetAtributo("indexed",64)	//indexed="64" System Foreground n/a 
+		obgColor:SetAtributo("indexed",64)	//indexed="64" System Foreground n/a
 	EndIf
 	If cType == "solid"
 		AADD(aValores,ofgColor)
@@ -1660,18 +1674,18 @@ Method Add(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) Class
 	Default aOutrosAtributos		:= {}
 	Default aValores				:= {}
 	Default xfId	:= 0
-	
+
 	If ValType(numFmtId)<>"U"
 		oAtrr:Set("numFmtId",numFmtId)
 		oAtrr:Set("applyNumberFormat","1")
 	Else
-		oAtrr:Set("numFmtId",0)			
+		oAtrr:Set("numFmtId",0)
 	EndIf
-	
+
 	If ValType(fontId)<>"U"
 		oAtrr:Set("fontId",fontId)
 		oAtrr:Set("applyFont","1")
-	Else		
+	Else
 		oAtrr:Set("fontId",0)
 	EndIf
 	If ValType(fillId)<>"U"
@@ -1682,15 +1696,15 @@ Method Add(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) Class
 		oAtrr:Set("borderId",borderId)
 		oAtrr:Set("applyBorder","1")
 	Else
-		oAtrr:Set("borderId",0)	
+		oAtrr:Set("borderId",0)
 	EndIf
-	
+
 	oAtrr:Set("xfId",xfId)
 
 	If aScan(aValores,{|x| x:GetNome()=="alignment"})>0
 		oAtrr:Set("applyAlignment","1")
 	EndIf
-	
+
 	For nCont:=1 to Len(aOutrosAtributos)
 		oAtrr:Set(aOutrosAtributos[nCont][1],aOutrosAtributos[nCont][2])
 	Next
@@ -1895,7 +1909,7 @@ Method AddValor(xValor,xIndice) Class yExcelTag
 		EndIf
 	ElseIf ValType(xIndice)=="N"
 		::xValor[xIndice]	:= xValor
-	Else 
+	Else
 		AADD(::xValor,xValor)
 	EndIf
 Return
@@ -2070,7 +2084,7 @@ METHOD Cell(cColuna,xValor,cFormula,nStyle) CLASS yExcel_Table
 	Local aColuna,nColuna
 	If ValType(cColuna)=="C"
 		If !::oColunas:Get(cColuna,@aColuna)
-			UserException("YExcel - Coluna informada não encontrado. Utileze o metodo AddColumn para adicionar a coluna:"+cValToChar(cColuna))
+			UserException("YExcel - Coluna informada não encontrado. Utilize o metodo AddColumn para adicionar a coluna:"+cValToChar(cColuna))
 		Endif
 		nColuna	:= aColuna[2]
 		If Empty(nStyle)
@@ -2108,7 +2122,7 @@ METHOD AddColumn(cNome,nStyle) CLASS yExcel_Table
 	Local nPosCol		:= aScan(self:GetValor(),{|x| x:GetNome()=="tableColumns"})
 	Local otableColumn
 	::aRef[2][2]	+= 1
-	
+
 	nCont	:= Len(self:oTableColumns:GetValor())+1
 	otableColumn	:= yExcelTag():New("tableColumn",{},)
 	otableColumn:SetAtributo("id",nCont)
@@ -2136,7 +2150,7 @@ Adiciona um totalizador na coluna
 function-number				function-number					Function
 (includes hidden values)	(excludes hidden values)
 1 							101 							AVERAGE	MÉDIA
-2 							102 							COUNT	CONTAR NUMERO	
+2 							102 							COUNT	CONTAR NUMERO
 3 							103 							COUNTA	CONT.VALORES
 4 							104 							MAX		MAX
 5 							105 							MIN		MIN
@@ -2243,7 +2257,7 @@ Method AddTotais() CLASS yExcel_Table
 			::oyExcel:Cell(::aRef[2][1]+1,aColuna[2],xValor,cFormula,aColuna[5])
 		EndIf
 	Next
-	
+
 Return
 
 /*/{Protheus.doc} Finish
@@ -2289,7 +2303,7 @@ PAG 4426
 	TableStyleMedium22	- CINZA|LINHA1-CINZA_ESCURO|LINHA2-CINZA_CLARO|COM BORDA
 	TableStyleLight16	- BRANCO|LINHA1-AZUL_CLARO|LINHA2-BRANCO|BORDA AZUL
 	TableStyleLight15	- BRANCO|LINHA1-CINZA_CLARO|LINHA2-BRANCO|COM BORDA
-	TableStyleLight1	- BRANCO|LINHA1-CINZA_CLARO|LINHA2-BRANCO|SEM BORDA	
+	TableStyleLight1	- BRANCO|LINHA1-CINZA_CLARO|LINHA2-BRANCO|SEM BORDA
 /*/
 METHOD AddStyle(cNome,lLinhaTiras,lColTiras,lFormPrimCol,lFormUltCol) CLASS yExcel_Table
 	Default cNome		:= nil
@@ -2297,7 +2311,7 @@ METHOD AddStyle(cNome,lLinhaTiras,lColTiras,lFormPrimCol,lFormUltCol) CLASS yExc
 	Default lColTiras	:= .F.
 	Default lFormPrimCol:= .F.
 	Default lFormUltCol	:= .F.
-	
+
 	::otableStyleInfo:SetAtributo("name",cNome)
 	If lLinhaTiras	//Linhas em tiras
 		::otableStyleInfo:SetAtributo("showRowStripes",1)
