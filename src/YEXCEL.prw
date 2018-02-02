@@ -354,6 +354,9 @@ METHOD Cell(nLinha,nColuna,xValor,cFormula,nStyle) CLASS YExcel
 		//nColuna		:= ::odefinedNames:GetValor(nColuna,""):GetAtributo("name")
 		nColuna	:= StringToNum(UPPER(nColuna))
 	EndIf
+	If nColuna==0
+		UserException("YExcel - O índice da coluna não pode iniciar no 0")
+	EndIf
 	If nLinha<::adimension[2][1] .and. ::adimension[2][1]<>999999
 		UserException("YExcel - As linhas devem ser informadas sempre de forma sequencial crecente. Linha informada:"+cValToChar(nLinha)+" | Linha Atual:"+cValToChar(::adimension[2][1])+".")
 	EndIf
