@@ -18,6 +18,7 @@ Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo 
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
 * Cria nome para referência de célula ou intervalo
 * Agrupamento de linha
+* Leitura simples dos dados(NOVO)
 
 # Testes
 Arquivo excel gerado: [pasta2.xlsx](exemplo/pasta2.xlsx)
