@@ -160,7 +160,14 @@ Cria nome para refencia de célula ou intervalo
 METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha) CLASS YExcel
 	Local odefinedName	:= yExcelTag():New("definedName",)
 	Local cRef
-	Default cPlanilha	:= ::cPlanilhaAt
+	PARAMTYPE 0	VAR cNome			AS CHARACTER
+	PARAMTYPE 1	VAR nLinha			AS NUMERIC			OPTIONAL
+	PARAMTYPE 2	VAR nColuna	  		AS NUMERIC			OPTIONAL
+	PARAMTYPE 3	VAR nLinha2	  		AS NUMERIC			OPTIONAL
+	PARAMTYPE 4	VAR nColuna2  		AS NUMERIC			OPTIONAL
+	PARAMTYPE 5	VAR cRefPar	 	 	AS CHARACTER		OPTIONAL
+	PARAMTYPE 6	VAR cPlanilha	  	AS CHARACTER		OPTIONAL DEFAULT ::cPlanilhaAt
+
 	odefinedName:SetAtributo("name",cNome)
 	If ValType(cRefPar)=="U"
 		cRef	:= "'"+cPlanilha+"'!"+::Ref(nLinha,nColuna,.T.,.T.)
@@ -264,7 +271,8 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local cTipo,cRef
 	Local aChildren,aChildren2,aAtributos,oXml
 	Local cCamSrv	:= ""
-	Default nPlanilha	:= 1
+	PARAMTYPE 0	VAR cFile			AS CHARACTER
+	PARAMTYPE 1	VAR nPlanilha	  	AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
 	If !File(cFile)
 		ConOut("Arquivo nao encontrado!")
@@ -314,7 +322,6 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	oXML:XPathRegisterNs( "ns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main" )
 
     aChildren := oXML:XPathGetChildArray("/ns:worksheet/ns:sheetData")
-    cPath	:= oXML:CPATH
 	::adimension	:= {{0,0},{999999,999999}}
     For nCont:=1 to Len(aChildren)
     	aChildren2	:= oXML:XPathGetChildArray( aChildren[nCont][2] )
@@ -411,7 +418,8 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	Local nCont
 	Local oCorPlan
 	Private oSelf	:= Self
-	Default	cNome	:= "Planilha"+cValToChar(nQtdPlanilhas+1)
+	PARAMTYPE 0	VAR cNome		  	AS CHARACTER		OPTIONAL DEFAULT "Planilha"+cValToChar(nQtdPlanilhas+1)
+	PARAMTYPE 1	VAR cCor			AS CHARACTER		OPTIONAL
 	If Len(cNome)>31
 		cNome	:= SubStr(cNome,1,31)
 	EndIf
@@ -507,7 +515,11 @@ Grava o conteudo de uma célula
 @type function
 /*/
 METHOD Cell(nLinha,nColuna,xValor,cFormula,nStyle) CLASS YExcel
-	Local xdados,oExcelRow
+	Local oExcelRow
+	PARAMTYPE 0	VAR nLinha		  	AS NUMERIC
+	PARAMTYPE 1	VAR nColuna		  	AS NUMERIC
+	PARAMTYPE 3	VAR cFormula	  	AS CHARACTER	OPTIONAL
+	PARAMTYPE 4	VAR nStyle		  	AS NUMERIC		OPTIONAL
 	If ValType(nColuna)=="C"
 		//nColuna		:= ::odefinedNames:GetValor(nColuna,""):GetAtributo("name")
 		nColuna	:= StringToNum(UPPER(nColuna))
@@ -1133,6 +1145,20 @@ Cria um estilo para ser usado nas células
 44 - Contabil R$  #.##0,00
 /*/
 METHOD AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) CLASS YExcel
+	PARAMTYPE 0	VAR numFmtId			AS NUMERIC 		OPTIONAL
+	PARAMTYPE 1	VAR fontId				AS NUMERIC 		OPTIONAL
+	PARAMTYPE 2	VAR fillId				AS NUMERIC 		OPTIONAL
+	PARAMTYPE 3	VAR borderId			AS NUMERIC 		OPTIONAL
+	PARAMTYPE 4	VAR xfId  				AS NUMERIC 		OPTIONAL
+	PARAMTYPE 5	VAR aValores  			AS ARRAY 		OPTIONAL
+	PARAMTYPE 6	VAR aOutrosAtributos	AS ARRAY 		OPTIONAL
+	If ValType(fontId)=="N" .AND. (fontId+1)>Len(::oFonts:GetValor())
+		UserException("YExcel - Fonte informada("+cValToChar(fontId)+") não definido. Utilize o indice informado pelo metodo :AddFont()")
+	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Len(::aCorPreenc)
+		UserException("YExcel - Cor Preenchimento informado("+cValToChar(fillId)+") não definido. Utilize o indice informado pelo metodo :CorPreenc()")
+	ElseIf ValType(borderId)=="N" .AND. (borderId+1)>Len(::oBorders:GetValor())
+		UserException("YExcel - Borda informada("+cValToChar(borderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
+	EndIF
 Return ::oSyles:Add(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
 
 /*/{Protheus.doc} Alinhamento
@@ -1340,8 +1366,8 @@ Adiciona tabela com formatação
 /*/
 METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
 	Local nCont,nPos
-	Local nQtdPlan	:= Len(::aPlanilhas)
 	Local oTable
+//	Local nQtdPlan	:= Len(::aPlanilhas)
 	PARAMTYPE 0	VAR cNome  AS CHARACTER 		OPTIONAL DEFAULT CriaTrab(,.F.)
 	PARAMTYPE 1	VAR nLinha  AS NUMERIC 			OPTIONAL DEFAULT ::adimension[2][1]
 	PARAMTYPE 2	VAR nColuna  AS NUMERIC
@@ -1511,7 +1537,7 @@ Return
 METHOD CriarFile(cLocal,cNome,cString) Class YExcel
 	Local cDirServ	:= "\tmpxls\"+::cTmpFile
 	Local lOk			:= .T.
-	Local nfile
+	Local nFile
 	If ValType(cString)!="C"
 		return lOk
 	EndIf
@@ -1559,7 +1585,7 @@ Method AddAgrCol(nMin,nMax,outlineLevel,collapsed) Class YExcel
 	::oCols:GetValor(nPos):SetAtributo("min",nMin)
 	::oCols:GetValor(nPos):SetAtributo("max",nMax)
 	::oCols:GetValor(nPos):SetAtributo("outlineLevel",nWidth)
-	::oCols:GetValor(nPos):SetAtributo("collapsed",bestFit)
+//	::oCols:GetValor(nPos):SetAtributo("collapsed",bestFit)
 Return
 
 /*/{Protheus.doc} AddTamCol
@@ -1576,9 +1602,12 @@ Defini o tamanho de uma coluna ou varias colunas
 /*/
 Method AddTamCol(nMin,nMax,nWidth,lbestFit,lcustomWidth) Class YExcel
 	Local nPos
-	Default nMax		:= nMin
-	Default lbestFit	:= .T.
-	Default lcustomWidth	:= .T.
+	PARAMTYPE 0	VAR nMin			AS NUMERIC
+	PARAMTYPE 1	VAR nMax			AS NUMERIC		OPTIONAL DEFAULT nMin
+	PARAMTYPE 2	VAR nWidth	  		AS NUMERIC		OPTIONAL DEFAULT "Calibri"
+	PARAMTYPE 3	VAR lbestFit	  	AS LOGICAL		OPTIONAL DEFAULT .T.
+	PARAMTYPE 4	VAR lcustomWidth	AS LOGICAL		OPTIONAL DEFAULT .T.
+
 	::oCols:AddValor(yExcelTag():New("col"))
 	nPos	:= Len(::oCols:GetValor())
 	::oCols:GetValor(nPos):SetAtributo("min",nMin)
@@ -1670,12 +1699,15 @@ Method New() Class YExcelFont
 Return
 
 Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado) Class YExcelFont
-	Default cfamily	:= "0"
-	Default cScheme	:= "minor"
-	Default lNegrito	:= .F.
-	Default lItalico	:= .F.
-	Default lSublinhado:= .F.
-	Default lTachado	:= .F.
+	PARAMTYPE 0	VAR nTamanho		AS NUMERIC				OPTIONAL DEFAULT 11
+	PARAMTYPE 1	VAR cCorRGB			AS CHARACTER,NUMERIC	OPTIONAL DEFAULT "FF000000"
+	PARAMTYPE 2	VAR cNome	  		AS CHARACTER			OPTIONAL DEFAULT "Calibri"
+	PARAMTYPE 3	VAR cfamily	  		AS CHARACTER			OPTIONAL DEFAULT "2"
+	PARAMTYPE 4	VAR cScheme	  		AS CHARACTER			OPTIONAL DEFAULT "minor"
+	PARAMTYPE 5	VAR lNegrito	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 6	VAR lItalico	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 7	VAR lSublinhado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 8	VAR lTachado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
 
 	If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
 		cCorRGB	:= "FF"+cCorRGB
@@ -1853,12 +1885,11 @@ Class yExcel_cellXfs From yExcelTag
 EndClass
 
 Method New() Class yExcel_cellXfs
-	Local oAttGeral
 	_Super:New("cellXfs",{})
 Return self
 
 Method Add(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) Class yExcel_cellXfs
-	Local nPos
+	Local nPos,nCont
 	Local oAtrr	:= tHashMap():new()
 	Default aOutrosAtributos		:= {}
 	Default aValores				:= {}
