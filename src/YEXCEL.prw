@@ -33,6 +33,8 @@ RECURSOS DISPONIVEIS
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
 * Cria nome para refencia de célula ou intervalo
 * Agrupamento de linha
+
+* Leitura simples dos dados
 @type class
 /*/
 //Dummy Function
@@ -74,6 +76,7 @@ CLASS YExcel From LongClassName
 	Data nQtdTables
 	Data nCont
 	Data osheetPr
+	Data oCell
 	//Agrupamento de linha
 	Data nRowoutlineLevel
 	Data lRowcollapsed
@@ -90,12 +93,18 @@ CLASS YExcel From LongClassName
 	METHOD NumToString()	//Algoritimo para converte numero em string A=1,B=2
 	METHOD StringToNum()	//Algoritimo para converte string em numero 1=A,2=B
 	METHOD Ref()			//Passa a localização numerica e transforma em referencia da celula
+	METHOD LocRef()			//Retorna linha  e coluna de acordo com referencia enviada
 	METHOD SetDefRow()		//Defini as colunas da linha. Habilita a gravação automatica de cada coluna. Importante para prover performace na gravação de varias linhas
 	METHOD AddTamCol()		//Defini o tamanho de uma coluna ou varias colunas
 	METHOD AddPane()		//Congelar Painéis
 	METHOD AutoFilter()		//Cria os Filtros na planilha
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD NivelLinha()
+
+	//Leitura de planilha
+	METHOD OpenRead()
+	METHOD CellRead()
+	METHOD CloseRead()
 
 	//Interno
 	METHOD CriarFile()		//Cria arquivos temporarios
@@ -185,6 +194,7 @@ METHOD New(cNomeFile) CLASS YExcel
 	::cClassName	:= "YExcel"
 	::cName			:= "YExcel"
 	::oString		:= tHashMap():new()
+	::oCell			:= tHashMap():new()	//Usado no leitura simples
 	::oBorders		:= yExcelTag():New("borders",{})
 	::odxfs			:= yExcelTag():New("dxfs",{})
 	::odxfs:SetAtributo("count",0)
@@ -237,6 +247,154 @@ METHOD New(cNomeFile) CLASS YExcel
 	AADD(::aCorPreenc,yExcel_CorPreenc():New("gray125"))
 Return self
 
+/*/{Protheus.doc} OpenRead
+Abrir planilha e armazena conteudo para leitura
+@author Saulo Gomes Martins
+@since 03/03/2018
+@version 1.0
+@return lRet, Se conseguiu ler a planilha
+@param cFile, characters, arquivo que será aberto
+@param nPlanilha, numeric, numero(indexado em 1,2,3) da planilha a ser lida
+@type function
+/*/
+METHOD OpenRead(cFile,nPlanilha) Class YExcel
+	Local nRet
+	Local cDrive, cDir, cNome, cExt
+	Local nCont,nCont2,nCont3
+	Local cTipo,cRef
+	Local aChildren,aChildren2,aAtributos,oXml
+	Local cCamSrv	:= ""
+	Default nPlanilha	:= 1
+	cFile	:= Alltrim(cFile)
+	If !File(cFile)
+		ConOut("Arquivo nao encontrado!")
+		Return .F.
+	EndIf
+	If ValType(cRootPath)=="U"
+		cRootPath	:= GetSrvProfString( "RootPath", "" )
+	EndIf
+	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml")
+		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
+		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
+		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
+		If "C:" $ UPPER(cFile)
+			CpyT2S(cFile,"\tmpxls\"+::cTmpFile+'\',,.F.)
+			cCamSrv	:= cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+cExt
+		Else
+			cCamSrv	:= cRootPath+cFile
+		EndIf
+		If !FindFunction("FZIP")
+			WaitRunSrv('"'+cAr7Zip+'" x -tzip "'+cCamSrv+'" -o"'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'" * -r -y',.T.,"C:\")
+			If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+				nRet	:= -1
+				ConOut("Arquivo nao descompactado!")
+				Return .F.
+			Else
+				nRet	:= 0
+			EndIf
+		Else
+			nRet	:= FUnZip("\tmpxls\"+::cTmpFile+'\'+cNome+cExt,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+		EndIf
+		If nRet!=0
+			ConOut(Ferror())
+			ConOut("Arquivo nao descompactado!")
+			Return .F.
+		EndIf
+		oXml	:= TXmlManager():New()
+		oXML:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+		oXML:XPathRegisterNs( "ns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main" )
+		aChildren := oXML:XPathGetChildArray( "/ns:sst" )
+		For nCont:=1 to Len(aChildren)
+			::oString:Set(::nQtdString,oXML:XPathGetNodeValue("/ns:sst/ns:si["+cValToChar(nCont)+"]/ns:t"))
+			::nQtdString++
+		Next
+	EndIf
+	oXml	:= TXmlManager():New()
+	oXML:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml")
+	oXML:XPathRegisterNs( "ns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main" )
+
+    aChildren := oXML:XPathGetChildArray("/ns:worksheet/ns:sheetData")
+    cPath	:= oXML:CPATH
+	::adimension	:= {{0,0},{999999,999999}}
+    For nCont:=1 to Len(aChildren)
+    	aChildren2	:= oXML:XPathGetChildArray( aChildren[nCont][2] )
+    	For nCont2:=1 to Len(aChildren2)
+    		cTipo		:= "N"
+    		aAtributos	:= oXML:XPathGetAttArray(aChildren2[nCont2][2])						//Atributos do elemento
+    		cRet		:= oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v")
+    		For nCont3:=1 to Len(aAtributos)
+    			If aAtributos[nCont3][1]=="r"
+    				cRef	:= aAtributos[nCont3][2]
+    				aPosicao	:= ::LocRef(cRef)	//Retorna linha e coluna
+					If ::adimension[2][1]>aPosicao[1]	//Menor linha
+						::adimension[2][1] := aPosicao[1]
+					EndIf
+					If ::adimension[2][2]>aPosicao[2]	//Menor Coluna
+						::adimension[2][2]	:= aPosicao[2]
+					EndIf
+					If ::adimension[1][1]<aPosicao[1]	//Maior Linha
+						::adimension[1][1]	:= aPosicao[1]
+					EndIf
+					If ::adimension[1][2]<aPosicao[2]	//Maior Coluna
+						::adimension[1][2]	:= aPosicao[2]
+					EndIf
+    			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="s"
+    				cRet	:= ""
+    				cTipo	:= "C"
+    				::oString:Get(Val(oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v")),@cRet)
+    			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="b"
+    				cTipo	:= "L"
+    				cRet	:= oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v")=="1"
+    			ElseIf aAtributos[nCont3][1]=="s" .and. aAtributos[nCont3][2]=="1"
+    				cTipo	:= "D"
+    				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v"))
+    			EndIf
+    		Next
+    		If cTipo=="N"
+	    		::oCell:Set(cRef,Val(cRet))
+    		Else
+    			::oCell:Set(cRef,cRet)
+    		EndIf
+    	Next
+    Next
+Return nRet==0
+
+/*/{Protheus.doc} CellRead
+Retorna o valor de uma celula, após o uso do método OpenRead()
+@author Saulo Gomes Martins
+@since 03/03/2018
+@version 1.0
+@return xValor, Conteúdo da celula
+@param nLinha, numeric, Linha da informação
+@param nColuna, numeric, Coluna da informação
+@param xDefault, naodefinido , Valor padrão caso não tenha a informação
+@param lAchou, logical, passa por referencia se achou a informação da celula
+@type function
+/*/
+Method CellRead(nLinha,nColuna,xDefault,lAchou) Class YExcel
+	Local cRef	:= ::Ref(nLinha,nColuna)
+	Local xValor:= Nil
+	lAchou	:= .T.
+	If !::oCell:Get(cRef,@xValor)
+		xValor	:= xDefault
+		lAchou	:= .F.
+	EndIf
+Return xValor
+
+/*/{Protheus.doc} CloseRead
+Limpa a pasta temporaria
+@author Saulo Gomes Martins
+@since 03/03/2018
+@version 1.0
+
+@type function
+/*/
+METHOD CloseRead() Class YExcel
+	::oString:clean()
+	::oCell:clean()
+	::nQtdString := 0
+	DelPasta("\tmpxls\"+::cTmpFile)
+Return
 
 /*/{Protheus.doc} ADDPlan
 Adiciona nova planilha ao arquivo
@@ -1121,6 +1279,34 @@ METHOD Ref(nLinha,nColuna,llinha,lColuna) CLASS YExcel
 Return cColuna+NumToString(nColuna)+cLinha+cValToChar(nLinha)
 
 
+/*/{Protheus.doc} LocRef
+Retorna linha e coluna de acordo com informação da referencia
+@author Saulo Gomes Martins
+@since 03/03/2018
+@version 1.0
+@return aLinhaCol, Array com duas dimenções 1=Linha|2=Coluna
+@param cRef, characters, Refencia da celula (exemplo A1)
+@type function
+
+@example
+LocRef("A1")	//Retorno {1,1}
+LocRef("C5")	//Retorno {5,3}
+/*/
+METHOD LocRef(cRef) CLASS YExcel
+	Local nCont
+	Local nTam	:= Len(cRef)
+	Local cColuna	:= ""
+	Local cLinha	:= ""
+	For nCont:=1 to nTam
+		If IsAlpha(SubStr(cRef,nCont,1))
+			cColuna	+= SubStr(cRef,nCont,1)
+		ElseIf IsDigit(SubStr(cRef,nCont,1))
+			cLinha	+= SubStr(cRef,nCont,1)
+		EndIf
+	Next
+Return {Val(cLinha),::StringToNum(cColuna)}
+
+
 /*/{Protheus.doc} NumToString
 Retorna a letra da coluna de acordo com a posição numerica
 @author Saulo Gomes Martins
@@ -1211,7 +1397,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 		cRootPath	:= GetSrvProfString( "RootPath", "" )
 	EndIf
 	Default lAbrir	:= .F.
-	Default lDelSrv	:= .F.
+	Default lDelSrv	:= .T.
 	If Empty(::cNomeFile)
 		Return
 	EndIf
