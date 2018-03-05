@@ -13,7 +13,7 @@ user function tstyexcel()
 	Local oExcel	:= YExcel():new()
 	Local oAlinhamento,oQuebraTxt,o45Graus
 	Local nPosCor,nPosFont,nPosFont2,nPosStyle,nPosMoeda,nPosMoeda2,nPosQuebra,nPosBorVerm,nPosBorda,nPosBorda2,nPosFonts,nPosBordas,nPosBorDt
-	Local nPosCorEfe,nPosCorEf2
+	Local nPosCorEfe,nPosCorEf2,nFmtNum3,nPos3Dec
 	oExcel:new("Pasta2")
 	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
 	//Definição de Cor Transparecia+RGB
@@ -34,7 +34,10 @@ user function tstyexcel()
 	nPosFont		:= oExcel:AddFont(20,"FFFFFFFF","Calibri","2")
 	nPosFont2		:= oExcel:AddFont(20,56,"Calibri","2",,.T.,.T.,.T.,.T.)
 
+	nFmtNum3		:= oExcel:AddFmtNum(3/*nDecimal*/,.T./*lMilhar*/,/*cPrefixo*/,/*cSufixo*/,"("/*cNegINI*/,")"/*cNegFim*/,/*cValorZero*/,/*cCor*/,"Red"/*cCorNeg*/,/*nNumFmtId*/)
+
 	nPosStyle	:= oExcel:AddStyles(/*numFmtId*/,nPosFont/*fontId*/,nPosCor/*fillId*/,/*borderId*/,/*xfId*/,{oAlinhamento})
+	nPos3Dec	:= oExcel:AddStyles(nFmtNum3/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,)
 	nPosMoeda	:= oExcel:AddStyles(44/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,{o45Graus})
 	nPosMoeda2	:= oExcel:AddStyles(44/*numFmtId*/,/*fontId*/,/*fillId*/,nPosBorda2/*borderId*/,/*xfId*/)
 	nPosQuebra	:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,{oQuebraTxt})
@@ -47,8 +50,9 @@ user function tstyexcel()
 
 	oExcel:Cell(1,1,"TESTE EXCEL",,nPosStyle)
 	oExcel:mergeCells(1,1,2,6)						//Mescla as células A1:B2
-	oExcel:Cell(3,1,100)							//A3	Numero
+	oExcel:Cell(3,1,100,,nPos3Dec)					//A3	Numero
 	oExcel:Cell(3,2,2,"1+1")						//B3	Formula simples
+	oExcel:Cell(3,4,-100.2,,nPos3Dec)				//D3	Numero negativo
 	oExcel:AddNome("VALOR1",3,1)					//Defini nome da referencia de célula
 	oExcel:Cell(4,1,102,"VALOR1+B3")				//A4	Formula com células
 	oExcel:AddNome("VALORES",3,1,4,1)				//Defini o nome do intervalo
