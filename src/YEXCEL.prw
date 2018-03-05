@@ -70,6 +70,7 @@ CLASS YExcel From LongClassName
 	Data nColunaAtual
 	Data nPriodFormCond
 	Data odxfs
+	Data onumFmts
 	Data otableParts
 	Data atable
 	Data aFiles
@@ -77,6 +78,7 @@ CLASS YExcel From LongClassName
 	Data nCont
 	Data osheetPr
 	Data oCell
+	Data nNumFmtId
 	//Agrupamento de linha
 	Data nRowoutlineLevel
 	Data lRowcollapsed
@@ -122,6 +124,7 @@ CLASS YExcel From LongClassName
 	METHOD AddStyles()		//Adiciona Estilos
 	METHOD Alinhamento()	//Adiciona alinhamento
 	METHOD Borda()			//Adiciona borda(auxiliar)
+	Method AddFmtNum()		//Cria formato para numeros
 
 	//Formatação condicional
 	METHOD FormatCond()		//Definir formatação condicional(auxiliar)
@@ -194,6 +197,7 @@ Construtor da classe
 /*/
 METHOD New(cNomeFile) CLASS YExcel
 	Local oPlanilha,oRelationship
+	Local oMoeda
 	If ValType(cAr7Zip)=="U"
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
 	Endif
@@ -205,12 +209,15 @@ METHOD New(cNomeFile) CLASS YExcel
 	::oBorders		:= yExcelTag():New("borders",{})
 	::odxfs			:= yExcelTag():New("dxfs",{})
 	::odxfs:SetAtributo("count",0)
+	::onumFmts		:= yExcelTag():New("numFmts",{})	//Formatos de numeros
+	::onumFmts:SetAtributo("count",0)
 	::odefinedNames	:= yExcelTag():New("definedNames",{})
 	::Borda()	//Sem borda
 	::nQtdString	:= 0
 	::oFonts		:= YExcelFont():New()
 	::AddFont(11,"FF000000","Calibri","2")
 	::oSyles		:= yExcel_cellXfs():New()
+	::nNumFmtId		:= 164
 	::AddStyles(0/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/)	//Sem Formatação
 	::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data padrão
 	::aRelsWorkBook	:= {}
@@ -223,6 +230,12 @@ METHOD New(cNomeFile) CLASS YExcel
 	::nColunaAtual	:= 0
 	::aFiles	:= {}
 	::nQtdTables	:= 0
+	oMoeda	:= yExcelTag():New("numFmt")
+	oMoeda:SetAtributo("formatCode","_-&quot;R$&quot;\ * #,##0.00_-;\-&quot;R$&quot;\ * #,##0.00_-;_-&quot;R$&quot;\ * &quot;-&quot;??_-;_-@_-")
+	oMoeda:SetAtributo("numFmtId",44)
+	::onumFmts:AddValor(oMoeda)
+	::onumFmts:SetAtributo("count",1)
+
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[Content_Types].xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\_rels\.rels")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps\app.xml")
@@ -1096,6 +1109,137 @@ Static Function Border(cleft,cright,ctop,cbottom,cdiagonal,cCorleft,cCorright,cC
 	oBorder:AddValor(yExcelTag():New("diagonal",oColor,oStyle))
 
 Return oBorder
+
+/*/{Protheus.doc} AddFmtNum
+Formatação para numeros
+@author Saulo Gomes Martins
+@since 04/03/2018
+@version 1.0
+@return nNumFmtId, Numero do formato criado/alterado
+@param nDecimal, numeric, quantidade de casas decimais
+@param lMilhar, logical, usa separador de 1000(.)
+@param cPrefixo, characters, Prefixo para incluir no numero (Exemplo "R$ ")
+@param cSufixo, characters, Sufixo para incluir no numero (Exemplo " %")
+@param cNegINI, characters, simbolo para incluir no inicio de numeros negativos
+@param cNegFim, characters, simbolo para incluir no fim de numeros negativos
+@param cValorZero, characters, conteudo para sustituir valores zeros
+@param cCor, characters, Cor para numero positivo
+@param cCorNeg, characters, Cor para numero negativo
+@param nNumFmtId, numeric, numFmtId para alteração
+@type function
+@example
+:AddFmtNum(3,.T.)							//1234	1.234,000		| -1234	-1.234,000
+:AddFmtNum(2,.T.,"R$ "," ",,,"-")			//1234	R$ 1.234,00		| -1234	-R$ 1.234,00	| 0	-
+:AddFmtNum(2,.T.,," %")						//1234	1.234,00 %		| -1234	-1.234,00 %
+:AddFmtNum(2,.T.,,"(",")")					//1234	1.234,00		| -1234	(1.234,00)
+:AddFmtNum(2,.T.,,"(",")",,"Green","Red")	//1234	1.234,00 Verde	| -1234	(1.234,00) Vermelho
+
+/*/
+Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cCor,cCorNeg,nNumFmtId) class YExcel
+	Local nPos,cformatCode
+	Local cDecimal
+	Local cNumero	:= ""
+	Local cNegINIAli:= ""
+	Local cNegFIMAli:= ""
+	Local oFormat
+	Local aCores	:= {"Black","Blue","Cyan","Green","Magenta","Red","White","Yellow"}
+	PARAMTYPE 0	VAR nDecimal			AS NUMERIC					OPTIONAL DEFAULT 0
+	PARAMTYPE 1	VAR lMilhar			  	AS LOGICAL					OPTIONAL DEFAULT .F.
+	PARAMTYPE 2	VAR cPrefixo		  	AS CHARACTER				OPTIONAL DEFAULT ""
+	PARAMTYPE 3	VAR cSufixo			  	AS CHARACTER				OPTIONAL DEFAULT ""
+	PARAMTYPE 4	VAR cNegINI			  	AS CHARACTER				OPTIONAL DEFAULT "-"
+	PARAMTYPE 5	VAR cNegFIM			  	AS CHARACTER				OPTIONAL DEFAULT ""
+	PARAMTYPE 6	VAR cValorZero		  	AS CHARACTER				OPTIONAL DEFAULT ""
+	PARAMTYPE 7	VAR cCor			  	AS CHARACTER,NUMERIC		OPTIONAL DEFAULT ""
+	PARAMTYPE 8	VAR cCorNeg			  	AS CHARACTER,NUMERIC		OPTIONAL DEFAULT ""
+	PARAMTYPE 9	VAR nNumFmtId		  	AS NUMERIC					OPTIONAL
+
+	If !Empty(cCor)
+		If ValType(cCor)=="C"
+			nPosCor	:= aScan(aCores,{|x| UPPER(x)==UPPER(cCor) })
+			If nPosCor==0
+				UserException("YExcel - Cor da formatação invalida ("+cCor+")")
+			Else
+				cCor	:= aCores[nPosCor]
+			EndIf
+		ElseIf ValType(cCor)=="N"
+			If !(cCor>=1 .AND. cCor<=56)
+				UserException("YExcel - Cor da formatação invalida ("+cValToChar(cCor)+"), Cores indexado valido de 1-56.")
+			EndIf
+			cCor	:= "Color"+cValToChar(cCor)
+		EndIf
+	EndIf
+	If !Empty(cCorNeg)
+		If ValType(cCorNeg)=="C"
+			nPosCor	:= aScan(aCores,{|x| UPPER(x)==UPPER(cCorNeg) })
+			If nPosCor==0
+				UserException("YExcel - Cor da formatação invalida ("+cCorNeg+")")
+			Else
+				cCorNeg	:= aCores[nPosCor]
+			EndIf
+		ElseIf ValType(cCorNeg)=="N"
+			If !(cCorNeg>=1 .AND. cCorNeg<=56)
+				UserException("YExcel - Cor da formatação invalida ("+cValToChar(cCorNeg)+"), Cores indexado valido de 1-56.")
+			EndIf
+			cCorNeg	:= "Color"+cValToChar(cCorNeg)
+		EndIf
+	EndIf
+
+	cDecimal	:= Replicate("0",nDecimal)
+	If lMilhar
+		cNumero	:= "#,##0"
+	Else
+		cNumero	:= "#"
+	EndIf
+
+	If !Empty(cDecimal)
+		cNumero	:= cNumero+"."+cDecimal
+	EndIf
+	If !Empty(cPrefixo)
+		cPrefixo	:= "&quot;"+cPrefixo+"&quot;
+		cNumero		:= cPrefixo+cNumero
+	EndIf
+	If !Empty(cSufixo)
+		cSufixo		:= "&quot;"+cSufixo+"&quot;
+		cNumero		:= cNumero+cSufixo
+	EndIf
+	If !Empty(cNegINI)
+		cNegINIAli	:= "_"+cNegINI
+	EndIf
+	If !Empty(cNegFIM)
+		cNegFIMAli	:= "_"+cNegFIM
+	EndIf
+	If !Empty(cValorZero)
+		cValorZero	:= "&quot;"+cValorZero+"&quot;
+	Else
+		cValorZero	:= cNumero
+	EndIf
+	If !Empty(cCor)
+		cCor	:= "["+cCor+"]"
+	EndIf
+	If !Empty(cCorNeg)
+		cCorNeg	:= "["+cCorNeg+"]"
+	EndIf
+	cformatCode	:= cCor+cNegINIAli+cNumero+cNegFIMAli+";"+cCorNeg+cNegINI+cNumero+cNegFIM+";"+cNegINIAli+cValorZero+cNegFIMAli+";@"
+	If !Empty(nNumFmtId)
+		nPos	:= aScan(::onumFmts:GetValor(),{|x| x:GetAtributo("numFmtId")==nNumFmtId })
+		If nPos==0
+			oFormat	:= yExcelTag():New("numFmt")
+			oFormat:SetAtributo("numFmtId",nNumFmtId)
+			nPos	:= nil
+		Else
+			oFormat	:= ::onumFmts:GetValor(nPos)
+		EndIf
+	Else
+		oFormat	:= yExcelTag():New("numFmt")
+		::nNumFmtId++
+		oFormat:SetAtributo("numFmtId",::nNumFmtId)
+	EndIf
+
+	oFormat:SetAtributo("formatCode",cformatCode)
+	::onumFmts:AddValor(oFormat,nPos)
+	::onumFmts:SetAtributo("count",Len(::onumFmts:GetValor()))
+Return If(!Empty(nNumFmtId),nNumFmtId,::nNumFmtId)
 
 /*/{Protheus.doc} AddStyles
 Cria um estilo para ser usado nas células
