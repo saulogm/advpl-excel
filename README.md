@@ -41,8 +41,10 @@ Exemplo de uso:
 
 # Instalação
 1. Aplicar patch 
+
  P11 [yexcel.ptm](patch/yexcel.ptm)
- P12.1.17 [yexcel.ptm](patch/yexcel_P12.1.17.ptm)
+ 
+ P12.1.17 [yexcel_P12.1.17.ptm](patch/yexcel_P12.1.17.ptm)
 
 Pronto para usar a classe YExcel!
 
