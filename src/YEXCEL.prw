@@ -17,11 +17,11 @@ Gerar Excel formato xlsx com menor consumo de memoria e mais otimizado possivel
 	LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
 @OBS
 RECURSOS DISPONIVEIS
-* Definir células String,Numerica,data,Logica,formula
+* Definir células String,Numérica,data,Logica,formula
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
 * Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação)
-* Formato da celula
+* Formato da célula
 * Mesclar células
 * Auto Filtro
 * Congelar painéis(colunas e linhas)
@@ -32,7 +32,7 @@ RECURSOS DISPONIVEIS
 * Bordas: (Left,Right,Top,Bottom),Cor,Estilo
 * Formatação condicional:(operador,formula)(font,fundo,bordas)
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
-* Cria nome para refencia de célula ou intervalo
+* Cria nome para referência de célula ou intervalo
 * Agrupamento de linha
 
 * Leitura simples dos dados
