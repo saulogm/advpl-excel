@@ -27,6 +27,7 @@ RECURSOS DISPONIVEIS
 * Congelar painéis(colunas e linhas)
 * Definir tamanho da coluna
 * Definir tamanho da linha
+* Formatar numeros(casas decimais)
 * Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
 * Bordas: (Left,Right,Top,Bottom),Cor,Estilo
 * Formatação condicional:(operador,formula)(font,fundo,bordas)
@@ -470,7 +471,7 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 		EndIf
 		oCorPlan		:= yExcelTag():New("tabColor",,{{"rgb",cCor}})
 	EndIf
-	::osheetPr		:= yExcelTag():New("sheetPr",oCorPlan,{{"codeName",cNome}})
+	::osheetPr		:= yExcelTag():New("sheetPr",{oCorPlan},{{"codeName",cNome}})
 	::adimension	:= {{0,0},{999999,999999}}
 	::osheetData	:= yExcelsheetData():New(self)
 	::osheetViews	:= yExcelTag():New("sheetViews",yExcelTag():New("sheetView",{}))

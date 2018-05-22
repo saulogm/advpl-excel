@@ -11,9 +11,9 @@
 	nTamArquivo := Fseek(oSelf:nFileTmpRow,0,2)
 	nBytesFalta := nTamArquivo
 	Fseek(oSelf:nFileTmpRow,0)
-	cBuffer	:= Space(1024)
+	cBuffer	:= Space(2048)
 	While nBytesFalta > 0
-		nBytesLer 	:= Min(nBytesFalta, 1024 )
+		nBytesLer 	:= Min(nBytesFalta, 2048 )
 		nBytesLidos := FREAD(oSelf:nFileTmpRow, @cBuffer, nBytesLer )
 		nBytesSalvo := FWRITE(__aCookies, cBuffer,nBytesLer)
 		nBytesFalta -= nBytesLer
