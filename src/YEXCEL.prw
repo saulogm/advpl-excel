@@ -1557,6 +1557,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	Local nFile
 	Local nCont,nQtdPlanilhas
 	Local cArquivo	:= ""
+	Local cPath
 	Local lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
 	If !Empty(cLocal)
 		cLocal	:= Alltrim(cLocal)
@@ -1614,6 +1615,11 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	Else
 		cArquivo	:= '\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'.xlsx'
 	EndIf
+	SplitPath(cArquivo,"",@cPath,"","")
+	If !Empty(cPath)
+		FWMakeDir(cPath,.F.)	//Cria a estrutura de pastas
+	EndIF
+
 	If !FindFunction("FZIP")
 		WaitRunSrv('"'+cAr7Zip+'" a -tzip "'+cRootPath+cArquivo+'" "'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'\*"',.T.,"C:\")
 	Else
