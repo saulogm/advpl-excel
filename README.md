@@ -61,3 +61,6 @@ Configurar o appserver.ini com o caminho do 7-Zip.
 [GENERAL]
 LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
 ```
+
+# Agradecimentos
+[Samuel Gomes Martins] (https://github.com/samuelgmartins)
