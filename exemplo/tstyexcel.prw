@@ -48,6 +48,12 @@ user function tstyexcel()
 	nPosEfe		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,nPosCorEfe/*fillId*/,/*borderId*/,/*xfId*/,)
 	nPosEfe2	:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,nPosCorEf2/*fillId*/,/*borderId*/,/*xfId*/,)
 
+	//Cadastra imagem
+	nIDImg		:= oExcel:ADDImg("\Star_Wars_Logo.png")	//Imagem no Protheus_data
+
+			  //nID,nLinha,nColuna,nX,nY,cUnidade,nRot
+	oExcel:Img(nIDImg,7,7,200,121,/*"px"*/,)	//Usa imagem cadastrada
+
 	oExcel:Cell(1,1,"TESTE EXCEL",,nPosStyle)
 	oExcel:mergeCells(1,1,2,6)						//Mescla as células A1:B2
 	oExcel:Cell(3,1,100,,nPos3Dec)					//A3	Numero
@@ -101,8 +107,11 @@ user function tstyexcel()
 	oExcel:AddTamCol(3,3,20.00)
 	oExcel:AddTamCol(4,6,12.00)
 
+
 	//Teste de 50mil células - 20 segundos
 	oExcel:ADDPlan("Teste","00AA00")		//Adiciona nova planilha
+
+	oExcel:Img(nIDImg,2,5,121,200,/*"px"*/,270)	//Usa imagem com rotação de 270
 	oExcel:SetDefRow(.T.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
 	oExcel:Cell(1,1,"Linha",,nPosBordas)
 	oExcel:Cell(1,2,"Filial",,nPosBordas)
