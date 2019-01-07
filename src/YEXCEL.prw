@@ -34,6 +34,7 @@ RECURSOS DISPONIVEIS
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
 * Cria nome para referência de célula ou intervalo
 * Agrupamento de linha
+* Imagens
 
 * Leitura simples dos dados
 @type class
@@ -75,11 +76,17 @@ CLASS YExcel From LongClassName
 	Data otableParts
 	Data atable
 	Data aFiles
-	Data nQtdTables
+	Data nIdRelat
 	Data nCont
 	Data osheetPr
 	Data oCell
 	Data nNumFmtId
+	Data adrawing		//arquivo drawing de cada sheet
+	Data aworkdrawing	//arquivo drawing do worksheets
+	Data odrawing		//tag drawing dentro do sheet
+	Data aImagens		//Imagens adicionada
+	Data aImgdraw		//Imagens usada no sheets(pode usar mais de uma vez a mesma imagem)
+	Data nIDMedia
 	//Agrupamento de linha
 	Data nRowoutlineLevel
 	Data lRowcollapsed
@@ -134,6 +141,11 @@ CLASS YExcel From LongClassName
 	METHOD ObjBorda()		//Cria objeto de borda
 	METHOD gradientFill()	//Cria objeto de efeito de preenchimento
 	METHOD ADDdxf()			//Cria o estilo para formatação condicional
+
+	//Imagem
+	METHOD ADDImg()			//Adiciona uma Imagem
+	METHOD Img()			//Usa imagem
+
 	//Tabela
 	METHOD AddTabela()
 	/*Tabela
@@ -229,8 +241,12 @@ METHOD New(cNomeFile) CLASS YExcel
 	::nFileTmpRow	:= 0
 	::lRowDef		:= .F.
 	::nColunaAtual	:= 0
-	::aFiles	:= {}
-	::nQtdTables	:= 0
+	::aFiles		:= {}
+	::nIdRelat		:= 0
+	::aworkdrawing	:= {}
+	::aImagens		:= {}
+	::aImgdraw		:= {}
+	::nIDMedia		:= 0
 	oMoeda	:= yExcelTag():New("numFmt")
 	oMoeda:SetAtributo("formatCode","_-&quot;R$&quot;\ * #,##0.00_-;\-&quot;R$&quot;\ * #,##0.00_-;_-&quot;R$&quot;\ * &quot;-&quot;??_-;_-@_-")
 	oMoeda:SetAtributo("numFmtId",44)
@@ -268,6 +284,155 @@ METHOD New(cNomeFile) CLASS YExcel
 	AADD(::aCorPreenc,yExcel_CorPreenc():New("gray125"))
 Return self
 
+
+/*/{Protheus.doc} ADDImg
+Adiciona imagem para ser usado
+@author Saulo Gomes Martins
+@since 06/01/2019
+@version 1.0
+@return nID, ID da imagem
+@param cImg, characters, Localização da imagem
+@type function
+/*/
+METHOD ADDImg(cImg) CLASS YExcel
+	Local cDrive, cDir, cNome, cExt
+	Local cDirImg	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\media\"
+	PARAMTYPE 0	VAR cImg		AS CHARACTER
+
+	If File(cImg)
+		UserException("YExcel - Imagem não encontrada ("+cImg+")")
+	EndIf
+
+	::nIDMedia++
+	FWMakeDir(cDirImg,.F.)
+	SplitPath( cImg, @cDrive, @cDir, @cNome, @cExt)
+	If ":" $ UPPER(cImg)
+		CpyT2S(cImg,cDirImg,,.F.)
+		FRename(cDirImg+cNome+cExt,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
+	Else
+		__COPYFILE(cImg,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
+	EndIf
+	AADD(::aFiles,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
+	AADD(::aImagens,{::nIDMedia,"image"+cValToChar(::nIDMedia)+cExt})
+
+Return ::nIDMedia
+
+/*/{Protheus.doc} Img
+Usa imagem
+@author Saulo Gomes Martins
+@since 06/01/2019
+@version 1.0
+@return ${return}, ${return_description}
+@param nID, numeric, ID da imagem
+@param nLinha, numeric, Linha para adicionar a imagem
+@param nColuna, numeric, Coluna para adicionar a imagem
+@param nX, numeric, Largura da imagem
+@param nY, numeric, Altura da imagem
+@param [cUnidade], characters, Unidade da dimensão da imagem. padrão em pixel
+@param nRot, numeric, rotação da imagem
+@type function
+OBS pag 3166
+/*/
+METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) CLASS YExcel
+	Local nCont,nPos
+	Local cCellType
+	Local oImg,oxdr_from,oext,opic,onvPicPr,ocNvPr,ocNvPicPr,oblipFill,oblip,ospPr//oxdr_to,
+	PARAMTYPE 0	VAR nID			AS NUMERIC
+	PARAMTYPE 1	VAR nLinha		AS NUMERIC
+	PARAMTYPE 2	VAR nColuna		AS NUMERIC
+	PARAMTYPE 3	VAR nY			AS NUMERIC
+	PARAMTYPE 4	VAR nX			AS NUMERIC
+	PARAMTYPE 5	VAR cUnidade	AS CHARACTER	DEFAULT "px"
+	PARAMTYPE 6	VAR nRot		AS NUMERIC		DEFAULT 0
+
+	If aScan(::aImagens,{|x| x[1]==nID })==0
+		UserException("YExcel - Imagem não cadastrada, usar metodo ADDImg. ID("+cValToChar(nID)+")")
+	EndIf
+
+	cUnidade	:= lower(cUnidade)
+	//Converte para  EMUs (English Metric Units)
+	If cUnidade=="px"
+		nX	:= nX*36000*0.2645833333
+		nY	:= nY*36000*0.2645833333
+	ElseIf cUnidade=="cm"
+		nX	:= nX*36000
+		nY	:= nY*36000
+	EndIf
+	Default cCellType	:= "oneCellAnchor"
+	oImg	:= yExcel_Img():New(self,cCellType)
+	oImg:nIdRelat	:= ::odrawing:xDados
+	oImg:SetAtributo("editAs","oneCell")
+	//absolute	- Não mover ou redimensionar com linhas / colunas subjacentes
+	//oneCell	- Mova-se com células, mas não redimensione
+	//twoCell	- Mover e redimensionar com células âncoras
+
+	If Empty(::adrawing)
+		::nIdRelat++
+		nPos	:= ::nIdRelat
+		::odrawing:SetAtributo("r:id","rId"+cValToChar(nPos))
+		::odrawing:xDados	:= nPos
+		AADD(::adrawing,nPos)		//Cria o arquivo \xl\drawings\drawing1
+		AADD(::aworkdrawing,nPos)	//Cria o arquivo
+	EndIf
+
+	oxdr_from	:= yExcelTag():New("xdr:from",{})
+	oxdr_from:AddValor(yExcelTag():New("xdr:col",nColuna-1))
+	oxdr_from:AddValor(yExcelTag():New("xdr:colOff",0))
+	oxdr_from:AddValor(yExcelTag():New("xdr:row",nLinha-1))
+	oxdr_from:AddValor(yExcelTag():New("xdr:rowOff",0))
+	oImg:AddValor(oxdr_from)
+
+//	oxdr_to	:= yExcelTag():New("xdr:from",{})
+//	oxdr_to:AddValor(yExcelTag():New("xdr:col",2))
+//	oxdr_to:AddValor(yExcelTag():New("xdr:colOff",438150))
+//	oxdr_to:AddValor(yExcelTag():New("xdr:row",3))
+//	oxdr_to:AddValor(yExcelTag():New("xdr:rowOff",95250))
+//	oImg:AddValor(oxdr_to)
+
+	oext	:= yExcelTag():New("xdr:ext",{})
+	oext:SetAtributo("cx",Round(nX,0))
+	oext:SetAtributo("cy",Round(nY,0))
+	oImg:AddValor(oext)
+
+	opic	:= yExcelTag():New("xdr:pic",{})
+		onvPicPr	:= yExcelTag():New("xdr:nvPicPr",{})	//Propriedade não visual
+			ocNvPr		:= yExcelTag():New("xdr:cNvPr",{})
+			ocNvPr:SetAtributo("id",Len(::aImgdraw)+1)
+			ocNvPr:SetAtributo("name","Imagem "+cValToChar(nID))
+		onvPicPr:AddValor(ocNvPr)
+			ocNvPicPr		:= yExcelTag():New("xdr:cNvPicPr",{})
+			ocNvPicPr:AddValor(yExcelTag():New("a:picLocks"	,,{{"noChangeAspect",1}}))
+		onvPicPr:AddValor(ocNvPicPr)
+	opic:AddValor(onvPicPr)
+
+		oblipFill		:= yExcelTag():New("xdr:blipFill",{})
+			oblip			:= yExcelTag():New("a:blip",{})
+			oblip:SetAtributo("xmlns:r","http://schemas.openxmlformats.org/officeDocument/2006/relationships")
+			oblip:SetAtributo("r:embed","rId"+cValToChar(nID))
+		oblipFill:AddValor(oblip)
+			ostretch			:= yExcelTag():New("a:stretch",{})
+				ofillRect			:= yExcelTag():New("a:fillRect",{})
+			ostretch:AddValor(ofillRect)
+		oblipFill:AddValor(ostretch)
+	opic:AddValor(oblipFill)
+
+		ospPr			:= yExcelTag():New("xdr:spPr",{})
+			oxfrm			:= yExcelTag():New("a:xfrm",{},{{"rot",nRot*60000}})
+//				ooff		:= yExcelTag():New("a:off",{},{{"x",0},{"y",0}})
+//			oxfrm:AddValor(ooff)
+//				oext		:= yExcelTag():New("a:ext",{},{{"cx",/*nX*36000*/},{"xy",nY*36000}})
+//			oxfrm:AddValor(oext)
+		ospPr:AddValor(oxfrm)
+			oprstGeom		:= yExcelTag():New("a:prstGeom",{yExcelTag():New("a:avLst",{})},{{"prst","rect"}})
+		ospPr:AddValor(oprstGeom)
+	opic:AddValor(ospPr)
+
+	oImg:AddValor(opic)
+	oImg:AddValor(yExcelTag():New("xdr:clientData",{}))
+
+	AADD(::aImgdraw,oImg)
+Return
+
 /*/{Protheus.doc} OpenRead
 Abrir planilha e armazena conteudo para leitura
 @author Saulo Gomes Martins
@@ -299,7 +464,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
-		If "C:" $ UPPER(cFile)
+		If ":" $ UPPER(cFile)
 			CpyT2S(cFile,"\tmpxls\"+::cTmpFile+'\',,.F.)
 			cCamSrv	:= cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+cExt
 		Else
@@ -454,13 +619,20 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 		fClose(nFile)
 		fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml")
 
-		If !Empty(::atable)
+		If ::nIdRelat>0
 			::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
 			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlanilhas)+".xml.rels")
 			For nCont:=1 to Len(::atable)
 				::nCont	:= nCont
-				::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::nQtdTables-Len(::atable)+nCont)+".xml"		,h_xls_table()		,)
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::nQtdTables-Len(::atable)+nCont)+".xml")
+				::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::atable[nCont]:nIdRelat)+".xml"		,h_xls_table()		,)
+				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::atable[nCont]:nIdRelat)+".xml")
+			Next
+			For nCont:=1 to Len(::adrawing)
+				::nCont	:= nCont
+				::CriarFile("\"+::cNomeFile+"\xl\drawings\"			,"drawing"+cValToChar(::adrawing[nCont])+".xml"			,h_xls_draw()		,)
+				::CriarFile("\"+::cNomeFile+"\xl\drawings\_rels\"	,"drawing"+cValToChar(::adrawing[nCont])+".xml.rels"		,h_xlsreldraw()		,)
+				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\drawing"+cValToChar(::adrawing[nCont])+".xml")
+				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\_rels\drawing"+cValToChar(::adrawing[nCont])+".xml.rels")
 			Next
 		EndIf
 	EndIf
@@ -494,6 +666,9 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	::oCols			:= yExcelTag():New("cols",{})
 	::otableParts	:= yExcelTag():New("tableParts",{})
 	::atable		:= {}
+	::odrawing		:= yExcelTag():New("drawing",)
+	::adrawing		:= {}
+	::aImgdraw		:= {}
 	::nRowoutlineLevel	:= nil
 	::lRowcollapsed		:= .F.
 	::lRowHidden		:= .F.
@@ -1516,12 +1691,13 @@ METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
 	PARAMTYPE 0	VAR cNome  AS CHARACTER 		OPTIONAL DEFAULT CriaTrab(,.F.)
 	PARAMTYPE 1	VAR nLinha  AS NUMERIC 			OPTIONAL DEFAULT ::adimension[2][1]
 	PARAMTYPE 2	VAR nColuna  AS NUMERIC
-	::nQtdTables++
-	nPos	:= ::nQtdTables
+	::nIdRelat++
+	nPos	:= ::nIdRelat
 	::otableParts:AddValor(yExcelTag():New("tablePart",nil,{{"r:id","rId"+cValToChar(nPos)}}))
 	::otableParts:SetAtributo("count",Len(::atable)+1)
 
 	oTable	:= yExcel_Table():New(self,nLinha,nColuna,cNome) //yExcelTag():New("table",{},)
+	oTable:nIdRelat	:= nPos
 	oTable:SetAtributo("xmlns","http://schemas.openxmlformats.org/spreadsheetml/2006/main")
 	oTable:SetAtributo("id",nPos)
 	oTable:SetAtributo("name",cNome)
@@ -1599,13 +1775,20 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	fClose(nFile)
 	fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml")
 
-	If !Empty(::atable)
+	If ::nIdRelat>0
 		::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
 		AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlanilhas)+".xml.rels")
 		For nCont:=1 to Len(::atable)
 			::nCont	:= nCont
-			::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::nQtdTables-Len(::atable)+nCont)+".xml"		,h_xls_table()		,)
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::nQtdTables-Len(::atable)+nCont)+".xml")
+			::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::atable[nCont]:nIdRelat)+".xml"		,h_xls_table()		,)
+			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::atable[nCont]:nIdRelat)+".xml")
+		Next
+		For nCont:=1 to Len(::adrawing)
+			::nCont	:= nCont
+			::CriarFile("\"+::cNomeFile+"\xl\drawings\"			,"drawing"+cValToChar(::adrawing[nCont])+".xml"			,h_xls_draw()		,)
+			::CriarFile("\"+::cNomeFile+"\xl\drawings\_rels\"	,"drawing"+cValToChar(::adrawing[nCont])+".xml.rels"		,h_xlsreldraw()		,)
+			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\drawing"+cValToChar(::adrawing[nCont])+".xml")
+			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\_rels\drawing"+cValToChar(::adrawing[nCont])+".xml.rels")
 		Next
 	EndIf
 
@@ -1641,6 +1824,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 		If GetRemoteType() == REMOTE_HTML
 			CpyS2TW(cArquivo, .T.)
 		Else
+			FWMakeDir(cLocal,.F.)
 			CpyS2T( cArquivo,cLocal)
 			cArquivo	:= cLocal+'\'+::cNomeFile+'.xlsx'
 			If lAbrir
@@ -2206,6 +2390,7 @@ Class yExcelTag From LongClassName
 	Data oIndice
 	Data xValor
 	Data oExcel			//Objeto referencia do yexcel
+	Data xDados			//Outros dados
 	Method New()			Constructor
 	Method ClassName()
 	Method GetNome()
@@ -2385,6 +2570,15 @@ Static Function VarTipo(xValor,nFile)
 	EndIf
 Return cRet
 
+Class yExcel_Img from yExcelTag
+	Data oyExcel
+	Data nIdRelat
+	Method new() constructor
+EndClass
+
+Method new(oyExcel,cCellType) Class yExcel_Img
+	_Super:New("xdr:"+cCellType,{})
+Return self
 //----------------------------------------------------------------------
 //CLASSE DE TABELAS
 //----------------------------------------------------------------------
@@ -2406,6 +2600,7 @@ Class yExcel_Table from yExcelTag
 	Data oTableColumns
 	Data otableStyleInfo
 	Data cNomeTabela
+	Data nIdRelat
 	Method new() constructor
 	Method cell()
 	Method AddStyle()

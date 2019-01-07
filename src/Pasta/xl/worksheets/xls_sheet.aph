@@ -29,6 +29,7 @@
 	<%Next
 	EndIf%><pageMargins left="0.511811024" right="0.511811024" top="0.78740157499999996" bottom="0.78740157499999996" header="0.31496062000000002" footer="0.31496062000000002"/>
 	<%=if(!Empty(oSelf:atable),oSelf:otableParts:GetTag(),"")%>
+	<%=if(!Empty(oSelf:adrawing),oSelf:odrawing:GetTag(),"")%>
 </worksheet>
 <%oSelf:GravaFile(__aCookies,__Response)
 __Response:=""%>
