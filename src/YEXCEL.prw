@@ -599,6 +599,15 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	Private oSelf	:= Self
 	PARAMTYPE 0	VAR cNome		  	AS CHARACTER		OPTIONAL DEFAULT "Planilha"+cValToChar(nQtdPlanilhas+1)
 	PARAMTYPE 1	VAR cCor			AS CHARACTER		OPTIONAL
+	cNome	:= Replace(cNome,"\","")
+	cNome	:= Replace(cNome,"/","")
+	cNome	:= Replace(cNome,":","")
+	cNome	:= Replace(cNome,"*","")
+	cNome	:= Replace(cNome,"[","")
+	cNome	:= Replace(cNome,"]","")
+	cNome	:= Replace(cNome,"?","")
+	cNome	:= Replace(cNome,">","&gt;")
+	cNome	:= Replace(cNome,"<","&lt;")
 	If Len(cNome)>31
 		cNome	:= SubStr(cNome,1,31)
 	EndIf
@@ -1195,7 +1204,7 @@ METHOD AddBorda(oBorder) CLASS YExcel	//Pag 1769
 	Local nPos,nCont
 	Local oColor,oBorder
 
-	//(pag 2446)val single,double,dotted(serinhada),triple,thick(grosso)
+	//(pag 2446)val single,double,dotted(serinhada),triple,thick(grosso),medium
 	//
 	::oBorders:AddValor(oBorder)
 	nPos := Len(::oBorders:GetValor())
