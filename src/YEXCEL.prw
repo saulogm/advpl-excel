@@ -91,6 +91,7 @@ CLASS YExcel From LongClassName
 	Data nRowoutlineLevel
 	Data lRowcollapsed
 	Data lRowHidden
+	Data osheet
 
 	METHOD New() CONSTRUCTOR
 	METHOD ClassName()
@@ -299,7 +300,7 @@ METHOD ADDImg(cImg) CLASS YExcel
 	Local cDirImg	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\media\"
 	PARAMTYPE 0	VAR cImg		AS CHARACTER
 
-	If File(cImg)
+	If !File(cImg)
 		UserException("YExcel - Imagem não encontrada ("+cImg+")")
 	EndIf
 
@@ -1743,6 +1744,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	Local nCont,nQtdPlanilhas
 	Local cArquivo	:= ""
 	Local cPath
+	Local cDrive,cNome,cExtensao
 	Local lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
 	If !Empty(cLocal)
 		cLocal	:= Alltrim(cLocal)
@@ -1807,7 +1809,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	Else
 		cArquivo	:= '\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'.xlsx'
 	EndIf
-	SplitPath(cArquivo,"",@cPath,"","")
+	SplitPath(cArquivo,@cDrive,@cPath,@cNome,@cExtensao)
 	If !Empty(cPath)
 		FWMakeDir(cPath,.F.)	//Cria a estrutura de pastas
 	EndIF
@@ -2381,6 +2383,30 @@ Static Function ColunasIndex(xNum,nIdx)
 	EndIf
 Return cRet
 
+/*Class yExcelXml From LongClassName
+	Data cNome
+	Data cClassName
+	Data oAtributos
+	Data oIndice
+	Data xValor
+	Data oExcel			//Objeto referencia do yexcel
+	Data xDados			//Outros dados
+	Method New()			Constructor
+	Method ClassName()
+	Method GetNome()
+	Method SetValor()
+	Method AddValor()
+	Method GetVAlor()
+	Method AddAtributo()
+	Method SetAtributo()
+	Method GetAtributo()
+//	Method GetPosAtributo()
+	Method GetTag()
+EndClass
+
+Method New(cNome,xValor,oAtributo) Class yExcelTag
+Return self
+*/
 //----------------------------------------------------------------------
 //CLASSE DE TAGS
 //----------------------------------------------------------------------
