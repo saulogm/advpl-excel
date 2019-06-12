@@ -210,7 +210,7 @@ Construtor da classe
 @type function
 /*/
 METHOD New(cNomeFile) CLASS YExcel
-	Local oPlanilha,oRelationship
+	Local oRelationship
 	Local oMoeda
 	If ValType(cAr7Zip)=="U"
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
@@ -323,7 +323,6 @@ Usa imagem
 @author Saulo Gomes Martins
 @since 06/01/2019
 @version 1.0
-@return ${return}, ${return_description}
 @param nID, numeric, ID da imagem
 @param nLinha, numeric, Linha para adicionar a imagem
 @param nColuna, numeric, Coluna para adicionar a imagem
@@ -332,10 +331,10 @@ Usa imagem
 @param [cUnidade], characters, Unidade da dimensão da imagem. padrão em pixel
 @param nRot, numeric, rotação da imagem
 @type function
-OBS pag 3166
+@OBS pag 3166
 /*/
 METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) CLASS YExcel
-	Local nCont,nPos
+	Local nPos
 	Local cCellType
 	Local oImg,oxdr_from,oext,opic,onvPicPr,ocNvPr,ocNvPicPr,oblipFill,oblip,ospPr//oxdr_to,
 	PARAMTYPE 0	VAR nID			AS NUMERIC
@@ -1101,7 +1100,7 @@ METHOD EfeitoPreenc(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel
 Return nPos
 
 METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel	//Pag 1779
-	Local nPos,nCont
+	Local nCont
 	Local ogradientFill	:= yExcelTag():New("gradientFill",{})
 	Local ostop
 	PARAMTYPE 0	VAR nAngulo 		AS NUMERIC		OPTIONAL
@@ -1202,8 +1201,8 @@ METHOD Borda(cTipo,cCor,cModelo,oBorder,lAdd) CLASS YExcel
 Return nPos
 //NÃO DOCUMENTAR
 METHOD AddBorda(oBorder) CLASS YExcel	//Pag 1769
-	Local nPos,nCont
-	Local oColor,oBorder
+	Local nPos
+	Local oBorder
 
 	//(pag 2446)val single,double,dotted(serinhada),triple,thick(grosso),medium
 	//
@@ -1214,6 +1213,7 @@ Retur nPos-1
 
 Static Function Border(cleft,cright,ctop,cbottom,cdiagonal,cCorleft,cCorright,cCortop,cCorbottom,cCordiagonal)
 	Local oBorder	:= yExcelTag():New("border",{})
+	Local oColor,oStyle
 	oStyle	:= nil
 	oColor	:= nil
 	If ValType(cleft)<>"U"
@@ -1695,7 +1695,7 @@ Adiciona tabela com formatação
 @type function
 /*/
 METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
-	Local nCont,nPos
+	Local nPos
 	Local oTable
 //	Local nQtdPlan	:= Len(::aPlanilhas)
 	PARAMTYPE 0	VAR cNome  AS CHARACTER 		OPTIONAL DEFAULT CriaTrab(,.F.)
@@ -2040,11 +2040,11 @@ Class YExcelFont From YExcelTag
 EndClass
 
 Method New() Class YExcelFont
-	Local nTamFonts,nTamFont
 	_Super:New("fonts",{})
 Return
 
 Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado) Class YExcelFont
+	Local nTamFonts,nTamFont
 	PARAMTYPE 0	VAR nTamanho		AS NUMERIC				OPTIONAL DEFAULT 11
 	PARAMTYPE 1	VAR cCorRGB			AS CHARACTER,NUMERIC	OPTIONAL DEFAULT "FF000000"
 	PARAMTYPE 2	VAR cNome	  		AS CHARACTER			OPTIONAL DEFAULT "Calibri"
@@ -2511,7 +2511,6 @@ Method AddAtributo(cAtributo,xValor) Class yExcelTag
 Return
 
 Method SetAtributo(cAtributo,xValor) Class yExcelTag
-	Local nPos
 	PARAMTYPE 0	VAR cAtributo  AS CHARACTER
 	If ValType(xValor)=="U"
 		::oAtributos:Del(cAtributo)
@@ -2530,7 +2529,7 @@ Return cDefault
 
 Method GetTag(nFile,lFechaTag,lSoValor) Class yExcelTag
 	Local cRet	:= ""
-	Local nCont,cString,lOk
+	Local nCont
 	Local aListAtt
 	Default lFechaTag	:= .T.
 	Default lSoValor	:= .F.
