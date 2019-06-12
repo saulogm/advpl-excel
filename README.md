@@ -46,6 +46,8 @@ Exemplo de uso:
  P11 [yexcel.ptm](patch/yexcel.ptm)
  
  P12.1.17 [yexcel_P12.1.17.ptm](patch/yexcel_P12.1.17.ptm)
+ 
+ P12.1.23 LG [yexcel_P12.1.23_LG.ptm](patch/yexcel_P12.1.23_LG.ptm)
 
 Pronto para usar a classe YExcel!
 
