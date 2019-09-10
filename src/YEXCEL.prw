@@ -43,7 +43,7 @@ RECURSOS DISPONIVEIS
 User Function YExcel()
 Return .T.
 
-CLASS YExcel From LongClassName
+CLASS YExcel
 	Data aRelsWorkBook
 	Data oString			//String compartilhadas
 	Data nQtdString			//Quantidade de string conmpartilhadas
@@ -1773,7 +1773,11 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	::CriarFile("\"+::cNomeFile+"\docProps"			,"app.xml"				,h_xls_app()			,)
 	::CriarFile("\"+::cNomeFile+"\docProps"			,"core.xml"				,h_xls_core()			,)
 
-	::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,h_xls_sharedStrings()	,)
+	::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,""						,)
+	GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl","sharedStrings.xml")
+	h_xls_sharedStrings(nFile)
+	fClose(nFile)
+	nFile	:= nil
 	::CriarFile("\"+::cNomeFile+"\xl"				,"styles.xml"			,h_xls_styles()			,)
 	::CriarFile("\"+::cNomeFile+"\xl"				,"workbook.xml"			,h_xls_workbook()		,)
 	::CriarFile("\"+::cNomeFile+"\xl\_rels"			,"workbook.xml.rels"	,h_xls_rworkbook()		,)
@@ -1916,9 +1920,9 @@ Static Function GravaFile(nFile,cString,cLocal,cArquivo)
 	EndIf
 	cString	:= EncodeUTF8(cString)
 	FSeek(nFile, 0, FS_END)
-		IF FWrite(nFile, cString, Len(cString)) < Len(cString)
-		 	lOk	:= .F.
-		EndIf
+	IF FWrite(nFile, cString, Len(cString)) < Len(cString)
+	 	lOk	:= .F.
+	EndIf
 Return lOk
 
 //EM DESENVOLVIMENTO
@@ -2418,7 +2422,7 @@ Criação de Tag
 
 @type class
 /*/
-Class yExcelTag From LongClassName
+Class yExcelTag
 	Data cNome
 	Data cClassName
 	Data oAtributos
