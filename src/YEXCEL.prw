@@ -215,7 +215,7 @@ METHOD New(cNomeFile) CLASS YExcel
 	If ValType(cAr7Zip)=="U"
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
 	Endif
-	PARAMTYPE 0	VAR cNomeFile  AS CHARACTER 		OPTIONAL DEFAULT CriaTrab(,.F.)
+	PARAMTYPE 0	VAR cNomeFile  AS CHARACTER 		OPTIONAL DEFAULT lower(CriaTrab(,.F.))
 	::cClassName	:= "YExcel"
 	::cName			:= "YExcel"
 	::oString		:= tHashMap():new()
@@ -237,8 +237,8 @@ METHOD New(cNomeFile) CLASS YExcel
 	::aRelsWorkBook	:= {}
 	::aPlanilhas	:= {}
 	::aCorPreenc	:= {}	//yExcel_CorPreenc():New()
-	::cTmpFile		:= CriaTrab(,.F.)
-	::cNomeFile		:= cNomeFile
+	::cTmpFile		:= lower(CriaTrab(,.F.))
+	::cNomeFile		:= lower(cNomeFile)
 	::nFileTmpRow	:= 0
 	::lRowDef		:= .F.
 	::nColunaAtual	:= 0
@@ -256,8 +256,8 @@ METHOD New(cNomeFile) CLASS YExcel
 
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[Content_Types].xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\_rels\.rels")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps\app.xml")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps\core.xml")
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\app.xml")
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\core.xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\workbook.xml")
@@ -300,18 +300,19 @@ METHOD ADDImg(cImg) CLASS YExcel
 	Local cDirImg	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\media\"
 	PARAMTYPE 0	VAR cImg		AS CHARACTER
 
-	If !File(cImg)
+	If !File(cImg,,.F.)
 		UserException("YExcel - Imagem não encontrada ("+cImg+")")
 	EndIf
 
 	::nIDMedia++
 	FWMakeDir(cDirImg,.F.)
 	SplitPath( cImg, @cDrive, @cDir, @cNome, @cExt)
+	cNome	:= SubStr(cImg,Rat("\",cImg)+1)
 	If ":" $ UPPER(cImg)
 		CpyT2S(cImg,cDirImg,,.F.)
-		FRename(cDirImg+cNome+cExt,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
+		FRename(cDirImg+cNome,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
 	Else
-		__COPYFILE(cImg,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
+		__COPYFILE(cImg,cDirImg+"image"+cValToChar(::nIDMedia)+cExt,,,.F.)
 	EndIf
 	AADD(::aFiles,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
 	AADD(::aImagens,{::nIDMedia,"image"+cValToChar(::nIDMedia)+cExt})
@@ -453,26 +454,27 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha	  	AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
-	If !File(cFile)
+	If !File(cFile,,.F.)
 		ConOut("Arquivo nao encontrado!")
 		Return .F.
 	EndIf
 	If ValType(cRootPath)=="U"
 		cRootPath	:= GetSrvProfString( "RootPath", "" )
 	EndIf
-	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml")
+	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml",,.F.)
 		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
+		cNome	:= SubStr(cFile,Rat("\",cFile)+1)	//Split não está respeitando o case original
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
 		If ":" $ UPPER(cFile)
 			CpyT2S(cFile,"\tmpxls\"+::cTmpFile+'\',,.F.)
-			cCamSrv	:= cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+cExt
+			cCamSrv	:= cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome
 		Else
 			cCamSrv	:= cRootPath+cFile
 		EndIf
 		If !FindFunction("FZIP")
 			WaitRunSrv('"'+cAr7Zip+'" x -tzip "'+cCamSrv+'" -o"'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'" * -r -y',.T.,"C:\")
-			If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+			If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml",,.F.)
 				nRet	:= -1
 				ConOut("Arquivo nao descompactado!")
 				Return .F.
@@ -480,7 +482,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 				nRet	:= 0
 			EndIf
 		Else
-			nRet	:= FUnZip("\tmpxls\"+::cTmpFile+'\'+cNome+cExt,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			nRet	:= FUnZip("\tmpxls\"+::cTmpFile+'\'+cNome,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		EndIf
 		If nRet!=0
 			ConOut(Ferror())
@@ -626,7 +628,7 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 		GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","sheet"+cValToChar(nQtdPlanilhas)+".xml")
 		h_xls_sheet(nFile)
 		fClose(nFile)
-		fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml")
+		fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml",,.F.)
 
 		If ::nIdRelat>0
 			::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
@@ -1698,7 +1700,7 @@ METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
 	Local nPos
 	Local oTable
 //	Local nQtdPlan	:= Len(::aPlanilhas)
-	PARAMTYPE 0	VAR cNome  AS CHARACTER 		OPTIONAL DEFAULT CriaTrab(,.F.)
+	PARAMTYPE 0	VAR cNome  AS CHARACTER 		OPTIONAL DEFAULT lower(CriaTrab(,.F.))
 	PARAMTYPE 1	VAR nLinha  AS NUMERIC 			OPTIONAL DEFAULT ::adimension[2][1]
 	PARAMTYPE 2	VAR nColuna  AS NUMERIC
 	::nIdRelat++
@@ -1770,8 +1772,8 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 
 	::CriarFile("\"+::cNomeFile						,"[Content_Types].xml"	,h_xls_Content_Types()	,)
 	::CriarFile("\"+::cNomeFile+"\_rels"			,".rels"				,h_xls_rels()			,)
-	::CriarFile("\"+::cNomeFile+"\docProps"			,"app.xml"				,h_xls_app()			,)
-	::CriarFile("\"+::cNomeFile+"\docProps"			,"core.xml"				,h_xls_core()			,)
+	::CriarFile("\"+::cNomeFile+"\docprops"			,"app.xml"				,h_xls_app()			,)
+	::CriarFile("\"+::cNomeFile+"\docprops"			,"core.xml"				,h_xls_core()			,)
 
 	::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,""						,)
 	GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl","sharedStrings.xml")
@@ -1788,7 +1790,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","sheet"+cValToChar(nQtdPlanilhas)+".xml")
 	h_xls_sheet(nFile)
 	fClose(nFile)
-	fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml")
+	fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml",,.F.)
 
 	If ::nIdRelat>0
 		::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
@@ -1814,6 +1816,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 		cArquivo	:= '\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'.xlsx'
 	EndIf
 	SplitPath(cArquivo,@cDrive,@cPath,@cNome,@cExtensao)
+	cNome	:= SubStr(cArquivo,Rat("\",cArquivo)+1)	//Split não está respeitando o case original
 	If !Empty(cPath)
 		FWMakeDir(cPath,.F.)	//Cria a estrutura de pastas
 	EndIF
@@ -1825,7 +1828,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	EndIf
 
 	For nCont:=1 to Len(::aFiles)
-		If fErase(::aFiles[nCont])<>0
+		If fErase(::aFiles[nCont],,.F.)<>0
 			ConOut(::aFiles[nCont])
 			ConOut("Ferror:"+cValToChar(ferror()))
 		EndIf
@@ -1862,7 +1865,7 @@ Deleta uma pasta e qualquer arquivo ou pasta que esteja dentro dela
 /*/
 Static Function DelPasta(cCaminho)
 	Local nCont
-	Local aFiles	:= Directory(cCaminho+"\*","HSD")
+	Local aFiles	:= Directory(cCaminho+"\*","HSD",,.F.)
 	For nCont:=1 to Len(aFiles)
 		If aFiles[nCont][1]=="." .or. aFiles[nCont][1]==".."
 			Loop
@@ -1871,14 +1874,14 @@ Static Function DelPasta(cCaminho)
 			DelPasta(cCaminho+"\"+aFiles[nCont][1])
 		Else
 //			ConOut("Deletando:"+cCaminho+"\"+aFiles[nCont][1])
-			If fErase(cCaminho+"\"+aFiles[nCont][1])<>0
+			If fErase(cCaminho+"\"+aFiles[nCont][1],,.F.)<>0
 				ConOut(cCaminho+"\"+aFiles[nCont][1])
 				ConOut("Ferror:"+cValToChar(ferror()))
 			EndIf
 		EndIf
 	Next
 //	ConOut("Apagando pasta:"+cCaminho)
-	If !DirRemove(cCaminho)
+	If !DirRemove(cCaminho,,.F.)
 		ConOut(cCaminho)
 		ConOut("Ferror:"+cValToChar(ferror()))
 	EndIf
@@ -1892,15 +1895,19 @@ METHOD CriarFile(cLocal,cNome,cString) Class YExcel
 		return lOk
 	EndIf
 	FWMakeDir(cDirServ+cLocal,.F.)
-	oFile	:= FWFileIOBase():New(cDirServ+cLocal+"\"+cNome)
-	If !oFile:Exists()
-		oFile:Create()
+	//oFile	:= FWFileIOBase():New(cDirServ+cLocal+"\"+cNome)
+	//oFile:SetCaseSensitive()
+	If !File(cDirServ+cLocal+"\"+cNome,,.F.)
+		nFile	:= FCreate(cDirServ+cLocal+"\"+cNome, , , .F.)
+//		oFile:Create()
 	Else
-		fErase(cDirServ+cLocal+"\"+cNome)
-		oFile:Create()
+		fErase(cDirServ+cLocal+"\"+cNome,,.F.)
+		nFile	:= FCreate(cDirServ+cLocal+"\"+cNome, , , .F.)
+//		oFile:Create()
 	EndIf
-	oFile:Close()
-	nFile	:= FOPEN(cDirServ+cLocal+"\"+cNome, FO_READWRITE)
+	FClose(nFile)
+//	oFile:Close()
+	nFile	:= FOPEN(cDirServ+cLocal+"\"+cNome, FO_READWRITE,,.F.)
 	cString	:= EncodeUTF8(cString)
 	IF FWrite(nFile, cString, Len(cString)) < Len(cString)
 	 	lOk	:= .F.
@@ -1916,7 +1923,7 @@ Static Function GravaFile(nFile,cString,cLocal,cArquivo)
 	If ValType(cString)=="C"
 	EndIf
 	If !Empty(cArquivo)
-		nFile	:= FOPEN(cLocal+"\"+cArquivo, FO_READWRITE)
+		nFile	:= FOPEN(cLocal+"\"+cArquivo, FO_READWRITE,,.F.)
 	EndIf
 	cString	:= EncodeUTF8(cString)
 	FSeek(nFile, 0, FS_END)
