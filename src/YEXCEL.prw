@@ -451,6 +451,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local cTipo,cRef
 	Local aChildren,aChildren2,aAtributos,oXml
 	Local cCamSrv	:= ""
+	Local cNomeNS	:= "ns"
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha	  	AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
@@ -490,52 +491,69 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 			Return .F.
 		EndIf
 		oXml	:= TXmlManager():New()
-		oXML:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
-		oXML:XPathRegisterNs( "ns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main" )
-		aChildren := oXML:XPathGetChildArray( "/ns:sst" )
-		For nCont:=1 to Len(aChildren)
-			::oString:Set(::nQtdString,oXML:XPathGetNodeValue("/ns:sst/ns:si["+cValToChar(nCont)+"]/ns:t"))
-			::nQtdString++
-		Next
+		If oXML:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+			oXML:XPathRegisterNs( "ns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main" )
+			aChildren := oXML:XPathGetChildArray( "/ns:sst" )
+			For nCont:=1 to Len(aChildren)
+				::oString:Set(::nQtdString,oXML:XPathGetNodeValue("/ns:sst/ns:si["+cValToChar(nCont)+"]/ns:t"))
+				::nQtdString++
+			Next
+		EndIf
 	EndIf
 	oXml	:= TXmlManager():New()
 	oXML:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml")
-	oXML:XPathRegisterNs( "ns", "http://schemas.openxmlformats.org/spreadsheetml/2006/main" )
+	aNs	:= oXML:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+		If alltrim(lower(aNs[nCont][2]))==lower("http://schemas.openxmlformats.org/spreadsheetml/2006/main")
+			cNomeNS	:= aNs[nCont][1]
+		EndIf
+	Next
 
-    aChildren := oXML:XPathGetChildArray("/ns:worksheet/ns:sheetData")
+    aChildren := oXML:XPathGetChildArray("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData")
 	::adimension	:= {{0,0},{999999,999999}}
-    For nCont:=1 to Len(aChildren)
+    For nCont:=1 to Len(aChildren)	//Row
     	aChildren2	:= oXML:XPathGetChildArray( aChildren[nCont][2] )
-    	For nCont2:=1 to Len(aChildren2)
+    	For nCont2:=1 to Len(aChildren2)	//c
     		cTipo		:= "N"
     		aAtributos	:= oXML:XPathGetAttArray(aChildren2[nCont2][2])						//Atributos do elemento
-    		cRet		:= oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v")
+    		cRet		:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")
+    		nPosR		:= aScan(aAtributos,{|x| x[1]=="r"})
+    		If nPosR==0
+    			cRef		:= ::ref(nCont,nCont2)
+    			aPosicao	:= {nCont,nCont2}
+    		Else
+				cRef		:= aAtributos[nPosR][2]
+				aPosicao	:= ::LocRef(cRef)	//Retorna linha e coluna
+    		EndIf
+			If ::adimension[2][1]>aPosicao[1]	//Menor linha
+				::adimension[2][1] := aPosicao[1]
+			EndIf
+			If ::adimension[2][2]>aPosicao[2]	//Menor Coluna
+				::adimension[2][2]	:= aPosicao[2]
+			EndIf
+			If ::adimension[1][1]<aPosicao[1]	//Maior Linha
+				::adimension[1][1]	:= aPosicao[1]
+			EndIf
+			If ::adimension[1][2]<aPosicao[2]	//Maior Coluna
+				::adimension[1][2]	:= aPosicao[2]
+			EndIf
     		For nCont3:=1 to Len(aAtributos)
-    			If aAtributos[nCont3][1]=="r"
-    				cRef	:= aAtributos[nCont3][2]
-    				aPosicao	:= ::LocRef(cRef)	//Retorna linha e coluna
-					If ::adimension[2][1]>aPosicao[1]	//Menor linha
-						::adimension[2][1] := aPosicao[1]
-					EndIf
-					If ::adimension[2][2]>aPosicao[2]	//Menor Coluna
-						::adimension[2][2]	:= aPosicao[2]
-					EndIf
-					If ::adimension[1][1]<aPosicao[1]	//Maior Linha
-						::adimension[1][1]	:= aPosicao[1]
-					EndIf
-					If ::adimension[1][2]<aPosicao[2]	//Maior Coluna
-						::adimension[1][2]	:= aPosicao[2]
-					EndIf
+    			If aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="str"
+    				cTipo	:= "C"
+    			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="inlineStrs"
+    				cTipo	:= "C"
+    				cRet		:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":is/"+cNomeNS+":t")
     			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="s"
     				cRet	:= ""
     				cTipo	:= "C"
-    				::oString:Get(Val(oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v")),@cRet)
+    				::oString:Get(Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")),@cRet)
     			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="b"
     				cTipo	:= "L"
-    				cRet	:= oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v")=="1"
+    				cRet	:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")=="1"
     			ElseIf aAtributos[nCont3][1]=="s" .and. aAtributos[nCont3][2]=="1"
     				cTipo	:= "D"
-    				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/ns:worksheet/ns:sheetData/ns:row["+cValToChar(nCont)+"]/ns:c["+cValToChar(nCont2)+"]/ns:v"))
+    				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
     			EndIf
     		Next
     		If cTipo=="N"
