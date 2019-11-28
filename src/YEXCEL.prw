@@ -310,7 +310,7 @@ METHOD ADDImg(cImg) CLASS YExcel
 	cNome	:= SubStr(cImg,Rat("\",cImg)+1)
 	If ":" $ UPPER(cImg)
 		CpyT2S(cImg,cDirImg,,.F.)
-		FRename(cDirImg+cNome,cDirImg+"image"+cValToChar(::nIDMedia)+cExt)
+		FRename(cDirImg+cNome,cDirImg+"image"+cValToChar(::nIDMedia)+cExt,,.F.)
 	Else
 		__COPYFILE(cImg,cDirImg+"image"+cValToChar(::nIDMedia)+cExt,,,.F.)
 	EndIf
@@ -451,6 +451,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local cTipo,cRef
 	Local aChildren,aChildren2,aAtributos,oXml
 	Local cCamSrv	:= ""
+	Local cCamLocal	:= ""
 	Local cNomeNS	:= "ns"
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha	  	AS NUMERIC		OPTIONAL DEFAULT 1
@@ -470,8 +471,10 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 		If ":" $ UPPER(cFile)
 			CpyT2S(cFile,"\tmpxls\"+::cTmpFile+'\',,.F.)
 			cCamSrv	:= cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome
+			cCamLocal:= "\tmpxls\"+::cTmpFile+'\'+cNome
 		Else
 			cCamSrv	:= cRootPath+cFile
+			cCamLocal:= cFile
 		EndIf
 		If !FindFunction("FZIP")
 			WaitRunSrv('"'+cAr7Zip+'" x -tzip "'+cCamSrv+'" -o"'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'" * -r -y',.T.,"C:\")
@@ -483,7 +486,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 				nRet	:= 0
 			EndIf
 		Else
-			nRet	:= FUnZip("\tmpxls\"+::cTmpFile+'\'+cNome,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			nRet	:= FUnZip(cCamLocal,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		EndIf
 		If nRet!=0
 			ConOut(Ferror())
@@ -1348,6 +1351,7 @@ Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cC
 	Local cNegINIAli:= ""
 	Local cNegFIMAli:= ""
 	Local oFormat
+	Local nPosCor
 	Local aCores	:= {"Black","Blue","Cyan","Green","Magenta","Red","White","Yellow"}
 	PARAMTYPE 0	VAR nDecimal			AS NUMERIC					OPTIONAL DEFAULT 0
 	PARAMTYPE 1	VAR lMilhar			  	AS LOGICAL					OPTIONAL DEFAULT .F.
