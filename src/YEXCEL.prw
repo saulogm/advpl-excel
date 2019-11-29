@@ -450,9 +450,17 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local nCont,nCont2,nCont3
 	Local cTipo,cRef
 	Local aChildren,aChildren2,aAtributos,oXml
+	Local oXmlStyle
 	Local cCamSrv	:= ""
 	Local cCamLocal	:= ""
 	Local cNomeNS	:= "ns"
+	Local cNomeNS2	:= "ns"
+	Local aStyles
+	Local nPosR
+	Local nPos
+	Local cnumfmtid
+	Local aAtrr
+	Local nVlr
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha	  	AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
@@ -512,6 +520,16 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 			cNomeNS	:= aNs[nCont][1]
 		EndIf
 	Next
+	oXmlStyle	:= TXmlManager():New()
+	oXmlStyle:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
+	aNs	:= oXmlStyle:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXmlStyle:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+		If alltrim(lower(aNs[nCont][2]))==lower("http://schemas.openxmlformats.org/spreadsheetml/2006/main")
+			cNomeNS2	:= aNs[nCont][1]
+		EndIf
+	Next
+	aStyles	:= oXmlStyle:XPathGetChildArray("/"+cNomeNS2+":styleSheet/"+cNomeNS2+":cellXfs")
 
     aChildren := oXML:XPathGetChildArray("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData")
 	::adimension	:= {{0,0},{999999,999999}}
@@ -557,6 +575,19 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
     			ElseIf aAtributos[nCont3][1]=="s" .and. aAtributos[nCont3][2]=="1"
     				cTipo	:= "D"
     				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
+    			ElseIf aAtributos[nCont3][1]=="s"
+    				aAtrr	:= oXmlStyle:XPathGetAttArray(aStyles[Val(aAtributos[nCont3][2])+1][2])
+    				cnumfmtid	:= ""
+    				nPos	:= aScan(aAtrr,{|x| lower(x[1])=="numfmtid"})
+    				If nPos>0
+    					cnumfmtid	:= aAtrr[nPos][2]
+    					If "|"+cnumfmtid+"|" $ "|14|15|16|17|18|19|20|21|22|45|46|47|"
+    						cTipo	:= "D"
+    						nVlr	:= Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
+    						cRet	:= STOD("19000101")-2+Int(nVlr)
+    						::oCell:Set(cRef+"_H",IntToHora((nVlr-Int(nVlr))*86400/60/60))
+    					EndIf
+    				EndIf
     			EndIf
     		Next
     		If cTipo=="N"
@@ -580,11 +611,12 @@ Retorna o valor de uma celula, após o uso do método OpenRead()
 @param lAchou, logical, passa por referencia se achou a informação da celula
 @type function
 /*/
-Method CellRead(nLinha,nColuna,xDefault,lAchou) Class YExcel
+Method CellRead(nLinha,nColuna,xDefault,lAchou,cOutro) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
 	Local xValor:= Nil
+	Default cOutro	:= ""
 	lAchou	:= .T.
-	If !::oCell:Get(cRef,@xValor)
+	If !::oCell:Get(cRef+cOutro,@xValor)
 		xValor	:= xDefault
 		lAchou	:= .F.
 	EndIf
@@ -2022,6 +2054,7 @@ Method New(oyExcel,nLinha,nColuna) Class yExcelc
 Return self
 
 Method SetFormula(f) Class yExcelc
+	f	:= replace(f,"<","&lt;")
 	::GetValor():Set("f",yExcelTag():New("f",f))
 Return
 
@@ -2902,6 +2935,8 @@ Finaliza a tabela criada
 
 /*/
 METHOD Finish() CLASS yExcel_Table
+	Local nPosCol
+	Local cRef
 	cRef		:= ::oyExcel:Ref(::aRef[1][1],::aRef[1][2])+":"+::oyExcel:Ref(::aRef[2][1],::aRef[2][2])
 	nPosCol		:= aScan(self:GetValor(),{|x| x:GetNome()=="autoFilter"})
 	If ::lAutoFilter
