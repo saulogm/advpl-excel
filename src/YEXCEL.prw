@@ -1933,11 +1933,11 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 //			ConOut("Ferror:"+cValToChar(ferror()))
 //		EndIf
 //	Next
-//
-//	DelPasta("\tmpxls\"+::cTmpFile+"\"+::cNomeFile)	//Apaga arquivos temporarios
-//	If substr(cArquivo,1,8)<>"\tmpxls\"
-//		DelPasta("\tmpxls\"+::cTmpFile)
-//	EndIf
+
+	DelPasta("\tmpxls\"+::cTmpFile+"\"+::cNomeFile)	//Apaga arquivos temporarios
+	If substr(cArquivo,1,8)<>"\tmpxls\"
+		DelPasta("\tmpxls\"+::cTmpFile)
+	EndIf
 	If !Empty(cLocal)
 		If GetRemoteType() == REMOTE_HTML
 			CpyS2TW(cArquivo, .T.)
@@ -1949,9 +1949,9 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 				ShellExecute("open",cLocal+'\'+::cNomeFile+'.xlsx',"",cLocal+'\', 1 )
 			EndIf
 		EndIf
-//		If lDelSrv
-//			DelPasta("\tmpxls\"+::cTmpFile)	//Apaga o arquivo do servidor
-//		EndIf
+		If lDelSrv
+			DelPasta("\tmpxls\"+::cTmpFile)	//Apaga o arquivo do servidor
+		EndIf
 	EndIf
 Return cArquivo
 
@@ -3090,9 +3090,13 @@ Converte numero do excel em data e hora
 Method NumToDateTime(nData) Class yExcel_DateTime
 	Local nInt
 	Local nDec
+	Local nHora
+	Local nMinuto
+	Local nSegundo
 	If ValType(nData)=="N"
 		nInt	:= Int(nData)
 		nDec	:= nData-nInt
+		::cNumero	:= cValToChar(nData)
 	Else
 		nPosPonto	:= At(".",nData)
 		If nPosPonto==0
@@ -3105,17 +3109,16 @@ Method NumToDateTime(nData) Class yExcel_DateTime
 			nInt	:= Val(SubStr(nData,1,nPosPonto-1))
 			nDec	:= Val("0."+SubStr(nData,nPosPonto+1))
 		EndIf
+		::cNumero	:= nData
 	EndIf
 	::dData	:= STOD("19000101")-2+nInt
 	::cTime	:= ""
-	::cTime	+= StrZero(Int(nDec*86400/60/60),2)		//Hora
-	::cTime	+= ":"+StrZero(Int(nDec*86400/60),2)	//Minuto
-	If Int(nDec*86400)>0
-		::cTime	+= ":"+StrZero(Int(nDec*86400),2)		//Segundos
-	EndIf
-	If (nDec*86400)-Int(nDec*86400)>0
-		::cTime	+= "."+cValToChar(((nDec*86400)-Int(nDec*86400))*1000)
-	EndIf
+	nHora	:= Int(nDec*86400/60/60)
+	nMinuto	:= Int(((nDec*86400/60/60)-nHora)*60)
+	nSegundo:= Round(((nDec*86400/60/60)-nHora-(nMinuto/60))*60*60,0)
+	::cTime	+= StrZero(nHora,2)				//Hora
+	::cTime	+= ":"+StrZero(nMinuto,2)		//Minuto
+	::cTime	+= ":"+StrZero(nSegundo,2)		//Segundos
 	//IntToHora(nDec*86400/60/60)
 Return Self
 
