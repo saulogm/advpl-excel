@@ -14,7 +14,9 @@ user function tstyexcel()
 	Local oAlinhamento,oQuebraTxt,o45Graus
 	Local nPosCor,nPosFont,nPosFont2,nPosStyle,nPosMoeda,nPosMoeda2,nPosQuebra,nPosBorVerm,nPosBorda,nPosBorda2,nPosFonts,nPosBordas,nPosBorDt
 	Local nPosCorEfe,nPosCorEf2,nFmtNum3,nPos3Dec
-	oExcel:new("Pasta2")
+	Local nCont
+	Local oDateTime
+	oExcel:new("TstYExcel")
 	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
 	//Definição de Cor Transparecia+RGB
 	nPosCor			:= oExcel:CorPreenc("FF0000FF")	//Cor de Fundo Azul
@@ -48,6 +50,13 @@ user function tstyexcel()
 	nPosEfe		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,nPosCorEfe/*fillId*/,/*borderId*/,/*xfId*/,)
 	nPosEfe2	:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,nPosCorEf2/*fillId*/,/*borderId*/,/*xfId*/,)
 
+	//Defini o tamanho das colunas
+	//Primeira_coluna,Ultima_coluna,Largura,AjusteNumero,customWidth
+	oExcel:AddTamCol(1,2,12.00)
+	oExcel:AddTamCol(3,3,20.00)
+	oExcel:AddTamCol(4,4,12.00)
+	oExcel:AddTamCol(5,6,18.00)
+
 	//Cadastra imagem
 	nIDImg		:= oExcel:ADDImg("\Star_Wars_Logo.png")	//Imagem no Protheus_data
 
@@ -67,6 +76,9 @@ user function tstyexcel()
 	oExcel:Cell(5,2,date())							//B5	Data
 	oExcel:Cell(5,3,.T.,,nPosEfe)					//C5	Campo Logico
 	oExcel:Cell(5,4,1000,,nPosMoeda)				//D5	Campo Numerico formato moeda
+	oDateTime	:= oExcel:GetDateTime(date(),time())	//Formatando DateTime
+	oExcel:Cell(5,5,oDateTime)						//E5	Date time
+	FreeObj(oDateTime)
 	oExcel:nTamLinha	:= 30.75					//Defini o tamanho das proximas linha criadas
 	oExcel:Cell(6,3,.F.,,nPosEfe2)					//C6	Campo Logico falso
 	oExcel:Cell(6,5,"Texto grande para quebra em linhas",,nPosQuebra)	//E6	Texto grande
@@ -100,12 +112,6 @@ user function tstyexcel()
 	oExcel:FormatCond(oExcel:Ref(8,1),oExcel:Ref(13,1),nPosVerm,"<",0)				//Numero negativo em vermelho
 	oExcel:FormatCond(oExcel:Ref(8,1),oExcel:Ref(13,1),nPosVerd,"between",{10,20})	//Entre 10 e 20
 	oExcel:FormatCond(oExcel:Ref(8,1),oExcel:Ref(13,1),nPosAmar,"=","0")			//igual a zero
-
-	//Defini o tamanho das colunas
-	//Primeira_coluna,Ultima_coluna,Largura,AjusteNumero,customWidth
-	oExcel:AddTamCol(1,2,12.00)
-	oExcel:AddTamCol(3,3,20.00)
-	oExcel:AddTamCol(4,6,12.00)
 
 
 	//Teste de 50mil células - 20 segundos
@@ -152,6 +158,7 @@ user function tstyexcel()
 	//TESTE COM FORMATAR COMO TABELA
 	oExcel:ADDPlan("Tabela","0000FF")		//Adiciona nova planilha
 	oExcel:SetDefRow(.T.,{1,4})		//Definir a coluna inicial e final da linha, importante para performace da classe
+	//oExcel:Cell(1,1,"teste",,)
 	oTabela	:= oExcel:AddTabela("Tabela1",1,1)	//Cria uma tabela de estilos
 	oTabela:AddStyle("TableStyleMedium15"/*cNome*/,.T./*lLinhaTiras*/,/*lColTiras*/,/*lFormPrimCol*/,/*lFormUltCol*/)	//Cria os estilos,Cab:Preto|Linha:Cinza,Branco
 	//oTabela:AddStyle("TableStyleMedium2"/*cNome*/,.T./*lLinhaTiras*/,/*lColTiras*/,.T./*lFormPrimCol*/,/*lFormUltCol*/)	//Cria os estilos,Cab:Azul|Linha:Azul,Branco
@@ -182,7 +189,7 @@ user function tstyexcel()
 	oTabela:AddTotais()	//Adiciona linha de totais
 	oTabela:Finish()	//Fecha a edição da tabela
 
-	oExcel:Gravar("c:\temp",.T.,.T.)
+	oExcel:Gravar(GetTempPath(),.T.,.T.)
 return
 
 User Function tst2Excel()
@@ -283,6 +290,7 @@ Return
 
 Static Function TestFwMsExcel()
 	Local oExcel := FWMSEXCEL():New()
+	Local nCont
 	oExcel:AddworkSheet("Pasta2")
 	oExcel:AddTable ("Pasta2","Tabela1")
 	oExcel:AddColumn("Pasta2","Tabela1","Linha",1,1)
@@ -303,6 +311,7 @@ Static Function TestFwMsExcel()
 Return
 
 Static Function TestTreport()
+	Local nCont
 	RPCSetEnv("01","010101","","","","",{},,,.T.)
 	oReport:= TReport():New("Excel","Excel Teste",nil, ,"")
 	oSection1 := TRSection():New(oReport,"Estruturas",{"SG1","SC2","SB1","SB2"},/*Ordem*/) //"Estruturas"
@@ -349,34 +358,56 @@ Testa leitura simples do xlsx
 @type function
 /*/
 User Function YxlsRead()
-	Local oExcel
+	Local oExcel	:= YExcel():new("TesteXlsx")	//Cria teste
 	Local cTexto	:= "Texto teste"
 	Local nNumero	:= 123.09
 	Local lLogico	:= .T.
 	Local dData		:= date()
-	oExcel	:= YExcel():new("TesteXlsx")	//Cria teste
+	Local oDateTime := oExcel:GetDateTime(date(),time())	//Formatando DateTime
+	Local nColuna,nLinha
 	oExcel:ADDPlan()
 	oExcel:Cell(1,1,cTexto,,)
 	oExcel:Cell(2,1,nNumero,,)
 	oExcel:Cell(3,1,lLogico,,)
 	oExcel:Cell(4,1,dData,,)
+	oExcel:Cell(5,1,oDateTime)
 	oExcel:ADDPlan()
 	oExcel:Cell(1,1,"OK",,)
-	cArquivo	:= oExcel:Gravar("c:\temp",.F.)	//Não abrir arquivo
+	cArquivo	:= oExcel:Gravar(GetTempPath(),.F.)	//Não abrir arquivo
 	ConOut(cArquivo)
 	oExcel	:= YExcel():new()
 	oExcel:OpenRead(cArquivo)
-	ConOut("Tipo:"+ValType(oExcel:CellRead(1,1)))
-	ConOut(oExcel:CellRead(1,1))
-	ConOut("Tipo:"+ValType(oExcel:CellRead(2,1)))
-	ConOut(oExcel:CellRead(2,1))
-	ConOut("Tipo:"+ValType(oExcel:CellRead(3,1)))
-	ConOut(oExcel:CellRead(3,1))
-	ConOut("Tipo:"+ValType(oExcel:CellRead(4,1)))
-	ConOut(oExcel:CellRead(4,1))
+	For nLinha	:= 1 to oExcel:adimension[1][1]
+		For nColuna	:= 1 to oExcel:adimension[1][2]
+			ConOut("Tipo:"+ValType(oExcel:CellRead(nLinha,nColuna)))
+			ConOut(oExcel:CellRead(nLinha,nColuna))
+		Next
+		If nLinha==5
+			oDateTime	:= oExcel:GetDateTime(,,oExcel:CellRead(nLinha,1))
+			ConOut("Formato data")
+			ConOut(oDateTime:GetDate())
+			ConOut(oDateTime:GetTime())
+			ConOut(oDateTime:GetStrNumber())
+		EndIf
+	Next
+//	ConOut("Tipo:"+ValType(oExcel:CellRead(1,1)))
+//	ConOut(oExcel:CellRead(1,1))
+//	ConOut("Tipo:"+ValType(oExcel:CellRead(2,1)))
+//	ConOut(oExcel:CellRead(2,1))
+//	ConOut("Tipo:"+ValType(oExcel:CellRead(3,1)))
+//	ConOut(oExcel:CellRead(3,1))
+//	ConOut("Tipo:"+ValType(oExcel:CellRead(4,1)))
+//	ConOut(oExcel:CellRead(4,1))
 	ConOut("Ler planilha 2")
-	oExcel:OpenRead(cArquivo,2)
+//	oExcel:OpenRead(cArquivo,2)
+	For nLinha	:= 1 to oExcel:adimension[1][1]
+		For nColuna	:= 1 to oExcel:adimension[1][2]
+			ConOut("Tipo:"+ValType(oExcel:CellRead(nLinha,nColuna)))
+			ConOut(oExcel:CellRead(nLinha,nColuna))
+		Next
+	Next
 	ConOut("Tipo:"+ValType(oExcel:CellRead(1,1)))
 	ConOut(oExcel:CellRead(1,1))
 	oExcel:CloseRead()
+	FreeObj(oDateTime)
 Return
