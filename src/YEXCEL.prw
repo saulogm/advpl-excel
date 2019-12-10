@@ -1,4 +1,4 @@
-#include 'totvs.ch'
+#include "Totvs.ch"
 #include "Fileio.ch"
 #Include "ParmType.ch"
 
@@ -17,7 +17,7 @@ Gerar Excel formato xlsx com menor consumo de memoria e mais otimizado possivel
 	LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
 @OBS
 RECURSOS DISPONIVEIS
-* Definir células String,Numérica,data,Logica,formula
+* Definir células String,Numérica,data,DateTime,Logica,formula
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
 * Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação)
@@ -44,7 +44,6 @@ User Function YExcel()
 Return .T.
 
 CLASS YExcel
-	Data aRelsWorkBook
 	Data oString			//String compartilhadas
 	Data nQtdString			//Quantidade de string conmpartilhadas
 	Data adimension			//Dimensão da planilha
@@ -61,7 +60,6 @@ CLASS YExcel
 	Data aPlanilhas
 	Data osheetViews
 	Data oCols
-	Data odefinedNames
 	Data oAutoFilter
 	Data oMergeCells
 	Data aConditionalFormatting
@@ -87,6 +85,12 @@ CLASS YExcel
 	Data aImagens		//Imagens adicionada
 	Data aImgdraw		//Imagens usada no sheets(pode usar mais de uma vez a mesma imagem)
 	Data nIDMedia
+	Data aRels
+	Data ocontent_types
+	Data oapp
+	Data ocore
+	Data oworkbook
+	Data aDraw
 	//Agrupamento de linha
 	Data nRowoutlineLevel
 	Data lRowcollapsed
@@ -111,6 +115,8 @@ CLASS YExcel
 	METHOD AutoFilter()		//Cria os Filtros na planilha
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD NivelLinha()
+
+	METHOD GetDateTime()
 
 	//Leitura de planilha
 	METHOD OpenRead()
@@ -149,6 +155,19 @@ CLASS YExcel
 
 	//Tabela
 	METHOD AddTabela()
+
+	//Inicializar TXmlManager
+	METHOD new_content_types()
+	METHOD new_rels()
+	METHOD add_rels()
+	METHOD new_app()
+	METHOD new_core()
+	METHOD new_workbook()
+	METHOD new_draw()
+	METHOD xls_styles()
+	METHOD xls_sheet()
+	METHOD xls_table()
+	METHOD xls_sharedStrings()
 	/*Tabela
 		Method cell()
 		Method AddStyle()
@@ -194,12 +213,12 @@ METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha) CLASS YE
 	Else
 		cRef	:= cRefPar
 	EndiF
-	odefinedName:SetValor(cRef)
-	::odefinedNames:AddValor(odefinedName,cNome)
+	::oworkbook:XPathAddNode( "/xmlns:workbook/xmlns:definedNames", "definedName", cRef )
+	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "name"		, cNome)
 Return
 
 METHOD ClassName() CLASS YExcel
-Return "YExcel"
+Return "YEXCEL"
 
 /*/{Protheus.doc} New
 Construtor da classe
@@ -210,14 +229,13 @@ Construtor da classe
 @type function
 /*/
 METHOD New(cNomeFile) CLASS YExcel
-	Local oRelationship
-	Local oMoeda
+	Local oTmp,nPos
 	If ValType(cAr7Zip)=="U"
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
 	Endif
 	PARAMTYPE 0	VAR cNomeFile  AS CHARACTER 		OPTIONAL DEFAULT lower(CriaTrab(,.F.))
-	::cClassName	:= "YExcel"
-	::cName			:= "YExcel"
+	::cClassName	:= "YEXCEL"
+	::cName			:= "YEXCEL"
 	::oString		:= tHashMap():new()
 	::oCell			:= tHashMap():new()	//Usado no leitura simples
 	::oBorders		:= yExcelTag():New("borders",{})
@@ -225,7 +243,6 @@ METHOD New(cNomeFile) CLASS YExcel
 	::odxfs:SetAtributo("count",0)
 	::onumFmts		:= yExcelTag():New("numFmts",{})	//Formatos de numeros
 	::onumFmts:SetAtributo("count",0)
-	::odefinedNames	:= yExcelTag():New("definedNames",{})
 	::Borda()	//Sem borda
 	::nQtdString	:= 0
 	::oFonts		:= YExcelFont():New()
@@ -234,7 +251,7 @@ METHOD New(cNomeFile) CLASS YExcel
 	::nNumFmtId		:= 164
 	::AddStyles(0/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/)	//Sem Formatação
 	::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data padrão
-	::aRelsWorkBook	:= {}
+	::AddStyles(166/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data time padrão
 	::aPlanilhas	:= {}
 	::aCorPreenc	:= {}	//yExcel_CorPreenc():New()
 	::cTmpFile		:= lower(CriaTrab(,.F.))
@@ -248,38 +265,40 @@ METHOD New(cNomeFile) CLASS YExcel
 	::aImagens		:= {}
 	::aImgdraw		:= {}
 	::nIDMedia		:= 0
-	oMoeda	:= yExcelTag():New("numFmt")
-	oMoeda:SetAtributo("formatCode","_-&quot;R$&quot;\ * #,##0.00_-;\-&quot;R$&quot;\ * #,##0.00_-;_-&quot;R$&quot;\ * &quot;-&quot;??_-;_-@_-")
-	oMoeda:SetAtributo("numFmtId",44)
-	::onumFmts:AddValor(oMoeda)
-	::onumFmts:SetAtributo("count",1)
+	::aRels			:= {}
+	::aDraw			:= {}
+	::new_app()
+	::new_core()
+	::new_workbook()
+	::new_content_types()	//Inicializa ocontent_types [Content_Types].xml
+	nPos	:= ::new_rels(,"\_rels\.rels")
+	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument","xl/workbook.xml")
+	::add_rels(nPos,"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties","docProps/core.xml")
+	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties","docProps/app.xml")
 
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[Content_Types].xml")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\_rels\.rels")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\app.xml")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\core.xml")
+
+	oTmp	:= yExcelTag():New("numFmt")
+	oTmp:SetAtributo("formatCode","_-&quot;R$&quot;\ * #,##0.00_-;\-&quot;R$&quot;\ * #,##0.00_-;_-&quot;R$&quot;\ * &quot;-&quot;??_-;_-@_-")
+	oTmp:SetAtributo("numFmtId",44)
+	::onumFmts:AddValor(oTmp)
+	::onumFmts:SetAtributo("count",1)
+	oTmp	:= nil
+
+	oTmp	:= yExcelTag():New("numFmt")
+	oTmp:SetAtributo("formatCode","dd/mm/yyyy\ hh:mm;@")
+	oTmp:SetAtributo("numFmtId",166)
+	::onumFmts:AddValor(oTmp)
+	::onumFmts:SetAtributo("count",1)
+	oTmp	:= nil
+
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\workbook.xml")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\_rels\workbook.xml.rels")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\theme\theme1.xml")
 
-	oRelationship	:= yExcelTag():New("Relationship",)
-	oRelationship:SetAtributo("Id","rId1")
-	oRelationship:SetAtributo("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme")
-	oRelationship:SetAtributo("Target","theme/theme1.xml")
-	AADD(::aRelsWorkBook,oRelationship)
-	oRelationship	:= yExcelTag():New("Relationship",)
-	oRelationship:SetAtributo("Id","rId2")
-	oRelationship:SetAtributo("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles")
-	oRelationship:SetAtributo("Target","styles.xml")
-	AADD(::aRelsWorkBook,oRelationship)
-	oRelationship	:= yExcelTag():New("Relationship",)
-	oRelationship:SetAtributo("Id","rId3")
-	oRelationship:SetAtributo("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings")
-	oRelationship:SetAtributo("Target","sharedStrings.xml")
-	AADD(::aRelsWorkBook,oRelationship)
-
+	nPos	:= ::new_rels(,"\xl\_rels\workbook.xml.rels")
+	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme","theme/theme1.xml")
+	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles","styles.xml")
+	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
 
 	AADD(::aCorPreenc,yExcel_CorPreenc():New("none"))
 	AADD(::aCorPreenc,yExcel_CorPreenc():New("gray125"))
@@ -334,10 +353,11 @@ Usa imagem
 @type function
 @OBS pag 3166
 /*/
-METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) CLASS YExcel
+METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 	Local nPos
 	Local cCellType
-	Local oImg,oxdr_from,oext,opic,onvPicPr,ocNvPr,ocNvPicPr,oblipFill,oblip,ospPr//oxdr_to,
+	Local cID
+	Default nQtdPlan	:= Len(::aPlanilhas)
 	PARAMTYPE 0	VAR nID			AS NUMERIC
 	PARAMTYPE 1	VAR nLinha		AS NUMERIC
 	PARAMTYPE 2	VAR nColuna		AS NUMERIC
@@ -360,9 +380,6 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) CLASS YExcel
 		nY	:= nY*36000
 	EndIf
 	Default cCellType	:= "oneCellAnchor"
-	oImg	:= yExcel_Img():New(self,cCellType)
-	oImg:nIdRelat	:= ::odrawing:xDados
-	oImg:SetAtributo("editAs","oneCell")
 	//absolute	- Não mover ou redimensionar com linhas / colunas subjacentes
 	//oneCell	- Mova-se com células, mas não redimensione
 	//twoCell	- Mover e redimensionar com células âncoras
@@ -370,68 +387,80 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) CLASS YExcel
 	If Empty(::adrawing)
 		::nIdRelat++
 		nPos	:= ::nIdRelat
-		::odrawing:SetAtributo("r:id","rId"+cValToChar(nPos))
+		cID		:= ::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlan)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing","../drawings/drawing"+cValToChar(nPos)+".xml")
+
+		::aPlanilhas[nQtdPlan][2]	:= ::new_draw(,"\xl\drawings\drawing"+cValToChar(nPos)+".xml")
+
+		::odrawing:SetAtributo("r:id",cID)
 		::odrawing:xDados	:= nPos
 		AADD(::adrawing,nPos)		//Cria o arquivo \xl\drawings\drawing1
 		AADD(::aworkdrawing,nPos)	//Cria o arquivo
+		//Adiciona um nova drawing no content_types
+		::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
+		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/drawings/drawing"+cValToChar(Len(::aworkdrawing))+".xml" )
+		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml" )
+
+
 	EndIf
+	nPos	:= ::aPlanilhas[nQtdPlan][2]
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr", cCellType, "" )
+	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "editAs"	, "oneCell" )
 
-	oxdr_from	:= yExcelTag():New("xdr:from",{})
-	oxdr_from:AddValor(yExcelTag():New("xdr:col",nColuna-1))
-	oxdr_from:AddValor(yExcelTag():New("xdr:colOff",0))
-	oxdr_from:AddValor(yExcelTag():New("xdr:row",nLinha-1))
-	oxdr_from:AddValor(yExcelTag():New("xdr:rowOff",0))
-	oImg:AddValor(oxdr_from)
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "from", "" )
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:from", "col", cValToChar(nColuna-1) )
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:from", "colOff", cValToChar(0) )
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:from", "row", cValToChar(nLinha-1) )
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:from", "rowOff", cValToChar(0) )
 
-//	oxdr_to	:= yExcelTag():New("xdr:from",{})
-//	oxdr_to:AddValor(yExcelTag():New("xdr:col",2))
-//	oxdr_to:AddValor(yExcelTag():New("xdr:colOff",438150))
-//	oxdr_to:AddValor(yExcelTag():New("xdr:row",3))
-//	oxdr_to:AddValor(yExcelTag():New("xdr:rowOff",95250))
-//	oImg:AddValor(oxdr_to)
 
-	oext	:= yExcelTag():New("xdr:ext",{})
-	oext:SetAtributo("cx",Round(nX,0))
-	oext:SetAtributo("cy",Round(nY,0))
-	oImg:AddValor(oext)
+	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "ext", "" )
+	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:ext", "cx"	, cValToChar(Round(nX,0)) )
+	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:ext", "cy"	, cValToChar(Round(nY,0)) )
 
 	opic	:= yExcelTag():New("xdr:pic",{})
-		onvPicPr	:= yExcelTag():New("xdr:nvPicPr",{})	//Propriedade não visual
-			ocNvPr		:= yExcelTag():New("xdr:cNvPr",{})
-			ocNvPr:SetAtributo("id",Len(::aImgdraw)+1)
-			ocNvPr:SetAtributo("name","Imagem "+cValToChar(nID))
-		onvPicPr:AddValor(ocNvPr)
-			ocNvPicPr		:= yExcelTag():New("xdr:cNvPicPr",{})
-			ocNvPicPr:AddValor(yExcelTag():New("a:picLocks"	,,{{"noChangeAspect",1}}))
-		onvPicPr:AddValor(ocNvPicPr)
-	opic:AddValor(onvPicPr)
 
-		oblipFill		:= yExcelTag():New("xdr:blipFill",{})
-			oblip			:= yExcelTag():New("a:blip",{})
-			oblip:SetAtributo("xmlns:r","http://schemas.openxmlformats.org/officeDocument/2006/relationships")
-			oblip:SetAtributo("r:embed","rId"+cValToChar(nID))
-		oblipFill:AddValor(oblip)
-			ostretch			:= yExcelTag():New("a:stretch",{})
-				ofillRect			:= yExcelTag():New("a:fillRect",{})
-			ostretch:AddValor(ofillRect)
-		oblipFill:AddValor(ostretch)
-	opic:AddValor(oblipFill)
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]", "pic", "" )
+	//nvPicPr
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic", "nvPicPr", "" )
+		//cNvPr
+		::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr", "cNvPr", "" )
+		::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPr","id", cValToChar(Len(::aImgdraw)+1) )
+		::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPr","name", "Imagem "+cValToChar(nID) )
 
-		ospPr			:= yExcelTag():New("xdr:spPr",{})
-			oxfrm			:= yExcelTag():New("a:xfrm",{},{{"rot",nRot*60000}})
-//				ooff		:= yExcelTag():New("a:off",{},{{"x",0},{"y",0}})
-//			oxfrm:AddValor(ooff)
-//				oext		:= yExcelTag():New("a:ext",{},{{"cx",/*nX*36000*/},{"xy",nY*36000}})
-//			oxfrm:AddValor(oext)
-		ospPr:AddValor(oxfrm)
-			oprstGeom		:= yExcelTag():New("a:prstGeom",{yExcelTag():New("a:avLst",{})},{{"prst","rect"}})
-		ospPr:AddValor(oprstGeom)
-	opic:AddValor(ospPr)
+		//cNvPicPr
+		::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr", "cNvPicPr", "" )
+		::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPicPr", "a:picLocks", "" )
+		ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
+		::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPicPr/a:picLocks", "noChangeAspect", "1" )
 
-	oImg:AddValor(opic)
-	oImg:AddValor(yExcelTag():New("xdr:clientData",{}))
+	//blipFill
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic", "blipFill", "" )
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill", "a:blip", "" )
+	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
+	::aDraw[nPos][1]:XPathAddNs(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:blip", "r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships" )
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:blip", "r:embed", ::odrawing:GetAtributo("r:id") )
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill", "a:stretch", "" )
+	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:stretch", "fillRect", "" )
 
-	AADD(::aImgdraw,oImg)
+	//spPr
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic", "spPr", "" )
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:spPr", "a:xfrm", "" )
+	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:spPr/a:xfrm", "rot", cValToChar(nRot*60000) )
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:spPr", "a:prstGeom", "" )
+	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:spPr/a:prstGeom", "prst", "rect" )
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:spPr/a:prstGeom", "avLst", "" )
+
+
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]", "clientData", "" )
+	::aDraw[nPos][3]++
+
+	AADD(::aImgdraw,Len(::aImgdraw)+1)
+
+	::add_rels("\xl\drawings\_rels\drawing"+cValToChar(::odrawing:xDados)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/image","../media/"+::aImagens[nID][2])
+
 Return
 
 /*/{Protheus.doc} OpenRead
@@ -460,7 +489,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local nPos
 	Local cnumfmtid
 	Local aAtrr
-	Local nVlr
+	Local oDataTime
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha	  	AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
@@ -582,10 +611,11 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
     				If nPos>0
     					cnumfmtid	:= aAtrr[nPos][2]
     					If "|"+cnumfmtid+"|" $ "|14|15|16|17|18|19|20|21|22|45|46|47|"
-    						cTipo	:= "D"
-    						nVlr	:= Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
-    						cRet	:= STOD("19000101")-2+Int(nVlr)
-    						::oCell:Set(cRef+"_H",IntToHora((nVlr-Int(nVlr))*86400/60/60))
+    						cTipo		:= "D"
+    						oDataTime	:= yExcel_DateTime:New(,,oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
+    						cRet		:= oDataTime:GetDate()
+    						::oCell:Set(cRef+"_H",oDataTime:GetTime())
+							FreeObj(oDataTime)
     					EndIf
     				EndIf
     			EndIf
@@ -646,8 +676,8 @@ Adiciona nova planilha ao arquivo
 @type function
 /*/
 METHOD ADDPlan(cNome,cCor) CLASS YExcel
-	Local nPos	:= Len(::aRelsWorkBook)+1
-	Local oPlanilha,nFile,oSelection
+	Local cID
+	Local nFile,oSelection
 	Local nQtdPlanilhas	:= Len(::aPlanilhas)
 	Local nCont
 	Local oCorPlan
@@ -679,28 +709,20 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 		::GravaRow(::adimension[1][1])
 		::CriarFile("\"+::cNomeFile+"\xl\worksheets"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml"			,""			,)
 		GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","sheet"+cValToChar(nQtdPlanilhas)+".xml")
-		h_xls_sheet(nFile)
+		::xls_sheet(nFile)
 		fClose(nFile)
 		fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml",,.F.)
 
 		If ::nIdRelat>0
-			::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlanilhas)+".xml.rels")
 			For nCont:=1 to Len(::atable)
 				::nCont	:= nCont
-				::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::atable[nCont]:nIdRelat)+".xml"		,h_xls_table()		,)
+				::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::atable[nCont]:nIdRelat)+".xml"		,::xls_table()		,)
 				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::atable[nCont]:nIdRelat)+".xml")
-			Next
-			For nCont:=1 to Len(::adrawing)
-				::nCont	:= nCont
-				::CriarFile("\"+::cNomeFile+"\xl\drawings\"			,"drawing"+cValToChar(::adrawing[nCont])+".xml"			,h_xls_draw()		,)
-				::CriarFile("\"+::cNomeFile+"\xl\drawings\_rels\"	,"drawing"+cValToChar(::adrawing[nCont])+".xml.rels"		,h_xlsreldraw()		,)
-				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\drawing"+cValToChar(::adrawing[nCont])+".xml")
-				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\_rels\drawing"+cValToChar(::adrawing[nCont])+".xml.rels")
 			Next
 		EndIf
 	EndIf
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValToChar(nQtdPlanilhas+1)+".xml")
+
 	If ValType(cCor)=="C"
 		If Len(cCor)==6
 			cCor	:= "FF"+cCor
@@ -742,17 +764,20 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	GravaFile(@::nFileTmpRow,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","tmprow.xml")
 	//Cria nova planilha
 	nQtdPlanilhas++
-	oPlanilha		:= yExcelTag():New("sheet",)
-	oPlanilha:SetAtributo("name",cNome)
-	oPlanilha:SetAtributo("sheetId",nQtdPlanilhas)
-	oPlanilha:SetAtributo("r:id","rId"+cValToChar(nPos))
-	AADD(::aPlanilhas,oPlanilha)
-	//Cria novo arquivo
-	oRelationship	:= yExcelTag():New("Relationship",)
-	oRelationship:SetAtributo("Id","rId"+cValToChar(nPos))
-	oRelationship:SetAtributo("Type","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet")
-	oRelationship:SetAtributo("Target","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
-	AADD(::aRelsWorkBook,oRelationship)
+	//Adiciona dentro do workbooks o relacionamento na planilha
+	cID	:= ::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
+
+	AADD(::aPlanilhas,{cID,/*draw*/})
+
+	::oworkbook:XPathAddNode( "/xmlns:workbook/xmlns:sheets", "sheet", "" )
+	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:sheets/xmlns:sheet[last()]", "name"		, cNome)
+	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:sheets/xmlns:sheet[last()]", "sheetId"	, cValToChar(nQtdPlanilhas))
+	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:sheets/xmlns:sheet[last()]", "r:id"		, cID)
+
+	//Adiciona um nova Planilha no content_types
+	::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
+	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml" )
+	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" )
 Return nQtdPlanilhas
 
 /*/{Protheus.doc} Cell
@@ -1648,6 +1673,14 @@ METHOD Pane(cActivePane,cState,cRef,nySplit,nxSplit) CLASS YExcel
 	aSort(osheetView:xValor,,,{|x,y| If(x:getnome()=="pane",1,2)<If(y:getnome()=="pane",1,2) })
 Return nPos
 
+/*METHOD Addhyperlink(nLinha,nColuna,cLocation,cId,ctooltip,cDisplay) CLASS YExcel
+	PARAMTYPE 0	VAR cRef			AS CHARACTER 		OPTIONAL
+	PARAMTYPE 1	VAR cLocation		AS CHARACTER 		OPTIONAL
+	PARAMTYPE 2	VAR cId				AS CHARACTER 		OPTIONAL
+	PARAMTYPE 3	VAR ctooltip		AS CHARACTER 		OPTIONAL
+	PARAMTYPE 4	VAR cDisplay  		AS CHARACTER 		OPTIONAL
+Return*/
+
 //NÃO DOCUMENTAR
 METHOD GravaRow(nLinha) CLASS YExcel
 	Local oExcelRow
@@ -1750,17 +1783,16 @@ Adiciona tabela com formatação
 @param nColuna, numeric, Coluna inicial da tabela
 @type function
 /*/
-METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
+METHOD AddTabela(cNome,nLinha,nColuna,nQtdPlan) CLASS YExcel
 	Local nPos
 	Local oTable
-//	Local nQtdPlan	:= Len(::aPlanilhas)
+	Local cID
+	Default nQtdPlan	:= Len(::aPlanilhas)
 	PARAMTYPE 0	VAR cNome  AS CHARACTER 		OPTIONAL DEFAULT lower(CriaTrab(,.F.))
 	PARAMTYPE 1	VAR nLinha  AS NUMERIC 			OPTIONAL DEFAULT ::adimension[2][1]
 	PARAMTYPE 2	VAR nColuna  AS NUMERIC
 	::nIdRelat++
 	nPos	:= ::nIdRelat
-	::otableParts:AddValor(yExcelTag():New("tablePart",nil,{{"r:id","rId"+cValToChar(nPos)}}))
-	::otableParts:SetAtributo("count",Len(::atable)+1)
 
 	oTable	:= yExcel_Table():New(self,nLinha,nColuna,cNome) //yExcelTag():New("table",{},)
 	oTable:nIdRelat	:= nPos
@@ -1782,6 +1814,15 @@ METHOD AddTabela(cNome,nLinha,nColuna) CLASS YExcel
 	oTable:otableStyleInfo:SetAtributo("showColumnStripes",0)
 	oTable:AddValor(oTable:otableStyleInfo)
 	AADD(::atable,oTable)
+
+	cID		:= ::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlan)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/table","../tables/table"+cValToChar(oTable:nIdRelat)+".xml")
+	::otableParts:AddValor(yExcelTag():New("tablePart",nil,{{"r:id",cID}}))
+	::otableParts:SetAtributo("count",Len(::atable)+1)
+
+	//Adiciona um nova Tabela
+	::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
+	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/tables/table"+cValToChar(oTable:nIdRelat)+".xml" )
+	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml" )
 Return oTable
 
 /*/{Protheus.doc} Gravar
@@ -1824,42 +1865,47 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 		::AddTamCol(::adimension[2][2],::adimension[1][2],12.00)
 	EndIf
 
-	::CriarFile("\"+::cNomeFile						,"[Content_Types].xml"	,h_xls_Content_Types()	,)
-	::CriarFile("\"+::cNomeFile+"\_rels"			,".rels"				,h_xls_rels()			,)
-	::CriarFile("\"+::cNomeFile+"\docprops"			,"app.xml"				,h_xls_app()			,)
-	::CriarFile("\"+::cNomeFile+"\docprops"			,"core.xml"				,h_xls_core()			,)
+	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\")
+	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops")
+	::ocontent_types:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[content_types].xml")
+	::oapp:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\app.xml")
+	::ocore:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\core.xml")
+	::oworkbook:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\workbook.xml")
+	For nCont:=1 to Len(::aRels)
+		If !Empty(::aRels[nCont][3])
+			FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+SubStr(::aRels[nCont][2],1,rAt("\",::aRels[nCont][2])-1),.F.)
+			::aRels[nCont][1]:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+::aRels[nCont][2])
+			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+::aRels[nCont][2])
+		EndIf
+	Next
+	For nCont:=1 to Len(::aDraw)
+		If !Empty(::aDraw[nCont][3])
+			FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+SubStr(::aDraw[nCont][2],1,rAt("\",::aDraw[nCont][2])-1),.F.)
+			::aDraw[nCont][1]:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+::aDraw[nCont][2])
+			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+::aDraw[nCont][2])
+		EndIf
+	Next
 
 	::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,""						,)
 	GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl","sharedStrings.xml")
-	h_xls_sharedStrings(nFile)
+	::xls_sharedStrings(nFile)
 	fClose(nFile)
 	nFile	:= nil
-	::CriarFile("\"+::cNomeFile+"\xl"				,"styles.xml"			,h_xls_styles()			,)
-	::CriarFile("\"+::cNomeFile+"\xl"				,"workbook.xml"			,h_xls_workbook()		,)
-	::CriarFile("\"+::cNomeFile+"\xl\_rels"			,"workbook.xml.rels"	,h_xls_rworkbook()		,)
-	::CriarFile("\"+::cNomeFile+"\xl\theme"			,"theme1.xml"			,h_xls_theme()			,)
+	::CriarFile("\"+::cNomeFile+"\xl"				,"styles.xml"			,::xls_styles()			,)
+	::CriarFile("\"+::cNomeFile+"\xl\theme"			,"theme1.xml"			,u_yxlsthem()			,)
 
 	nQtdPlanilhas	:= Len(::aPlanilhas)
 	::CriarFile("\"+::cNomeFile+"\xl\worksheets"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml"			,""			,)
 	GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","sheet"+cValToChar(nQtdPlanilhas)+".xml")
-	h_xls_sheet(nFile)
+	::xls_sheet(nFile)
 	fClose(nFile)
 	fErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow.xml",,.F.)
 
 	If ::nIdRelat>0
-		::CriarFile("\"+::cNomeFile+"\xl\worksheets\_rels\"	,"sheet"+cValToChar(nQtdPlanilhas)+".xml.rels"		,h_xlsrelssheet()		,)
-		AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlanilhas)+".xml.rels")
 		For nCont:=1 to Len(::atable)
 			::nCont	:= nCont
-			::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::atable[nCont]:nIdRelat)+".xml"		,h_xls_table()		,)
+			::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::atable[nCont]:nIdRelat)+".xml"		,::xls_table()		,)
 			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::atable[nCont]:nIdRelat)+".xml")
-		Next
-		For nCont:=1 to Len(::adrawing)
-			::nCont	:= nCont
-			::CriarFile("\"+::cNomeFile+"\xl\drawings\"			,"drawing"+cValToChar(::adrawing[nCont])+".xml"			,h_xls_draw()		,)
-			::CriarFile("\"+::cNomeFile+"\xl\drawings\_rels\"	,"drawing"+cValToChar(::adrawing[nCont])+".xml.rels"		,h_xlsreldraw()		,)
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\drawing"+cValToChar(::adrawing[nCont])+".xml")
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\_rels\drawing"+cValToChar(::adrawing[nCont])+".xml.rels")
 		Next
 	EndIf
 
@@ -1881,17 +1927,17 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 		fZip(cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 	EndIf
 
-	For nCont:=1 to Len(::aFiles)
-		If fErase(::aFiles[nCont],,.F.)<>0
-			ConOut(::aFiles[nCont])
-			ConOut("Ferror:"+cValToChar(ferror()))
-		EndIf
-	Next
-
-	DelPasta("\tmpxls\"+::cTmpFile+"\"+::cNomeFile)	//Apaga arquivos temporarios
-	If substr(cArquivo,1,8)<>"\tmpxls\"
-		DelPasta("\tmpxls\"+::cTmpFile)
-	EndIf
+//	For nCont:=1 to Len(::aFiles)
+//		If fErase(::aFiles[nCont],,.F.)<>0
+//			ConOut(::aFiles[nCont])
+//			ConOut("Ferror:"+cValToChar(ferror()))
+//		EndIf
+//	Next
+//
+//	DelPasta("\tmpxls\"+::cTmpFile+"\"+::cNomeFile)	//Apaga arquivos temporarios
+//	If substr(cArquivo,1,8)<>"\tmpxls\"
+//		DelPasta("\tmpxls\"+::cTmpFile)
+//	EndIf
 	If !Empty(cLocal)
 		If GetRemoteType() == REMOTE_HTML
 			CpyS2TW(cArquivo, .T.)
@@ -1903,9 +1949,9 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 				ShellExecute("open",cLocal+'\'+::cNomeFile+'.xlsx',"",cLocal+'\', 1 )
 			EndIf
 		EndIf
-		If lDelSrv
-			DelPasta("\tmpxls\"+::cTmpFile)	//Apaga o arquivo do servidor
-		EndIf
+//		If lDelSrv
+//			DelPasta("\tmpxls\"+::cTmpFile)	//Apaga o arquivo do servidor
+//		EndIf
 	EndIf
 Return cArquivo
 
@@ -2084,10 +2130,13 @@ Method SetVal(v,f,nStyle) Class yExcelc
 	ElseIf cTipo=="N"
 		::SetV(v)
 	ElseIf cTipo=="D"
-		::SetAtributo("s","1")	//Adiciona o estilo padrão de data
+		::SetAtributo("s","1")		//Adiciona o estilo padrão de data
 		//::SetAtributo("t","d")	//Adiciona o estilo padrão de data
 		//::SetV(SUBSTR(DTOS(v),1,4)+"-"+SUBSTR(DTOS(v),5,2)+"-"+SUBSTR(DTOS(v),7,2))
 		::SetV(v-STOD("19000101")+2)
+	ElseIf cTipo=="O" .and. GetClassName(v)=="YEXCEL_DATETIME"
+		::SetAtributo("s","2")			//Adiciona o estilo padrão de data time
+		::SetV(v:GetStrNumber())
 	Else
 		::SetV(v)
 	EndIf
@@ -2449,30 +2498,6 @@ Static Function ColunasIndex(xNum,nIdx)
 	EndIf
 Return cRet
 
-/*Class yExcelXml From LongClassName
-	Data cNome
-	Data cClassName
-	Data oAtributos
-	Data oIndice
-	Data xValor
-	Data oExcel			//Objeto referencia do yexcel
-	Data xDados			//Outros dados
-	Method New()			Constructor
-	Method ClassName()
-	Method GetNome()
-	Method SetValor()
-	Method AddValor()
-	Method GetVAlor()
-	Method AddAtributo()
-	Method SetAtributo()
-	Method GetAtributo()
-//	Method GetPosAtributo()
-	Method GetTag()
-EndClass
-
-Method New(cNome,xValor,oAtributo) Class yExcelTag
-Return self
-*/
 //----------------------------------------------------------------------
 //CLASSE DE TAGS
 //----------------------------------------------------------------------
@@ -2670,15 +2695,6 @@ Static Function VarTipo(xValor,nFile)
 	EndIf
 Return cRet
 
-Class yExcel_Img from yExcelTag
-	Data oyExcel
-	Data nIdRelat
-	Method new() constructor
-EndClass
-
-Method new(oyExcel,cCellType) Class yExcel_Img
-	_Super:New("xdr:"+cCellType,{})
-Return self
 //----------------------------------------------------------------------
 //CLASSE DE TABELAS
 //----------------------------------------------------------------------
@@ -2785,8 +2801,8 @@ Adiciona uma nova coluna a tabela
 @type function
 /*/
 METHOD AddColumn(cNome,nStyle) CLASS yExcel_Table
-	Local nPosCol		:= aScan(self:GetValor(),{|x| x:GetNome()=="tableColumns"})
 	Local otableColumn
+//	Local nPosCol		:= aScan(self:GetValor(),{|x| x:GetNome()=="tableColumns"})
 	::aRef[2][2]	+= 1
 
 	nCont	:= Len(self:oTableColumns:GetValor())+1
@@ -3002,3 +3018,595 @@ METHOD AddStyle(cNome,lLinhaTiras,lColTiras,lFormPrimCol,lFormUltCol) CLASS yExc
 		::otableStyleInfo:SetAtributo("showLastColumn",0)
 	EndIf
 Return
+
+/*/{Protheus.doc} GetDateTime
+Retorna objeto para manipulação de DateTime
+@author Saulo Gomes Martins
+@since 09/12/2019
+@version 1.0
+@param dData, date, Data para formatação
+@param cTime, characters, Hora para formatação
+@param nData, numeric, DataTime em formato numerico
+@type function
+/*/
+METHOD GetDateTime(dData,cTime,nData) Class yExcel
+Return yExcel_DateTime():New(dData,cTime,nData)
+
+/*/{Protheus.doc} yExcel_DateTime
+Classe yExcel_DateTime para manipulação de DateTime
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type class
+/*/
+Class yExcel_DateTime
+	Data dData
+	Data cTime
+	Data cNumero
+	Data cClassName			//Nome da Classe
+	Data cName				//Nome da Classe
+	Method New() CONSTRUCTOR
+	METHOD ClassName()
+	METHOD NumToDateTime()
+	METHOD GetStrNumber()
+	METHOD GetDate()
+	METHOD GetTime()
+	METHOD StrNumber()
+EndClass
+
+/*/{Protheus.doc} yExcel_DateTime:New
+Construtor da classe yExcel_DateTime
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@return self, objeto
+@param dData, date, Data para iniciar o objeto
+@param cTime, characters, Hora para iniciar o objeto
+@param [nData], numeric, Data e hora para iniciar o objeto
+@type function
+@obs enviar dData e cTime ou somente nData
+/*/
+Method New(dData,cTime,nData) class yExcel_DateTime
+	::dData	:= dData
+	::cTime	:= cTime
+	::cClassName	:= "YEXCEL_DATETIME"
+	::cName			:= "YEXCEL_DATETIME"
+	If ValType(::dData)=="D" .AND. ValType(cTime)=="C"
+		::StrNumber()
+	ElseIf ValType(nData)=="N" .OR. ValType(nData)=="C"
+		::NumToDateTime(nData)
+	EndIf
+Return Self
+
+/*/{Protheus.doc} yExcel_DateTime:NumToDateTime
+Converte numero do excel em data e hora
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param nData, numeric, numero da hora, aceita também string
+@type function
+/*/
+Method NumToDateTime(nData) Class yExcel_DateTime
+	Local nInt
+	Local nDec
+	If ValType(nData)=="N"
+		nInt	:= Int(nData)
+		nDec	:= nData-nInt
+	Else
+		nPosPonto	:= At(".",nData)
+		If nPosPonto==0
+			nPosPonto	:= At(",",nData)
+		EndIf
+		If nPosPonto==0
+			nInt		:= Val(nData)
+			nDec		:= 0
+		Else
+			nInt	:= Val(SubStr(nData,1,nPosPonto-1))
+			nDec	:= Val("0."+SubStr(nData,nPosPonto+1))
+		EndIf
+	EndIf
+	::dData	:= STOD("19000101")-2+nInt
+	::cTime	:= ""
+	::cTime	+= StrZero(Int(nDec*86400/60/60),2)		//Hora
+	::cTime	+= ":"+StrZero(Int(nDec*86400/60),2)	//Minuto
+	If Int(nDec*86400)>0
+		::cTime	+= ":"+StrZero(Int(nDec*86400),2)		//Segundos
+	EndIf
+	If (nDec*86400)-Int(nDec*86400)>0
+		::cTime	+= "."+cValToChar(((nDec*86400)-Int(nDec*86400))*1000)
+	EndIf
+	//IntToHora(nDec*86400/60/60)
+Return Self
+
+/*/{Protheus.doc} yExcel_DateTime:GetStrNumber
+Retorna o numero em formato string
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method GetStrNumber() Class yExcel_DateTime
+Return ::cNumero
+
+/*/{Protheus.doc} yExcel_DateTime:GetDate
+Retorna a data
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method GetDate() Class yExcel_DateTime
+Return ::dData
+
+/*/{Protheus.doc} yExcel_DateTime:GetTime
+Retorna a Hora no formato HH:MM:SS
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method GetTime() Class yExcel_DateTime
+Return ::cTime
+
+/*/{Protheus.doc} yExcel_DateTime:StrNumber
+Converte data e hora em string com numero representando data e hora do excel
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method StrNumber() Class yExcel_DateTime
+	Local nHora	:= 0
+	Local aHora	:= SeparaHora(::cTime)
+	nHora		+= (aHora[1]*100000000)				//Hora
+	nHora		+= (aHora[2]*100000000)/60			//Minuto
+	nHora		+= (aHora[3]*100000000)/60/60		//Segundo
+	nHora		+= (aHora[4]*100000000)/60/60/1000	//Milesimo
+	cNum:= Replace(cValToChar(nHora/24),"0.","")
+	If (At(".",cNum)-1)>0
+		cNum:= SubStr(cNum,1,At(".",cNum)-1)
+	Else
+		cNum:= SubStr(cNum,1,Len(cNum))
+	EndIf
+	::cNumero	:= cValToChar(::dData-STOD("19000101")+2)+"."+cNum
+Return ::cNumero
+
+METHOD ClassName() CLASS yExcel_DateTime
+Return "YEXCEL_DATETIME"
+
+/*/{Protheus.doc} SeparaHora
+Retorna Hora,Minuto,Segundo,Milesimo.
+@author Saulo Gomes Martins
+@since 09/12/2019
+@version 1.0
+@return aHora, 1-Hora|2-Munuto|3-Segundo|4-Milésimo de segundo
+@param cHora, characters, Hora no Formato HH:MM:SS.MMMM
+@type function
+/*/
+Static Function SeparaHora(cHora)
+	Local nHoras	:= 0
+	Local nMinutos	:= 0
+	Local nSegundos	:= 0
+	Local nMilesimo	:= 0	//Milésimo de segundo
+	Local nPosSepara
+
+	nPosSepara	:= At(":",cHora)
+	If nPosSepara==0
+		nHoras		:= Val(cHora)
+	Else
+		nHoras		:= Val(SubStr(cHora,1,nPosSepara-1))
+		cHora		:= SubStr(cHora,nPosSepara+1)
+		nPosSepara	:= At(":",cHora)
+		If nPosSepara==0
+			nMinutos	:= Val(cHora)
+		Else
+			nMinutos	:= Val(SubStr(cHora,1,nPosSepara-1))		///60
+			cHora		:= SubStr(cHora,nPosSepara+1)
+			nPosSepara	:= At(".",cHora)
+			If nPosSepara==0
+				nSegundos	:= Val(cHora)
+			Else
+				nSegundos	:= Val(SubStr(cHora,1,nPosSepara-1))	///60/60
+				cHora		:= SubStr(cHora,nPosSepara+1)
+				nMilesimo	:= Val(cHora)							///60/60/1000
+			EndIf
+		EndIf
+	EndIf
+Return {nHoras,nMinutos,nSegundos,nMilesimo}
+
+/*/{Protheus.doc} new_content_types
+Criação do arquivo \[content_types].xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param cXml, characters, xml para criação
+@type function
+/*/
+Method new_content_types(cXml) class YExcel
+	Local nCont
+	Local aNs
+	Default cXml			:= ""
+	::ocontent_types	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+		cXml	+= '	<Default Extension="jpg" ContentType="image/jpeg"/>'
+		cXml	+= '	<Default Extension="png" ContentType="image/png"/>'
+		cXml	+= '	<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+		cXml	+= '	<Default Extension="xml" ContentType="application/xml"/>'
+		cXml	+= '	<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+		cXml	+= '	<Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
+		cXml	+= '	<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+		cXml	+= '	<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>'
+		cXml	+= '	<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
+		cXml	+= '	<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
+		cXml	+= '</Types>'
+	EndIf
+	::ocontent_types:Parse(cXml)
+	aNs	:= ::ocontent_types:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		::ocontent_types:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[content_types].xml")
+Return
+
+/*/{Protheus.doc} new_rels
+Cria arquivo de relacionamento Relationship(rels)
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@return nPos, Posição no array
+@param cXml, characters, xml para criação
+@param cCaminho, characters, caminho do arquivo
+@type function
+/*/
+Method new_rels(cXml,cCaminho) class YExcel
+	Local nCont
+	Local aNs
+	Local oXML
+	Default cXml			:= ""
+	oXML	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+		cXml	+= '</Relationships>'
+	EndIf
+	oXML:Parse(cXml)
+	aNs	:= oXML:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	AADD(::aRels,{oXML,cCaminho,0})
+Return Len(::aRels)
+
+/*/{Protheus.doc} add_rels
+Adiciona node no arquivo Relationship(rels)
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@return cId, rId criado
+@param cCaminho, characters, caminho do arquivo de rel para gravar
+@param cType, characters, atributo Type
+@param cTarget, characters, atributo Target
+@type function
+/*/
+Method add_rels(cCaminho,cType,cTarget) class YExcel
+	Local nPos
+	Local cId
+	If ValType(cCaminho)=="N"
+		nPos	:= cCaminho
+	ElseIf ValType(cCaminho)=="C"
+		If SubStr(cCaminho,1,1)!="\"
+			cCaminho	:= "\"+cCaminho
+		EndIf
+		nPos	:= aScan(::aRels,{|x| x[2]==cCaminho })
+	EndIf
+	If nPos==0
+		nPos	:= ::new_rels(,cCaminho)
+	EndIf
+	::aRels[nPos][3]++
+	cId	:= "rId"+cValToChar(::aRels[nPos][3])
+	::aRels[nPos][1]:XPathAddNode( "/xmlns:Relationships", "Relationship", "" )
+	::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Type"		, cType )
+	::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Target"	, cTarget )
+	::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Id"		, cId )
+Return cId
+
+/*/{Protheus.doc} new_app
+Cria arquivo \docprops\app.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param cXml, characters, xml para leitura
+@type function
+/*/
+Method new_app(cXml) class YExcel
+	Local nCont
+	Local aNs
+	Default cXml			:= ""
+	::oapp	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
+		cXml	+= '	<Application>Microsoft Excel</Application>'
+		cXml	+= '	<DocSecurity>0</DocSecurity>'
+		cXml	+= '	<ScaleCrop>false</ScaleCrop>'
+		cXml	+= '	<HeadingPairs>'
+		cXml	+= '		<vt:vector size="2" baseType="variant">'
+		cXml	+= '			<vt:variant>'
+		cXml	+= '				<vt:lpstr>Planilhas</vt:lpstr>'
+		cXml	+= '			</vt:variant>'
+		cXml	+= '			<vt:variant>'
+		cXml	+= '				<vt:i4>1</vt:i4>'
+		cXml	+= '			</vt:variant>'
+		cXml	+= '		</vt:vector>'
+		cXml	+= '	</HeadingPairs>'
+		cXml	+= '	<TitlesOfParts>'
+		cXml	+= '		<vt:vector size="1" baseType="lpstr">'
+		cXml	+= '			<vt:lpstr>Plan1</vt:lpstr>'
+		cXml	+= '		</vt:vector>'
+		cXml	+= '	</TitlesOfParts>'
+		cXml	+= '	<Company>Microsoft</Company>'
+		cXml	+= '	<LinksUpToDate>false</LinksUpToDate>'
+		cXml	+= '	<SharedDoc>false</SharedDoc>'
+		cXml	+= '	<HyperlinksChanged>false</HyperlinksChanged>'
+		cXml	+= '	<AppVersion>16.0300</AppVersion>'
+		cXml	+= '</Properties>'
+	EndIf
+	::oapp:Parse(cXml)
+	aNs	:= ::oapp:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		::oapp:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\app.xml")
+Return
+
+/*/{Protheus.doc} new_core
+Cria arquivo \docprops\core.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param cXml, characters, xml para leitura
+@type function
+/*/
+Method new_core(cXml) class YExcel
+	Local nCont
+	Local aNs
+	Local aRet
+	Default cXml			:= ""
+	::ocore	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
+		cXml	+= '	<dc:creator>Totvs - Protheus</dc:creator>'
+		cXml	+= '	<cp:lastModifiedBy>Totvs - Protheus</cp:lastModifiedBy>'
+		aRet	:= LocalToUTC(DTOS(Date()),Time())
+		cXml	+= '	<dcterms:created xsi:type="dcterms:W3CDTF">'+SUBSTR(aRet[1],1,4)+"-"+SUBSTR(aRet[1],5,2)+"-"+SUBSTR(aRet[1],7,2)+'T'+aRet[2]+'Z</dcterms:created>'
+		cXml	+= '	<dcterms:modified xsi:type="dcterms:W3CDTF">'+SUBSTR(aRet[1],1,4)+"-"+SUBSTR(aRet[1],5,2)+"-"+SUBSTR(aRet[1],7,2)+'T'+aRet[2]+'Z</dcterms:modified>'
+		cXml	+= '</cp:coreProperties>'
+		aRet	:= nil
+	EndIf
+	::ocore:Parse(cXml)
+	aNs	:= ::ocore:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		::ocore:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\core.xml")
+Return
+
+/*/{Protheus.doc} new_workbook
+Cria arquivo \xl\workbook.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param cXml, characters, xml para leitura
+@type function
+/*/
+Method new_workbook(cXml) class YExcel
+	Local nCont
+	Local aNs
+	Default cXml			:= ""
+	::oworkbook	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+		cXml	+= '	<fileVersion appName="xl" lastEdited="7" lowestEdited="7" rupBuild="17927"/>'
+		cXml	+= '	<workbookPr defaultThemeVersion="124226"/>'
+		cXml	+= '	<bookViews>'
+		cXml	+= '		<workbookView xWindow="240" yWindow="135" windowWidth="20115" windowHeight="8250"/>'
+		cXml	+= '	</bookViews>'
+		cXml	+= '	<sheets>'
+		cXml	+= '	</sheets>'
+		cXml	+= '	<definedNames/>'
+		cXml	+= '</workbook>'
+	EndIf
+	::oworkbook:Parse(cXml)
+	aNs	:= ::oworkbook:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		::oworkbook:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\workbook.xml")
+Return
+
+/*/{Protheus.doc} new_draw
+Cria arquivo \xl\drawings\drawingX.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@return nPos, posição do draw no array
+@param cXml, characters, xml para leitura
+@param cCaminho, characters, caminho para gravar
+@type function
+/*/
+Method new_draw(cXml,cCaminho) class YExcel
+	Local nCont
+	Local aNs
+	Local oXML
+	Default cXml			:= ""
+	oXML	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+		cXml	+= '</xdr:wsDr>'
+	EndIf
+	oXML:Parse(cXml)
+	aNs	:= oXML:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	AADD(::aDraw,{oXML,cCaminho,0})
+Return Len(::aDraw)
+
+/*/{Protheus.doc} ajustNS
+Ajuste para criar node com namespace diferente
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param oXml, object, Objeto TXMLManager
+@param cText1, characters, texto com node errado
+@param cText2, characters, texto com node para correção
+@type function
+/*/
+Static Function ajustNS(oXml,cText1,cText2)
+	Local aNs,nCont
+	oXml:Parse(Replace(oXml:Save2String(),cText1,cText2))
+	aNs	:= oXML:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+Return
+
+/*/{Protheus.doc} xls_styles
+Cria arquivo \xl\styles.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method xls_styles() class YExcel
+	Local nCont
+	Local cRet	:= ""
+	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+	cRet	+= '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">
+	cRet	+= ::onumFmts:GetTag()
+	cRet	+= ::oFonts:GetTag()
+	cRet	+= '	<fills count="'+cValToChar(Len(::aCorPreenc))+'">'
+	For nCont:=1 to Len(::aCorPreenc)
+		cRet	+= ::aCorPreenc[nCont]:GetTag()
+	Next
+	cRet	+= '</fills>'
+	cRet	+= ::oBorders:GetTag()
+	cRet	+= '	<cellStyleXfs count="1">
+	cRet	+= '		<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+	cRet	+= '	</cellStyleXfs>
+	cRet	+= ::oSyles:GetTag()
+	cRet	+= '<cellStyles count="1">
+	cRet	+= '<cellStyle name="Normal" xfId="0" builtinId="0"/>
+	cRet	+= '</cellStyles>
+	cRet	+= ::odxfs:GetTag()
+	cRet	+= '</styleSheet>'
+Return cRet
+
+/*/{Protheus.doc} xls_sheet
+Cria arquivo \xl\worksheets\sheetX.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method xls_sheet(nFile) class YExcel
+	Local nCont
+	Local cRet	:= ""
+	Local nTamArquivo,nBytesFalta,cBuffer,nBytesLer,nBytesLidos,nBytesSalvo
+	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	cRet	+= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
+	cRet	+= ::osheetPr:GetTag()
+	If ::aDimension[1][1]>0
+		cRet	+= '<dimension ref="'+::NumToString(::aDimension[2][2])+cValToChar(::aDimension[2][1])+":"+::NumToString(::aDimension[1][2])+cValToChar(::aDimension[1][1])+'"/>'
+	Else
+		cRet	+= '<dimension ref="A1"/>'
+	EndIf
+	cRet	+= ::osheetViews:GetTag()
+	cRet	+= '<sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25"/>'
+	cRet	+= ::oCols:GetTag()
+	::GravaFile(nFile,cRet)
+	cRet:=""
+	FWRITE(nFile,"<sheetData>")
+	nTamArquivo := Fseek(::nFileTmpRow,0,2)
+	nBytesFalta := nTamArquivo
+	Fseek(::nFileTmpRow,0)
+	cBuffer	:= Space(2048)
+	While nBytesFalta > 0
+		nBytesLer 	:= Min(nBytesFalta, 2048 )
+		nBytesLidos := FREAD(::nFileTmpRow, @cBuffer, nBytesLer )
+		nBytesSalvo := FWRITE(nFile, cBuffer,nBytesLer)
+		nBytesFalta -= nBytesLer
+	EndDo
+	FCLOSE(::nFileTmpRow)
+	FWRITE(nFile,"</sheetData>")
+
+	cRet	+= If(ValType(::oAutoFilter)=="O",::oAutoFilter:GetTag(),"")
+	cRet	+= If(!Empty(::oMergeCells:GetValor()),::oMergeCells:GetTag(),"")
+	If !Empty(::aConditionalFormatting)
+		For nCont:=1 to Len(::aConditionalFormatting)
+			cRet	+= ::aConditionalFormatting[nCont]:GetTag()
+		Next
+	EndIf
+	cRet	+= '<pageMargins left="0.511811024" right="0.511811024" top="0.78740157499999996" bottom="0.78740157499999996" header="0.31496062000000002" footer="0.31496062000000002"/>'
+	cRet	+= if(!Empty(::atable),::otableParts:GetTag(),"")
+	cRet	+= if(!Empty(::adrawing),::odrawing:GetTag(),"")
+	cRet	+= '</worksheet>'
+	::GravaFile(nFile,cRet)
+	cRet:=""
+Return
+
+/*/{Protheus.doc} xls_table
+Cria arquivo \xl\tables\tableX.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+
+@type function
+/*/
+Method xls_table() class YExcel
+	Local cRet	:= ""
+	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	cRet	+= ::atable[::nCont]:GetTag()
+Return cRet
+
+/*/{Protheus.doc} xls_sharedStrings
+Cria arquivo /xl/sharedStrings.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param nFile, numeric, header do arquivo
+@type function
+/*/
+Method xls_sharedStrings(nFile) class YExcel
+	Local nCont
+	Local aString
+	Local cRet	:= ""
+	::oString:list(@aString)
+	aSort(aString,,,{|x,y| x[2]<y[2] })
+	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	cRet	+= '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+cValToChar(Len(aString))+'" uniqueCount="'+cValToChar(Len(aString))+'">'
+	FWRITE(nFile,cRet)
+	cRet	:= ""
+	For nCont:=1 to Len(aString)
+		cRet	+= '<si>'
+		cRet	+= '<t><![CDATA['+EncodeUTF8(aString[nCont][1])+']]></t>'
+		cRet	+= '</si>'
+		FWRITE(nFile,cRet)
+		cRet	:= ""
+	Next
+	cRet	+= '</sst>'
+	FWRITE(nFile,cRet)
+	cRet	:= ""
+Return cRet

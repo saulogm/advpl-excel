@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-	<%For nCont:=1 to Len(oSelf:aImagens)%>
-	<Relationship Id="rId<%=oSelf:aImagens[nCont][1]%>" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/<%=oSelf:aImagens[nCont][2]%>"/>
-	<%Next%>
-</Relationships>

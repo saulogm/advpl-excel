@@ -2,7 +2,7 @@
 Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo de memória e mais otimizado.
 
 # Recursos disponíveis
-* Definir células String,Numérica,data,Logica,formula
+* Definir células String,Numérica,data,DateTime,Logica,formula
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
 * Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação)
@@ -41,13 +41,7 @@ Exemplo de uso:
 [tstyexcel.prw](exemplo/tstyexcel.prw)
 
 # Instalação
-1. Aplicar patch 
-
- P11 [yexcel.ptm](patch/yexcel.ptm)
- 
- P12.1.17 [yexcel_P12.1.17.ptm](patch/yexcel_P12.1.17.ptm)
- 
- P12.1.23 LG [yexcel_P12.1.23_LG.ptm](patch/yexcel_P12.1.23_LG.ptm)
+1. Compilar Fontes da pasta src
 
 Pronto para usar a classe YExcel!
 
