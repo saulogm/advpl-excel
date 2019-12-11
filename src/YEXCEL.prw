@@ -696,6 +696,7 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	If Len(cNome)>31
 		cNome	:= SubStr(cNome,1,31)
 	EndIf
+	cNome	:= EncodeUTF8(cNome)
 	If nQtdPlanilhas>0	//Grava a Planilha anterior
 		If Empty(::oCols:GetValor())
 			::oCols:AddValor(yExcelTag():New("col"))
@@ -2133,7 +2134,11 @@ Method SetVal(v,f,nStyle) Class yExcelc
 		::SetAtributo("s","1")		//Adiciona o estilo padrão de data
 		//::SetAtributo("t","d")	//Adiciona o estilo padrão de data
 		//::SetV(SUBSTR(DTOS(v),1,4)+"-"+SUBSTR(DTOS(v),5,2)+"-"+SUBSTR(DTOS(v),7,2))
-		::SetV(v-STOD("19000101")+2)
+		If !Empty(v)
+			::SetV(v-STOD("19000101")+2)
+		Else
+			::SetV(" ")
+		EndIf
 	ElseIf cTipo=="O" .and. GetClassName(v)=="YEXCEL_DATETIME"
 		::SetAtributo("s","2")			//Adiciona o estilo padrão de data time
 		::SetV(v:GetStrNumber())
