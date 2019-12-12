@@ -20,6 +20,8 @@ Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo 
 * Cria nome para referência de célula ou intervalo
 * Agrupamento de linha
 * Imagens
+* Exibir/Oculta linhas de Grade
+* Definir linha para repetir na impressão
 
 * Leitura simples dos dados
 

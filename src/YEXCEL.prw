@@ -35,6 +35,8 @@ RECURSOS DISPONIVEIS
 * Cria nome para referência de célula ou intervalo
 * Agrupamento de linha
 * Imagens
+* Exibir/Oculta linhas de Grade
+* Definir linha para repetir na impressão
 
 * Leitura simples dos dados
 @type class
@@ -115,6 +117,8 @@ CLASS YExcel
 	METHOD AutoFilter()		//Cria os Filtros na planilha
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD NivelLinha()
+	METHOD showGridLines()	//Exibir ou ocultar linhas de grade
+	METHOD SetPrintTitles()	//Definir linha para repetir na impressão
 
 	METHOD GetDateTime()
 
@@ -191,11 +195,13 @@ Cria nome para refencia de célula ou intervalo
 @param [nColuna2], numeric, Coluna final se intervalo
 @param [cRefPar], characters, Rerefencia
 @param [cPlanilha], characters, Planilha
+@param [cEscopo], characters, Planilha de escopo
 @type function
 /*/
-METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha) CLASS YExcel
+METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha,cEscopo) CLASS YExcel
 	Local odefinedName	:= yExcelTag():New("definedName",)
-	Local cRef
+	Local cRef			:= ""
+	Local nPos			:= 0
 	PARAMTYPE 0	VAR cNome			AS CHARACTER
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC			OPTIONAL
 	PARAMTYPE 2	VAR nColuna	  		AS NUMERIC			OPTIONAL
@@ -203,18 +209,45 @@ METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha) CLASS YE
 	PARAMTYPE 4	VAR nColuna2  		AS NUMERIC			OPTIONAL
 	PARAMTYPE 5	VAR cRefPar	 	 	AS CHARACTER		OPTIONAL
 	PARAMTYPE 6	VAR cPlanilha	  	AS CHARACTER		OPTIONAL DEFAULT ::cPlanilhaAt
+	PARAMTYPE 7	VAR cEscopo	  		AS CHARACTER		OPTIONAL
 
 	odefinedName:SetAtributo("name",cNome)
 	If ValType(cRefPar)=="U"
-		cRef	:= "'"+cPlanilha+"'!"+::Ref(nLinha,nColuna,.T.,.T.)
-		If Valtype(nLinha2)<>"U" .and. Valtype(nColuna2)<>"U"
+		If !Empty(cPlanilha)
+			cRef	:= "'"+cPlanilha+"'!"
+		EndIf
+		cRef	+= ::Ref(nLinha,nColuna,.T.,.T.)
+		If Valtype(nLinha2)<>"U" .OR. Valtype(nColuna2)<>"U"
 			cRef	+= ":"+::Ref(nLinha2,nColuna2,.T.,.T.)
 		Endif
 	Else
 		cRef	:= cRefPar
-	EndiF
-	::oworkbook:XPathAddNode( "/xmlns:workbook/xmlns:definedNames", "definedName", cRef )
-	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "name"		, cNome)
+	EndIf
+	If ValType(cEscopo)=="C"
+		nPos	:= aScan(::aPlanilhas,{|x| x[2]==cEscopo })
+	EndIf
+	::oworkbook:XPathAddNode( "/xmlns:workbook/xmlns:definedNames"						, "definedName"			, cRef )
+	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "name"				, cNome)
+	If nPos>0
+		::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "localSheetId"		, cValToChar(nPos-1))
+	EndIf
+Return
+
+/*/{Protheus.doc} SetPrintTitles
+Repetir linhas na impressão
+@author Saulo Gomes Martins
+@since 12/12/2019
+@version 1.0
+@param nLinha, numeric, Linha inicial
+@param nLinha2, numeric, Linha final
+@param cRefPar, characters, Referencia
+@param cPlanilha, characters, Planilha
+@type function
+@obs pag 1566
+/*/
+METHOD SetPrintTitles(nLinha,nLinha2,cRefPar,cPlanilha) CLASS YExcel
+	Default nLinha2	:= nLinha
+	::AddNome("_xlnm.Print_Titles",nLinha,,nLinha2,,cRefPar,cPlanilha,::cPlanilhaAt)
 Return
 
 METHOD ClassName() CLASS YExcel
@@ -389,7 +422,7 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 		nPos	:= ::nIdRelat
 		cID		:= ::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(nQtdPlan)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing","../drawings/drawing"+cValToChar(nPos)+".xml")
 
-		::aPlanilhas[nQtdPlan][2]	:= ::new_draw(,"\xl\drawings\drawing"+cValToChar(nPos)+".xml")
+		::aPlanilhas[nQtdPlan][3]	:= ::new_draw(,"\xl\drawings\drawing"+cValToChar(nPos)+".xml")
 
 		::odrawing:SetAtributo("r:id",cID)
 		::odrawing:xDados	:= nPos
@@ -402,7 +435,7 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 
 
 	EndIf
-	nPos	:= ::aPlanilhas[nQtdPlan][2]
+	nPos	:= ::aPlanilhas[nQtdPlan][3]
 	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr", cCellType, "" )
 	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "editAs"	, "oneCell" )
 
@@ -768,7 +801,7 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 	//Adiciona dentro do workbooks o relacionamento na planilha
 	cID	:= ::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
 
-	AADD(::aPlanilhas,{cID,/*draw*/})
+	AADD(::aPlanilhas,{cID,cNome,/*draw*/})
 
 	::oworkbook:XPathAddNode( "/xmlns:workbook/xmlns:sheets", "sheet", "" )
 	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:sheets/xmlns:sheet[last()]", "name"		, cNome)
@@ -867,6 +900,20 @@ METHOD NivelLinha(nNivel,lFechado,lOculto) CLASS YExcel
 	::lRowcollapsed		:= lFechado
 	::lRowHidden		:= lOculto
 Return
+
+/*/{Protheus.doc} showGridLines
+Se vai exibir ou ocultar linhas de grade na planilha
+@author Saulo Gomes Martins
+@since 11/12/2019
+@version 1.0
+@param lView, logical, Se falso oculta linhas de grade
+@type function
+@obs pag 1709
+/*/
+METHOD showGridLines(lView) CLASS YExcel
+	::osheetViews:GetValor():SetAtributo("showGridLines",If(lView,"1","0"))
+Return
+
 /*/{Protheus.doc} AutoFilter
 Cria os Filtros na planilha
 @author Saulo Gomes Martins
@@ -877,6 +924,7 @@ Cria os Filtros na planilha
 @param nLinha2, numeric, Linha final
 @param nColuna2, numeric, Coluna Final
 @type function
+@obs pag 1601 - 18.3.1.2
 /*/
 Method AutoFilter(nLinha,nColuna,nLinha2,nColuna2) CLASS YExcel
 	Local cColuna,cColuna2
@@ -1714,6 +1762,7 @@ Retorna a referencia do excel de acordo com posição da linha e coluna em formato
 METHOD Ref(nLinha,nColuna,llinha,lColuna) CLASS YExcel
 	Local cLinha	:= ""
 	Local cColuna	:= ""
+	Local cRet		:= ""
 	Default llinha	:= .F.
 	Default lColuna	:= .F.
 	If llinha
@@ -1722,7 +1771,13 @@ METHOD Ref(nLinha,nColuna,llinha,lColuna) CLASS YExcel
 	If lColuna
 		cColuna	:= "$"
 	EndIf
-Return cColuna+NumToString(nColuna)+cLinha+cValToChar(nLinha)
+	If ValType(nColuna)!="U"
+		cRet	+= cColuna+NumToString(nColuna)
+	EndIf
+	If ValType(nLinha)!="U"
+		cRet	+= cLinha+cValToChar(nLinha)
+	EndIf
+Return cRet
 
 
 /*/{Protheus.doc} LocRef
@@ -1750,7 +1805,7 @@ METHOD LocRef(cRef) CLASS YExcel
 			cLinha	+= SubStr(cRef,nCont,1)
 		EndIf
 	Next
-Return {Val(cLinha),::StringToNum(cColuna)}
+Return {Val(cLinha),If(!Empty(cColuna),::StringToNum(cColuna),0)}
 
 
 /*/{Protheus.doc} NumToString
