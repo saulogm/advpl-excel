@@ -81,6 +81,7 @@ CLASS YExcel
 	Data osheetPr
 	Data oCell
 	Data nNumFmtId
+	Data cPagOrientation
 	Data adrawing		//arquivo drawing de cada sheet
 	Data aworkdrawing	//arquivo drawing do worksheets
 	Data odrawing		//tag drawing dentro do sheet
@@ -119,6 +120,7 @@ CLASS YExcel
 	METHOD NivelLinha()
 	METHOD showGridLines()	//Exibir ou ocultar linhas de grade
 	METHOD SetPrintTitles()	//Definir linha para repetir na impressão
+	METHOD SetPagOrientation()	//Definir orientação da pagina na impressão
 
 	METHOD GetDateTime()
 
@@ -250,6 +252,22 @@ METHOD SetPrintTitles(nLinha,nLinha2,cRefPar,cPlanilha) CLASS YExcel
 	::AddNome("_xlnm.Print_Titles",nLinha,,nLinha2,,cRefPar,cPlanilha,::cPlanilhaAt)
 Return
 
+/*/{Protheus.doc} SetPagOrientation
+Informa a orientação do papel na impressão
+@author Saulo Gomes Martins
+@since 12/12/2019
+@version 1.0
+@param cOrientation, characters, descricao
+@type function
+@obs pag 1667
+/*/
+METHOD SetPagOrientation(cOrientation) CLASS YExcel
+	Default cOrientation := "default"
+	If lower(cOrientation)+"|" $ "default|landscape|portrait|"
+		::cPagOrientation	:= cOrientation
+	EndIf
+Return ::cPagOrientation
+
 METHOD ClassName() CLASS YExcel
 Return "YEXCEL"
 
@@ -300,6 +318,7 @@ METHOD New(cNomeFile) CLASS YExcel
 	::nIDMedia		:= 0
 	::aRels			:= {}
 	::aDraw			:= {}
+	::cPagOrientation	:= "landscape"
 	::new_app()
 	::new_core()
 	::new_workbook()
@@ -764,6 +783,7 @@ METHOD ADDPlan(cNome,cCor) CLASS YExcel
 		oCorPlan		:= yExcelTag():New("tabColor",,{{"rgb",cCor}})
 	EndIf
 	::osheetPr		:= yExcelTag():New("sheetPr",{oCorPlan},{{"codeName",cNome}})
+	::osheetPr:AddValor(yExcelTag():New("pageSetUpPr",,{{"fitToPage","1"}}))	//Flag indicating whether the Fit to Page print option is enabled. pag 1675
 	::adimension	:= {{0,0},{999999,999999}}
 	::osheetData	:= yExcelsheetData():New(self)
 	::osheetViews	:= yExcelTag():New("sheetViews",yExcelTag():New("sheetView",{}))
@@ -3588,6 +3608,14 @@ Method xls_sheet(nFile) class YExcel
 	Local nCont
 	Local cRet	:= ""
 	Local nTamArquivo,nBytesFalta,cBuffer,nBytesLer,nBytesLidos,nBytesSalvo
+	Local cFunName	:= FUNNAME()
+	Default cFunName:= ""
+	If Type("cUserName")=="C"
+		If !Empty(cFunName)
+			cFunName	+= "|"
+		EndIf
+		cFunName	+= cUserName
+	EndIf
 	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	cRet	+= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
 	cRet	+= ::osheetPr:GetTag()
@@ -3623,6 +3651,20 @@ Method xls_sheet(nFile) class YExcel
 		Next
 	EndIf
 	cRet	+= '<pageMargins left="0.511811024" right="0.511811024" top="0.78740157499999996" bottom="0.78740157499999996" header="0.31496062000000002" footer="0.31496062000000002"/>'
+	cRet	+= '<pageSetup paperSize="9" fitToWidth="1" fitToHeight="0" orientation="'+::cPagOrientation+'" />
+	cRet	+= '<headerFooter>'
+//	cRet	+= '<oddHeader>&amp;R'+cFunName
+//	If !Empty(cFunName)
+//		cRet	+= CRLF
+//	EndIf
+//	cRet	+= DTOC(date())+" "+SUBSTR(TIME(),1,5)+'</oddHeader>'
+	cRet	+= '<oddFooter>&amp;LTOTVS&amp;RPág &amp;P/&amp;N'+CRLF
+	If !Empty(cFunName)
+		cRet	+= cFunName+CRLF
+	EndIf
+	cRet	+= DTOC(date())+" "+SUBSTR(TIME(),1,5)
+	cRet	+= '</oddFooter>'
+	cRet	+= '</headerFooter>'
 	cRet	+= if(!Empty(::atable),::otableParts:GetTag(),"")
 	cRet	+= if(!Empty(::adrawing),::odrawing:GetTag(),"")
 	cRet	+= '</worksheet>'
