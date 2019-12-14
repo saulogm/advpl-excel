@@ -201,7 +201,6 @@ Cria nome para refencia de célula ou intervalo
 @type function
 /*/
 METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha,cEscopo) CLASS YExcel
-	Local odefinedName	:= yExcelTag():New("definedName",)
 	Local cRef			:= ""
 	Local nPos			:= 0
 	PARAMTYPE 0	VAR cNome			AS CHARACTER
@@ -213,7 +212,6 @@ METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha,cEscopo) 
 	PARAMTYPE 6	VAR cPlanilha	  	AS CHARACTER		OPTIONAL DEFAULT ::cPlanilhaAt
 	PARAMTYPE 7	VAR cEscopo	  		AS CHARACTER		OPTIONAL
 
-	odefinedName:SetAtributo("name",cNome)
 	If ValType(cRefPar)=="U"
 		If !Empty(cPlanilha)
 			cRef	:= "'"+cPlanilha+"'!"
