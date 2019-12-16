@@ -18,6 +18,7 @@ user function tstyexcel()
 	Local oDateTime
 	oExcel:new("TstYExcel")
 	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
+
 	//Definição de Cor Transparecia+RGB
 	nPosCor			:= oExcel:CorPreenc("FF0000FF")	//Cor de Fundo Azul
 					//EfeitoPreenc(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom)
@@ -157,6 +158,8 @@ user function tstyexcel()
 
 	//TESTE COM FORMATAR COMO TABELA
 	oExcel:ADDPlan("Tabela","0000FF")		//Adiciona nova planilha
+	oExcel:SetPrintTitles(1,1)				//Linha de/ate que irá repetir na impressão de paginas
+	oExcel:showGridLines(.F.)		//Oculta linhas de grade
 	oExcel:SetDefRow(.T.,{1,4})		//Definir a coluna inicial e final da linha, importante para performace da classe
 	//oExcel:Cell(1,1,"teste",,)
 	oTabela	:= oExcel:AddTabela("Tabela1",1,1)	//Cria uma tabela de estilos
