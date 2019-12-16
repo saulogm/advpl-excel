@@ -51,10 +51,7 @@ CLASS YExcel
 	Data adimension			//Dimensão da planilha
 	Data cClassName			//Nome da Classe
 	Data cName				//Nome da Classe
-	Data oFonts				//Fontes
 	Data osheetData			//Objeto com dados das linhas
-	Data oSyles				//Objeto com dados dos estilos
-	Data aCorPreenc			//Array com as cores de preenchimento
 	Data cTmpFile			//Arquivo temporario criado no servidor
 	Data cNomeFile			//Nome do arquivo para gerar
 	Data nFileTmpRow		//nHeader do Arquivo temporario de linhas
@@ -65,14 +62,11 @@ CLASS YExcel
 	Data oAutoFilter
 	Data oMergeCells
 	Data aConditionalFormatting
-	Data oBorders
 	Data lRowDef
 	Data aSpanRow
 	Data nTamLinha
 	Data nColunaAtual
 	Data nPriodFormCond
-	Data odxfs
-	Data onumFmts
 	Data otableParts
 	Data atable
 	Data aFiles
@@ -87,13 +81,15 @@ CLASS YExcel
 	Data odrawing		//tag drawing dentro do sheet
 	Data aImagens		//Imagens adicionada
 	Data aImgdraw		//Imagens usada no sheets(pode usar mais de uma vez a mesma imagem)
-	Data nIDMedia
-	Data aRels
-	Data ocontent_types
-	Data oapp
-	Data ocore
-	Data oworkbook
-	Data aDraw
+	Data nIDMedia		//Sequencial do id da imagem
+
+	Data aRels			//Arquivos rels
+	Data ocontent_types	//content_types.xml
+	Data oapp			//app.xml
+	Data ocore			//core.xml
+	Data oworkbook		//workbook.xml
+	Data aDraw			//Arquivos Draw
+	Data oStyle			//styles.xml
 	//Agrupamento de linha
 	Data nRowoutlineLevel
 	Data lRowcollapsed
@@ -133,7 +129,6 @@ CLASS YExcel
 	METHOD CriarFile()		//Cria arquivos temporarios
 	METHOD GravaFile()		//Grava em arquivos temporarios
 	METHOD GravaRow()		//Grava temporario de linhas
-	METHOD AddBorda()		//Adiciona borda
 	METHOD AddFormatCond()	//Formatação condicional(todos rercusos)
 	METHOD Pane()			//Congelar Painéis
 	METHOD AddAgrCol()		//Em Desenvolvimento
@@ -145,6 +140,7 @@ CLASS YExcel
 	METHOD AddStyles()		//Adiciona Estilos
 	METHOD Alinhamento()	//Adiciona alinhamento
 	METHOD Borda()			//Adiciona borda(auxiliar)
+	METHOD Border()			//Cria Borda com todas opções
 	Method AddFmtNum()		//Cria formato para numeros
 
 	//Formatação condicional
@@ -170,10 +166,10 @@ CLASS YExcel
 	METHOD new_core()
 	METHOD new_workbook()
 	METHOD new_draw()
-	METHOD xls_styles()
 	METHOD xls_sheet()
 	METHOD xls_table()
 	METHOD xls_sharedStrings()
+	METHOD new_styles()
 	/*Tabela
 		Method cell()
 		Method AddStyle()
@@ -278,7 +274,7 @@ Construtor da classe
 @type function
 /*/
 METHOD New(cNomeFile) CLASS YExcel
-	Local oTmp,nPos
+	Local nPos
 	If ValType(cAr7Zip)=="U"
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
 	Endif
@@ -287,22 +283,9 @@ METHOD New(cNomeFile) CLASS YExcel
 	::cName			:= "YEXCEL"
 	::oString		:= tHashMap():new()
 	::oCell			:= tHashMap():new()	//Usado no leitura simples
-	::oBorders		:= yExcelTag():New("borders",{})
-	::odxfs			:= yExcelTag():New("dxfs",{})
-	::odxfs:SetAtributo("count",0)
-	::onumFmts		:= yExcelTag():New("numFmts",{})	//Formatos de numeros
-	::onumFmts:SetAtributo("count",0)
-	::Borda()	//Sem borda
 	::nQtdString	:= 0
-	::oFonts		:= YExcelFont():New()
-	::AddFont(11,"FF000000","Calibri","2")
-	::oSyles		:= yExcel_cellXfs():New()
-	::nNumFmtId		:= 164
-	::AddStyles(0/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/)	//Sem Formatação
-	::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data padrão
-	::AddStyles(166/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data time padrão
+	::nNumFmtId		:= 167
 	::aPlanilhas	:= {}
-	::aCorPreenc	:= {}	//yExcel_CorPreenc():New()
 	::cTmpFile		:= lower(CriaTrab(,.F.))
 	::cNomeFile		:= lower(cNomeFile)
 	::nFileTmpRow	:= 0
@@ -320,38 +303,41 @@ METHOD New(cNomeFile) CLASS YExcel
 	::new_app()
 	::new_core()
 	::new_workbook()
-	::new_content_types()	//Inicializa ocontent_types [Content_Types].xml
+	::new_content_types()
+	::new_styles()
+	::AddFont(11,"FF000000","Calibri","2")
+	::Borda()	//Sem borda
+	::CorPreenc(,,"none")
+	::CorPreenc(,,"gray125")
+	::AddStyles(0/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/)	//Sem Formatação
+	::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data padrão
+	::AddStyles(166/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/)	//Formato Data time padrão
+
 	nPos	:= ::new_rels(,"\_rels\.rels")
 	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument","xl/workbook.xml")
 	::add_rels(nPos,"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties","docProps/core.xml")
 	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties","docProps/app.xml")
 
+	//Defini formato Moeda padrão brasileiro
+	::oStyle:XPathAddNode( "/xmlns:styleSheet/xmlns:numFmts", "numFmt", "" )
+	::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[last()]", "formatCode"	, '_-"R$"\ * #,##0.00_-;\-"R$"\ * #,##0.00_-;_-"R$"\ * "-"??_-;_-@_-' )
+	::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[last()]", "numFmtId"	, "44" )
+	::oStyle:XPathSetAtt("/xmlns:styleSheet/xmlns:numFmts","count",cValToChar(Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts","count"))+1))
 
-	oTmp	:= yExcelTag():New("numFmt")
-	oTmp:SetAtributo("formatCode","_-&quot;R$&quot;\ * #,##0.00_-;\-&quot;R$&quot;\ * #,##0.00_-;_-&quot;R$&quot;\ * &quot;-&quot;??_-;_-@_-")
-	oTmp:SetAtributo("numFmtId",44)
-	::onumFmts:AddValor(oTmp)
-	::onumFmts:SetAtributo("count",1)
-	oTmp	:= nil
+	//Defini formato 166
+	::oStyle:XPathAddNode( "/xmlns:styleSheet/xmlns:numFmts", "numFmt", "" )
+	::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[last()]", "formatCode"	, "dd/mm/yyyy\ hh:mm;@" )
+	::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[last()]", "numFmtId"	, "166" )
+	::oStyle:XPathSetAtt("/xmlns:styleSheet/xmlns:numFmts","count",cValToChar(Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts","count"))+1))
 
-	oTmp	:= yExcelTag():New("numFmt")
-	oTmp:SetAtributo("formatCode","dd/mm/yyyy\ hh:mm;@")
-	oTmp:SetAtributo("numFmtId",166)
-	::onumFmts:AddValor(oTmp)
-	::onumFmts:SetAtributo("count",1)
-	oTmp	:= nil
 
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
-	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\theme\theme1.xml")
 
 	nPos	:= ::new_rels(,"\xl\_rels\workbook.xml.rels")
 	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme","theme/theme1.xml")
 	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles","styles.xml")
 	::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
-
-	AADD(::aCorPreenc,yExcel_CorPreenc():New("none"))
-	AADD(::aCorPreenc,yExcel_CorPreenc():New("gray125"))
 Return self
 
 
@@ -449,8 +435,6 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 		::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
 		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/drawings/drawing"+cValToChar(Len(::aworkdrawing))+".xml" )
 		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml" )
-
-
 	EndIf
 	nPos	:= ::aPlanilhas[nQtdPlan][3]
 	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr", cCellType, "" )
@@ -467,21 +451,19 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:ext", "cx"	, cValToChar(Round(nX,0)) )
 	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:ext", "cy"	, cValToChar(Round(nY,0)) )
 
-	opic	:= yExcelTag():New("xdr:pic",{})
-
 	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]", "pic", "" )
 	//nvPicPr
 	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic", "nvPicPr", "" )
-		//cNvPr
-		::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr", "cNvPr", "" )
-		::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPr","id", cValToChar(Len(::aImgdraw)+1) )
-		::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPr","name", "Imagem "+cValToChar(nID) )
+	//cNvPr
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr", "cNvPr", "" )
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPr","id", cValToChar(Len(::aImgdraw)+1) )
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPr","name", "Imagem "+cValToChar(nID) )
 
-		//cNvPicPr
-		::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr", "cNvPicPr", "" )
-		::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPicPr", "a:picLocks", "" )
-		ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
-		::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPicPr/a:picLocks", "noChangeAspect", "1" )
+	//cNvPicPr
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr", "cNvPicPr", "" )
+	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPicPr", "a:picLocks", "" )
+	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:nvPicPr/xdr:cNvPicPr/a:picLocks", "noChangeAspect", "1" )
 
 	//blipFill
 	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic", "blipFill", "" )
@@ -1007,9 +989,8 @@ Cria objeto de fonte para ser usado na criação de estilos para formatação condic
 @type function
 /*/
 METHOD Font(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado) CLASS YExcel
-	oFont	:= YExcelFont():New()
-	oFont:Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado)
-Return oFont:GetValor(1)
+
+Return {nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado}
 
 /*/{Protheus.doc} Preenc
 Cria objeto de preenchimento para ser usado na criação de estilos para formatação condicional
@@ -1023,7 +1004,7 @@ Cria objeto de preenchimento para ser usado na criação de estilos para formataçã
 /*/
 METHOD Preenc(cBgCor,cFgCor,cType) CLASS YExcel
 Default cType	:= "solid"
-Return oCorPreenc	:= yExcel_CorPreenc():New(cType,cFgCor,cBgCor)
+Return {cFgCor,cBgCor,cType}
 
 /*/{Protheus.doc} ObjBorda
 Cria objeto de bordas para ser usado na criação de estilos para formatação condicional
@@ -1037,43 +1018,39 @@ Cria objeto de bordas para ser usado na criação de estilos para formatação condi
 @Obs pode juntar os tipo. Exemplo "ED"-Esquerda e direita
 /*/
 METHOD ObjBorda(cTipo,cCor,cModelo) CLASS YExcel
-	Local oBorda
-	::Borda(cTipo,cCor,cModelo,@oBorda,.F.)
-Return oBorda
+Return {cTipo,cCor,cModelo}
 
 /*/{Protheus.doc} ADDdxf
 Cria estilo para formatação condicional
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
-@param [oFont], object, objeto criado pelo metodo :Font() com fonte
-@param [oCorPreenc], object, objeto com cor criado pelo metodo :Preench() de preenchimento
-@param [oBorda], object, objeto criado pelo metodo :ObjBorda() com borda
+@param [aFont], array, objeto criado pelo metodo :Font() com fonte
+@param [aCorPreenc], array, objeto com cor criado pelo metodo :Preench() de preenchimento
+@param [aBorda], object, objeto criado pelo metodo :ObjBorda() com borda
 @return posição do estilo
 @type function
 /*/
-METHOD ADDdxf(oFont,oCorPreenc,oBorda) CLASS YExcel
-	Local odxf
-	Local nPos
+METHOD ADDdxf(aFont,aCorPreenc,aBorda) CLASS YExcel
+	Local nTamdxfs
 
-	::odxfs:AddValor(yExcelTag():New("dxf",{}))
-	nPos	:= Len(::odxfs:GetValor())
-	::odxfs:SetAtributo("count",nPos)
-	odxf	:= ::odxfs:GetValor(nPos)
+	::oStyle:XPathAddNode( "xmlns:styleSheet/xmlns:dxfs","dxf", "" )
+	nTamdxfs	:= Val(::oStyle:XPathGetAtt("xmlns:styleSheet/xmlns:dxfs","count"))+1
+	::oStyle:XPathSetAtt("xmlns:styleSheet/xmlns:dxfs","count",cValToChar(nTamdxfs))
 
 	//Font
-	If ValType(oFont)<>"U"
-		odxf:AddValor(oFont)
+	If ValType(aFont)=="A"
+		::AddFont(aFont[1],aFont[2],aFont[3],aFont[4],aFont[5],aFont[6],aFont[7],aFont[8],aFont[9],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	EndIf
 	//Preenchimento
-	If ValType(oCorPreenc)<>"U"
-		odxf:AddValor(oCorPreenc)
+	If ValType(aCorPreenc)=="A"
+		::CorPreenc(aCorPreenc[1],aCorPreenc[2],aCorPreenc[3],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	EndIf
 	//Borda
 	If ValType(oBorda)<>"U"
-		odxf:AddValor(oBorda)
+		::Borda(aBorda[1],aBorda[2],aBorda[3],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	EndIf
-Return nPos-1
+Return nTamdxfs-1
 
 /*/{Protheus.doc} FormatCond
 Cria uma regra para formatação condicional
@@ -1204,8 +1181,70 @@ Adiciona fonte para ser usado no estilo das células
 @return posição da fonte
 @type function
 /*/
-METHOD AddFont(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado) CLASS YExcel
-Return ::oFonts:Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado)
+METHOD AddFont(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado,cLocal) CLASS YExcel
+	Local nTamFonts := 0
+	PARAMTYPE 0	VAR nTamanho		AS NUMERIC				OPTIONAL DEFAULT 11
+	PARAMTYPE 1	VAR cCorRGB			AS CHARACTER,NUMERIC	OPTIONAL DEFAULT "FF000000"
+	PARAMTYPE 2	VAR cNome	  		AS CHARACTER			OPTIONAL DEFAULT "Calibri"
+	PARAMTYPE 3	VAR cfamily	  		AS CHARACTER			OPTIONAL DEFAULT "2"
+	PARAMTYPE 4	VAR cScheme	  		AS CHARACTER			OPTIONAL DEFAULT "minor"
+	PARAMTYPE 5	VAR lNegrito	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 6	VAR lItalico	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 7	VAR lSublinhado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 8	VAR lTachado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
+	PARAMTYPE 9	VAR cLocal	  		AS CHARACTER			OPTIONAL DEFAULT "/xmlns:styleSheet/xmlns:fonts"	///xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]
+
+	If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
+		cCorRGB	:= "FF"+cCorRGB
+	EndIf
+	If cLocal=="/xmlns:styleSheet/xmlns:fonts"
+		nTamFonts	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
+		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nTamFonts))
+	EndIf
+	::oStyle:XPathAddNode( cLocal, "font", "" )
+
+	If lNegrito
+		::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "b", "" )
+	EndIf
+	If lItalico
+		::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "i", "" )
+	EndIf
+	If lTachado
+		::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "strike", "" )
+	EndIf
+	If lSublinhado
+		::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "u", "" )
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "sz", "" )
+	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:sz", "val"	, cValToChar(nTamanho) )
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "color", "" )
+	If ValType(cCorRGB)=="N"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:color", "indexed"	, cValToChar(cCorRGB) )
+	Else
+		If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
+			cCorRGB	:= "FF"+cCorRGB
+		EndIf
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:color", "rgb"	, cCorRGB )
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "name", "" )
+	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:name", "val"	, cNome )
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "family", "" )
+	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:family", "val"	, cfamily )
+	/* pag 2525
+	0 Not applicable.
+	1 Roman
+	2 Swiss
+	3 Modern
+	4 Script
+	5 Decorative
+	*/
+	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "scheme", "" )
+	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:scheme", "val"	, cScheme )
+return nTamFonts-1
 
 /*/{Protheus.doc} CorPreenc
 Adiciona cor de preenchimento para ser usado no estilo das células
@@ -1216,13 +1255,68 @@ Adiciona cor de preenchimento para ser usado no estilo das células
 @param [cFgCor], characters, Cor em Aplha+RGB do fundo
 @param [cType], characters, tipo de preenchimento(padrão solid)
 @type function
+
+@see http://www.datypic.com/sc/ooxml/a-patternType-1.html
+cType
+	none
+	solid
+	mediumGray
+	darkGray
+	lightGray
+	darkHorizontal
+	darkVertical
+	darkDown
+	darkUp
+	darkGrid
+	darkTrellis
+	lightHorizontal
+	lightVertical
+	lightDown
+	lightUp
+	lightGrid
+	lightTrellis
+	gray125
+	gray0625
 /*/
-METHOD CorPreenc(cFgCor,cBgCor,cType) CLASS YExcel
+METHOD CorPreenc(cFgCor,cBgCor,cType,cLocal) CLASS YExcel
 	Local nPos
 	Default cType	:= "solid"
-	AADD(::aCorPreenc,yExcel_CorPreenc():New(cType,cFgCor,cBgCor))
-	nPos	:= Len(::aCorPreenc)-1
-Return nPos
+	PARAMTYPE 3	VAR cLocal	  		AS CHARACTER			OPTIONAL DEFAULT "/xmlns:styleSheet/xmlns:fills"	///xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]
+
+	::oStyle:XPathAddNode( cLocal, "fill", "" )
+	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
+	If cLocal=="/xmlns:styleSheet/xmlns:fills"
+		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]", "patternFill", "" )
+	::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "patternType"	, cType )
+	If cType == "solid"
+		::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "fgColor", "" )
+		If ValType(cFgCor)=="C"
+			If Len(cFgCor)==6
+				cFgCor	:= "FF"+cFgCor
+			EndIf
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:fgColor", "rgb"	, cFgCor )
+		Elseif ValType(cFgCor)=="N"
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:fgColor", "indexed"	, cValToChar(cFgCor) )
+		Else
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:fgColor", "indexed"	, "64" )	//indexed="64" System Foreground n/a
+		EndiF
+		::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "bgColor", "" )
+		If ValType(cBgCor)=="C"
+			If Len(cBgCor)==6
+				cBgCor	:= "FF"+cBgCor
+			EndIf
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:bgColor", "rgb"	, cBgCor )
+		Elseif ValType(cBgCor)=="N"
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:bgColor", "indexed"	, cValToChar(cBgCor) )
+		Else
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:bgColor", "indexed"	, "65" )	//indexed="65" System Background n/a 	pag:1775
+		EndIf
+	EndIf
+
+Return nPos-1
 
 /*/{Protheus.doc} EfeitoPreenc
 Adiciona cor com efeito de preenchimento
@@ -1239,17 +1333,19 @@ Adiciona cor com efeito de preenchimento
 @return nPos, Posição para criação de estilo
 @type function
 /*/
-METHOD EfeitoPreenc(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel
+METHOD EfeitoPreenc(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal) CLASS YExcel
 	Local nPos
-	Local ogradientFill	:= ::gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom)
-	AADD(::aCorPreenc,yExcelTag():New("fill",ogradientFill))
-	nPos	:= Len(::aCorPreenc)-1
-Return nPos
+	PARAMTYPE 7	VAR cLocal	  		AS CHARACTER			OPTIONAL DEFAULT "/xmlns:styleSheet/xmlns:fills"	///xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]
+	::oStyle:XPathAddNode( cLocal, "fill", "" )
+	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
+	If cLocal=="/xmlns:styleSheet/xmlns:fills"
+		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
+	EndIf
+	::gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal+"/xmlns:fill[last()]")
+Return nPos-1
 
-METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel	//Pag 1779
+METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal) CLASS YExcel	//Pag 1779
 	Local nCont
-	Local ogradientFill	:= yExcelTag():New("gradientFill",{})
-	Local ostop
 	PARAMTYPE 0	VAR nAngulo 		AS NUMERIC		OPTIONAL
 	PARAMTYPE 1	VAR aCores	 		AS ARRAY
 	PARAMTYPE 2	VAR ctype	 		AS CHARACTER	OPTIONAL
@@ -1257,11 +1353,16 @@ METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel
 	PARAMTYPE 4	VAR nright	 		AS NUMERIC		OPTIONAL
 	PARAMTYPE 5	VAR ntop	 		AS NUMERIC		OPTIONAL
 	PARAMTYPE 6	VAR nbottom	 		AS NUMERIC		OPTIONAL
+	PARAMTYPE 7	VAR cLocal	  		AS CHARACTER			OPTIONAL DEFAULT "/xmlns:styleSheet/xmlns:fills/xmlns:fill[last()]"	///xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]
+
+	::oStyle:XPathAddNode( cLocal, "gradientFill", "" )
+
 	If ValType(ctype)!="U" .and. !(ctype $ "path|linear")
 		UserException("YExcel - Tipo invalido para efeito de preenchimento.(path|linear)")
 	EndIf
-	ogradientFill:SetAtributo("type",ctype)
+
 	If ValType(ctype)!="U" .and. ctype=="path"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "type"	, ctype )
 		Default nleft	:= 0.5
 		Default nright	:= 0.5
 		Default ntop	:= 0.5
@@ -1278,13 +1379,13 @@ METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel
 		If ValType(nbottom)!="N" .OR. !(nbottom>=0 .and. nbottom<=1)
 			UserException("YExcel - definir posição bottom em 0 a 1. Valor informado:"+cValToChar(nbottom))
 		EndIf
-		ogradientFill:SetAtributo("left"	,nleft)
-		ogradientFill:SetAtributo("right"	,nright)
-		ogradientFill:SetAtributo("top"		,ntop)
-		ogradientFill:SetAtributo("bottom"	,nbottom)
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "left"		, cValToChar(nleft) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "right"		, cValToChar(nright) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "top"		, cValToChar(ntop) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "bottom"	, cValToChar(nbottom) )
 	Else
 		Default nAngulo	:= 90
-		ogradientFill:SetAtributo("degree",nAngulo)
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "degree"	, cValToChar(nAngulo) )
 	EndIf
 	For nCont:=1 to Len(aCores)
 		If !(aCores[nCont][2]>=0 .and. aCores[nCont][2]<=1)
@@ -1293,10 +1394,12 @@ METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom) CLASS YExcel
 		If Len(aCores[nCont][1])==6
 			aCores[nCont][1]	:= "FF"+aCores[nCont][1]
 		EndIf
-		ostop	:= yExcelTag():New("stop",yExcelTag():New("color",,{{"rgb",aCores[nCont][1]}}),{{"position",aCores[nCont][2]}})
-		ogradientFill:AddValor(ostop)
+		::oStyle:XPathAddNode( cLocal+"/xmlns:gradientFill[last()]", "stop", "" )
+		::oStyle:XPathAddNode( cLocal+"/xmlns:gradientFill[last()]/xmlns:stop[last()]", "color", "" )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]/xmlns:stop[last()]/xmlns:color", "rgb"	, aCores[nCont][1] )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]/xmlns:stop[last()]", "position"	, cValToChar(aCores[nCont][2]) )
 	Next
-Return ogradientFill
+Return
 
 /*/{Protheus.doc} Borda
 Cria borda para ser usado no estilo das células
@@ -1314,13 +1417,13 @@ Cria borda para ser usado no estilo das células
 @Obs pode juntar os tipo. Exemplo "ED"-Esquerda e direita
 
 /*/
-METHOD Borda(cTipo,cCor,cModelo,oBorder,lAdd) CLASS YExcel
+METHOD Borda(cTipo,cCor,cModelo,cLocal) CLASS YExcel
 	Local nPos
 	Local cLeft,cRight,cTop,cBottom,cDiagonal
-	Default cModelo	:= "thin"
-	Default cCor	:= "FF000000"
-	Default lAdd	:= .T.			//Adiciona o objeto ao estilo principal
-	Default cTipo	:= ""
+	PARAMTYPE 0	VAR cTipo	  		AS CHARACTER			OPTIONAL DEFAULT ""
+	PARAMTYPE 1	VAR cCor	  		AS CHARACTER			OPTIONAL DEFAULT "FF000000"
+	PARAMTYPE 2	VAR cModelo	  		AS CHARACTER			OPTIONAL DEFAULT "thin"
+	PARAMTYPE 3	VAR cLocal	  		AS CHARACTER			OPTIONAL DEFAULT "/xmlns:styleSheet/xmlns:borders"	///xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]
 	If "E" $ cTipo .or. "L" $ cTipo
 		cLeft	:= cModelo
 	EndIf
@@ -1338,110 +1441,87 @@ METHOD Borda(cTipo,cCor,cModelo,oBorder,lAdd) CLASS YExcel
 	EndIf
 
 	If cTipo=="T" .or. cTipo=="ALL" .or. cTipo=="A"	//Todas bordas
-		oBorder	:= Border(cModelo,cModelo,cModelo,cModelo,,cCor,cCor,cCor,cCor,)
+		nPos	:= ::Border(cModelo,cModelo,cModelo,cModelo,,cCor,cCor,cCor,cCor,,cLocal)
 	Else
-		oBorder	:= Border(cLeft,cRight,cTop,cBottom,cDiagonal,cCor,cCor,cCor,cCor,cCor)
+		nPos	:= ::Border(cLeft,cRight,cTop,cBottom,cDiagonal,cCor,cCor,cCor,cCor,cCor,cLocal)
 	EndIf
-	If lAdd
-		nPos	:= ::AddBorda(oBorder)
+Return nPos-1
+
+METHOD Border(cleft,cright,ctop,cbottom,cdiagonal,cCorleft,cCorright,cCortop,cCorbottom,cCordiagonal,cLocal) CLASS YExcel
+	Local nPos
+	PARAMTYPE 10	VAR cLocal	  		AS CHARACTER			OPTIONAL DEFAULT "/xmlns:styleSheet/xmlns:borders"	///xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]
+
+	::oStyle:XPathAddNode( cLocal, "border", "" )
+	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
+	If cLocal=="/xmlns:styleSheet/xmlns:borders"
+		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]", "left", "" )
+	If ValType(cleft)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:left", "style"	, cleft )
+		If ValType(cCorleft)<>"U"
+			::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]/xmlns:left", "color", "" )
+			If ValType(cCorleft)=="C"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:left/xmlns:color", "rgb"	,cCorleft )
+			ElseIf ValType(cCorleft)=="N"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:left/xmlns:color", "indexed"	,cValToChar(cCorleft) )
+			EndIf
+		EndIf
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]", "right", "" )
+	If ValType(cright)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:right", "style"	, cright )
+		If ValType(cCorright)<>"U"
+			::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]/xmlns:right", "color", "" )
+			If ValType(cCorright)=="C"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:right/xmlns:color", "rgb"	,cCorright )
+			ElseIf ValType(cCorright)=="N"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:right/xmlns:color", "indexed"	,cValToChar(cCorright) )
+			EndIf
+		EndIf
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]", "top", "" )
+	If ValType(ctop)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:top", "style"	, ctop )
+		If ValType(cCortop)<>"U"
+			::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]/xmlns:top", "color", "" )
+			If ValType(cCortop)=="C"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:top/xmlns:color", "rgb"	,cCortop )
+			ElseIf ValType(cCortop)=="N"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:top/xmlns:color", "indexed"	,cValToChar(cCortop) )
+			EndIf
+		EndIf
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]", "bottom", "" )
+	If ValType(cbottom)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:bottom", "style"	, cbottom )
+		If ValType(cCorbottom)<>"U"
+			::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]/xmlns:bottom", "color", "" )
+			If ValType(cCorbottom)=="C"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:bottom/xmlns:color", "rgb"	,cCorbottom )
+			ElseIf ValType(cCorbottom)=="N"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:bottom/xmlns:color", "indexed"	,cValToChar(cCorbottom) )
+			EndIf
+		EndIf
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]", "diagonal", "" )
+	If ValType(cdiagonal)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:diagonal", "style"	, cdiagonal )
+		If ValType(cCordiagonal)<>"U"
+			::oStyle:XPathAddNode( cLocal+"/xmlns:border[last()]/xmlns:diagonal", "color", "" )
+			If ValType(cCordiagonal)=="C"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:diagonal/xmlns:color", "rgb"	,cCordiagonal )
+			ElseIf ValType(cCordiagonal)=="N"
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:border[last()]/xmlns:diagonal/xmlns:color", "indexed"	,cValToChar(cCordiagonal) )
+			EndIf
+		EndIf
 	EndIf
 Return nPos
-//NÃO DOCUMENTAR
-METHOD AddBorda(oBorder) CLASS YExcel	//Pag 1769
-	Local nPos
-	Local oBorder
-
-	//(pag 2446)val single,double,dotted(serinhada),triple,thick(grosso),medium
-	//
-	::oBorders:AddValor(oBorder)
-	nPos := Len(::oBorders:GetValor())
-	::oBorders:SetAtributo("count",nPos)
-Retur nPos-1
-
-Static Function Border(cleft,cright,ctop,cbottom,cdiagonal,cCorleft,cCorright,cCortop,cCorbottom,cCordiagonal)
-	Local oBorder	:= yExcelTag():New("border",{})
-	Local oColor,oStyle
-	oStyle	:= nil
-	oColor	:= nil
-	If ValType(cleft)<>"U"
-		oStyle	:= tHashMap():new()
-		oStyle:Set("style",cleft)
-		If ValType(cCorleft)<>"U"
-			oColor	:= yExcelTag():New("color",nil,oColor)
-			If ValType(cCorleft)=="C"
-				oColor:SetAtributo("rgb",cCorleft)
-			ElseIf ValType(cCorleft)=="N"
-				oColor:SetAtributo("indexed",cCorleft)
-			EndIf
-		EndIf
-	EndIf
-	oBorder:AddValor(yExcelTag():New("left",oColor,oStyle))
-
-	oStyle	:= nil
-	oColor	:= nil
-	If ValType(cright)<>"U"
-		oStyle	:= tHashMap():new()
-		oStyle:Set("style",cright)
-		If ValType(cCorright)<>"U"
-			oColor	:= yExcelTag():New("color",nil,oColor)
-			If ValType(cCorright)=="C"
-				oColor:SetAtributo("rgb",cCorright)
-			ElseIf ValType(cCorright)=="N"
-				oColor:SetAtributo("indexed",cCorright)
-			EndIf
-		EndIf
-	EndIf
-	oBorder:AddValor(yExcelTag():New("right",oColor,oStyle))
-
-	oStyle	:= nil
-	oColor	:= nil
-	If ValType(ctop)<>"U"
-		oStyle	:= tHashMap():new()
-		oStyle:Set("style",ctop)
-		If ValType(cCortop)<>"U"
-			oColor	:= yExcelTag():New("color",nil,oColor)
-			If ValType(cCortop)=="C"
-				oColor:SetAtributo("rgb",cCortop)
-			ElseIf ValType(cCortop)=="N"
-				oColor:SetAtributo("indexed",cCortop)
-			EndIf
-		EndIf
-	EndIf
-	oBorder:AddValor(yExcelTag():New("top",oColor,oStyle))
-
-	oStyle	:= nil
-	oColor	:= nil
-	If ValType(cbottom)<>"U"
-		oStyle	:= tHashMap():new()
-		oStyle:Set("style",cbottom)
-		If ValType(cCorbottom)<>"U"
-			oColor	:= yExcelTag():New("color",nil,oColor)
-			If ValType(cCorbottom)=="C"
-				oColor:SetAtributo("rgb",cCorbottom)
-			ElseIf ValType(cCorbottom)=="N"
-				oColor:SetAtributo("indexed",cCorbottom)
-			EndIf
-		EndIf
-	EndIf
-	oBorder:AddValor(yExcelTag():New("bottom",oColor,oStyle))
-
-	oStyle	:= nil
-	oColor	:= nil
-	If ValType(cdiagonal)<>"U"
-		oStyle	:= tHashMap():new()
-		oStyle:Set("style",cdiagonal)
-		If ValType(cCordiagonal)<>"U"
-			oColor	:= yExcelTag():New("color",nil,oColor)
-			If ValType(cCordiagonal)=="C"
-				oColor:SetAtributo("rgb",cCordiagonal)
-			ElseIf ValType(cCordiagonal)=="N"
-				oColor:SetAtributo("indexed",cCordiagonal)
-			EndIf
-		EndIf
-	EndIf
-	oBorder:AddValor(yExcelTag():New("diagonal",oColor,oStyle))
-
-Return oBorder
 
 /*/{Protheus.doc} AddFmtNum
 Formatação para numeros
@@ -1469,12 +1549,11 @@ Formatação para numeros
 
 /*/
 Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cCor,cCorNeg,nNumFmtId) class YExcel
-	Local nPos,cformatCode
+	Local cformatCode
 	Local cDecimal
 	Local cNumero	:= ""
 	Local cNegINIAli:= ""
 	Local cNegFIMAli:= ""
-	Local oFormat
 	Local nPosCor
 	Local aCores	:= {"Black","Blue","Cyan","Green","Magenta","Red","White","Yellow"}
 	PARAMTYPE 0	VAR nDecimal			AS NUMERIC					OPTIONAL DEFAULT 0
@@ -1530,11 +1609,11 @@ Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cC
 		cNumero	:= cNumero+"."+cDecimal
 	EndIf
 	If !Empty(cPrefixo)
-		cPrefixo	:= "&quot;"+cPrefixo+"&quot;
+		cPrefixo	:= '"'+cPrefixo+'"'
 		cNumero		:= cPrefixo+cNumero
 	EndIf
 	If !Empty(cSufixo)
-		cSufixo		:= "&quot;"+cSufixo+"&quot;
+		cSufixo		:= '"'+cSufixo+'"'
 		cNumero		:= cNumero+cSufixo
 	EndIf
 	If !Empty(cNegINI)
@@ -1544,7 +1623,7 @@ Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cC
 		cNegFIMAli	:= "_"+cNegFIM
 	EndIf
 	If !Empty(cValorZero)
-		cValorZero	:= "&quot;"+cValorZero+"&quot;
+		cValorZero	:= '"'+cValorZero+'"'
 	Else
 		cValorZero	:= cNumero
 	EndIf
@@ -1555,25 +1634,19 @@ Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cC
 		cCorNeg	:= "["+cCorNeg+"]"
 	EndIf
 	cformatCode	:= cCor+cNegINIAli+cNumero+cNegFIMAli+";"+cCorNeg+cNegINI+cNumero+cNegFIM+";"+cNegINIAli+cValorZero+cNegFIMAli+";@"
-	If !Empty(nNumFmtId)
-		nPos	:= aScan(::onumFmts:GetValor(),{|x| x:GetAtributo("numFmtId")==nNumFmtId })
-		If nPos==0
-			oFormat	:= yExcelTag():New("numFmt")
-			oFormat:SetAtributo("numFmtId",nNumFmtId)
-			nPos	:= nil
-		Else
-			oFormat	:= ::onumFmts:GetValor(nPos)
-		EndIf
-	Else
-		oFormat	:= yExcelTag():New("numFmt")
-		::nNumFmtId++
-		oFormat:SetAtributo("numFmtId",::nNumFmtId)
-	EndIf
 
-	oFormat:SetAtributo("formatCode",cformatCode)
-	::onumFmts:AddValor(oFormat,nPos)
-	::onumFmts:SetAtributo("count",Len(::onumFmts:GetValor()))
-Return If(!Empty(nNumFmtId),nNumFmtId,::nNumFmtId)
+
+	If Empty(nNumFmtId)
+		nNumFmtId	:= ::nNumFmtId++
+	EndIf
+	If !::oStyle:XPathHasNode( "/xmlns:styleSheet/xmlns:numFmts/numFmt[@numFmtId='"+cValToChar(nNumFmtId)+"']")	//Se não existe o ID
+		::oStyle:XPathAddNode( "/xmlns:styleSheet/xmlns:numFmts", "numFmt", "" )
+		::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[last()]", "numFmtId"	, cValToChar(nNumFmtId) )
+		::oStyle:XPathSetAtt("/xmlns:styleSheet/xmlns:numFmts","count",cValToChar(Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts","count"))+1))
+	EndIf
+	::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@numFmtId='"+cValToChar(nNumFmtId)+"']", "formatCode"	, cformatCode )
+
+Return nNumFmtId	//Não retorna a posição, mas o atributo numFmtId
 
 /*/{Protheus.doc} AddStyles
 Cria um estilo para ser usado nas células
@@ -1623,21 +1696,80 @@ Cria um estilo para ser usado nas células
 44 - Contabil R$  #.##0,00
 /*/
 METHOD AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) CLASS YExcel
+	Local cLocal	:= "/xmlns:styleSheet/xmlns:cellXfs"
+	Local aListAtt
+	Local nCont,nCont2
+	Local nPos
 	PARAMTYPE 0	VAR numFmtId			AS NUMERIC 		OPTIONAL
 	PARAMTYPE 1	VAR fontId				AS NUMERIC 		OPTIONAL
 	PARAMTYPE 2	VAR fillId				AS NUMERIC 		OPTIONAL
 	PARAMTYPE 3	VAR borderId			AS NUMERIC 		OPTIONAL
-	PARAMTYPE 4	VAR xfId  				AS NUMERIC 		OPTIONAL
-	PARAMTYPE 5	VAR aValores  			AS ARRAY 		OPTIONAL
-	PARAMTYPE 6	VAR aOutrosAtributos	AS ARRAY 		OPTIONAL
-	If ValType(fontId)=="N" .AND. (fontId+1)>Len(::oFonts:GetValor())
+	PARAMTYPE 4	VAR xfId  				AS NUMERIC 		OPTIONAL DEFAULT 0
+	PARAMTYPE 5	VAR aValores  			AS ARRAY 		OPTIONAL DEFAULT {}
+	PARAMTYPE 6	VAR aOutrosAtributos	AS ARRAY 		OPTIONAL DEFAULT {}
+	If ValType(fontId)=="N" .AND. (fontId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fonts","count"))
 		UserException("YExcel - Fonte informada("+cValToChar(fontId)+") não definido. Utilize o indice informado pelo metodo :AddFont()")
-	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Len(::aCorPreenc)
+	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fills","count"))
 		UserException("YExcel - Cor Preenchimento informado("+cValToChar(fillId)+") não definido. Utilize o indice informado pelo metodo :CorPreenc()")
-	ElseIf ValType(borderId)=="N" .AND. (borderId+1)>Len(::oBorders:GetValor())
+	ElseIf ValType(borderId)=="N" .AND. (borderId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
 		UserException("YExcel - Borda informada("+cValToChar(borderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
-	EndIF
-Return ::oSyles:Add(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
+	EndIf
+
+	::oStyle:XPathAddNode( cLocal, "xf", "" )
+	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
+	::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
+
+	If ValType(numFmtId)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "numFmtId"			, cValToChar(numFmtId) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "applyNumberFormat"	, "1" )
+	Else
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "numFmtId"			, "0" )
+	EndIf
+
+	If ValType(fontId)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "fontId"				, cValToChar(fontId) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "applyFont"			, "1" )
+	Else
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "fontId"				, "0" )
+	EndIf
+
+	If ValType(fillId)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "fillId"				, cValToChar(fillId) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "applyFill"			, "1" )
+	Endif
+	If ValType(borderId)<>"U"
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "borderId"			, cValToChar(borderId) )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "applyBorder"			, "1" )
+	Else
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "borderId"			, "0" )
+	EndIf
+
+	::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "xfId"					, cValToChar(xfId) )
+
+	For nCont:=1 to Len(aValores)
+		::oStyle:XPathAddNode( cLocal+"/xmlns:xf[last()]", aValores[nCont]:GetNome(), "" )
+		If aValores[nCont]:GetNome()=="alignment"
+			If aScan(self:oStyle:XPathGetAttArray(cLocal+"/xmlns:xf[last()]"),{|x| x[1]=="applyAlignment"})>0
+				::oStyle:XPathSetAtt( cLocal+"/xmlns:xf[last()]", "applyAlignment"		, "1" )
+			Else
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]", "applyAlignment"		, "1" )
+			EndIf
+		EndIf
+		aValores[nCont]:oAtributos:List(@aListAtt)
+		For nCont2:=1 to Len(aListAtt)
+			If aScan(self:oStyle:XPathGetAttArray(cLocal+"/xmlns:xf[last()]/xmlns:"+aValores[nCont]:GetNome()),{|x| x[1]==aListAtt[nCont2][1] })>0
+				::oStyle:XPathSetAtt( cLocal+"/xmlns:xf[last()]/xmlns:"+aValores[nCont]:GetNome(), aListAtt[nCont2][1]			, cValToChar(aListAtt[nCont2][2]) )
+			Else
+				::oStyle:XPathAddAtt( cLocal+"/xmlns:xf[last()]/xmlns:"+aValores[nCont]:GetNome(), aListAtt[nCont2][1]			, cValToChar(aListAtt[nCont2][2]) )
+			EndIf
+		Next
+	Next
+
+	For nCont:=1 to Len(aOutrosAtributos)
+		::oStyle:XPathSetAtt( cLocal+"/xmlns:xf[last()]", aOutrosAtributos[nCont][1]	, cValToChar(aOutrosAtributos[nCont][2]) )
+	Next
+return nPos-1
+
 
 /*/{Protheus.doc} Alinhamento
 Cria objeto de alinhamento da célula para ser usado na criação de estilo
@@ -1941,10 +2073,13 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 
 	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\")
 	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops")
+	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl")
 	::ocontent_types:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[content_types].xml")
 	::oapp:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\app.xml")
 	::ocore:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops\core.xml")
 	::oworkbook:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\workbook.xml")
+	::oStyle:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
+
 	For nCont:=1 to Len(::aRels)
 		If !Empty(::aRels[nCont][3])
 			FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+SubStr(::aRels[nCont][2],1,rAt("\",::aRels[nCont][2])-1),.F.)
@@ -1965,7 +2100,7 @@ Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
 	::xls_sharedStrings(nFile)
 	fClose(nFile)
 	nFile	:= nil
-	::CriarFile("\"+::cNomeFile+"\xl"				,"styles.xml"			,::xls_styles()			,)
+
 	::CriarFile("\"+::cNomeFile+"\xl\theme"			,"theme1.xml"			,u_yxlsthem()			,)
 
 	nQtdPlanilhas	:= Len(::aPlanilhas)
@@ -2219,91 +2354,13 @@ Method SetVal(v,f,nStyle) Class yExcelc
 		::SetV(v)
 	EndIf
 	If ValType(nStyle)=="N"
-		If nStyle+1>Len(::oyExcel:oSyles:GetValor())
+		If nStyle+1>Val(::oyExcel:oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs","count"))
 			UserException("YExcel - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 		Else
 			::SetAtributo("s",nStyle)
 		EndIf
 	EndIf
 Return self
-
-Class YExcelFont From YExcelTag
-	Method New()	constructor
-	Method Add()
-EndClass
-
-Method New() Class YExcelFont
-	_Super:New("fonts",{})
-Return
-
-Method Add(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado) Class YExcelFont
-	Local nTamFonts,nTamFont
-	PARAMTYPE 0	VAR nTamanho		AS NUMERIC				OPTIONAL DEFAULT 11
-	PARAMTYPE 1	VAR cCorRGB			AS CHARACTER,NUMERIC	OPTIONAL DEFAULT "FF000000"
-	PARAMTYPE 2	VAR cNome	  		AS CHARACTER			OPTIONAL DEFAULT "Calibri"
-	PARAMTYPE 3	VAR cfamily	  		AS CHARACTER			OPTIONAL DEFAULT "2"
-	PARAMTYPE 4	VAR cScheme	  		AS CHARACTER			OPTIONAL DEFAULT "minor"
-	PARAMTYPE 5	VAR lNegrito	  	AS LOGICAL				OPTIONAL DEFAULT .F.
-	PARAMTYPE 6	VAR lItalico	  	AS LOGICAL				OPTIONAL DEFAULT .F.
-	PARAMTYPE 7	VAR lSublinhado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
-	PARAMTYPE 8	VAR lTachado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
-
-	If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
-		cCorRGB	:= "FF"+cCorRGB
-	EndIf
-	::AddValor(yExcelTag():New("font",{}))
-	nTamFonts	:= Len(::GetValor())
-	::SetAtributo("count",nTamFonts)
-	::SetAtributo("x14ac:knownFonts",1)
-
-	If lNegrito
-		AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("b"))
-	EndIf
-	If lItalico
-		AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("i"))
-	EndIf
-	If lTachado
-		AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("strike"))
-	EndIf
-	If lSublinhado
-		AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("u"))
-	EndIf
-
-
-	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("sz"))
-	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
-	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",nTamanho)
-
-	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("color"))
-	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
-	If ValType(cCorRGB)=="N"
-		::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("indexed",cCorRGB)
-	Else
-		If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
-			cCorRGB	:= "FF"+cCorRGB
-		EndIf
-		::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("rgb",cCorRGB)
-	EndIf
-
-	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("name"))
-	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
-	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",cNome)
-
-	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("family"))
-	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
-	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",cfamily)
-	/* pag 2525
-	0 Not applicable.
-	1 Roman
-	2 Swiss
-	3 Modern
-	4 Script
-	5 Decorative
-	*/
-	AADD(::xValor[nTamFonts]:xValor,yExcelTag():New("scheme"))
-	nTamFont	:= Len(::xValor[nTamFonts]:xValor)
-	::xValor[nTamFonts]:xValor[nTamFont]:SetAtributo("val",cScheme)
-return nTamFonts-1
 
 //CLASSE DAS LINHAS
 Class yExcelRow From yExcelTag
@@ -2354,123 +2411,6 @@ Method SetVal(nColuna,xValor,cFormula,nStyle) Class yExcelRow
 	Endif
 Return
 
-Class yExcel_CorPreenc From yExcelTag
-	Method New() constructor
-EndClass
-
-/*
-@see http://www.datypic.com/sc/ooxml/a-patternType-1.html
-cType
-	none
-	solid
-	mediumGray
-	darkGray
-	lightGray
-	darkHorizontal
-	darkVertical
-	darkDown
-	darkUp
-	darkGrid
-	darkTrellis
-	lightHorizontal
-	lightVertical
-	lightDown
-	lightUp
-	lightGrid
-	lightTrellis
-	gray125
-	gray0625
-*/
-Method New(cType,cFgCor,cBgCor) Class yExcel_CorPreenc
-	Local ofgColor,obgColor,oPatternFill
-	Local aValores	:= {}
-	Default cType	:= "solid"
-	ofgColor	:= yExcelTag():New("fgColor")
-	If ValType(cFgCor)=="C"
-		If Len(cFgCor)==6
-			cFgCor	:= "FF"+cFgCor
-		EndIf
-		ofgColor:SetAtributo("rgb",cFgCor)
-	Elseif ValType(cFgCor)=="N"
-		ofgColor:SetAtributo("indexed",cFgCor)	//indexed="65" System Background n/a 	pag:1775
-	Else
-		ofgColor:SetAtributo("indexed",65)	//indexed="65" System Background n/a 	pag:1775
-	EndiF
-	obgColor	:= yExcelTag():New("bgColor")
-	If ValType(cBgCor)=="C"
-		If Len(cBgCor)==6
-			cBgCor	:= "FF"+cBgCor
-		EndIf
-		obgColor:SetAtributo("rgb",cBgCor)
-	Elseif ValType(cBgCor)=="N"
-		obgColor:SetAtributo("indexed",cFgCor)
-	Else
-		obgColor:SetAtributo("indexed",64)	//indexed="64" System Foreground n/a
-	EndIf
-	If cType == "solid"
-		AADD(aValores,ofgColor)
-		AADD(aValores,obgColor)
-	EndIf
-	oPatternFill	:= yExcelTag():New("patternFill",aValores)
-	oPatternFill:SetAtributo("patternType",cType)
-	_Super:New("fill",oPatternFill)
-Return
-
-
-//----------------------------------------------------------
-Class yExcel_cellXfs From yExcelTag
-	Method New() constructor
-	Method Add()
-EndClass
-
-Method New() Class yExcel_cellXfs
-	_Super:New("cellXfs",{})
-Return self
-
-Method Add(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos) Class yExcel_cellXfs
-	Local nPos,nCont
-	Local oAtrr	:= tHashMap():new()
-	Default aOutrosAtributos		:= {}
-	Default aValores				:= {}
-	Default xfId	:= 0
-
-	If ValType(numFmtId)<>"U"
-		oAtrr:Set("numFmtId",numFmtId)
-		oAtrr:Set("applyNumberFormat","1")
-	Else
-		oAtrr:Set("numFmtId",0)
-	EndIf
-
-	If ValType(fontId)<>"U"
-		oAtrr:Set("fontId",fontId)
-		oAtrr:Set("applyFont","1")
-	Else
-		oAtrr:Set("fontId",0)
-	EndIf
-	If ValType(fillId)<>"U"
-		oAtrr:Set("fillId",fillId)
-		oAtrr:Set("applyFill","1")
-	Endif
-	If ValType(borderId)<>"U"
-		oAtrr:Set("borderId",borderId)
-		oAtrr:Set("applyBorder","1")
-	Else
-		oAtrr:Set("borderId",0)
-	EndIf
-
-	oAtrr:Set("xfId",xfId)
-
-	If aScan(aValores,{|x| x:GetNome()=="alignment"})>0
-		oAtrr:Set("applyAlignment","1")
-	EndIf
-
-	For nCont:=1 to Len(aOutrosAtributos)
-		oAtrr:Set(aOutrosAtributos[nCont][1],aOutrosAtributos[nCont][2])
-	Next
-	::AddValor(yExcelTag():New("xf",aValores,oAtrr))
-	nPos	:= Len(::GetValor())
-	::SetAtributo("count", nPos)
-return nPos-1
 
 //----------------------------------------------------------
 Class yExcelsheetData From yExcelTag
@@ -3562,7 +3502,7 @@ Static Function ajustNS(oXml,cText1,cText2)
 	Next
 Return
 
-/*/{Protheus.doc} xls_styles
+/*/{Protheus.doc} new_styles
 Cria arquivo \xl\styles.xml
 @author Saulo Gomes Martins
 @since 10/12/2019
@@ -3570,29 +3510,35 @@ Cria arquivo \xl\styles.xml
 
 @type function
 /*/
-Method xls_styles() class YExcel
+Method new_styles(cXml) class YExcel
 	Local nCont
-	Local cRet	:= ""
-	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-	cRet	+= '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">
-	cRet	+= ::onumFmts:GetTag()
-	cRet	+= ::oFonts:GetTag()
-	cRet	+= '	<fills count="'+cValToChar(Len(::aCorPreenc))+'">'
-	For nCont:=1 to Len(::aCorPreenc)
-		cRet	+= ::aCorPreenc[nCont]:GetTag()
+	Local aNs
+	Default cXml			:= ""
+	::oStyle	:= TXMLManager():New()
+	If Empty(cXml)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
+		cXml	+= '<numFmts count="0"/>'
+		cXml	+= '<fonts count="0" x14ac:knownFonts="1"/>'
+		cXml	+= '<fills count="0"/>'
+		cXml	+= '<borders count="0"/>'
+		cXml	+= '<cellStyleXfs count="1">'
+		cXml	+= '<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>'
+		cXml	+= '</cellStyleXfs>'
+		cXml	+= '<cellXfs count="0"/>
+		cXml	+= '<cellStyles count="1">
+		cXml	+= '<cellStyle name="Normal" xfId="0" builtinId="0"/>
+		cXml	+= '</cellStyles>
+		cXml	+= '<dxfs count="0"/>'
+		cXml	+= '</styleSheet>'
+	EndIf
+	::oStyle:Parse(cXml)
+	aNs	:= ::oStyle:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		::oStyle:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
 	Next
-	cRet	+= '</fills>'
-	cRet	+= ::oBorders:GetTag()
-	cRet	+= '	<cellStyleXfs count="1">
-	cRet	+= '		<xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
-	cRet	+= '	</cellStyleXfs>
-	cRet	+= ::oSyles:GetTag()
-	cRet	+= '<cellStyles count="1">
-	cRet	+= '<cellStyle name="Normal" xfId="0" builtinId="0"/>
-	cRet	+= '</cellStyles>
-	cRet	+= ::odxfs:GetTag()
-	cRet	+= '</styleSheet>'
-Return cRet
+	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
+Return
 
 /*/{Protheus.doc} xls_sheet
 Cria arquivo \xl\worksheets\sheetX.xml
