@@ -644,7 +644,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
     					cnumfmtid	:= aAtrr[nPos][2]
     					If "|"+cnumfmtid+"|" $ "|14|15|16|17|18|19|20|21|22|45|46|47|"
     						cTipo		:= "D"
-    						oDataTime	:= yExcel_DateTime:New(,,oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
+    						oDataTime	:= yExcel_DateTime():New(,,oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
     						cRet		:= oDataTime:GetDate()
     						::oCell:Set(cRef+"_H",oDataTime:GetTime())
 							FreeObj(oDataTime)
@@ -1047,7 +1047,7 @@ METHOD ADDdxf(aFont,aCorPreenc,aBorda) CLASS YExcel
 		::CorPreenc(aCorPreenc[1],aCorPreenc[2],aCorPreenc[3],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	EndIf
 	//Borda
-	If ValType(oBorda)<>"U"
+	If ValType(aBorda)=="A"
 		::Borda(aBorda[1],aBorda[2],aBorda[3],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	EndIf
 Return nTamdxfs-1
