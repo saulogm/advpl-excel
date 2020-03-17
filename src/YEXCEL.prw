@@ -399,8 +399,8 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 	PARAMTYPE 2	VAR nColuna		AS NUMERIC
 	PARAMTYPE 3	VAR nY			AS NUMERIC
 	PARAMTYPE 4	VAR nX			AS NUMERIC
-	PARAMTYPE 5	VAR cUnidade	AS CHARACTER	DEFAULT "px"
-	PARAMTYPE 6	VAR nRot		AS NUMERIC		DEFAULT 0
+	PARAMTYPE 5	VAR cUnidade	AS CHARACTER	OPTIONAL DEFAULT "px"
+	PARAMTYPE 6	VAR nRot		AS NUMERIC		OPTIONAL DEFAULT 0
 
 	If aScan(::aImagens,{|x| x[1]==nID })==0
 		UserException("YExcel - Imagem não cadastrada, usar metodo ADDImg. ID("+cValToChar(nID)+")")
@@ -633,9 +633,9 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
     			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="b"
     				cTipo	:= "L"
     				cRet	:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")=="1"
-    			ElseIf aAtributos[nCont3][1]=="s" .and. aAtributos[nCont3][2]=="1"
-    				cTipo	:= "D"
-    				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
+//    			ElseIf aAtributos[nCont3][1]=="s" .and. aAtributos[nCont3][2]=="1"
+//    				cTipo	:= "D"
+//    				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
     			ElseIf aAtributos[nCont3][1]=="s"
     				aAtrr	:= oXmlStyle:XPathGetAttArray(aStyles[Val(aAtributos[nCont3][2])+1][2])
     				cnumfmtid	:= ""
