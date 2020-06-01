@@ -1,27 +1,27 @@
 # advpl-excel
-Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo de memória e mais otimizado.
+Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo de memÃ³ria e mais otimizado.
 
-# Recursos disponíveis
-* Definir células String,Numérica,data,DateTime,Logica,formula
+# Recursos disponÃ­veis
+* Definir cÃ©lulas String,NumÃ©rica,data,DateTime,Logica,formula
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
-* Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação)
-* Formato da célula
-* Mesclar células
+* Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de RotaÃ§Ã£o)
+* Formato da cÃ©lula
+* Mesclar cÃ©lulas
 * Auto Filtro
-* Congelar painéis(colunas e linhas)
+* Congelar painÃ©is(colunas e linhas)
 * Definir tamanho da coluna
 * Definir tamanho da linha
 * Formatar numeros(casas decimais)
 * Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
 * Bordas: (Left,Right,Top,Bottom),Cor,Estilo
-* Formatação condicional:(operador,formula)(font,fundo,bordas)
+* FormataÃ§Ã£o condicional:(operador,formula)(font,fundo,bordas)
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
-* Cria nome para referência de célula ou intervalo
+* Cria nome para referÃªncia de cÃ©lula ou intervalo
 * Agrupamento de linha
 * Imagens
 * Exibir/Oculta linhas de Grade
-* Definir linha para repetir na impressão
+* Definir linha para repetir na impressÃ£o
 
 * Leitura simples dos dados
 
@@ -30,7 +30,7 @@ Arquivo excel gerado: [pasta2.xlsx](exemplo/pasta2.xlsx)
 
 ![Exemplo1](/exemplo/excel1.png)
 
-Auto Filtros,Congelar painéis,Agrupar linhas:
+Auto Filtros,Congelar painÃ©is,Agrupar linhas:
 
 ![Exemplo2](/exemplo/excel2.png)
 
@@ -40,20 +40,21 @@ Formatar como tabela:
 
 Exemplo de uso:
 
-[tstyexcel.prw](exemplo/tstyexcel.prw)
+[tstyexcel.prw](exemplo/tstyexcel.prw)<br>
+[OlÃ¡ Mundo](https://github.com/saulogm/advpl-excel/wiki/Ol%C3%A1-Mundo)
 
-# Instalação
+# InstalaÃ§Ã£o
 1. Compilar Fontes da pasta src
 
 Pronto para usar a classe YExcel!
 
-### Dúvidas
+### DÃºvidas
 - Email: saulomax@gmail.com
 - GitHub: https://github.com/saulogm
 
 
-# Observação
-Caso a build seja inferior a 7.00.131227 - 13.2.3.17 é necessario instalar o 7-Zip.
+# ObservaÃ§Ã£o
+Caso a build seja inferior a 7.00.131227 - 13.2.3.17 Ã© necessario instalar o 7-Zip.
 Instalar o 7-Zip (http://www.7-zip.org/)
 Configurar o appserver.ini com o caminho do 7-Zip.
 ```
