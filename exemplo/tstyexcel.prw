@@ -39,7 +39,7 @@ user function tstyexcel()
 
 	nFmtNum3		:= oExcel:AddFmtNum(3/*nDecimal*/,.T./*lMilhar*/,/*cPrefixo*/,/*cSufixo*/,"("/*cNegINI*/,")"/*cNegFim*/,/*cValorZero*/,/*cCor*/,"Red"/*cCorNeg*/,/*nNumFmtId*/)
 
-	nPosStyle	:= oExcel:AddStyles(/*numFmtId*/,nPosFont/*fontId*/,nPosCor/*fillId*/,/*borderId*/,/*xfId*/,{oAlinhamento})
+	nPosStyle	:= oExcel:AddStyles(/*numFmtId*/,nPosFont/*fontId*/,nPosCor/*fillId*/,nPosBorda/*borderId*/,/*xfId*/,{oAlinhamento})
 	nPos3Dec	:= oExcel:AddStyles(nFmtNum3/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,)
 	nPosMoeda	:= oExcel:AddStyles(44/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,{o45Graus})
 	nPosMoeda2	:= oExcel:AddStyles(44/*numFmtId*/,/*fontId*/,/*fillId*/,nPosBorda2/*borderId*/,/*xfId*/)
@@ -59,13 +59,21 @@ user function tstyexcel()
 	oExcel:AddTamCol(5,6,18.00)
 
 	//Cadastra imagem
-	nIDImg		:= oExcel:ADDImg("\Star_Wars_Logo.png")	//Imagem no Protheus_data
+	If File("\Star_Wars_Logo.png")
+		nIDImg		:= oExcel:ADDImg("\Star_Wars_Logo.png")	//Imagem no Protheus_data
 
-			  //nID,nLinha,nColuna,nX,nY,cUnidade,nRot
-	oExcel:Img(nIDImg,7,7,200,121,/*"px"*/,)	//Usa imagem cadastrada
+				//nID,nLinha,nColuna,nX,nY,cUnidade,nRot
+		oExcel:Img(nIDImg,7,7,200,121,/*"px"*/,)	//Usa imagem cadastrada
+	EndIf
 
 	oExcel:Cell(1,1,"TESTE EXCEL",,nPosStyle)
-	oExcel:mergeCells(1,1,2,6)						//Mescla as células A1:B2
+	For nCont:=2 to 6
+		oExcel:Cell(1,nCont,"",,nPosStyle)
+	Next
+	For nCont:=1 to 6
+		oExcel:Cell(2,nCont,"",,nPosStyle)
+	Next
+	oExcel:mergeCells(1,1,2,6)						//Mescla as células A1:F2
 	oExcel:Cell(3,1,100,,nPos3Dec)					//A3	Numero
 	oExcel:Cell(3,2,2,"1+1")						//B3	Formula simples
 	oExcel:Cell(3,4,-100.2,,nPos3Dec)				//D3	Numero negativo
@@ -118,7 +126,9 @@ user function tstyexcel()
 	//Teste de 50mil células - 20 segundos
 	oExcel:ADDPlan("Teste","00AA00")		//Adiciona nova planilha
 
-	oExcel:Img(nIDImg,2,5,121,200,/*"px"*/,270)	//Usa imagem com rotação de 270
+	If File("\Star_Wars_Logo.png")
+		oExcel:Img(nIDImg,2,5,121,200,/*"px"*/,270)	//Usa imagem com rotação de 270
+	EndIf
 	oExcel:SetDefRow(.T.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
 	oExcel:Cell(1,1,"Linha",,nPosBordas)
 	oExcel:Cell(1,2,"Filial",,nPosBordas)
@@ -413,4 +423,56 @@ User Function YxlsRead()
 	ConOut(oExcel:CellRead(1,1))
 	oExcel:CloseRead()
 	FreeObj(oDateTime)
+Return
+
+
+User Function yTstDB()
+	Local aStruct	:= {}
+	Local nH
+	Local lSqlLite	:= .T.
+	Local cAliasTMP
+	aAdd(aStruct,{"LINHA"	,	"N", 10		, 00})
+	aAdd(aStruct,{"COLUNA"	,	"N", 10		, 00})
+	If TYPE("__TTSInUse")=="U"
+		CriaPublica()
+	EndIf
+	If lSqlLite
+		cAliasTMP	:= CriaTrab(,.F.)
+		cRealName	:= cAliasTMP
+		DBCreate( cAliasTMP , aStruct, 'SQLITE_TMP' )
+		DBUseArea( .T., 'SQLITE_TMP', cRealName, cAliasTMP, .F., .F. )
+	Else
+		If !TCIsConnected()
+			nH := TCLink()
+			If nH < 0
+			  MsgStop("DBAccess - Erro de conexao "+cValToChar(nH))
+			  QUIT
+			Endif
+		EndIf
+		oTabTmp	:= FWTemporaryTable():New( )
+		oTabTmp:SetFields( aStruct )
+		oTabTmp:Create()
+		cAliasTMP	:= oTabTmp:GetAlias()
+	EndIf
+
+	RecLock(cAliasTMP,.T.)
+	(cAliasTMP)->LINHA	:= 1
+	(cAliasTMP)->COLUNA	:= 1
+	MsUnLock()
+	Alert((cAliasTMP)->LINHA)
+	cQuery	:= "SELECT * FROM "+cRealName
+//	MPSysOpenQuery(cQuery)
+
+	DBSqlExec("QRY",cQuery,'SQLITE_TMP')
+
+	Alert(QRY->LINHA)
+
+	QRY->(DbCloseArea())
+	(cAliasTMP)->(DbCloseArea())
+	If lSqlLite
+		DBSqlExec(cRealName, 'DROP TABLE ' + cRealName , 'SQLITE_TMP')
+		//TCDelFile(cAliasTMP)
+	Else
+		oTabTmp:Delete()
+	EndIf
 Return
