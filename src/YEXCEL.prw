@@ -10,7 +10,7 @@ Gerar Excel formato xlsx com menor consumo de memoria e mais otimizado possivel
 @author Saulo Gomes Martins
 @since 27/10/2014 17:51:57
 @version P11
-@obs As linhas e colunas devem ser informadas sempre de forma sequencial crecente
+@obs As linhas e colunas devem ser informadas sempre de forma sequencial crescente
 @obs Até a versão 7.00.131227 deve ser intalado no servidor o compactador 7zip
 	Adicionar no appserver.ini
 	[GENERAL]
@@ -840,12 +840,12 @@ METHOD Cell(nLinha,nColuna,xValor,cFormula,nStyle) CLASS YExcel
 		UserException("YExcel - O índice da coluna não pode iniciar no 0")
 	EndIf
 	If nLinha<::adimension[2][1] .and. ::adimension[2][1]<>999999
-		UserException("YExcel - As linhas devem ser informadas sempre de forma sequencial crecente. Linha informada:"+cValToChar(nLinha)+" | Linha Atual:"+cValToChar(::adimension[2][1])+".")
+		UserException("YExcel - As linhas devem ser informadas sempre de forma sequencial crescente. Linha informada:"+cValToChar(nLinha)+" | Linha Atual:"+cValToChar(::adimension[2][1])+".")
 	EndIf
 	If ::adimension[1][1]==nLinha .AND. nColuna==::nColunaAtual
 		UserException("YExcel - Não é possivel redefinir o valor da celula gravada.")
 	ElseIf ::adimension[1][1]==nLinha .AND. nColuna<=::nColunaAtual
-		UserException("YExcel - As colunas devem ser informadas sempre de forma sequencial crecente. Coluna informada:"+cValToChar(nColuna)+" | Coluna Atual:"+cValToChar(::nColunaAtual)+".")
+		UserException("YExcel - As colunas devem ser informadas sempre de forma sequencial crescente. Coluna informada:"+cValToChar(nColuna)+" | Coluna Atual:"+cValToChar(::nColunaAtual)+".")
 	Endif
 	::nColunaAtual	:= nColuna
 	If ::adimension[2][1]>nLinha	//Menor linha
@@ -1186,8 +1186,8 @@ METHOD AddFont(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinh
 	PARAMTYPE 0	VAR nTamanho		AS NUMERIC				OPTIONAL DEFAULT 11
 	PARAMTYPE 1	VAR cCorRGB			AS CHARACTER,NUMERIC	OPTIONAL DEFAULT "FF000000"
 	PARAMTYPE 2	VAR cNome	  		AS CHARACTER			OPTIONAL DEFAULT "Calibri"
-	PARAMTYPE 3	VAR cfamily	  		AS CHARACTER			OPTIONAL DEFAULT "2"
-	PARAMTYPE 4	VAR cScheme	  		AS CHARACTER			OPTIONAL DEFAULT "minor"
+	PARAMTYPE 3	VAR cfamily	  		AS CHARACTER			OPTIONAL
+	PARAMTYPE 4	VAR cScheme	  		AS CHARACTER			OPTIONAL
 	PARAMTYPE 5	VAR lNegrito	  	AS LOGICAL				OPTIONAL DEFAULT .F.
 	PARAMTYPE 6	VAR lItalico	  	AS LOGICAL				OPTIONAL DEFAULT .F.
 	PARAMTYPE 7	VAR lSublinhado	  	AS LOGICAL				OPTIONAL DEFAULT .F.
@@ -1232,8 +1232,10 @@ METHOD AddFont(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinh
 	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "name", "" )
 	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:name", "val"	, cNome )
 
-	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "family", "" )
-	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:family", "val"	, cfamily )
+	If !Empty(cfamily)
+		::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "family", "" )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:family", "val"	, cfamily )
+	EndIf
 	/* pag 2525
 	0 Not applicable.
 	1 Roman
@@ -1242,8 +1244,10 @@ METHOD AddFont(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinh
 	4 Script
 	5 Decorative
 	*/
-	::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "scheme", "" )
-	::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:scheme", "val"	, cScheme )
+	If !Empty(cScheme)
+		::oStyle:XPathAddNode( cLocal+"/xmlns:font[last()]", "scheme", "" )
+		::oStyle:XPathAddAtt( cLocal+"/xmlns:font[last()]/xmlns:scheme", "val"	, cScheme )
+	EndIf
 return nTamFonts-1
 
 /*/{Protheus.doc} CorPreenc
@@ -1291,7 +1295,7 @@ METHOD CorPreenc(cFgCor,cBgCor,cType,cLocal) CLASS YExcel
 
 	::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]", "patternFill", "" )
 	::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "patternType"	, cType )
-	If cType == "solid"
+	If cType != "none"
 		::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "fgColor", "" )
 		If ValType(cFgCor)=="C"
 			If Len(cFgCor)==6
