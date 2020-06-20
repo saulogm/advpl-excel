@@ -1,5 +1,10 @@
 # advpl-excel
-Classe em ADVPL para gerar planilhas do excel no formato xlsx com menor consumo de memória e mais otimizado.
+Classe em ADVPL para gerar planilhas do excel no formato xlsx
+
+Exemplo de uso:
+
+[tstyexcel.prw](exemplo/tstyexcel.prw)<br>
+[Olá Mundo](https://github.com/saulogm/advpl-excel/wiki/Ol%C3%A1-Mundo)
 
 # Recursos disponíveis
 * Definir células String,Numérica,data,DateTime,Logica,formula
@@ -38,20 +43,13 @@ Formatar como tabela:
 
 ![Exemplo2](/exemplo/excel3.png)
 
-Exemplo de uso:
-
-[tstyexcel.prw](exemplo/tstyexcel.prw)<br>
-[Olá Mundo](https://github.com/saulogm/advpl-excel/wiki/Ol%C3%A1-Mundo)
-
 # Instalação
 1. Compilar Fontes da pasta src
 
 Pronto para usar a classe YExcel!
 
 ### Dúvidas
-- Email: saulomax@gmail.com
-- GitHub: https://github.com/saulogm
-
+- https://github.com/saulogm/advpl-excel/issues
 
 # Observação
 Caso a build seja inferior a 7.00.131227 - 13.2.3.17 é necessario instalar o 7-Zip.
