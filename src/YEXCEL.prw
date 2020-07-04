@@ -393,6 +393,7 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 	Local nPos
 	Local cCellType
 	Local cID
+	Local cIdDraw
 	Default nQtdPlan	:= Len(::aPlanilhas)
 	PARAMTYPE 0	VAR nID			AS NUMERIC
 	PARAMTYPE 1	VAR nLinha		AS NUMERIC
@@ -437,6 +438,7 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml" )
 	EndIf
 	nPos	:= ::aPlanilhas[nQtdPlan][3]
+	cIdDraw	:= ::add_rels("\xl\drawings\_rels\drawing"+cValToChar(::odrawing:xDados)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/image","../media/"+::aImagens[nID][2])
 	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr", cCellType, "" )
 	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "editAs"	, "oneCell" )
 
@@ -470,7 +472,7 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill", "a:blip", "" )
 	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
 	::aDraw[nPos][1]:XPathAddNs(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:blip", "r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships" )
-	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:blip", "r:embed", ::odrawing:GetAtributo("r:id") )
+	::aDraw[nPos][1]:XPathAddAtt(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:blip", "r:embed", cIdDraw )
 	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill", "a:stretch", "" )
 	ajustNS(::aDraw[nPos][1],"<xdr:a:","<a:")
 	::aDraw[nPos][1]:XPathAddNode(	"/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:pic/xdr:blipFill/a:stretch", "fillRect", "" )
@@ -490,8 +492,6 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot,nQtdPlan) CLASS YExcel
 	::aDraw[nPos][3]++
 
 	AADD(::aImgdraw,Len(::aImgdraw)+1)
-
-	::add_rels("\xl\drawings\_rels\drawing"+cValToChar(::odrawing:xDados)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/image","../media/"+::aImagens[nID][2])
 
 Return
 
