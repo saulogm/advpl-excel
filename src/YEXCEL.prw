@@ -3646,6 +3646,7 @@ Method xls_sharedStrings(nFile) class YExcel
 	Local nCont
 	Local aString
 	Local cRet	:= ""
+	Local cTexto
 	::oString:list(@aString)
 	aSort(aString,,,{|x,y| x[2]<y[2] })
 	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -3654,7 +3655,20 @@ Method xls_sharedStrings(nFile) class YExcel
 	cRet	:= ""
 	For nCont:=1 to Len(aString)
 		cRet	+= '<si>'
-		cRet	+= '<t><![CDATA['+EncodeUTF8(aString[nCont][1])+']]></t>'
+		cTexto	:= EncodeUTF8(aString[nCont][1])
+		If Valtype(cTexto)!="C"
+			cTexto	:= aString[nCont][1]
+			cTexto	:= Replace(cTexto,chr(129),"")
+			cTexto	:= Replace(cTexto,chr(141),"")
+			cTexto	:= Replace(cTexto,chr(143),"")
+			cTexto	:= Replace(cTexto,chr(144),"")
+			cTexto	:= Replace(cTexto,chr(157),"")
+			cTexto	:= EncodeUTF8(cTexto)
+			If Valtype(cTexto)!="C"
+				cTexto	:= ""
+			EndIf
+		EndIf
+		cRet	+= '<t><![CDATA['+EncodeUTF8(cTexto)+']]></t>'
 		cRet	+= '</si>'
 		FWRITE(nFile,cRet)
 		cRet	:= ""
