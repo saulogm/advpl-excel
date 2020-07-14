@@ -3668,7 +3668,7 @@ Method xls_sharedStrings(nFile) class YExcel
 				cTexto	:= ""
 			EndIf
 		EndIf
-		cRet	+= '<t><![CDATA['+EncodeUTF8(cTexto)+']]></t>'
+		cRet	+= '<t><![CDATA['+cTexto+']]></t>'
 		cRet	+= '</si>'
 		FWRITE(nFile,cRet)
 		cRet	:= ""
