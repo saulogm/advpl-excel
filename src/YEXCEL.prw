@@ -21,9 +21,10 @@ RECURSOS DISPONIVEIS
 * Formato da célula
 * Mesclar células
 * Auto Filtro
+* hyperlink dentro da planilha
+* Comentário
 * Congelar painéis(colunas e linhas)
-* Definir tamanho da coluna
-* Definir tamanho da linha
+* Definir tamanho da linha / largura da coluna
 * Formatar numeros(casas decimais)
 * Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
 * Bordas: (Left,Right,Top,Bottom),Cor,Estilo
@@ -35,8 +36,8 @@ RECURSOS DISPONIVEIS
 * Exibir/Oculta linhas de Grade
 * Definir linha para repetir na impressão
 * Definir orientação da pagina na impressão
-* Leitura de dados já gravados
 * Cabeçalho e Ropadé
+* Leitura de dados já gravados
 
 * Leitura simples dos dados
 @type class
@@ -135,6 +136,8 @@ Class YExcel
 	METHOD AddTamCol()		//Defini o tamanho de uma coluna ou varias colunas
 	METHOD AutoFilter()		//Cria os Filtros na planilha
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
+	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
+	METHOD AddComment()		//Cria um comentário para a celula posicionada
 	
 	METHOD InsertRowEmpty()	//Cria linhas vazia
 	METHOD InsertCellEmpty()//Cria células vazias
@@ -215,6 +218,7 @@ Class YExcel
 	METHOD new_rels()
 	METHOD add_rels()
 	METHOD Get_rels()
+	METHOD FindRels()
 	METHOD new_app()
 	METHOD new_core()
 	METHOD new_workbook()
@@ -224,6 +228,8 @@ Class YExcel
 	METHOD xls_sharedStrings()
 	METHOD Read_sharedStrings()
 	METHOD new_styles()
+	METHOD new_comment()
+	METHOD new_vmlDrawing()
 
 	//Tabela
 	METHOD AddTabela()
@@ -487,7 +493,6 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	Local cID
 	Local nQtdPlanilhas	:= Len(::aPlanilhas)
 	Local nPos
-	Local cFunName	:= FUNNAME()
 	Private oSelf	:= Self
 	PARAMTYPE 0	VAR cNome			AS CHARACTER		OPTIONAL DEFAULT "Planilha"+cValToChar(nQtdPlanilhas+1)
 	PARAMTYPE 1	VAR cCor			AS CHARACTER		OPTIONAL
@@ -507,12 +512,6 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	nPos	:= aScan(::aPlanilhas,{|x| x[2]==cNome })
 	If nPos>0
 		UserException("Esse nome de planilha já foi usado!")
-	Endif
-	If Type("cUserName")=="C"
-		If !Empty(cFunName)
-			cFunName	+= "|"
-		Endif
-		cFunName	+= cUserName
 	Endif
 
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValToChar(nQtdPlanilhas+1)+".xml")
@@ -584,6 +583,7 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 	Local nPosE,nPosPonto
 	Local nFator,fFator
 	Local cTargetDraw
+	Local cTarget
 	// Local cIDTable
 	// Local nCont3
 	Default cCamIni	:= cCaminho
@@ -718,13 +718,22 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 						::new_draw(cCaminho+"\drawings\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml","\xl\drawings\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml")
 						fErase(cCaminho+"\drawings\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml")
 					Endif
-					// If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:conditionalFormatting[1]")
-					// 	Xml2Xml(::asheet[::nPlanilhaAt][3],::asheet[::nPlanilhaAt][1],"/xmlns:worksheet","conditionalFormatting")
-					// 	While ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:conditionalFormatting[1]")
-					// 		::nPriodFormCond	:= Max(::nPriodFormCond,Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:conditionalFormatting[1]:/xmlns:cfRule[1]","priority")))
-					// 		::asheet[::nPlanilhaAt][1]:XPathDelNode("/xmlns:worksheet/xmlns:conditionalFormatting[1]")
-					// 	EndDo
-					// EndIf
+					cTarget	:= ::FindRels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","Target",,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments")
+					If !Empty(cTarget)
+						cTarget	:= "/tmpxls/"+::cTmpFile+"/"+::cNomeFile+"/xl"+Replace(cTarget,"..","")
+						::asheet[::nPlanilhaAt][3]	:= ::new_comment(cTarget)
+						::asheet[::nPlanilhaAt][4]	:= cTarget
+						fErase(cTarget)
+					EndIf
+					If ::asheet[::nPlanilhaAt][1]:XPathHasNode( "/xmlns:worksheet/xmlns:legacyDrawing")
+						cTarget	:= ::FindRels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","Target",;
+							::asheet[::nPlanilhaAt][1]:XPathGetAtt( "/xmlns:worksheet/xmlns:legacyDrawing","id"),)
+						cTarget	:= "/tmpxls/"+::cTmpFile+"/"+::cNomeFile+"/xl"+Replace(cTarget,"..","")
+						::asheet[::nPlanilhaAt][5]	:= ::new_vmlDrawing(cTarget)
+						::asheet[::nPlanilhaAt][6]	:= cTarget
+						fErase(cTarget)
+					EndIf
+					
 					// If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:tableParts")
 					// 	For nCont3:=1 to ::asheet[::nPlanilhaAt][1]:XPathChildCount("/xmlns:worksheet/xmlns:tableParts")
 					// 		cIDTable	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:tableParts/xmlns:tablePart["+cValToChar(nCont3)+"]","id")
@@ -744,7 +753,11 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 					// Endif
 				Next
 				::nPlanilhaAt	:= 1
+			ElseIf right(cCaminho,12)=="\xl\drawings".and. right(lower(aFiles[nCont][1]),3)=="vml"
+				lDelete	:= .F.
 			ElseIf right(cCaminho,12)=="\xl\drawings".and."drawing" $ lower(aFiles[nCont][1])
+				lDelete	:= .F.
+			ElseIf right(cCaminho,3)=="\xl".and."comments" $ lower(aFiles[nCont][1])
 				lDelete	:= .F.
 			ElseIf lower(aFiles[nCont][1])=="[content_types].xml"
 				FRename(cCaminho+"\"+aFiles[nCont][1],cCaminho+"\"+replace(replace(lower(aFiles[nCont][1]),"[",""),"]",""),,.F.)
@@ -1274,7 +1287,9 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) Class YExcel
 	cIdDraw	:= ::add_rels("\xl\drawings\_rels\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/image","../media/"+::aImagens[nID][2])
 
 	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr", cCellType, "" )
-	::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "editAs"	, "oneCell" )
+	If cCellType!="oneCellAnchor"
+		::aDraw[nPos][1]:XPathAddAtt( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "editAs"	, "oneCell" )
+	EndIf
 
 	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]", "from", "" )
 	::aDraw[nPos][1]:XPathAddNode( "/xdr:wsDr/xdr:"+cCellType+"[last()]/xdr:from", "col", cValToChar(nColuna-1) )
@@ -1630,23 +1645,14 @@ Return self
 //NÃO DOCUMENTAR
 Method GetStrComp(xTexto,lAchou) Class YExcel
 	Local xRet
+	Local cTxtMd5
 	lAchou	:= .F.
 	If ValType(xTexto)=="C"
 		(::cAliasStr)->(DbSetOrder(1))
-		If (::cAliasStr)->(DbSeek(PadR(xTexto,200)))
-			If Len(xTexto)<=200
-				xRet	:= (::cAliasStr)->POS
-				lAchou	:= .T.
-			Else
-				While PadR(xTexto,200)==(::cAliasStr)->VLRTEXTO
-					If xTexto==(::cAliasStr)->VLRMEMO
-						xRet	:= (::cAliasStr)->POS
-						lAchou	:= .T.
-						Exit
-					Endif
-					(::cAliasStr)->(DbSkip())
-				EndDo
-			Endif
+		cTxtMd5	:= Md5(xTexto)
+		If (::cAliasStr)->(DbSeek(PadR(cTxtMd5,200)))
+			xRet	:= (::cAliasStr)->POS
+			lAchou	:= .T.
 		Endif
 	ElseIf ValType(xTexto)=="N"
 		(::cAliasStr)->(DbSetOrder(2))
@@ -1662,7 +1668,7 @@ Method SetStrComp(xTexto) Class YExcel
 	Local nPos	:= ::nQtdString
 	(::cAliasStr)->(RecLock(::cAliasStr,.T.))
 	(::cAliasStr)->POS		:= nPos
-	(::cAliasStr)->VLRTEXTO	:= PadR(xTexto,200)
+	(::cAliasStr)->VLRTEXTO	:= Md5(xTexto)
 	(::cAliasStr)->VLRMEMO	:= xTexto
 	(::cAliasStr)->(MsUnLock())
 	::nQtdString++
@@ -2265,6 +2271,9 @@ METHOD AddFormatCond(cRefDe,cRefAte,nEstilo,cType,xFormula,operator,nPrioridade)
 		If ValType(xFormula)=="A"
 			For nCont:=1 to Len(xFormula)
 				::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", cValToChar(xFormula[nCont]) )
+				If nCont==3	//maxOccurs="3" pag 3936
+					Exit
+				EndIf
 			Next
 		Else
 			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", cValToChar(xFormula) )
@@ -3654,7 +3663,7 @@ Method GetStyle(nLinha,nColuna) Class YExcel_StyleRules
 			Exit
 		Endif
 	Next
-	oStyle	:= ::oExcel:NewStyle(oStyle)	//Cria um estilo novo com herança para evitar modificação do principal
+	oStyle	:= YExcel_Style():New(oStyle,::oExcel)	//::oExcel:NewStyle(oStyle)	//Cria um estilo novo com herança para evitar modificação do principal
 	For nCont:=1 to Len(::aFmtNum)
 		If Eval(::aFmtNum[nCont][1],nLinha,nColuna,::oExcel)
 			oStyle:SetnumFmt(::aFmtNum[nCont][2])
@@ -3688,7 +3697,11 @@ Method GetStyle(nLinha,nColuna) Class YExcel_StyleRules
 Return oStyle
 
 Method  GetId(nLinha,nColuna) Class YExcel_StyleRules
-Return ::GetStyle(nLinha,nColuna):GetId()
+	Local oStyTmp	:= ::GetStyle(nLinha,nColuna)	//Classe YExcel_Style
+	Local cId		:= oStyTmp:GetId()
+	//Após pegar o ID libera objeto criado da memoria
+	FreeObj(oStyTmp)	//Limpa obj da memoria
+Return cId
 
 Method AddStyle(bRule,xStyle) Class YExcel_StyleRules
 	PARAMTYPE 0	VAR bRule			AS BLOCK
@@ -3825,7 +3838,7 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 			For nCol:=nColuna to nColuna2		//Ler as colunas
 				If cTpAlte=="N"
 					nStyle		:= xStyle
-				Else
+				Else				//Rules
 					nStyle		:= xStyle:GetId(nLin,nCol)
 				Endif
 				If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLin,10)+Str(nCol,10)))
@@ -3969,13 +3982,257 @@ METHOD Pane(cActivePane,cState,cRef,nySplit,nxSplit) Class YExcel
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView/xmlns:pane[last()]", "ySplit"	, cValToChar(nySplit) )
 Return nPos
 
-/*METHOD Addhyperlink(nLinha,nColuna,cLocation,cId,ctooltip,cDisplay) Class YExcel
-	PARAMTYPE 0	VAR cRef			AS CHARACTER		OPTIONAL
-	PARAMTYPE 1	VAR cLocation		AS CHARACTER		OPTIONAL
-	PARAMTYPE 2	VAR cId				AS CHARACTER		OPTIONAL
-	PARAMTYPE 3	VAR ctooltip		AS CHARACTER		OPTIONAL
-	PARAMTYPE 4	VAR cDisplay		AS CHARACTER		OPTIONAL
-Return*/
+/*/{Protheus.doc} YExcel::Addhyperlink
+Cria um hyperlink para uma referência da planilha
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 18/03/2021
+@param cLocation, character, Referência, pode ser simple (A1) ou intervalo (A1:C3)
+@param ctooltip, character, Texto de dica ao passar mouse por cima
+@param cDisplay, character, Texto de exibição na celula
+@return object, self
+/*/
+METHOD Addhyperlink(cLocation,ctooltip,cDisplay) Class YExcel
+	Local cRef	:= ::Ref(::nLinha,::nColuna)
+	PARAMTYPE 0	VAR cLocation		AS CHARACTER		OPTIONAL
+	PARAMTYPE 1	VAR ctooltip		AS CHARACTER		OPTIONAL
+	PARAMTYPE 2	VAR cDisplay		AS CHARACTER		OPTIONAL
+	If !Empty(cLocation)
+		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:hyperlinks")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet", "hyperlinks", "" )
+		EndIf
+		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[@ref='"+cRef+"']")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:hyperlinks", "hyperlink", "" )
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[last()]", "ref", cRef )
+		EndIf
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[@ref='"+cRef+"']", "location", cLocation)
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[@ref='"+cRef+"']", "tooltip", ctooltip)
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[@ref='"+cRef+"']", "display", cDisplay)
+	Else
+		::asheet[::nPlanilhaAt][1]:XPathDelNode("/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[@ref='"+cRef+"']")
+		If ::asheet[::nPlanilhaAt][1]:XPathChildCount("/xmlns:worksheet/xmlns:hyperlinks")==0
+			::asheet[::nPlanilhaAt][1]:XPathDelNode("/xmlns:worksheet/xmlns:hyperlinks")
+		Endif
+	EndIf
+Return self
+/*/{Protheus.doc} YExcel::AddComment
+Adicionar comentário
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 18/03/2021
+@param cText, character, Texto do comentário
+@param cAutor, character, Autor do comentário
+@return object, self
+@obs pag 4682
+/*/
+METHOD AddComment(cText,cAutor) Class YExcel
+	Local aChildren
+	Local nPos
+	Local cPos
+	Local cAliasQry
+	Local cQuery
+	Local cValor
+	Local ntop
+	Local nleft
+	Local nCont
+	Local nQtdLinhas
+	Local cAuthorId
+	Local cRef	:= ::Ref(::nLinha,::nColuna)
+	PARAMTYPE 0	VAR cText		AS CHARACTER		OPTIONAL Default ""
+	PARAMTYPE 1	VAR cAutor		AS CHARACTER		OPTIONAL Default ""
+	
+	If Empty(::asheet[::nPlanilhaAt][3])
+		::asheet[::nPlanilhaAt][3]	:= ::new_comment()
+		::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments","../comments"+cValToChar(::nPlanilhaAt)+".xml")
+		::asheet[::nPlanilhaAt][4]	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\comments"+cValToChar(::nPlanilhaAt)+".xml"
+		::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
+		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/comments"+cValToChar(::nPlanilhaAt)+".xml" )
+		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml" )
+
+		cId	:= ::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing","../drawings/vmlDrawing"+cValToChar(::nPlanilhaAt)+".vml")
+		::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet","legacyDrawing","")
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:legacyDrawing","r:id",cId)
+		If !::ocontent_types:XPathHasNode("/xmlns:Types/xmlns:Default[@Extension='vml']")
+			::ocontent_types:XPathAddNode( "/xmlns:Types", "Default", "" )
+			::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Default[last()]", "Extension"	, "vml" )
+			::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Default[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.vmlDrawing" )
+		EndIf
+		
+		::asheet[::nPlanilhaAt][5]	:= ::new_vmlDrawing()
+		::asheet[::nPlanilhaAt][6]	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\vmlDrawing"+cValToChar(::nPlanilhaAt)+".vml"
+
+	EndIf
+	//Docs vmlDrawing
+	//ECMA-376 Part 4 pag 597
+	If Empty(cText)
+		//Deleta forma
+		If ::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
+			::asheet[::nPlanilhaAt][5]:XPathDelNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
+		Endif
+		//Deleta comentário
+		If ::asheet[::nPlanilhaAt][3]:XPathHasNode('/xmlns:comments/xmlns:commentList/xmlns:comment[@ref="'+cRef+'"]')
+			cAuthorId	:= ::asheet[::nPlanilhaAt][3]:XPathGetAtt('/xmlns:comments/xmlns:commentList/xmlns:comment[@ref="'+cRef+'"]',"authorId")
+			::asheet[::nPlanilhaAt][3]:XPathDelNode('/xmlns:comments/xmlns:commentList/xmlns:comment[@ref="'+cRef+'"]')
+			If !Empty(cAuthorId) .AND. !::asheet[::nPlanilhaAt][3]:XPathHasNode('/xmlns:comments/xmlns:commentList/xmlns:comment[@authorId="'+cAuthorId+'"]')
+				::asheet[::nPlanilhaAt][3]:XPathDelNode('/xmlns:comments/xmlns:authors/xmlns:author['+cValToChar(Val(cAuthorId)+1)+']')
+			EndIf
+		Endif
+	Else
+		//Cria a forma do comentário se não existe
+		If !::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/o:shapelayout')
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml',"o:shapelayout","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"v:ext","edit")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"o:idmap","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"v:ext","edit")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"data","1")
+		Endif
+		If !::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/v:shapetype[@id="_x0000_t202"]')	//Tipo de forma
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml',"v:shapetype","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"id","_x0000_t202")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"coordsize","21600,21600")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"o:spt","202")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"path","m,l,21600r21600,l21600,xe")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:stroke","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"joinstyle","miter")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:path","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"gradientshapeok","t")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"o:connecttype","rect")
+		Endif
+
+		If !::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
+			//posição da forma de acordo com posição da célula
+			nRowHeight	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetFormatPr","defaultRowHeight"))
+			cQuery	:= "SELECT COUNT(*) QTD,SUM(1.000005*CASE WHEN CHEIGHT='1' THEN HT ELSE "+cValToChar(nRowHeight)+" END) VALOR FROM "+::cAliasLin+" WHERE"
+			cQuery	+= " LIN<"+cValToChar(::nLinha)+" AND"
+			cQuery	+= " PLA="+cValToChar(::nPlanilhaAt)+" AND D_E_L_E_T_=' '"
+			cAliasQry := GetNextAlias()
+			If !DbSqlExec(cAliasQry,cQuery,::cDriver)
+				UserException("YExcel - Erro ao tamanho das linhas. "+TCSqlError())
+			Endif
+			ntop	:= 0
+			If (cAliasQry)->(!EOF())
+				nQtdLinhas	:= (cAliasQry)->QTD		//Quantidade de linhas que tem conteudo
+				ntop		:= (cAliasQry)->VALOR
+				If (::nLinha-1)>nQtdLinhas
+					//Adiciona as linhas que não tem conteudo o tamanho padrão
+					ntop	+= (::nLinha-1-nQtdLinhas)*1.000005*nRowHeight
+				EndIf
+				ntop		:= Round(ntop,0)
+			Endif
+			nleft		:= 0
+			For nCont:=1 to ::nColuna
+				cValor	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt( '/xmlns:worksheet/xmlns:cols/xmlns:col['+cValToChar(nCont)+'>=@min and '+cValToChar(nCont)+'<=@max and @customWidth="1"]',"width")
+				If Empty(cValor)
+					cValor	:= "9.28"
+				Endif
+				cValor	:= Val(cValor)
+				nleft	+= cValor*5.25
+			Next
+			nleft	:= Round(nleft,0)
+
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml',"v:shape","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"id","_x0000_r"+cValToChar(::nLinha-1)+"c"+cValToChar(::nColuna-1))
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"type","#_x0000_t202")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"style","position:absolute;margin-left:"+cValToChar(nleft)+"pt;margin-top:"+cValToChar(ntop)+"pt;width:96pt;height:64.5pt;z-index:1;visibility:hidden")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"fillcolor","#ffffc0")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"o:insetmode","auto")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:fill","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"color2","#ffffc0")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:shadow","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"on","t")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"color","black")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"obscured","t")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:path","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"o:connecttype","none")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:textbox","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"style","mso-direction-alt:auto")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]/*[last()]',"div","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]/div',"style","text-align:left")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"x:ClientData","")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]/*[last()]',"ObjectType","Note")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]/*[last()]',"x:MoveWithCells","")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]/*[last()]',"x:SizeWithCells","")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]/*[last()]',"x:AutoFill","False")
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]/*[last()]',"x:Row",cValToChar(::nLinha-1))
+			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]/*[last()]',"x:Column",cValToChar(::nColuna-1))
+			::asheet[::nPlanilhaAt][5]	:= AjustXML(::asheet[::nPlanilhaAt][5])
+		EndIf
+
+		If !::asheet[::nPlanilhaAt][3]:XPathHasNode("/xmlns:comments/xmlns:authors")
+			::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments","authors","")
+		EndIf
+		If !::asheet[::nPlanilhaAt][3]:XPathHasNode("/xmlns:comments/xmlns:commentList")
+			::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments","commentList","")
+		EndIf
+		aChildren	:= ::asheet[::nPlanilhaAt][3]:XPathGetChildArray("/xmlns:comments/xmlns:authors")
+		nPos		:= aScan(aChildren,{|x| x[3]==cAutor })
+		If nPos==0
+			::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:authors","author",EncodeUTF8(cAutor))
+			cPos	:= cValToChar(Len(aChildren))
+		else
+			cPos	:= cValToChar(nPos-1)
+		EndIf
+		
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList","comment","")
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]","ref",cRef)
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]","authorId",cPos)
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]","text","")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]","r","")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","rPr","")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","rFont","")
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:rFont","val","Calibri")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","b","")
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:b","val","true")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","strike","")
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:strike","val","false")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","sz","")
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:sz","val","11")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","color","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:color","indexed","81")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","charset","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:charset","val","1")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","scheme","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:scheme","val","minor")
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","t",EncodeUTF8(cText))
+		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:t","xml:space","preserve")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]","r","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","rPr","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","sz","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:sz","val","8")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","color","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:color","indexed","81")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","rFont","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:rFont","val","Calibri")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","charset","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:charset","val","1")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","scheme","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:scheme","val","minor")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","t",EncodeUTF8(cText))
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:t","xml:space","preserve")
+
+
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]","commentPr","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr","anchor","")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor","sizeWithCells","true")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor","from","")
+		// ::asheet[::nPlanilhaAt][3]::XPathAddNs(	"/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:from", "xdr", "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" )
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:from","col","0")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:from","colOff","0")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:from","row","0")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:from","rowOff","0")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor","to","")
+		// ::asheet[::nPlanilhaAt][3]::XPathAddNs(	"/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to", "xdr", "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" )
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to","col","4")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to","colOff","182880")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to","row","10")
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to","rowOff","0")
+	EndIf
+	
+
+Return self
+
 
 /*/{Protheus.doc} Ref
 Retorna a referencia do excel de acordo com posição da linha e coluna em formato numerico
@@ -4169,10 +4426,14 @@ Method Save(cLocal) Class YExcel
 	Local cArquivo2	:= ""	//Nome do arquivo no case original
 	Local cPath
 	Local cDrive,cNome,cExtensao
+	Local nHDestino,nHOrigem
+	Local nTamArquivo,nBytesFalta,nBytesLidos,cBuffer,nBytesLer,nBytesSalvo,cBuffer2
+	Local nPos
 	Local oXmlSheet
-	Local lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
+	Local lServidor
 	Local cNumero,nPosPonto,nQtdTmp
-	Default cFunName:= ""
+	Default cLocal := GetTempPath()
+	lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
 	::cLocalFile	:= cLocal
 
 	If !Empty(::cLocalFile)
@@ -4266,66 +4527,118 @@ Method Save(cLocal) Class YExcel
 			oXmlSheet:XPathDelNode("/xmlns:worksheet/xmlns:mergeCells")
 		EndIf
 
-		(::cAliasLin)->(DbSeek(Str(nCont,10)))	//Leitura das linhas
-		While (::cAliasLin)->(!EOF()) .and. nCont==(::cAliasLin)->PLA
-			nLinha := (::cAliasLin)->LIN
-			oXmlSheet:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
-			oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(nLinha))
-			If !Empty((::cAliasLin)->OLEVEL)
-				oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","outlineLevel",(::cAliasLin)->OLEVEL)
-			Endif
-			If !Empty((::cAliasLin)->COLLAP)
-				oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","collapsed",(::cAliasLin)->COLLAP)
-			Endif
-			If !Empty((::cAliasLin)->CHIDDEN)
-				oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","hidden",(::cAliasLin)->CHIDDEN)
-			Endif
-			If !Empty((::cAliasLin)->CHEIGHT)
-				oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","customHeight",(::cAliasLin)->CHEIGHT)
-				oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","ht",cValToChar((::cAliasLin)->HT))
-			Endif
-			(::cAliasCol)->(DbSetOrder(1))
-			(::cAliasCol)->(DbSeek( Str(nCont,10)+Str(nLinha,10) ))	//Leitura das colunas
-			While (::cAliasCol)->(!EOF()) .AND. nCont==(::cAliasCol)->PLA .AND. nLinha==(::cAliasCol)->LIN
-				oXmlSheet:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","c","")
-				oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","r",::Ref(nLinha,(::cAliasCol)->COL))
-				If (::cAliasCol)->STY>=0
-					oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","s",cValToChar((::cAliasCol)->STY))
-				Endif
-				If !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
-					oXmlSheet:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","t",Alltrim((::cAliasCol)->TIPO))
-				Endif
-				nColuna	:= (::cAliasCol)->COL
-				If !Empty((::cAliasCol)->FORMULA)
-					oXmlSheet:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","f",RTRIM((::cAliasCol)->FORMULA))
-				Endif
-				If (::cAliasCol)->TPVLR=="C"
-					oXmlSheet:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","v",Alltrim((::cAliasCol)->VLRTXT))
-				ElseIf (::cAliasCol)->TPVLR=="U"
-					oXmlSheet:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","v","")
-				Else
-					cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
-					If (::cAliasCol)->VLRDEC<>0
-						nPosPonto	:= At(".",cNumero)
-						If nPosPonto==0
-							cNumero	+= "."+Replicate("0",8)
-						Else
-							nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
-							If nQtdTmp>0
-								cNumero	+= Replicate("0",nQtdTmp)
-							Endif
-						Endif
-						cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
-					Endif
-					oXmlSheet:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]/xmlns:c[last()]","v",cNumero)
-				Endif
-				(::cAliasCol)->(DbSkip())
-			EndDo
-			(::cAliasLin)->(DbSkip())
-		EndDo
-
-		oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2])
+		oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
 		FreeObj(oXmlSheet)
+
+		nHDestino	:= FCreate("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],FO_READWRITE + FO_SHARED,,.F.)
+		nHOrigem	:= FOpen("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2],FO_READWRITE + FO_SHARED)
+		nTamArquivo := Fseek(nHOrigem,0,2)	//Determina o tamanho do arquivo de origem
+		Fseek(nHOrigem,0)					//Move o ponteiro do arquivo de origem para o inicio do arquivo
+		nBytesFalta := nTamArquivo			//Define que a quantidade que falta copiar é o próprio tamanho do Arquivo
+
+		cBuffer := SPACE(1024)
+		While nBytesFalta > 0
+			nBytesLer := Min(nBytesFalta, 1024 )
+			nBytesLidos := FREAD(nHOrigem, @cBuffer, nBytesLer )
+			If nBytesLidos < nBytesLer
+				UserException("Erro de Leitura da Origem. " + Str(nBytesLer,8,2) +;
+				" bytes a LER." + Str(nBytesLidos,8,2) + " bytes Lidos." + "Ferror = " + str(ferror(),4))
+				Exit
+			Endif
+			nPos	:= At("<sheetData/>",cBuffer)
+			If nPos>0
+				nBytesSalvo := FWRITE(nHDestino, SubStr(cBuffer,1,nPos-1))
+				FWRITE(nHDestino, "<sheetData>")
+				(::cAliasLin)->(DbSeek(Str(nCont,10)))	//Leitura das linhas
+				While (::cAliasLin)->(!EOF()) .and. nCont==(::cAliasLin)->PLA
+					nLinha := (::cAliasLin)->LIN
+					cBuffer2	:= '<row r="'+cValToChar(nLinha)+'"'
+					If !Empty((::cAliasLin)->OLEVEL)
+						cBuffer2	+= ' outlineLevel="'+(::cAliasLin)->OLEVEL+'"'
+					Endif
+					If !Empty((::cAliasLin)->COLLAP)
+						cBuffer2	+= ' collapsed="'+(::cAliasLin)->COLLAP+'"'
+					Endif
+					If !Empty((::cAliasLin)->CHIDDEN)
+						cBuffer2	+= ' hidden="'+(::cAliasLin)->CHIDDEN+'"'
+					Endif
+					If !Empty((::cAliasLin)->CHEIGHT)
+						cBuffer2	+= ' customHeight="'+(::cAliasLin)->CHEIGHT+'"'
+						cBuffer2	+= ' ht="'+cValToChar((::cAliasLin)->HT)+'"'
+					Endif
+					cBuffer2	+= ">"
+					FWRITE(nHDestino, cBuffer2)
+					cBuffer2	:= ""
+					(::cAliasCol)->(DbSetOrder(1))
+					(::cAliasCol)->(DbSeek( Str(nCont,10)+Str(nLinha,10) ))	//Leitura das colunas
+					While (::cAliasCol)->(!EOF()) .AND. nCont==(::cAliasCol)->PLA .AND. nLinha==(::cAliasCol)->LIN
+						cBuffer2	:= '<c r="'+::Ref(nLinha,(::cAliasCol)->COL)+'"'
+						If (::cAliasCol)->STY>=0
+							cBuffer2	+= ' s="'+cValToChar((::cAliasCol)->STY)+'"'
+						Endif
+						If !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
+							cBuffer2	+= ' t="'+Alltrim((::cAliasCol)->TIPO)+'"'
+						Endif
+						cBuffer2	+= '>'
+						nColuna	:= (::cAliasCol)->COL
+						If !Empty((::cAliasCol)->FORMULA)
+							cBuffer2	+= '<f>'+RTRIM((::cAliasCol)->FORMULA)+'</f>'
+						Endif
+						cBuffer2	+= '<v>'
+						If (::cAliasCol)->TPVLR=="C"
+							cBuffer2	+= Alltrim((::cAliasCol)->VLRTXT)
+						ElseIf (::cAliasCol)->TPVLR=="U"
+						Else
+							cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
+							If (::cAliasCol)->VLRDEC<>0
+								nPosPonto	:= At(".",cNumero)
+								If nPosPonto==0
+									cNumero	+= "."+Replicate("0",8)
+								Else
+									nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
+									If nQtdTmp>0
+										cNumero	+= Replicate("0",nQtdTmp)
+									Endif
+								Endif
+								cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
+							Endif
+							cBuffer2	+= cNumero
+						Endif
+						cBuffer2	+= '</v>'
+						cBuffer2	+= '</c>'
+						FWRITE(nHDestino, cBuffer2)
+						(::cAliasCol)->(DbSkip())
+					EndDo
+					cBuffer2	:= nil
+					FWRITE(nHDestino, "</row>")
+					(::cAliasLin)->(DbSkip())
+				EndDo
+				FWRITE(nHDestino, "</sheetData>")
+				nBytesSalvo += FWRITE(nHDestino, SubStr(cBuffer,nPos+12))
+				nBytesSalvo += 12
+			Else
+				nBytesSalvo := FWRITE(nHDestino, cBuffer,nBytesLer)
+			Endif
+			If nBytesSalvo < nBytesLer
+				UserException("Erro de gravação do Destino. " + Str(nBytesLer,8,2) +;
+				" bytes a SALVAR." + Str(nBytesSalvo,8,2) + " bytes gravados." + "Ferror = " + str(ferror(),4))
+				EXIT
+			Endif
+			// Elimina do Total do Arquivo a quantidade de bytes copiados
+			nBytesFalta -= nBytesLer
+		EndDo
+		FCLOSE(nHOrigem)
+		FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
+		FCLOSE(nHDestino)
+
+		If !Empty(::asheet[nCont][3])	//Se possuir comments
+			::asheet[nCont][3]:Save2File(::asheet[nCont][4])
+			AADD(::aFiles,::asheet[nCont][4])
+		EndIf
+		If !Empty(::asheet[nCont][5])	//Se possuir comments
+			::asheet[nCont][5]:Save2File(::asheet[nCont][6])
+			AADD(::aFiles,::asheet[nCont][6])
+		EndIf
 
 		For nCont2:=1 to Len(::aPlanilhas[nCont][5])
 			::CriarFile("\"+::cNomeFile+"\xl\tables\"	,"table"+cValToChar(::aPlanilhas[nCont][5][nCont2]:nIdRelat)+".xml"		,::xls_table(nCont,nCont2)		,)
@@ -5899,6 +6212,7 @@ Method new_content_types(cFile) Class YExcel
 		cXml	+= '	<Default Extension="png" ContentType="image/png"/>'
 		cXml	+= '	<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
 		cXml	+= '	<Default Extension="xml" ContentType="application/xml"/>'
+		cXml	+= '	<Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>'
 		cXml	+= '	<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
 		cXml	+= '	<Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
 		cXml	+= '	<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
@@ -6007,6 +6321,55 @@ Method Get_rels(cCaminho,cId,cAtrRet) Class YExcel
 	Endif
 	FreeObj(oTmp)
 Return xRet
+/*/{Protheus.doc} YExcel::FindRels
+Busca o relationships com filtros
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 18/03/2021
+@param cCaminho, character, Caminho do rels
+@param cAtrRet, character, Atributo para retorno
+@param cId, character, Id para filtro
+@param cType, character, Type para filtro
+@param cTarget, character, Target para filtro
+@return character, Atributo
+/*/
+Method FindRels(cCaminho,cAtrRet,cId,cType,cTarget) Class YExcel
+	Local nPos
+	Local cRet
+	Local cFiltro	:= ""
+	If ValType(cCaminho)=="N"
+		nPos	:= cCaminho
+	ElseIf ValType(cCaminho)=="C"
+		If SubStr(cCaminho,1,1)!="\"
+			cCaminho	:= "\"+cCaminho
+		Endif
+		nPos	:= aScan(::aRels,{|x| x[2]==cCaminho })
+	Endif
+	If nPos>0
+		If !Empty(cId)
+			cFiltro	+="@Id='"+cId+"'"
+		EndIf
+		If !Empty(cType)
+			If !Empty(cFiltro)
+				cFiltro	+= " and "
+			Endif
+			cFiltro	+="@Type='"+cType+"'"
+		EndIf
+		If !Empty(cTarget)
+			If !Empty(cFiltro)
+				cFiltro	+= " and "
+			Endif
+			cFiltro	+="@Target='"+cTarget+"'"
+		EndIf
+		If !Empty(cFiltro)
+			cFiltro	:= "["+cFiltro+"]"
+		Endif
+		If ::aRels[nPos][1]:XPathHasNode("/xmlns:Relationships/xmlns:Relationship"+cFiltro)
+			cRet	:= ::aRels[nPos][1]:XPathGetAtt("/xmlns:Relationships/xmlns:Relationship"+cFiltro,cAtrRet)
+		EndIf
+	Endif
+Return cRet
 
 /*/{Protheus.doc} new_app
 Cria arquivo \docprops\app.xml
@@ -6161,6 +6524,37 @@ Method new_draw(cFile,cCaminho) Class YExcel
 	AADD(::aDraw,{oXML,cCaminho,oXml:XPathChildCount("/xdr:wsDr")})
 Return Len(::aDraw)
 
+
+/*/{Protheus.doc} new_comment
+Cria arquivo \xl\comment.xml
+@author Saulo Gomes Martins
+@since 10/12/2019
+@version 1.0
+@param cXml, characters, xml para leitura
+@type method
+/*/
+Method new_comment(cFile) Class YExcel
+	Local nCont
+	Local aNs
+	Local oXml
+	Default cXml			:= ""
+	oXml	:= TXMLManager():New()
+	If Empty(cFile)	//Cria modelo em branco
+		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+		cXml	+= '<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+		cXml	+= '<authors/>'
+		cXml	+= '<commentList/>'
+		cXml	+= '</comments>'
+		oXml:Parse(cXml)
+	Else
+		oXml:ParseFile(cFile)
+	Endif
+	aNs	:= oXml:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXml:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+Return oXml
+
 /*/{Protheus.doc} ajustNS
 Ajuste para criar node com namespace diferente
 @author Saulo Gomes Martins
@@ -6259,7 +6653,7 @@ Method xls_sheet(cFile,cCaminho) Class YExcel
 	oXML	:= TXMLManager():New()
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-		cXml	+= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
+		cXml	+= '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">'
 		cXml	+= '<sheetPr/>'
 		cXml	+= '<dimension ref="A1"/>'
 		cXml	+= '<sheetViews>'
@@ -6267,7 +6661,7 @@ Method xls_sheet(cFile,cCaminho) Class YExcel
 			cXml	+= '<selection sqref="A1"/>'
 			cXml	+= '</sheetView>'
 		cXml	+= '</sheetViews>'
-		cXml	+= '<sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25"/>'
+		cXml	+= '<sheetFormatPr defaultRowHeight="15"/>'
 		cXml	+= '<cols/>'
 		cXml	+= '<sheetData/>'
 		cXml	+= '<autoFilter/>'
@@ -6282,8 +6676,66 @@ Method xls_sheet(cFile,cCaminho) Class YExcel
 	For nCont:=1 to Len(aNs)
 		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
 	Next
-	AADD(::asheet,{oXML,cCaminho})
+	AADD(::asheet,{oXML,cCaminho,/*oxml Comment*/,/*arquivo Comment*/,/*vmlDrawing*/,/*caminho vmlDraw*/})
 Return Len(::asheet)
+
+
+Method new_vmlDrawing(cFile) Class YExcel
+	Local nCont
+	Local aNs
+	Local oXML
+	Local cXml			:= ""
+	oXML	:= TXMLManager():New()
+	If Empty(cFile)	//Cria modelo em branco
+		cXml	+= '<xml xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+		// cXml	+= '	<o:shapelayout v:ext="edit">'
+		// cXml	+= '		<o:idmap v:ext="edit" data="1"/>'
+		// cXml	+= '	</o:shapelayout>'
+		// cXml	+= '	<v:shapetype id="_x0000_t202" coordsize="21600,21600" o:spt="202" path="m,l,21600r21600,l21600,xe">'
+		// cXml	+= '		<v:stroke joinstyle="miter"/>'
+		// cXml	+= '		<v:path gradientshapeok="t" o:connecttype="rect"/>'
+		// cXml	+= '	</v:shapetype>'
+		// cXml	+= '	<v:shape id="_x0000_s1025" type="#_x0000_t202" style="position:absolute;'
+		// cXml	+= '  margin-left:59.25pt;margin-top:1.5pt;width:96pt;height:64.5pt;z-index:1;'
+		// cXml	+= '  visibility:hidden" fillcolor="#ffffc0" o:insetmode="auto">'
+		// cXml	+= '		<v:fill color2="#ffffc0"/>'
+		// cXml	+= '		<v:shadow on="t" color="black" obscured="t"/>'
+		// cXml	+= '		<v:path o:connecttype="none"/>'
+		// cXml	+= '		<v:textbox style="mso-direction-alt:auto">'
+		// cXml	+= '			<div style="text-align:left"/>'
+		// cXml	+= '		</v:textbox>'
+		// cXml	+= '		<x:ClientData ObjectType="Note">'
+		// cXml	+= '			<x:MoveWithCells/>'
+		// cXml	+= '			<x:SizeWithCells/>'
+		// cXml	+= '			<x:AutoFill>False</x:AutoFill>'
+		// // cXml	+= '			<x:Anchor>'
+		// // cXml	+= '				1, 15, 0, 2, 3, 15, 4, 8</x:Anchor>'
+		// cXml	+= '			<x:Row>3</x:Row>'
+		// cXml	+= '			<x:Column>0</x:Column>'
+		// cXml	+= '		</x:ClientData>'
+		// cXml	+= '	</v:shape>'
+		cXml	+= '</xml>'
+ 		oXML:Parse(cXml)
+	Else
+		oXML:ParseFile(cFile)
+	Endif
+	aNs	:= oXML:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+Return oXML
+
+Static Function AjustXML(oXml2)
+	Local oXML	:= TXMLManager():New()
+	Local aNs
+	Local nCont
+	oXML:Parse(oXml2:Save2String())
+	aNs	:= oXML:XPathGetRootNsList()
+	For nCont:=1 to Len(aNs)
+		oXML:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+	Next
+	FreeObj(oXml2)
+Return oXML
 /*/{Protheus.doc} aScanOrdem
 Organiza de acordo com ordem enviada no array
 @type function
@@ -6431,8 +6883,7 @@ Ler strings compartilhada para gravar no banco
 @version 1.0
 @author Saulo Gomes Martins
 @since 17/03/2021
-@param cFile, character, param_description
-@return return_type, return_description
+@param cFile, character, Nome do arquivo
 /*/
 Method Read_sharedStrings(cFile) Class YExcel
 	Local oTmp
@@ -6477,7 +6928,7 @@ Static Function FWMakeDir(cCaminho,lShowMsg)
 	Next
 Return
 /*/{Protheus.doc} SetAtrr
-Altera ou inclui um atributo
+Altera, inclui ou exclui um atributo
 @type function
 @version 1.0
 @author Saulo Gomes Martins
@@ -6488,7 +6939,9 @@ Altera ou inclui um atributo
 @param cValAtrr, character, Valor
 /*/
 Static Function SetAtrr(oXml,cPath,cAtrr,cValAtrr)
-	If !Empty(oXml:XPathGetAtt(cPath,cAtrr))
+	If Empty(cValAtrr)
+		oXml:XPathDelAtt(cPath,cAtrr)
+	ElseIf !Empty(oXml:XPathGetAtt(cPath,cAtrr))
 		oXml:XPathSetAtt(cPath,cAtrr,cValAtrr)
 	Else
 		oXml:XPathAddAtt(cPath,cAtrr,cValAtrr)
