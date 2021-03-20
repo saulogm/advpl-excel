@@ -14,9 +14,10 @@ Exemplo de uso:
 * Formato da célula
 * Mesclar células
 * Auto Filtro
+* hyperlink dentro da planilha
+* Comentário
 * Congelar painéis(colunas e linhas)
-* Definir tamanho da coluna
-* Definir tamanho da linha
+* Definir tamanho da linha / largura da coluna
 * Formatar numeros(casas decimais)
 * Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
 * Bordas: (Left,Right,Top,Bottom),Cor,Estilo
@@ -28,8 +29,8 @@ Exemplo de uso:
 * Exibir/Oculta linhas de Grade
 * Definir linha para repetir na impressão
 * Definir orientação da pagina na impressão
-* Leitura de dados já gravados
 * Cabeçalho e Ropadé
+* Leitura de dados já gravados
 
 * Leitura simples dos dados
 
@@ -38,7 +39,7 @@ Arquivo excel gerado: [pasta2.xlsx](exemplo/pasta2.xlsx)
 
 ![Exemplo1](/exemplo/excel1.png)
 
-Auto Filtros,Congelar painéis,Agrupar linhas:
+Auto Filtros,Congelar painéis,Agrupar linhas e colunas, formatar com regras:
 
 ![Exemplo2](/exemplo/excel2.png)
 
