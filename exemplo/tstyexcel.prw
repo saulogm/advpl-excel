@@ -18,7 +18,7 @@ user function tstyexcel()
 	Local nStyle1
 	Local nPosCor,nPosCorI,nPosCorP,nPosCor3,nPosCorEfe,nPosCorEf2
 	Local nPosBorda,nBordaAll
-	Local nPosfont1,nPosfont2,nPosfont3,nPosfont4
+	Local nPosfont1,nPosfont2,nPosfont3,nPosfont4,nPosFont5
 	Local nFmtnum3
 	Local oPosStyle,oPos3dec,oPosMoeda,oPosM45g,oPosMoeda2,oPosQuebra,oPosBorverm,oPosFonts,oPosCab,oPosEfe,oPosEfe2
 	Local oEstilo1,oRegest1
@@ -27,10 +27,10 @@ user function tstyexcel()
 	Local oCorPre,oCorPre2,oCorPre3
 	Local oBorda
 	Local nPosVerm,nPosVerd,nPosAmar
-	Local cSubTotais
 	Local oTabela
 	Local nTotalvenda,nVenda
 	Local lSubTotal	:= .F.
+	Local oStyleLink
 	oExcel	:= YExcel():new("TstYExcel")
 	// oExcel	:= YExcel():new(,"C:\temp\novo.xlsx")
 	// oExcel	:= YExcel():new(,)
@@ -57,6 +57,7 @@ user function tstyexcel()
 	nPosFont2		:= oExcel:AddFont(20,56,"Calibri","2",,.T.,.T.,.T.,.T.)
 	nPosFont3		:= oExcel:AddFont(11,"FFFFFFFF","Calibri","2")
 	nPosFont4		:= oExcel:AddFont(11,"FFFF0000","Calibri","2")
+	nPosFont5		:= oExcel:AddFont(11,"FF0000FF","Calibri","2",,,,.T.)
 
 	nFmtNum3		:= oExcel:AddFmtNum(3/*nDecimal*/,.T./*lMilhar*/,/*cPrefixo*/,/*cSufixo*/,"("/*cNegINI*/,")"/*cNegFim*/,/*cValorZero*/,/*cCor*/,"Red"/*cCorNeg*/,/*nNumFmtId*/)
 
@@ -69,6 +70,7 @@ user function tstyexcel()
 	oPosQuebra	:= oExcel:NewStyle():SetaValores({oQuebraTxt})
 	oPosBorVerm	:= oExcel:NewStyle():SetaValores({oQuebraTxt}):Setborder(nPosBorda)
 	oPosFonts	:= oExcel:NewStyle():Setfont(nPosFont2)
+	oStyleLink	:= oExcel:NewStyle():Setfont(nPosFont5)
 	
 	oPosCAB		:= oExcel:NewStyle():SetFont(nPosFont3):Setfill(nPosCor3)
 
@@ -113,14 +115,14 @@ user function tstyexcel()
 				//nID,nLinha,nColuna,nX,nY,cUnidade,nRot
 		oExcel:Img(nIDImg,7,7,200,121,/*"px"*/,)	//Usa imagem cadastrada
 	EndIf
-
+	//Para alterações deve primeiro posicionar na Celula pelo Pos(linha,coluna) ou PosR(referencia)
 	oExcel:Pos(1,1):SetValue("TESTE EXCEL"):SetStyle(oPosStyle)
 	oExcel:mergeCells(1,1,2,6)											//Mescla as células A1:F2
 	//Textos
 	oExcel:Pos(3,1):SetValue("Olá Mundo!"):SetStyle(oPosBorVerm)						//Texto simples
 	oExcel:Pos(3,2):SetValue("Texto grande para quebra em linhas"):SetStyle(oPosQuebra)	//Texto grande
 	oExcel:Pos(3,3):SetValue("Negrito,Italico,Sublinhado,Tachado"):SetStyle(oPosFonts)	//Formatando letra
-	oExcel:SetRowH(30.75,3)	//Defini o tamanho da linha 3
+	oExcel:SetRowH(60.75,3)	//Defini o tamanho da linha 3
 	//Numeros
 	oExcel:Pos(5,1):SetValue(100):SetStyle(oPos3Dec)				//Numero
 	oExcel:Pos(5,2):SetValue(-100.2):SetStyle(oPos3Dec)				//Numero negativo
@@ -153,7 +155,12 @@ user function tstyexcel()
 	oExcel:Pos(17,1):SetValue(20)
 	oExcel:Pos(18,1):SetValue(25)
 
-	oExcel:PosR("A4"):SetValue("pode também utilizar a referência")
+	//Adiciona Link
+	oExcel:PosR("A4"):SetValue("Link Planilha Teste"):Addhyperlink("Teste!A1","Ir para teste"):SetStyle(oStyleLink)
+
+	oExcel:PosR("E8"):AddComment("se não tem nada de bom a dizer não diga nada","Desconhecido")
+	oExcel:PosR("E8"):AddComment()	//Deleta o comentario
+	oExcel:PosR("E7"):AddComment("Que a Força esteja com você!","Mestre Jedi")
 
 	nStyle1	:= oExcel:GetStyle(5,3)		//Pega estilo da primeira celula
 
@@ -196,7 +203,6 @@ user function tstyexcel()
 	oExcel:Pos(1,4):SetValue("Numero"):SetStyle(oPosCAB)
 	oExcel:Pos(1,5):SetValue("Data Venda"):SetStyle(oPosCAB)
 	nCont2	:= 1
-	cSubTotais	:= ""
 	For nCont:=2 to 110
 		oExcel:NivelLinha(2,,If(nCont2==1,.F.,.T.))	//NivelLinha(nNivel,lFechado,lOculto)	PROXIMAS LINHAS A SER CRIADO COM NÍVEL 2
 		oExcel:Pos(nCont,1):SetValue(nCont)
@@ -210,24 +216,21 @@ user function tstyexcel()
 			oExcel:AddNome("VENDA"+cValToChar(nCont2),nCont-8,3,nCont,3)
 			nCont++
 			oExcel:NivelLinha(nil,If(nCont2==1,.F.,.T.))
-			oExcel:Pos(nCont,1):SetValue("Sub Total Filial "+cValToChar(nCont2))
-			oExcel:Pos(nCont,2):SetValue("")
+			oExcel:Pos(nCont,1):SetValue("Sub Total Filial")
+			oExcel:Pos(nCont,2):SetValue(cValToChar(nCont2))
 			oExcel:Pos(nCont,3):SetValue(0,"SUBTOTAL(9,VENDA"+cValToChar(nCont2)+")")
 			oExcel:Pos(nCont,4):SetValue("")
 			oExcel:Pos(nCont,5):SetValue("")
 			oExcel:SetStyle(oRegEst1,nCont,1,nCont,5)	//Defini estilo da linha
-			cSubTotais	+= oExcel:cPlanilhaAt+"!$C$"+cValToChar(nCont)+","
 			nCont2++
 		EndIf
 		lSubTotal	:= .F.
 	Next
 	oExcel:NivelLinha()
 	lSubTotal	:= .T.
-	cSubTotais	:= SubStr(cSubTotais,1,Len(cSubTotais)-1)	//Teste!$C$11,Teste!$C$21,Teste!$C$31,Teste!$C$41,Teste!$C$51,Teste!$C$61,Teste!$C$71,Teste!$C$81,Teste!$C$91,Teste!$C$101,Teste!$C$111
-	oExcel:AddNome("VENDA",,,,,cSubTotais)
 	oExcel:Pos(nCont,1):SetValue("Total Geral")
 	oExcel:Pos(nCont,2):SetValue("")
-	oExcel:Pos(nCont,3):SetValue(0,"SUM(VENDA)")
+	oExcel:Pos(nCont,3):SetValue(0,'SUMIF(A2:'+oExcel:Ref(nCont-1,1)+',"Sub Total Filial",C2:'+oExcel:Ref(nCont-1,3)+')')
 	oExcel:Pos(nCont,4):SetValue("")
 	oExcel:Pos(nCont,5):SetValue("")
 	oExcel:SetStyle(oRegEst1,nCont,1,nCont,5)	//Defini estilo da linha
