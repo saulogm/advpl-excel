@@ -425,9 +425,9 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 	::Borda()	//Sem borda
 	::CorPreenc(,,"none")
 	::CorPreenc(,,"gray125")
-	AADD(::aPadraoSty,::AddStyles(0/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Sem Formatação
-	AADD(::aPadraoSty,::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/))	//Formato Data padrão
-	AADD(::aPadraoSty,::AddStyles(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/))	//Formato Data time padrão
+	AADD(::aPadraoSty,::AddStyles(0/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,{{"applyNumberFormat","0"}}/*aOutrosAtributos*/))	//Sem Formatação
+	AADD(::aPadraoSty,::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data padrão
+	AADD(::aPadraoSty,::AddStyles(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data time padrão
 Return self
 
 //Não Documentear
@@ -1582,13 +1582,14 @@ Method SetValue(xValor,cFormula) Class YExcel
 
 	If !(::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))
 		(::cAliasCol)->(RecLock(::cAliasCol,.T.))
+		(::cAliasCol)->STY		:= -1
+		(::cAliasCol)->TPSTY	:= " "
 	else
 		(::cAliasCol)->(RecLock(::cAliasCol,.F.))
 	Endif
 	(::cAliasCol)->PLA		:= ::nPlanilhaAt
 	(::cAliasCol)->LIN		:= ::nLinha
 	(::cAliasCol)->COL		:= ::nColuna
-	(::cAliasCol)->TPSTY	:= " "
 	If cTipo=="C"
 		(::cAliasCol)->TIPO		:= "s"
 		(::cAliasCol)->TPSTY	:= "S"
@@ -1600,21 +1601,23 @@ Method SetValue(xValor,cFormula) Class YExcel
 		(::cAliasCol)->TPSTY	:= "N"
 	ElseIf cTipo=="D"
 		(::cAliasCol)->TIPO		:= "d"
-		(::cAliasCol)->TPSTY	:= "D"
-		If (::cAliasCol)->STY>=0 .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")!="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+		If (::cAliasCol)->STY>=0 .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
 			//Se tem estilo e ele não tem NumFmtId aplicado
 			(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,14)	//Cria um estilo com Numfmt data
+			(::cAliasCol)->TPSTY	:= "D"
 		ElseIf (::cAliasCol)->STY<0	//Não tem estilo
 			(::cAliasCol)->STY		:= ::aPadraoSty[2]	//Estilo padrão de data
+			(::cAliasCol)->TPSTY	:= "D"
 		Endif
 	ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
 		(::cAliasCol)->TIPO		:= "d"
-		(::cAliasCol)->TPSTY	:= "T"
 		If (::cAliasCol)->STY>=0 .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")!="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
 			//Se tem estilo e ele não tem NumFmtId aplicado
 			(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))	//Cria estilo com Numfmt datetime
+			(::cAliasCol)->TPSTY	:= "T"
 		ElseIf (::cAliasCol)->STY<0	//Não tem estilo
 			(::cAliasCol)->STY		:= ::aPadraoSty[3]	//Estilo padrão de datetime
+			(::cAliasCol)->TPSTY	:= "T"
 		Endif
 	Endif
 	If ValType(cFormula)=="C"
