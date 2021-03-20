@@ -1357,6 +1357,8 @@ Grava o conteudo de uma célula
 @type method
 /*/
 METHOD Cell(nLinha,nColuna,xValor,cFormula,xStyle) Class YExcel
+	Local cTipo		:= ValType(xValor)
+	Local cTpStyle	:= ValType(xStyle)
 	PARAMTYPE 0	VAR nLinha			AS NUMERIC			OPTIONAL DEFAULT ::nLinha
 	PARAMTYPE 1	VAR nColuna			AS NUMERIC			OPTIONAL DEFAULT ::nColuna
 	PARAMTYPE 3	VAR cFormula		AS CHARACTER		OPTIONAL
@@ -1382,7 +1384,11 @@ METHOD Cell(nLinha,nColuna,xValor,cFormula,xStyle) Class YExcel
 	Endif
 	::Pos(nLinha,nColuna)
 	::SetValue(xValor,cFormula)
-	::SetStyle(xStyle,nLinha,nColuna)
+	If cTpStyle=="U".AND.cTipo=="D"
+	ElseIf cTpStyle=="U" .AND. cTipo=="O".AND.GetClassName(xValor)=="YEXCEL_DATETIME" 	//Data e Date time, deixa formato padrão, não limpa formato
+	Else
+		::SetStyle(xStyle,nLinha,nColuna)
+	EndIf
 
 	If ::adimension[1][2]<nColuna	//Maior Coluna
 		::adimension[1][2]	:= nColuna
@@ -1595,11 +1601,21 @@ Method SetValue(xValor,cFormula) Class YExcel
 	ElseIf cTipo=="D"
 		(::cAliasCol)->TIPO		:= "d"
 		(::cAliasCol)->TPSTY	:= "D"
-		(::cAliasCol)->STY		:= ::aPadraoSty[2]
+		If (::cAliasCol)->STY>=0 .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")!="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+			//Se tem estilo e ele não tem NumFmtId aplicado
+			(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,14)	//Cria um estilo com Numfmt data
+		ElseIf (::cAliasCol)->STY<0	//Não tem estilo
+			(::cAliasCol)->STY		:= ::aPadraoSty[2]	//Estilo padrão de data
+		Endif
 	ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
 		(::cAliasCol)->TIPO		:= "d"
 		(::cAliasCol)->TPSTY	:= "T"
-		(::cAliasCol)->STY		:= ::aPadraoSty[3]
+		If (::cAliasCol)->STY>=0 .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")!="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+			//Se tem estilo e ele não tem NumFmtId aplicado
+			(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))	//Cria estilo com Numfmt datetime
+		ElseIf (::cAliasCol)->STY<0	//Não tem estilo
+			(::cAliasCol)->STY		:= ::aPadraoSty[3]	//Estilo padrão de datetime
+		Endif
 	Endif
 	If ValType(cFormula)=="C"
 		(::cAliasCol)->FORMULA	:= cFormula
@@ -3812,6 +3828,10 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	Local nLin,nCol
 	Local nStyle
 	Local cTpAlte
+	Local lNumFmtId	//Estilo enviado no parametro tem FmtId
+	Local nNumFmtId
+	Local nStyletmp
+	Local cAliasQry
 	PARAMTYPE 0	VAR xStyle			AS NUMERIC,ARRAY,OBJECT		OPTIONAL DEFAULT -1
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC					OPTIONAL DEFAULT ::nLinha
 	PARAMTYPE 2	VAR nColuna			AS NUMERIC					OPTIONAL DEFAULT ::nColuna
@@ -3828,12 +3848,38 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 		UserException("YExcel - Estilo informado("+cValToChar(xStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 	
-	::InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2)
+	::InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2)	//Inserir as celulas vazias que não tem dados para preencher o estilo
 	If cTpAlte=="N"	//Alteração direta de estilo
-		If !DBSqlExec(::cAliasCol, "UPDATE "+::cAliasCol+" SET STY="+cValToChar(xStyle)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" ", ::cDriver)
-			UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(xStyle)+"). "+TCSqlError())
-		Endif
-	ElseIf cTpAlte=="O"	//Se enviado Array vai avaliar estilo a ser usado
+		lNumFmtId := ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(xStyle+1)+"]","applyNumberFormat")=="1"	//Tem formatação definida
+		If lNumFmtId
+			//Altera todas a celulas com o mesmo estilo
+			If !DBSqlExec(::cAliasCol, "UPDATE "+::cAliasCol+" SET STY="+cValToChar(xStyle)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND D_E_L_E_T_=' '", ::cDriver)
+				UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(xStyle)+"). "+TCSqlError())
+			Endif
+		Else
+			cAliasQry := GetNextAlias()
+			//Verifica se tem celula com tipo datatime definido
+			cQuery	:= "SELECT DISTINCT STY FROM "+::cAliasCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" "	
+			cQuery	+= " AND D_E_L_E_T_=' '"
+			If !DbSqlExec(cAliasQry,cQuery,::cDriver)
+				UserException("YExcel - Erro ao atualiza estilo. "+TCSqlError())
+			Endif
+			While (cAliasQry)->(!EOF())
+				lnumFmtId	:= ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((cAliasQry)->STY+1)+"]","applyNumberFormat")=="1"
+				If lnumFmtId	//Tem fmtid
+					nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((cAliasQry)->STY+1)+"]","numFmtId"))
+					nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
+				Else	//Para os que não tem fmtid definido, aplica o estilo enviado
+					nStyletmp	:= xStyle
+				EndIf
+				If !DBSqlExec(::cAliasCol, "UPDATE "+::cAliasCol+" SET STY="+cValToChar(nStyletmp)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND STY='"+cValToChar((cAliasQry)->STY)+"' AND D_E_L_E_T_=' '", ::cDriver)
+					UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(nStyletmp)+"). "+TCSqlError())
+				Endif
+				(cAliasQry)->(DbSkip())
+			EndDo
+			(cAliasQry)->(DbCloseArea())
+		EndIf
+	ElseIf cTpAlte=="O"	//Se enviado objeto vai avaliar estilo a ser usado
 		For nLin:=nLinha to nLinha2				//Ler as Linhas
 			For nCol:=nColuna to nColuna2		//Ler as colunas
 				If cTpAlte=="N"
@@ -3842,12 +3888,10 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 					nStyle		:= xStyle:GetId(nLin,nCol)
 				Endif
 				If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLin,10)+Str(nCol,10)))
-					If (::cAliasCol)->TIPO=="d" .and. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","numFmtId")=="0"
-						If (::cAliasCol)->TPSTY=="D"
-							nStyle	:= ::CreateStyle(nStyle,14)	//Cria outro com base no atual com formato data
-						else
-							nStyle	:= ::CreateStyle(nStyle,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))	//Cria outro com base no atual com formato datatime
-						Endif
+					//Se não tem fmrid no estilo da regra e tem no estilo atual 
+					If ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")!="1" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")=="1" 
+						nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","numFmtId"))
+						nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
 					Endif
 					(::cAliasCol)->(RecLock(::cAliasCol,.F.))
 					(::cAliasCol)->STY	:= nStyle
@@ -4121,6 +4165,7 @@ METHOD AddComment(cText,cAutor) Class YExcel
 				EndIf
 				ntop		:= Round(ntop,0)
 			Endif
+			(cAliasQry)->(DbCloseArea())
 			nleft		:= 0
 			For nCont:=1 to ::nColuna
 				cValor	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt( '/xmlns:worksheet/xmlns:cols/xmlns:col['+cValToChar(nCont)+'>=@min and '+cValToChar(nCont)+'<=@max and @customWidth="1"]',"width")
