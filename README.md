@@ -1,5 +1,5 @@
 # advpl-excel
-Classe em ADVPL para gerar planilhas do excel no formato xlsx
+Classe em ADVPL para criar, ler ou editar planilhas do excel no formato xlsx
 
 Exemplo de uso:
 
@@ -23,10 +23,13 @@ Exemplo de uso:
 * Formatação condicional:(operador,formula)(font,fundo,bordas)
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
 * Cria nome para referência de célula ou intervalo
-* Agrupamento de linha
+* Agrupamento de linha e colunas
 * Imagens
 * Exibir/Oculta linhas de Grade
 * Definir linha para repetir na impressão
+* Definir orientação da pagina na impressão
+* Leitura de dados já gravados
+* Cabeçalho e Ropadé
 
 * Leitura simples dos dados
 
@@ -50,15 +53,6 @@ Pronto para usar a classe YExcel!
 
 ### Dúvidas
 - https://github.com/saulogm/advpl-excel/issues
-
-# Observação
-Caso a build seja inferior a 7.00.131227 - 13.2.3.17 é necessario instalar o 7-Zip.
-Instalar o 7-Zip (http://www.7-zip.org/)
-Configurar o appserver.ini com o caminho do 7-Zip.
-```
-[GENERAL]
-LOCAL7ZIP=C:\Program Files\7-Zip\7z.exe
-```
 
 # Agradecimentos
 [Samuel Gomes Martins] (https://github.com/samuelgmartins)
