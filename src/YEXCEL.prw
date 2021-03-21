@@ -681,8 +681,8 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 									Else
 										fNumero	:= DEC_MUL(fNumero,fFator)
 									Endif
-									(self:cAliasCol)->VLRNUM	:= DEC_RESCALE(fNumero,8,2)	//&(Replace(cValor,"E-","/(10^")+")")
-									(self:cAliasCol)->VLRDEC	:= Int(DEC_RESCALE(DEC_MUL(DEC_CREATE("100000000",21,20),DEC_SUB(fNumero,DEC_RESCALE(fNumero,8,2))),8,2))
+									(self:cAliasCol)->VLRNUM	:= DEC_TO_DBL(fNumero)	//&(Replace(cValor,"E-","/(10^")+")")
+									(self:cAliasCol)->VLRDEC	:= Int(DEC_TO_DBL( DEC_MUL(DEC_CREATE("1000000000000000",21,20),DEC_SUB(fNumero,DEC_RESCALE(fNumero,8,2))) ))
 								Else
 									nPosPonto	:= At(".",cValor)
 									If nPosPonto>0
