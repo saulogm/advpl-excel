@@ -388,6 +388,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 
 		nPos	:= ::new_rels("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels","\_rels\.rels")	//Arquivo não é carregado pela função Directory
 		fErase("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels")
+		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,".rels")	//Ler todos rels
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile)
 		LerChvStys(::self)
 		If aScan(::aFiles,{|x| lower(x)=="\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedstrings.xml"})==0
@@ -566,7 +567,7 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" )
 Return nQtdPlanilhas
 
-Method LerPasta(cCaminho,cCamIni) Class YExcel
+Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 	Local nCont
 	Local aFiles	:= Directory(cCaminho+"\*","HSD",,.F.)
 	Local lDelete	:= .F.
@@ -594,8 +595,11 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 		If aFiles[nCont][5] $ "D"
 			FRename(cCaminho+"\"+aFiles[nCont][1],cCaminho+"\"+lower(aFiles[nCont][1]),,.F.)
 			aFiles[nCont][1]	:= lower(aFiles[nCont][1])
-			::LerPasta(cCaminho+"\"+aFiles[nCont][1],cCamIni)
+			::LerPasta(cCaminho+"\"+aFiles[nCont][1],cCamIni,cSufFiltro)
 		Else
+			If !Empty(cSufFiltro) .AND. !(lower(right(cCaminho+"\"+aFiles[nCont][1],Len(cSufFiltro)))==lower(cSufFiltro))
+				Loop
+			Endif
 			lDelete	:= .F.
 			If lower(aFiles[nCont][1])=="app.xml"
 				FRename(cCaminho+"\"+aFiles[nCont][1],cCaminho+"\"+lower(aFiles[nCont][1]),,.F.)
@@ -710,7 +714,9 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 					EndDo
 					If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing")
 						::aPlanilhas[::nPlanilhaAt][3]	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:drawing","id")
-						cTargetDraw	:= ::Get_rels(cCaminho+"\worksheets\_rels\"+cArqSheet+".rels",::aPlanilhas[::nPlanilhaAt][3],"Target")
+						cTargetDraw	:= ::FindRels("\xl\worksheets\_rels\"+cArqSheet+".rels","Target",;
+							::aPlanilhas[::nPlanilhaAt][3],)
+						//::Get_rels(cCaminho+"\worksheets\_rels\"+cArqSheet+".rels",::aPlanilhas[::nPlanilhaAt][3],"Target")
 						cTargetDraw	:= SubStr(cTargetDraw,RAt("/drawing",cTargetDraw)+8)
 						cTargetDraw	:= SubStr(cTargetDraw,1,Len(cTargetDraw)-4)
 						::aPlanilhas[::nPlanilhaAt][4]	:= Val(cTargetDraw)
@@ -718,7 +724,7 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 						::new_draw(cCaminho+"\drawings\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml","\xl\drawings\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml")
 						fErase(cCaminho+"\drawings\drawing"+cValToChar(::aPlanilhas[::nPlanilhaAt][4])+".xml")
 					Endif
-					cTarget	:= ::FindRels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","Target",,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments")
+					cTarget	:= ::FindRels("\xl\worksheets\_rels\"+cArqSheet+".rels","Target",,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments")
 					If !Empty(cTarget)
 						cTarget	:= "/tmpxls/"+::cTmpFile+"/"+::cNomeFile+"/xl"+Replace(cTarget,"..","")
 						::asheet[::nPlanilhaAt][3]	:= ::new_comment(cTarget)
@@ -726,7 +732,7 @@ Method LerPasta(cCaminho,cCamIni) Class YExcel
 						fErase(cTarget)
 					EndIf
 					If ::asheet[::nPlanilhaAt][1]:XPathHasNode( "/xmlns:worksheet/xmlns:legacyDrawing")
-						cTarget	:= ::FindRels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","Target",;
+						cTarget	:= ::FindRels("\xl\worksheets\_rels\"+cArqSheet+".rels","Target",;
 							::asheet[::nPlanilhaAt][1]:XPathGetAtt( "/xmlns:worksheet/xmlns:legacyDrawing","id"),)
 						cTarget	:= "/tmpxls/"+::cTmpFile+"/"+::cNomeFile+"/xl"+Replace(cTarget,"..","")
 						::asheet[::nPlanilhaAt][5]	:= ::new_vmlDrawing(cTarget)
@@ -6099,15 +6105,16 @@ Method NumToDateTime(nData,nDec8) Class YExcel_DateTime
 		Endif
 		::cNumero	:= nData
 	Endif
+	fNumTime	:= DEC_ADD(fNumTime,DEC_DIV(DEC_CREATE(cValToChar(self:nDecimal),20,19),DEC_CREATE("10000000000000000",20,19)))
 
 	::dData	:= STOD("19000101")-2+nInt
 	
 	fSeg		:= DEC_MUL(fNumTime,f86400)
 	fMinuto		:= DEC_DIV(fSeg,f60)
 	fHora		:= DEC_DIV(fMinuto,f60)
-	nHora		:= Int(DEC_RESCALE(fHora,0,2))
-	nMinuto		:= Int(DEC_RESCALE(DEC_SUB(fMinuto,DEC_CREATE(nHora*60, 20, 19 )),0,2))
-	nSegundo	:= Int(DEC_RESCALE(DEC_SUB(fSeg,DEC_CREATE((nMinuto*60)+(nHora*60*60), 20, 19 )),0,2))
+	nHora		:= Int(DEC_TO_DBL(fHora))
+	nMinuto		:= Int(DEC_TO_DBL(DEC_SUB(fMinuto,DEC_CREATE(cValToChar(nHora*60), 20, 19 ))))
+	nSegundo	:= Round(DEC_TO_DBL(DEC_SUB(fSeg,DEC_CREATE(cValToChar((nMinuto*60)+(nHora*60*60)), 20, 19 ))),0)
 	
 	::cTime	:= ""
 	// nHora	:= Int(nDec*86400/60/60)
@@ -6170,7 +6177,7 @@ Method StrNumber() Class YExcel_DateTime
 	nSeg		+= aHora[2]*60
 	nSeg		+= aHora[3]
 	nSeg		+= aHora[4]/1000
-	fSeg		:= DEC_CREATE(nSeg,20, 19)
+	fSeg		:= DEC_CREATE(cValToChar(nSeg),20, 19)
 	fMult		:= DEC_MUL(fSeg,f1SegDec)
 	fMult2		:= DEC_MUL(fSeg,f1SegDec)
 	fMult2		:= DEC_RESCALE(fMult2, 8, 2)
