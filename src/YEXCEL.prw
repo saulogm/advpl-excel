@@ -5123,6 +5123,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local cnumfmtid
 	Local aAtrr
 	Local oDataTime
+	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha		AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
@@ -5278,6 +5279,7 @@ Retorna o valor de uma celula, após o uso do método OpenRead()
 Method CellRead(nLinha,nColuna,xDefault,lAchou,cOutro) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
 	Local xValor:= Nil
+	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	Default cOutro	:= ""
 	lAchou	:= .T.
 	If !::oCell:Get(cRef+cOutro,@xValor)
@@ -5295,6 +5297,7 @@ Limpa a pasta temporaria
 @type method
 /*/
 METHOD CloseRead() Class YExcel
+	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	::oString:clean()
 	::oCell:clean()
 	::nQtdString := 0
