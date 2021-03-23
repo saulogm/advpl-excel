@@ -367,7 +367,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 
 		__COPYFILE(cFileOpen,"\tmpxls\"+::cTmpFile+'\'+cNome,,,.F.)
 
-		nRet	:= FUnZip("\tmpxls\"+::cTmpFile+'\'+cNome,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+		nRet	:= StartJob("FUnZip",GetEnvServer(), .T.,"\tmpxls\"+::cTmpFile+'\'+cNome,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		//Problema de não descompactar direto no servidor linux
 		If nRet==0 .and. !File("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,.F.)
 			If ValType(cRootPath)=="U"
@@ -379,7 +379,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 			If !File("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,.F.)
 				FWMakeDir(GetTempPath()+"tmpxls\"+::cTmpFile)
 				CpyS2T("\tmpxls\"+::cTmpFile+'\'+cNome, GetTempPath()+"tmpxls\"+::cTmpFile,,.F.)
-				FUnZip(GetTempPath()+"tmpxls\"+::cTmpFile+"\"+cNome,GetTempPath()+"\tmpxls\"+::cTmpFile)
+				StartJob("FUnZip",GetEnvServer(),.T.,GetTempPath()+"tmpxls\"+::cTmpFile+"\"+cNome,GetTempPath()+"\tmpxls\"+::cTmpFile)
 				fErase(GetTempPath()+"tmpxls\"+::cTmpFile+"\"+cNome)
 				CpyPasta(GetTempPath()+"tmpxls/"+::cTmpFile,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 				__COPYFILE(GetTempPath()+"tmpxls/"+::cTmpFile+"/_rels/.rels","\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,,.F.)
@@ -1683,7 +1683,7 @@ Method GetStrComp(xTexto,lAchou) Class YExcel
 		(::cAliasStr)->(DbSetOrder(2))
 		If (::cAliasStr)->(DbSeek(Str(xTexto,10)))
 			lAchou	:= .T.
-			xRet	:= (::cAliasStr)->VLRMEMO
+			xRet	:= &((::cAliasStr)->VLRMEMO)
 		Endif
 	Endif
 Return xRet
@@ -1694,7 +1694,7 @@ Method SetStrComp(xTexto) Class YExcel
 	(::cAliasStr)->(RecLock(::cAliasStr,.T.))
 	(::cAliasStr)->POS		:= nPos
 	(::cAliasStr)->VLRTEXTO	:= Md5(xTexto)
-	(::cAliasStr)->VLRMEMO	:= xTexto
+	(::cAliasStr)->VLRMEMO	:= "'"+Replace(xTexto,"'","'+chr(39)+'")+"'"
 	(::cAliasStr)->(MsUnLock())
 	::nQtdString++
 Return nPos
@@ -4720,7 +4720,7 @@ Method Save(cLocal) Class YExcel
 		If IsSrvUnix()	//Solução para servidor linux zipar arquivos com inicio "."
 			WaitRunSrv('zip -r "'+cRootPath+replace(cArquivo,"\","/")+'" *',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 		Else
-			fZip(cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			StartJob("FZip",GetEnvServer(),.T.,cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		Endif
 	Endif
 
@@ -5158,7 +5158,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 				nRet	:= 0
 			Endif
 		Else
-			nRet	:= FUnZip(cCamLocal,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			nRet	:= StartJob("FUnZip",GetEnvServer(),.T.,cCamLocal,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		Endif
 		If nRet!=0
 			ConOut(Ferror())
@@ -6108,7 +6108,9 @@ Method NumToDateTime(nData,nDec8) Class YExcel_DateTime
 		Endif
 		::cNumero	:= nData
 	Endif
-	fNumTime	:= DEC_ADD(fNumTime,DEC_DIV(DEC_CREATE(cValToChar(self:nDecimal),20,19),DEC_CREATE("10000000000000000",20,19)))
+	If ValType(self:nDecimal)=="N"
+		fNumTime	:= DEC_ADD(fNumTime,DEC_DIV(DEC_CREATE(cValToChar(self:nDecimal),20,19),DEC_CREATE("10000000000000000",20,19)))
+	EndIf
 
 	::dData	:= STOD("19000101")-2+nInt
 	
@@ -6912,9 +6914,9 @@ Method xls_sharedStrings(nFile) Class YExcel
 	(::cAliasStr)->(DbGoTop())
 	While (::cAliasStr)->(!EOF())
 		cRet	+= '<si>'
-		cTexto	:= EncodeUTF8((::cAliasStr)->VLRMEMO)
+		cTexto	:= EncodeUTF8(&((::cAliasStr)->VLRMEMO))
 		If Valtype(cTexto)!="C"
-			cTexto	:= (::cAliasStr)->VLRMEMO
+			cTexto	:= &((::cAliasStr)->VLRMEMO)
 			cTexto	:= Replace(cTexto,chr(129),"")
 			cTexto	:= Replace(cTexto,chr(141),"")
 			cTexto	:= Replace(cTexto,chr(143),"")
@@ -6925,7 +6927,7 @@ Method xls_sharedStrings(nFile) Class YExcel
 				cTexto	:= ""
 			Endif
 		Endif
-		cRet	+= '<t><![CDATA['+cTexto+']]></t>'
+		cRet	+= '<t xml:space="preserve"><![CDATA['+cTexto+']]></t>'
 		cRet	+= '</si>'
 		FWRITE(nFile,cRet)
 		cRet	:= ""
