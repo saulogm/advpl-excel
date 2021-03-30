@@ -125,6 +125,7 @@ Class YExcel
 	METHOD PosR()			//posiciona na celula de acordo com referência
 	METHOD GetValue()		//Retorna conteudo da celulas posicionada
 	METHOD SetValue()		//Grava conteudo da celulas posicionada
+	METHOD SetDateTime()	//Grava conteudo com data e hora
 	METHOD GetFormula()		//Retorna a formula da celula posicionada
 	METHOD ColTam()			//Coluna Mínima e Máxima
 	METHOD LinTam()			//Linha Mínima e Máxima
@@ -1665,6 +1666,24 @@ Method SetValue(xValor,cFormula) Class YExcel
 		(::cAliasCol)->TPVLR	:= "C"	//Caracteres
 	Endif
 	(::cAliasCol)->(MsUnLock())
+Return self
+/*/{Protheus.doc} YExcel::SetDateTime
+Alteração de data e hora da célula posicionada
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 30/03/2021
+@param dDate, date, Data a ser gravada
+@param cTime, character, Hora a ser gravada
+@return object, self
+/*/
+Method SetDateTime(dDate,cTime) Class YExcel
+	Local oDateTime
+	Default dDate	:= CTOD("")
+	Default cTime	:= "00:00:00"
+	oDateTime	:= ::GetDateTime(dDate,cTime)
+	::SetValue(oDateTime)
+	FreeObj(oDateTime)
 Return self
 
 //NÃO DOCUMENTAR
@@ -6679,7 +6698,7 @@ Cria um sheet temporario vazio
 @version 1.0
 @author Saulo Gomes Martins
 @since 17/03/2021
-@return return_type, return_description
+@return object, TXmlManager tmp
 /*/
 Static Function SheetTmp()
 	Local oXml
