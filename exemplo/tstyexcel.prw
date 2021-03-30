@@ -14,7 +14,6 @@ user function tstyexcel()
 	Local oExcel
 	Local oAlinhamento,oQuebraTxt,o45Graus
 	Local nCont,nCont2
-	Local oDateTime
 	Local nStyle1
 	Local nPosCor,nPosCorI,nPosCorP,nPosCor3,nPosCorEfe,nPosCorEf2
 	Local nPosBorda,nBordaAll
@@ -122,7 +121,7 @@ user function tstyexcel()
 	oExcel:Pos(3,1):SetValue("Olá Mundo!"):SetStyle(oPosBorVerm)						//Texto simples
 	oExcel:Pos(3,2):SetValue("Texto grande para quebra em linhas"):SetStyle(oPosQuebra)	//Texto grande
 	oExcel:Pos(3,3):SetValue("Negrito,Italico,Sublinhado,Tachado"):SetStyle(oPosFonts)	//Formatando letra
-	oExcel:SetRowH(60.75,3)	//Defini o tamanho da linha 3
+	oExcel:SetRowH(30.75,3)	//Defini o tamanho da linha 3
 	//Numeros
 	oExcel:Pos(5,1):SetValue(100):SetStyle(oPos3Dec)				//Numero
 	oExcel:Pos(5,2):SetValue(-100.2):SetStyle(oPos3Dec)				//Numero negativo
@@ -135,11 +134,9 @@ user function tstyexcel()
 	oExcel:Pos(6,4):SetValue(1099.8,oExcel:Ref(5,1)+"+"+oExcel:Ref(6,3))	//Usando metodo Ref para localizar posição da celula
 	//Datas
 	oExcel:Pos(8,1):SetValue(date())								//Data
-	oDateTime	:= oExcel:GetDateTime(date(),time())				//Formatando DateTime
-	oExcel:Pos(8,2):SetValue(oDateTime)								//Date time
+	oExcel:Pos(8,2):SetDateTime(date(),time())						//Date time
 	oExcel:Pos(8,3):SetValue(date()):SetStyle(oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("[$-pt-BR]mmm-aaa;@")))	//Data formato mes-ano
-	oDateTime	:= oExcel:GetDateTime(CTOD(""),"00:00:01")			//Formatando DateTime
-	oExcel:Pos(8,4):SetValue(oDateTime):SetStyle(oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("hh:mm:ss;@")))								//Date time
+	oExcel:Pos(8,4):SetDateTime(CTOD(""),"00:00:01"):SetStyle(oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("hh:mm:ss;@")))								//Date time
 
 	//Logicos
 	oExcel:Pos(10,1):SetValue(.T.):SetStyle(oPosEfe)				//C5	Campo Logico
@@ -295,6 +292,7 @@ Testa leitura simples do xlsx
 @type function
 /*/
 User Function YxlsRead()
+	//DEPRECATED, ver função U_YTstRW
 	Local oExcel	:= YExcel():new("TesteXlsx")	//Cria teste
 	Local cTexto	:= "Texto teste"
 	Local nNumero	:= 123.09
@@ -337,15 +335,21 @@ User Function YxlsRead()
 	Next
 	oExcel:CloseRead()
 	FreeObj(oDateTime)
+	//DEPRECATED
 Return
-
+/*/{Protheus.doc} YTstRW
+Teste leitura e escrita
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 30/03/2021
+/*/
 User Function YTstRW()
 	Local aTamLin
 	Local nCont,nCont2
 	Local xValor
 	Local oExcel	:= YExcel():new(,GetTempPath()+"TstYExcel.xlsx")
 	oExcel:Pos(1,1):SetValue(oExcel:GetValue(1,1)+" - editado")
-	oExcel:SetFooter("&18A&36B","&BTeste Excel","Pag &P/&N")		//Configura Rodapé
 	aTamLin	:= oExcel:LinTam()
 	For nCont:=aTamLin[1] to aTamLin[2]
 		aTamCol	:= oExcel:ColTam(nCont)
@@ -360,42 +364,41 @@ User Function YTstRW()
 			Next
 		EndIf
 	Next
-	//TODO VERIFICAR VALORES GRAVADOS, POIS PARECE ESTÁ INCOERENTE
-	
-	// VarInfo("valor",oExcel:GetValue(8,1))
-	// VarInfo("valor",oExcel:GetValue(8,2))
-	// VarInfo("valor",oExcel:GetValue(8,3))
-	// VarInfo("valor",oExcel:GetValue(8,4))
 	oExcel:Save("c:\temp")
 	oExcel:OpenApp()
 	oExcel:Close()
 Return
+/*/{Protheus.doc} yTst2xl4
+Teste leitura
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 30/03/2021
+/*/
+User Function yTst2xl4()
+Local aTamLin
+Local nContP,nContL,nContC
+Local xValor
+Local oExcel	:= YExcel():new(,"C:\temp\TstYExcel.xlsx")
 
-//Teste de bordas
-User Function yTst2xl2()
-	Local oExcel 	:= YExcel():new()
-	Local nBorda1	:= oExcel:Borda("ALL","FFFF0000","thick")
-	Local nBorda2	:= oExcel:Borda("LR","FF000000","thick")
-	Local nBorda3	:= oExcel:Borda("ALL","FF000000","mediumDashDot")
-	Local nBorda4	:= oExcel:Borda("ALL","FF000000","slantDashDot")
-	Local nBorda5	:= oExcel:Borda("ALL","FF000000","double")
-	Local nBorda6	:= oExcel:Borda("ALL","FF000000","dashed")
-	Local nSty1		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,nBorda1/*borderId*/,/*xfId*/,)
-	Local nSty2		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,nBorda2/*borderId*/,/*xfId*/,)
-	Local nSty3		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,nBorda3/*borderId*/,/*xfId*/,)
-	Local nSty4		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,nBorda4/*borderId*/,/*xfId*/,)
-	Local nSty5		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,nBorda5/*borderId*/,/*xfId*/,)
-	Local nSty6		:= oExcel:AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,nBorda6/*borderId*/,/*xfId*/,)
-	oExcel:ADDPlan()
-	oExcel:AddTamCol(1,1,30.00)
-	oExcel:AddTamCol(3,3,30.00)
-	oExcel:Pos(1,1):SetValue(GetDateTime(date(),time())):SetStyle(nSty1)
-	oExcel:Pos(1,3):SetValue("Borda esquerda e direita"):SetStyle(nSty2)
-	oExcel:Pos(3,1):SetValue("borda média traço-ponto"):SetStyle(nSty3)
-	oExcel:Pos(3,3):SetValue("borda traço-ponto inclinado"):SetStyle(nSty4)
-	oExcel:Pos(5,1):SetValue("borda de linha dupla"):SetStyle(nSty5)
-	oExcel:Pos(5,3):SetValue("borda tracejado"):SetStyle(nSty6)
-	oExcel:Save(GetTempPath())
-	oExcel:OpenApp()
-	oExcel:Close()
+For nContP:=1 to oExcel:LenPlanAt()	//Ler as Planilhas
+	oExcel:SetPlanAt(nContP)		//Informa qual a planilha atual
+	ConOut("Planilha:"+oExcel:GetPlanAt("2"))	//Nome da Planilha
+	aTamLin	:= oExcel:LinTam() 		//Linha inicio e fim da linha
+	For nContL:=aTamLin[1] to aTamLin[2]
+		aTamCol	:= oExcel:ColTam(nContL) //Coluna inicio e fim
+		If aTamCol[1]>0	//Se a linha tem algum valor
+			For nContC:=aTamCol[1] to aTamCol[2]
+				xValor	:= oExcel:GetValue(nContL,nContC)	//Conteúdo 
+				If ValType(xValor)=="O"
+					ConOut(oExcel:Ref(nContL,nContC)+"["+cValToChar(xValor:GetDate())+"]["+cValToChar(xValor:GetTime())+"]")
+					//VarInfo(oExcel:Ref(nContL,nContC),xValor,,.F.)
+				Else
+					ConOut(oExcel:Ref(nContL,nContC)+"["+cValToChar(xValor)+"]")
+				EndIf
+			Next
+		EndIf
+	Next
+Next
+oExcel:Close()
 Return
