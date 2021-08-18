@@ -30,6 +30,8 @@ user function tstyexcel()
 	Local nTotalvenda,nVenda
 	Local lSubTotal	:= .F.
 	Local oStyleLink
+	RpcSetType(3)
+	RpcSetEnv("T1","M SP 01")
 	oExcel	:= YExcel():new("TstYExcel")
 	// oExcel	:= YExcel():new(,"C:\temp\novo.xlsx")
 	// oExcel	:= YExcel():new(,)
@@ -153,11 +155,11 @@ user function tstyexcel()
 	oExcel:Pos(18,1):SetValue(25)
 
 	//Adiciona Link
-	oExcel:PosR("A4"):SetValue("Link Planilha Teste"):Addhyperlink("Teste!A1","Ir para teste"):SetStyle(oStyleLink)
+	oExcel:PosR("A20"):SetValue("Link Planilha Teste"):Addhyperlink("Teste!A1","Ir para teste"):SetStyle(oStyleLink)
 
-	oExcel:PosR("E8"):AddComment("se não tem nada de bom a dizer não diga nada","Desconhecido")
-	oExcel:PosR("E8"):AddComment()	//Deleta o comentario
-	oExcel:PosR("E7"):AddComment("Que a Força esteja com você!","Mestre Jedi")
+	oExcel:PosR("B21"):AddComment("se não tem nada de bom a dizer não diga nada","Desconhecido")
+	oExcel:PosR("B21"):AddComment()	//Deleta o comentario
+	oExcel:PosR("B22"):AddComment("Que a Força esteja com você!","Mestre Jedi")
 
 	nStyle1	:= oExcel:GetStyle(5,3)		//Pega estilo da primeira celula
 
@@ -202,36 +204,32 @@ user function tstyexcel()
 	nCont2	:= 1
 	For nCont:=2 to 110
 		oExcel:NivelLinha(2,,If(nCont2==1,.F.,.T.))	//NivelLinha(nNivel,lFechado,lOculto)	PROXIMAS LINHAS A SER CRIADO COM NÍVEL 2
-		oExcel:Pos(nCont,1):SetValue(nCont)
-		oExcel:Pos(nCont,2):SetValue("Filial "+cValToChar(nCont2))
-		oExcel:Pos(nCont,3):SetValue(Randomize(1,100))
-		oExcel:Pos(nCont,4):SetValue(Randomize(1,100)*(1+(Randomize(0,200)/100)))
-		oExcel:Pos(nCont,5):SetValue(date()+nCont)
-		oExcel:SetStyle(oRegEst1,nCont,1,nCont,5)	//Defini estilo da linha
+		oExcel:Pos(nCont,1):SetValue(nCont):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,2):SetValue("Filial "+cValToChar(nCont2)):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,3):SetValue(Randomize(1,100)):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,4):SetValue(Randomize(1,100)*(1+(Randomize(0,200)/100))):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,5):SetValue(date()+nCont):SetStyle(oRegEst1)
 		If nCont % 10 ==0
 			lSubTotal	:= .T.
 			oExcel:AddNome("VENDA"+cValToChar(nCont2),nCont-8,3,nCont,3)
 			nCont++
 			oExcel:NivelLinha(nil,If(nCont2==1,.F.,.T.))
-			oExcel:Pos(nCont,1):SetValue("Sub Total Filial")
-			oExcel:Pos(nCont,2):SetValue(cValToChar(nCont2))
-			oExcel:Pos(nCont,3):SetValue(0,"SUBTOTAL(9,VENDA"+cValToChar(nCont2)+")")
-			oExcel:Pos(nCont,4):SetValue("")
-			oExcel:Pos(nCont,5):SetValue("")
-			oExcel:SetStyle(oRegEst1,nCont,1,nCont,5)	//Defini estilo da linha
+			oExcel:Pos(nCont,1):SetValue("Sub Total Filial"):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,2):SetValue(cValToChar(nCont2)):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,3):SetValue(0,"SUBTOTAL(9,VENDA"+cValToChar(nCont2)+")"):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,4):SetValue(""):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,5):SetValue(""):SetStyle(oRegEst1)
 			nCont2++
 		EndIf
 		lSubTotal	:= .F.
 	Next
 	oExcel:NivelLinha()
 	lSubTotal	:= .T.
-	oExcel:Pos(nCont,1):SetValue("Total Geral")
-	oExcel:Pos(nCont,2):SetValue("")
-	oExcel:Pos(nCont,3):SetValue(0,'SUMIF(A2:'+oExcel:Ref(nCont-1,1)+',"Sub Total Filial",C2:'+oExcel:Ref(nCont-1,3)+')')
-	oExcel:Pos(nCont,4):SetValue("")
-	oExcel:Pos(nCont,5):SetValue("")
-	oExcel:SetStyle(oRegEst1,nCont,1,nCont,5)	//Defini estilo da linha
-	oExcel:SetRowLevel(2,nCont-1,1,.F.)			//Defini da llinha 2 até linha anterior como nível 1
+	oExcel:Pos(nCont,1):SetValue("Total Geral"):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,2):SetValue(""):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,3):SetValue(0,'SUMIF(A2:'+oExcel:Ref(nCont-1,1)+',"Sub Total Filial",C2:'+oExcel:Ref(nCont-1,3)+')'):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,4):SetValue(""):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,5):SetValue(""):SetStyle(oRegEst1)
 
 	oExcel:AutoFilter(1,1,nCont,4)	//Auto filtro
 	oExcel:AddPane(1,1)	//Congela primeira linha e primeira coluna
@@ -250,7 +248,6 @@ user function tstyexcel()
 	//oExcel:Cell(1,1,"teste",,)
 	oTabela	:= oExcel:AddTabela("Tabela1",1,1)	//Cria uma tabela de estilos
 	oTabela:AddStyle("TableStyleMedium15"/*cNome*/,.T./*lLinhaTiras*/,/*lColTiras*/,/*lFormPrimCol*/,/*lFormUltCol*/)	//Cria os estilos,Cab:Preto|Linha:Cinza,Branco
-	//oTabela:AddStyle("TableStyleMedium2"/*cNome*/,.T./*lLinhaTiras*/,/*lColTiras*/,.T./*lFormPrimCol*/,/*lFormUltCol*/)	//Cria os estilos,Cab:Azul|Linha:Azul,Branco
 	oTabela:AddFilter()				//Adiciona filtros a tabela
 	oTabela:AddColumn("Linha")		//Adiciona coluna Linha
 	oTabela:AddColumn("Filial")		//Adiciona coluna Filial
@@ -277,6 +274,21 @@ user function tstyexcel()
 	oTabela:AddTotal("Venda",nTotalVenda,"SUM")		//Usa função SUM(Somar) para totalizar a coluna venda
 	oTabela:AddTotais()	//Adiciona linha de totais
 	oTabela:Finish()	//Fecha a edição da tabela
+
+	// EXEMPLO PREENCHER COM ALIAS
+	oExcel:ADDPlan("SB1","E26B0A")		//Adiciona nova planilha
+	SB1->(DBSetFilter({|| B1_TIPO='KT'},"B1_TIPO='KT'"))
+	oExcel:Alias2Tab("SB1",,.T.)
+	
+	cAlias := MpSysOpenQuery("SELECT TOP 15 * FROM "+RetSqlName("SA1")+" WHERE D_E_L_E_T_=' '")
+	oExcel:ADDPlan("SA1","1F497D")			//Adiciona nova planilha
+	oTabela	:= oExcel:AddTabela("Tabela2")	//Cria uma tabela de estilos
+	oTabela:AddFilter()						//Adiciona filtros a tabela
+	oTabela:Alias2Tab(cAlias,,.T.,{{"A1_COD","Código do Cliente"}})
+	oTabela:AddTotal(1,0,"COUNTA")	//Usa função COUNTA(Contar Valores)
+	oTabela:AddTotais()	//Adiciona linha de totais
+	oTabela:Finish()	//Fecha a edição da tabela
+	(cAlias)->(DbCloseArea())
 
 	oExcel:Save(GetTempPath())
 	oExcel:OpenApp()
@@ -379,7 +391,7 @@ User Function yTst2xl4()
 Local aTamLin
 Local nContP,nContL,nContC
 Local xValor
-Local oExcel	:= YExcel():new(,"C:\temp\TstYExcel.xlsx")
+Local oExcel	:= YExcel():new(,"D:\temp\Saulo.xlsx")
 
 For nContP:=1 to oExcel:LenPlanAt()	//Ler as Planilhas
 	oExcel:SetPlanAt(nContP)		//Informa qual a planilha atual
@@ -401,4 +413,33 @@ For nContP:=1 to oExcel:LenPlanAt()	//Ler as Planilhas
 	Next
 Next
 oExcel:Close()
+Return
+
+// User Function ytst5()
+// 	Local nLinha
+// 	Local oExcel	:= YExcel2():new()
+// 	oExcel:OpenRead("D:\temp\Saulo.xlsx",1)
+// 	For nLinha	:= 3 to 10//oExcel:RowFim()
+// 		ConOut(oExcel:CellRead(nLinha,5))
+// 		ConOut(oExcel:CellRead(nLinha,7))
+// 		ConOut(oExcel:CellRead(nLinha,23))
+// 	Next
+// 	oExcel:CloseRead()
+// Return
+
+User Function ytst6()
+	Local oExcel	:= YExcel():new()
+	RpcSetEnv("T1","M SP 01")
+	cAlias := MpSysOpenQuery("SELECT TOP 1 B1_COD,B1_DESC FROM SB1T10")
+	oExcel:ADDPlan("SA1","1F497D")		//Adiciona nova planilha
+	oTabela	:= oExcel:AddTabela("Tabela2")	//Cria uma tabela de estilos
+	oTabela:Alias2Tab(cAlias,,.T.)
+
+	oTabela:AddTotal("Codigo",0,"COUNTA")	//Usa função COUNTA(Contar Valores)
+	oTabela:AddTotais()	//Adiciona linha de totais
+	oTabela:Finish()	//Fecha a edição da tabela
+
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp()
+	oExcel:Close()
 Return

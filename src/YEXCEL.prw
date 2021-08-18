@@ -1,6 +1,8 @@
 #include "Totvs.ch"
 #include "Fileio.ch"
 #Include "ParmType.ch"
+#INCLUDE "DBSTRUCT.CH"
+#INCLUDE "DBINFO.CH"
 
 Static cAr7Zip	//Caminho do 7zip para compactar o arquivo
 Static cRootPath
@@ -49,7 +51,9 @@ User Function YExcel()
 Return .T.
 
 Class YExcel
-	Data oString			//String compartilhadas
+	Data oString			//String 
+	Data oXmlStyle
+	Data cNomeNS2
 	Data nQtdString			//Quantidade de string conmpartilhadas
 	Data adimension			//Dimensão da planilha
 	Data cClassName			//Nome da Classe
@@ -82,6 +86,10 @@ Class YExcel
 	Data cAliasLin
 	Data cAliasStr
 	Data cAliasChv
+	Data cTabCol
+	Data cTabLin
+	Data cTabStr
+	Data cTabChv
 	Data aworkdrawing	//arquivo drawing do worksheets
 	Data odrawing		//tag drawing dentro do sheet
 	Data aImagens		//Imagens adicionada
@@ -105,6 +113,9 @@ Class YExcel
 	Data lRowcollapsed
 	Data lRowHidden
 	Data osheet
+	Data lArquivo
+	Data oC
+	Data oRow
 
 	METHOD New() CONSTRUCTOR
 	METHOD ClassName()
@@ -139,6 +150,7 @@ Class YExcel
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
 	METHOD AddComment()		//Cria um comentário para a celula posicionada
+	METHOD Alias2Tab()		//Preencher com alias informado
 	
 	METHOD InsertRowEmpty()	//Cria linhas vazia
 	METHOD InsertCellEmpty()//Cria células vazias
@@ -176,6 +188,7 @@ Class YExcel
 	METHOD AddFormatCond()	//Formatação condicional(todos rercusos)
 	METHOD Pane()			//Congelar Painéis
 	METHOD CriaDB()			//Cria base de dados interna
+	METHOD ExecSql()		//Executa comandos sql
 
 	//Estilo
 	METHOD CorPreenc()		//Cria um nova cor para ser usada
@@ -191,6 +204,7 @@ Class YExcel
 	METHOD Border()			//Cria Borda com todas opções
 	Method AddFmt()			//Cria formato
 	Method AddFmtNum()		//Cria formato para numeros
+	Method AddFmtNumCode()
 	Method SetStyFmt()		//Informa um formato de estilo
 	Method SetStyFont()		//Informa uma fonte do estilo
 	Method SetStyFill()		//Informa um preenchimento de fundo do estilo
@@ -200,6 +214,7 @@ Class YExcel
 	Method SetStyaOutrosAtributos()	//Informa aOutrosAtributos do estilo
 	Method NewStyRules()	//Cria auxiliar
 	Method StyleType()		//Retorna o tipo do estilo
+	Method Masc2Style()		//Criar estilo com mascara protheus
 
 
 	//Formatação condicional
@@ -250,7 +265,7 @@ Construtor da classe
 @param cNomeFile, characters, Nome do arquivo para gerar
 @type method
 /*/
-METHOD New(cNomeFile,cFileOpen) Class YExcel
+METHOD New(cNomeFile,cFileOpen,lArquivo) Class YExcel
 	Local nPos
 	Local aStruct,aIndex
 	Local cDriver	:= "SQLITE_TMP"
@@ -259,6 +274,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
 	Endif
 	PARAMTYPE 0	VAR cNomeFile	AS CHARACTER		OPTIONAL DEFAULT cNomTmp
+	Default lArquivo	:= .T.
 	// PARAMTYPE 2	VAR cDriver		AS CHARACTER			OPTIONAL DEFAULT "SQLITE_TMP"
 	::cClassName	:= "YEXCEL"
 	::cName			:= "YEXCEL"
@@ -287,13 +303,14 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 	::aTmpDB		:= {}
 	::aPadraoSty	:= {}
 	::aCleanObj		:= {}
-	::nLinha		:= 1
-	::nColuna		:= 1
+	::nLinha		:= 0
+	::nColuna		:= 0
 	::lDelSrv		:= .T.
 	::cArqGrv		:= ""
 	::cLocalFile	:= ""
 	::nPriodFormCond:= 1
 	::aImgdraw		:= {}
+	::lArquivo		:= lArquivo
 	AADD(::aCleanObj,::oString)
 
 	//CRIAR ESTRUTURA DO BANCO
@@ -301,15 +318,25 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 		CriaPublica()
 	Endif
 	::cDriver	:= cDriver
-	If ::cDriver=="TMPDB"
-		If !TCIsConnected()
-			nH := TCLink()
-			If nH < 0
-				UserException("DBAccess - Erro de conexao "+cValToChar(nH))
-			Endif
-		Endif
-	Endif
+	If TCIsConnected()
+		::cDriver:="TMPDB"
+	EndIf
+	// If ::cDriver=="TMPDB"
+	// 	If !TCIsConnected()
+	// 		nH := TCLink()
+	// 		If nH < 0
+	// 			UserException("DBAccess - Erro de conexao "+cValToChar(nH))
+	// 		Endif
+	// 	Endif
+	// Endif
+	// If !DBSqlExec("", "PRAGMA synchronous = OFF;", ::cDriver)
+	// 	ConOut("Erro PRAGMA synchronous = OFF")
+	// EndIf
+	// If !DBSqlExec("", "PRAGMA journal_mode = OFF;", ::cDriver)
+	// 	ConOut("Erro PRAGMA journal_mode = OFF")
+	// EndIf
 
+	ConOut(::cDriver)
 	//COLUNAS
 	aStruct	:= {}
 	aIndex	:= {}
@@ -321,11 +348,12 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 	AADD(aStruct,{"TIPO"	,	"C", 1		, 00})
 	AADD(aStruct,{"FORMULA"	,	"C", 200	, 00})
 	AADD(aStruct,{"TPVLR"	,	"C", 1		, 00})	//Tipo campo usado, txt ou num
-	AADD(aStruct,{"VLRTXT"	,	"C", 200	, 00})
-	AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
-	AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
+	AADD(aStruct,{"VLR"		,	"M", 8		, 00})
+	// AADD(aStruct,{"VLRTXT"	,	"C", 200	, 00})
+	// AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
+	// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
 	AADD(aIndex,{"PLA","LIN","COL"})
-	::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL")
+	::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL",@::cTabCol)
 	
 	//LINHAS
 	aStruct	:= {}
@@ -338,17 +366,17 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 	AADD(aStruct,{"CHEIGHT"	,	"C", 1		, 02})
 	AADD(aStruct,{"HT"		,	"N", 8		, 02})
 	AADD(aIndex,{"PLA","LIN"})
-	::cAliasLin	:= ::CriaDB(aStruct,aIndex,"LIN")
+	::cAliasLin	:= ::CriaDB(aStruct,aIndex,"LIN",@::cTabLin)
 	
 	//STRING COMPARTILHAS
 	aStruct	:= {}
 	aIndex	:= {}
 	AADD(aStruct,{"POS"			,"N", 10	, 00})
-	AADD(aStruct,{"VLRTEXTO"	,"C", 200	, 00})
+	AADD(aStruct,{"VLRTEXTO"	,"C", 32	, 00})
 	AADD(aStruct,{"VLRMEMO"		,"M", 8		, 00})
 	AADD(aIndex,{"VLRTEXTO","POS"})
 	AADD(aIndex,{"POS"})
-	::cAliasStr	:= ::CriaDB(aStruct,aIndex,"STR")
+	::cAliasStr	:= ::CriaDB(aStruct,aIndex,"STR",@::cTabStr)
 	
 	//CHAVES E IDS
 	aStruct	:= {}
@@ -358,7 +386,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 	AADD(aStruct,{"ID"			,"N", 7		, 00})
 	AADD(aIndex,{"TIPO","CHAVE"})
 	AADD(aIndex,{"TIPO","ID"})
-	::cAliasChv	:= ::CriaDB(aStruct,aIndex,"CHV")
+	::cAliasChv	:= ::CriaDB(aStruct,aIndex,"CHV",@::cTabChv)
 
 	If !Empty(cFileOpen)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
@@ -390,6 +418,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 		nPos	:= ::new_rels("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels","\_rels\.rels")	//Arquivo não é carregado pela função Directory
 		fErase("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels")
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,".rels")	//Ler todos rels
+		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,"sharedstrings.rels")	//Ler todos sharedstrings
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile)
 		LerChvStys(::self)
 		If aScan(::aFiles,{|x| lower(x)=="\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedstrings.xml"})==0
@@ -433,7 +462,7 @@ METHOD New(cNomeFile,cFileOpen) Class YExcel
 Return self
 
 //Não Documentear
-Method CriaDB(aStruct,aIndex,cPrefixo) Class YExcel
+Method CriaDB(aStruct,aIndex,cPrefixo,cRealName) Class YExcel
 	Local oTabTmp
 	Local cAliasRet
 	Local nCont
@@ -446,9 +475,11 @@ Method CriaDB(aStruct,aIndex,cPrefixo) Class YExcel
 		Next
 		oTabTmp:Create()
 		cAliasRet	:= oTabTmp:GetAlias()
+		cRealName	:= oTabTmp:GetRealName()
 		AADD(::aTmpDB,oTabTmp)
 	Else
 		cAliasRet	:= cPrefixo+CriaTrab(,.F.)
+		cRealName	:= cAliasRet
 		DBCreate( cAliasRet , aStruct, ::cDriver )
 		DBUseArea( .T., ::cDriver, cAliasRet, cAliasRet, .F., .F. )
 		CriaIndices(cAliasRet,aIndex,aStruct)
@@ -482,6 +513,18 @@ Static Function CriaIndices(cAliasTMP,aIndex,aStruct)
 		(cAliasTMP)->(dbSetIndex(cAliasTMP+'IDX'+cValToChar(nCont)))
 	Next
 Return
+
+Method ExecSql(cAlias,cComando,cDriver) Class YExcel
+	Local lRet
+	If "SQLITE" $ cDriver
+		Return DbSqlExec(cAlias,cComando,cDriver)
+	ElseIf Empty(cAlias)
+		lRet	:= TCSqlExec(cComando)>=0
+	Else
+		MpSysOpenQuery(cComando,cAlias)
+		lRet	:= .T.
+	EndIf
+Return lRet
 
 /*/{Protheus.doc} ADDPlan
 Adiciona nova planilha ao arquivo
@@ -529,6 +572,23 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 
 	//Cria nova planilha
 	nQtdPlanilhas++
+	If ::lArquivo
+		If ValType(::oC)=="O"
+			::oC:GetTag(@::nFileTmpRow,.T.)
+			FreeObj(::oC)
+			::oC	:= nil
+		EndIf
+		If ValType(::oRow)=="O"
+			FWRITE(::nFileTmpRow,"</row>")
+			FreeObj(::oRow)
+			::oRow	:= nil
+		EndIf
+		If ::nFileTmpRow<>0
+			fClose(::nFileTmpRow)
+		EndIf
+		::CriarFile("\"+::cNomeFile+"\xl\worksheets"	,"tmprow"+cValToChar(nQtdPlanilhas)+".xml"			,""			,)
+		GravaFile(@::nFileTmpRow,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","tmprow"+cValToChar(nQtdPlanilhas)+".xml")
+	Endif
 	::xls_sheet(,"sheet"+cValToChar(nQtdPlanilhas)+".xml")
 	// ::asheet[nQtdPlanilhas][1]:XPathAddNode( "/xmlns:worksheet", "sheetPr", "" )
 	::asheet[nQtdPlanilhas][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:sheetPr", "codeName"	, cNome)
@@ -566,6 +626,7 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
 	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml" )
 	::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml" )
+	::Pos(1,1)
 Return nQtdPlanilhas
 
 Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
@@ -586,6 +647,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 	Local nFator,fFator
 	Local cTargetDraw
 	Local cTarget
+	Local lAchou,nPos
 	// Local cIDTable
 	// Local nCont3
 	Default cCamIni	:= cCaminho
@@ -663,6 +725,17 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 							(::cAliasCol)->TPSTY	:= " "
 							If Empty(cValor)
 								(::cAliasCol)->TPVLR		:= "U"
+							ElseIf cTipoCol=="str"
+								(::cAliasCol)->TPSTY		:= "S"
+								lAchou	:= .F.
+								nPos	:= ::GetStrComp(xValor,@lAchou)
+								If lAchou
+									(self:cAliasCol)->VLRNUM	:= nPos
+								Else
+									nPos	:= ::SetStrComp(xValor)
+									(self:cAliasCol)->VLRNUM	:= nPos
+								Endif
+								(self:cAliasCol)->VLRNUM	:= Val(cValor)
 							ElseIf cTipoCol=="s"
 								(::cAliasCol)->TPSTY		:= "S"
 								(self:cAliasCol)->VLRNUM	:= Val(cValor)
@@ -674,6 +747,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 								(::cAliasCol)->VLRTXT		:= cValor
 								(::cAliasCol)->TPVLR		:= "C"
 							ElseIf cTipoCol==""
+								(::cAliasCol)->TPVLR		:= "C"
 								(::cAliasCol)->TPSTY		:= "N"
 								If "E" $ cValor
 									nPosE	:= At("E",cValor)
@@ -686,7 +760,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 									Else
 										fNumero	:= DEC_MUL(fNumero,fFator)
 									Endif
-									(self:cAliasCol)->VLRNUM	:= DEC_TO_DBL(fNumero)	//&(Replace(cValor,"E-","/(10^")+")")
+									(self:cAliasCol)->VLRTXT	:= cValToChar(DEC_TO_DBL(fNumero))	//&(Replace(cValor,"E-","/(10^")+")")
 									(self:cAliasCol)->VLRDEC	:= Int(DEC_TO_DBL( DEC_MUL(DEC_CREATE("1000000000000000",21,20),DEC_SUB(fNumero,DEC_RESCALE(fNumero,8,2))) ))
 								Else
 									nPosPonto	:= At(".",cValor)
@@ -696,7 +770,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 											(self:cAliasCol)->VLRDEC	:= Val(SubStr(cDecimal,9))
 										Endif
 									Endif
-									(self:cAliasCol)->VLRNUM	:= Val(cValor)
+									(self:cAliasCol)->VLRTXT	:= cValor
 								Endif
 							Else
 								(::cAliasCol)->TPVLR	:= "C"
@@ -708,6 +782,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 							Endif
 							(::cAliasCol)->(MsUnLock())
 						Next
+						::asheet[::nPlanilhaAt][1]:ResetErrors()
 					Next
 					//Deleta as linhas adicionadas ao banco de dados
 					While ::asheet[::nPlanilhaAt][1]:XPathHasNode( "/xmlns:worksheet/xmlns:sheetData/xmlns:row[1]")
@@ -758,6 +833,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					// 	::aPlanilhas[::nPlanilhaAt][6]:LoadTagXml(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:tableParts")
 					// 	::asheet[::nPlanilhaAt][1]:XPathDelNode("/xmlns:worksheet/xmlns:tableParts")
 					// Endif
+					::asheet[::nPlanilhaAt][1]:ResetErrors()
 				Next
 				::nPlanilhaAt	:= 1
 			ElseIf right(cCaminho,12)=="\xl\drawings".and. right(lower(aFiles[nCont][1]),3)=="vml"
@@ -822,11 +898,11 @@ Static Function LerChvStys(oSelf)
 	For nCont:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:cellXfs")
 		cTipoStyle := oSelf:StyleType(nCont-1)
 		If cTipoStyle=="D"
-			If !DbSqlExec(oSelf:cAliasCol,"UPDATE "+oSelf:cAliasCol+" SET TIPO='d',TPSTY='D' WHERE TPVLR='N' AND STY="+cValToChar(nCont-1),oSelf:cDriver)
+			If !oSelf:ExecSql("","UPDATE "+oSelf:cTabCol+" SET TIPO='d',TPSTY='D' WHERE TPVLR='N' AND STY="+cValToChar(nCont-1),oSelf:cDriver)
 				UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
 			Endif
 		ElseIf cTipoStyle=="DT" .or. cTipoStyle=="H"
-			If !DbSqlExec(oSelf:cAliasCol,"UPDATE "+oSelf:cAliasCol+" SET TIPO='d',TPSTY='T' WHERE TPVLR='N' AND STY="+cValToChar(nCont-1),oSelf:cDriver)
+			If !oSelf:ExecSql("","UPDATE "+oSelf:cTabCol+" SET TIPO='d',TPSTY='T' WHERE TPVLR='N' AND STY="+cValToChar(nCont-1),oSelf:cDriver)
 				UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
 			Endif
 		Endif
@@ -1393,7 +1469,7 @@ METHOD Cell(nLinha,nColuna,xValor,cFormula,xStyle) Class YExcel
 	::SetValue(xValor,cFormula)
 	If cTpStyle=="U".AND.cTipo=="D"
 	ElseIf cTpStyle=="U" .AND. cTipo=="O".AND.GetClassName(xValor)=="YEXCEL_DATETIME" 	//Data e Date time, deixa formato padrão, não limpa formato
-	Else
+	ElseIf cTpStyle!="U"
 		::SetStyle(xStyle,nLinha,nColuna)
 	EndIf
 
@@ -1417,16 +1493,20 @@ Method AddCol(nQtd,nColunaIni,nLinhaIni,nLinhaFim) Class YExcel
 	Local cUpdate	:= ""
 	PARAMTYPE 0	VAR nQtd			AS NUMERIC			OPTIONAL DEFAULT 1
 	PARAMTYPE 1	VAR nColunaIni		AS NUMERIC			OPTIONAL DEFAULT ::nColuna
-	cUpdate	:= "UPDATE "+::cAliasCol+" SET COL=COL+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND COL>="+cValToChar(nColunaIni)
-	If ValType(nLinhaIni)=="N"
-		cUpdate	+= " AND LIN>="+cValToChar(nLinhaIni)
-	Endif
-	If ValType(nLinhaFim)=="N"
-		cUpdate	+= " AND LIN<="+cValToChar(nLinhaFim)
-	Endif
-	If !DbSqlExec(::cAliasCol,cUpdate,::cDriver)
-		UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
-	Endif	
+	If ::lArquivo
+		UserException("YExcel - Não é possível adicionar colunas na criação direta com arquivo")
+	Else
+		cUpdate	:= "UPDATE "+::cTabCol+" SET COL=COL+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND COL>="+cValToChar(nColunaIni)
+		If ValType(nLinhaIni)=="N"
+			cUpdate	+= " AND LIN>="+cValToChar(nLinhaIni)
+		Endif
+		If ValType(nLinhaFim)=="N"
+			cUpdate	+= " AND LIN<="+cValToChar(nLinhaFim)
+		Endif
+		If !::ExecSql("",cUpdate,::cDriver)
+			UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
+		Endif
+	EndIf
 Return
 
 Method AddRow(nQtd,nLinhaIni,nColunaIni,nColunaFim) Class YExcel
@@ -1438,32 +1518,35 @@ Method AddRow(nQtd,nLinhaIni,nColunaIni,nColunaFim) Class YExcel
 	// 	nColunaIni	:= 1
 	// Endif
 	//Atualiza as células para nova posição
-	cUpdate	:= "UPDATE "+::cAliasCol+" SET LIN=LIN+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinhaIni)
-	If ValType(nColunaIni)=="N"
-		cUpdate	+= " AND COL>="+cValToChar(nColunaIni)
-	Endif
-	If ValType(nColunaFim)=="N"
-		cUpdate	+= " AND COL<="+cValToChar(nColunaFim)
-	Endif
-	If !DbSqlExec(::cAliasCol,cUpdate,::cDriver)
-		UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
-	Endif
-
-	//Atualiza as linhas para nova posição
-	If ValType(nColunaFim)=="N" .OR. (ValType(nColunaIni)=="N" .AND. nColunaIni>1)
-		//Movendo apenas as celulas para baixo
-		//Cria linhas as células que foram movidas para baixo
-		If !DbSqlExec(::cAliasLin,"INSERT INTO "+::cAliasLin+" (PLA,LIN) SELECT DISTINCT C.PLA,C.LIN FROM "+::cAliasCol+" C LEFT JOIN "+::cAliasLin+" L ON C.PLA=L.PLA AND C.LIN=L.LIN WHERE L.LIN IS NULL",::cDriver)
+	If ::lArquivo
+		UserException("YExcel - Não é possível adicionar linhas na criação direta com arquivo")
+	Else
+		cUpdate	:= "UPDATE "+::cTabCol+" SET LIN=LIN+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinhaIni)
+		If ValType(nColunaIni)=="N"
+			cUpdate	+= " AND COL>="+cValToChar(nColunaIni)
+		Endif
+		If ValType(nColunaFim)=="N"
+			cUpdate	+= " AND COL<="+cValToChar(nColunaFim)
+		Endif
+		If !::ExecSql("",cUpdate,::cDriver)
 			UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
 		Endif
-	else
-		//Movendo a linha inteira
-		cUpdate	:= "UPDATE "+::cAliasLin+" SET LIN=LIN+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinhaIni)
-		If !DbSqlExec(::cAliasCol,cUpdate,::cDriver)
-			UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
-		Endif
-	Endif
 
+		//Atualiza as linhas para nova posição
+		If ValType(nColunaFim)=="N" .OR. (ValType(nColunaIni)=="N" .AND. nColunaIni>1)
+			//Movendo apenas as celulas para baixo
+			//Cria linhas as células que foram movidas para baixo
+			If !::ExecSql("","INSERT INTO "+::cTabLin+" (PLA,LIN) SELECT DISTINCT C.PLA,C.LIN FROM "+::cTabCol+" C LEFT JOIN "+::cTabLin+" L ON C.PLA=L.PLA AND C.LIN=L.LIN WHERE L.LIN IS NULL",::cDriver)
+				UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
+			Endif
+		else
+			//Movendo a linha inteira
+			cUpdate	:= "UPDATE "+::cTabLin+" SET LIN=LIN+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinhaIni)
+			If !::ExecSql("",cUpdate,::cDriver)
+				UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
+			Endif
+		Endif
+	EndIf
 Return
 
 /*/{Protheus.doc} YExcel::SetRowH
@@ -1481,21 +1564,25 @@ Method SetRowH(nHeight,nLinha,nLinha2) Class YExcel
 	PARAMTYPE 0	VAR nHeight			AS NUMERIC			OPTIONAL
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC			OPTIONAL
 	PARAMTYPE 2	VAR nLinha2			AS NUMERIC			OPTIONAL	DEFAULT nLinha
-	If ValType(nLinha)=="N"	//Altera apenas o range
-		If ValType(nHeight)=="U"
-			cCHeight	:= " "
-			nHeight		:= 0
-		Endif
-		
-		//Inserir linhas que não existe para definir o tamanho
-		::InsertRowEmpty(nLinha,nLinha2)
-
-		If !DbSqlExec(::cAliasLin,"UPDATE "+::cAliasLin+" SET CHEIGHT='"+cCHeight+"',HT="+cValToChar(nHeight)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" ",::cDriver)
-			UserException("YExcel - 2 Erro ao atualiza tamanho das linhas. "+TCSqlError())
-		Endif
-	Else
+	If ::lArquivo
 		::nTamLinha	:= nHeight
-	Endif
+	Else
+		If ValType(nLinha)=="N"	//Altera apenas o range
+			If ValType(nHeight)=="U"
+				cCHeight	:= " "
+				nHeight		:= 0
+			Endif
+			
+			//Inserir linhas que não existe para definir o tamanho
+			::InsertRowEmpty(nLinha,nLinha2)
+
+			If !::ExecSql("","UPDATE "+::cTabLin+" SET CHEIGHT='"+cCHeight+"',HT="+cValToChar(nHeight)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" ",::cDriver)
+				UserException("YExcel - 2 Erro ao atualiza tamanho das linhas. "+TCSqlError())
+			Endif
+		Else
+			::nTamLinha	:= nHeight
+		Endif
+	EndIf
 Return
 
 /*/{Protheus.doc} YExcel::InsertRowEmpty
@@ -1508,13 +1595,37 @@ Inserir linhas vazias
 @param nLinha2, numeric, Linha final
 /*/
 Method InsertRowEmpty(nLinha,nLinha2) Class YExcel
+	Local cQuery
+	Local nCont
+	Local cAliasTmp
 	Default nLinha	:= nLinha2
-	If !DbSqlExec(::cAliasLin,"INSERT INTO "+::cAliasLin+" (PLA,LIN)"+;
-		" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
-		" SELECT "+cValToChar(::nPlanilhaAt)+",x FROM lin LEFT JOIN "+::cAliasLin+" TAB ON lin.x=TAB.LIN"+;
-		" WHERE TAB.LIN is null",::cDriver)
-		UserException("YExcel - Erro ao inserrir linhas. "+TCSqlError())
-	Endif
+	If ::lArquivo
+		UserException("YExcel - Não é possível adicionar linhas na criação direta com arquivo")
+	Else
+		If "SQLITE" $ ::cDriver
+			cQuery	:= "INSERT INTO "+::cTabLin+" (PLA,LIN)"+;
+					" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
+					" SELECT "+cValToChar(::nPlanilhaAt)+",x FROM lin LEFT JOIN "+::cTabLin+" TAB ON TAB.PLA="+cValToChar(::nPlanilhaAt)+" AND lin.x=TAB.LIN"+;
+					" WHERE TAB.LIN is null"
+			If !::ExecSql("",cQuery,::cDriver)
+				UserException("YExcel - Erro ao inserrir linhas. "+TCSqlError())
+			Endif
+		Else
+			cQuery	:= " SELECT LIN FROM "+::cTabLin+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" ORDER BY LIN"
+			cAliasTmp	:= MpSysOpenQuery(cQuery)
+			For nCont:=nLinha to nLinha2
+				If (cAliasTmp)->LIN==nCont
+					(cAliasTmp)->(DbSkip())
+					Loop
+				EndIf
+				RecLock(::cAliasLin,.T.)
+				(::cAliasLin)->PLA	:= ::nPlanilhaAt
+				(::cAliasLin)->LIN	:= nCont
+				MsUnLock()
+			Next
+			(cAliasTmp)->(DbCloseArea())
+		EndIf
+	EndIf
 Return
 
 /*/{Protheus.doc} YExcel::InsertCellEmpty
@@ -1529,22 +1640,87 @@ Inserir células vazias
 @param nColuna2, numeric, Coluna final
 /*/
 Method InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
-	Local nPos
-	Local lAchou
+	// Local nPos
+	// Local lAchou
+	Local cQuery
+	// Local cAliasTmp
+	Local cUpdate
+	// Local nCont,nCont2
+	// Local lUpdate		:= .F.
 	Default nLinha2		:= nLinha
 	Default nColuna2	:= nColuna
-	nPos	:= ::GetStrComp("",@lAchou)
-	If !lAchou
-		nPos	:= ::SetStrComp("")
-	Endif
-	::InsertRowEmpty(nLinha,nLinha2)
-	If !DbSqlExec(::cAliasCol,"INSERT INTO "+::cAliasCol+" (PLA,LIN,COL,TIPO,TPSTY,TPVLR)"+;
-		" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
-		" ,col(y) AS (VALUES("+cValToChar(nColuna)+") UNION ALL SELECT y+1 FROM col WHERE y<"+cValToChar(nColuna2)+")"+;
-		" SELECT "+cValToChar(::nPlanilhaAt)+",x,y,'s','S','U' FROM lin INNER JOIN col on 1=1 LEFT JOIN "+::cAliasCol+" TAB ON lin.x=TAB.LIN AND col.y=TAB.COL"+;
-		" WHERE TAB.LIN is null",::cDriver)
-		UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
-	Endif
+	// nPos	:= ::GetStrComp("",@lAchou)
+	// If !lAchou
+	// 	nPos	:= ::SetStrComp("")
+	// Endif
+	If ::lArquivo
+		UserException("YExcel - Não é possível adicionar linhas na criação direta com arquivo")
+	Else
+		::InsertRowEmpty(nLinha,nLinha2)
+		If "SQLITE" $ ::cDriver
+			cQuery	:= "INSERT INTO "+::cTabCol+" (PLA,LIN,COL,TIPO,TPSTY,TPVLR,STY)"+;
+				" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
+				" ,col(y) AS (VALUES("+cValToChar(nColuna)+") UNION ALL SELECT y+1 FROM col WHERE y<"+cValToChar(nColuna2)+")"+;
+				" SELECT "+cValToChar(::nPlanilhaAt)+",x,y,'s','S','U',-1 FROM lin INNER JOIN col on 1=1 LEFT JOIN "+::cTabCol+" TAB ON TAB.PLA="+cValToChar(::nPlanilhaAt)+" AND lin.x=TAB.LIN AND col.y=TAB.COL"+;
+				" WHERE TAB.LIN is null"
+			If !::ExecSql("",cQuery,::cDriver)
+				UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
+			Endif
+		Else
+			// cUpdate	:= "SET NOCOUNT ON;"
+			// cQuery	:= " SELECT LIN,COL FROM "+::cTabCol+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" AND COL BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+" ORDER BY LIN,COL"
+			// cAliasTmp	:= MpSysOpenQuery(cQuery)
+			// For nCont:=nLinha to nLinha2
+			// 	For nCont2:=nColuna to nColuna2
+			// 		If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
+			// 			(cAliasTmp)->(DbSkip())
+			// 			Loop
+			// 		EndIf
+			// 		lUpdate	:= .T.
+			// 		cUpdate	+= " INSERT INTO "+::cTabCol+"(PLA,LIN,COL,STY,TPSTY,TIPO,TPVLR) VALUES ("+;
+			// 					cValToChar(::nPlanilhaAt)+;
+			// 					","+cValToChar(nCont)+;
+			// 					","+cValToChar(nCont2)+;
+			// 					",-1"+;
+			// 					",'S'"+;
+			// 					",'s'"+;
+			// 					",'U'"+;
+			// 					");"
+			// 		// RecLock(::cAliasCol,.T.)
+			// 		// (::cAliasCol)->PLA	:= ::nPlanilhaAt
+			// 		// (::cAliasCol)->LIN	:= nCont
+			// 		// (::cAliasCol)->COL	:= nCont2
+			// 		// (::cAliasCol)->TIPO	:= 's'
+			// 		// (::cAliasCol)->TPSTY:= 'S'
+			// 		// (::cAliasCol)->TPVLR:= 'U'
+			// 		// (::cAliasCol)->STY	:= -1
+			// 		// MsUnLock()
+			// 	Next
+			// Next
+			// (cAliasTmp)->(DbCloseArea())
+
+			cUpdate	:= "WITH numeros(numero)"
+			cUpdate	+= " AS"
+			cUpdate	+= " ("
+			cUpdate	+= " SELECT "+cValToChar(Min(nLinha,nColuna))+" numero"
+			cUpdate	+= " UNION ALL"
+			cUpdate	+= " SELECT numero+1 FROM numeros"
+			cUpdate	+= " WHERE"
+			cUpdate	+= " numero<"+cValToChar(MAX(nLinha2,nColuna2))+""
+			cUpdate	+= " )"
+			cUpdate	+= " INSERT INTO "+::cTabCol+" (PLA,LIN,COL,STY,TPSTY,TIPO,TPVLR) "
+			cUpdate	+= " SELECT "+cValToChar(::nPlanilhaAt)+" PLA,LINHAS.numero LINHA,COLUNAS.numero COLUNA,-1 STY,'S' TPSTY,'s' TIPO,'U' TPVLR "
+			cUpdate	+= " FROM numeros LINHAS "
+			cUpdate	+= " INNER JOIN numeros COLUNAS ON COLUNAS.numero BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+""
+			cUpdate	+= " LEFT JOIN "+::cTabCol+" TABCOL ON TABCOL.PLA="+cValToChar(::nPlanilhaAt)+" AND TABCOL.LIN=LINHAS.numero AND TABCOL.COL=COLUNAS.numero"
+			cUpdate	+= " WHERE TABCOL.PLA IS NULL AND LINHAS.numero BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+""
+			cUpdate	+= " OPTION (MAXRECURSION "+cValToChar(MAX(nLinha2,nColuna2))+")"
+			If TCSqlExec(cUpdate)<0
+				UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
+			Endif
+			
+		EndIf
+	EndIf
 Return
 
 /*/{Protheus.doc} YExcel::SetValue
@@ -1557,115 +1733,200 @@ Alteração de valores da célula posicionada
 @param cFormula, character, formula a ser gravada
 @return object, self
 /*/
+Static cTmpCol	:= GetNextAlias()
 Method SetValue(xValor,cFormula) Class YExcel
 	Local cTipo	:= ValType(xValor)
 	Local lAchou
 	Local nPos
-	Default cFormula	:= ""
-	If !(::cAliasLin)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)))
-		(::cAliasLin)->(RecLock(::cAliasLin,.T.))
-		(::cAliasLin)->PLA		:= ::nPlanilhaAt
-		(::cAliasLin)->LIN		:= ::nLinha
-		(::cAliasLin)->OLEVEL	:= ""
-		(::cAliasLin)->COLLAP	:= ""
-		(::cAliasLin)->CHIDDEN	:= ""
-		(::cAliasLin)->CHEIGHT	:= ""
-		(::cAliasLin)->HT		:= 0
-		If ValType(::nRowoutlineLevel)=="N"
-			(::cAliasLin)->OLEVEL	:= cValToChar(::nRowoutlineLevel)
-		Endif
-		If ::lRowcollapsed
-			(::cAliasLin)->COLLAP	:= "1"
-		Endif
-		If ::lRowhidden
-			(::cAliasLin)->CHIDDEN	:= "1"
-		Endif
-		If ValType(::nTamLinha)=="N"
-			(::cAliasLin)->CHEIGHT	:= "1"
-			(::cAliasLin)->HT	:= ::nTamLinha
-		Endif
-		(::cAliasLin)->(MsUnLock())
-	Endif
-
-	If !(::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))
-		(::cAliasCol)->(RecLock(::cAliasCol,.T.))
-		(::cAliasCol)->STY		:= -1
-		(::cAliasCol)->TPSTY	:= " "
-	else
-		(::cAliasCol)->(RecLock(::cAliasCol,.F.))
-	Endif
-	(::cAliasCol)->PLA		:= ::nPlanilhaAt
-	(::cAliasCol)->LIN		:= ::nLinha
-	(::cAliasCol)->COL		:= ::nColuna
-	If cTipo=="C"
-		(::cAliasCol)->TIPO		:= "s"
-		(::cAliasCol)->TPSTY	:= "S"
-	ElseIf cTipo=="L"
-		(::cAliasCol)->TIPO		:= "b"
-		(::cAliasCol)->TPSTY	:= "B"
-	ElseIf cTipo=="N"
-		(::cAliasCol)->TIPO		:= "n"
-		(::cAliasCol)->TPSTY	:= "N"
-	ElseIf cTipo=="D"
-		(::cAliasCol)->TIPO		:= "d"
-		If (::cAliasCol)->STY>=0 .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
-			//Se tem estilo e ele não tem NumFmtId aplicado
-			(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,14)	//Cria um estilo com Numfmt data
-			(::cAliasCol)->TPSTY	:= "D"
-		ElseIf (::cAliasCol)->STY<0	//Não tem estilo
-			(::cAliasCol)->STY		:= ::aPadraoSty[2]	//Estilo padrão de data
-			(::cAliasCol)->TPSTY	:= "D"
-		Endif
-	ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
-		(::cAliasCol)->TIPO		:= "d"
-		If (::cAliasCol)->STY>=0 .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")!="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
-			//Se tem estilo e ele não tem NumFmtId aplicado
-			(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))	//Cria estilo com Numfmt datetime
-			(::cAliasCol)->TPSTY	:= "T"
-		ElseIf (::cAliasCol)->STY<0	//Não tem estilo
-			(::cAliasCol)->STY		:= ::aPadraoSty[3]	//Estilo padrão de datetime
-			(::cAliasCol)->TPSTY	:= "T"
-		Endif
-	Endif
-	If ValType(cFormula)=="C"
-		(::cAliasCol)->FORMULA	:= cFormula
-	Endif
-	(::cAliasCol)->TPVLR	:= "N"	//Numeros
-	If cTipo=="C"
-		nPos	:= ::GetStrComp(xValor,@lAchou)
-		If lAchou
-			(self:cAliasCol)->VLRNUM	:= nPos
+	Local nStyAtu
+	Local oTmpObj
+	Local cNumero,nPosPonto,nQtdTmp
+	If ::lArquivo
+		If ValType(cFormula)!="U"
+			oTmpObj	:= YExcelTag():New("f",cFormula)
+			::oC:AddValor(oTmpObj:GetTag())
+			FreeObj(oTmpObj)
+			oTmpObj	:= nil
+		EndIf
+		If cTipo=="C"
+			::oC:SetAtributo("t","inlineStr")
+			// nPos	:= ::GetStrComp(xValor,@lAchou)
+			// If lAchou
+			// Else
+			// 	nPos	:= ::SetStrComp(xValor)
+			// Endif
+			oTmpObj	:= YExcelTag():New("is","<t><![CDATA["+xValor+"]]></t>",{{"xml:space","preserve"}})
+			::oC:AddValor(oTmpObj:GetTag())
+		ElseIf cTipo=="L"
+			::oC:SetAtributo("t","b")
+			oTmpObj	:= YExcelTag():New("v",if(xValor,1,0))
+			::oC:AddValor(oTmpObj:GetTag())
+		ElseIf cTipo=="N"
+			oTmpObj	:= YExcelTag():New("v",xValor)
+			::oC:AddValor(oTmpObj:GetTag())
+		ElseIf cTipo=="D"
+			//::SetAtributo("t","d")	//Adiciona o estilo padrão de data
+			//::SetV(SUBSTR(DTOS(v),1,4)+"-"+SUBSTR(DTOS(v),5,2)+"-"+SUBSTR(DTOS(v),7,2))
+			If !Empty(xValor)
+				oTmpObj	:= YExcelTag():New("v",xValor-STOD("19000101")+2)
+			Else
+				oTmpObj	:= YExcelTag():New("v","")
+			EndIf
+			::oC:AddValor(oTmpObj:GetTag())
+			nStyAtu 	:= ::oC:GetAtributo("s")
+			If ValType(nStyAtu)!="U" .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+				//Se tem estilo e ele não tem NumFmtId aplicado
+				::oC:SetAtributo("s", ::CreateStyle(nStyAtu,14) )	//Cria um estilo com Numfmt data
+			ElseIf ValType(nStyAtu)=="U"	//Não tem estilo
+				::oC:SetAtributo("s",::aPadraoSty[2])	//Estilo padrão de data
+			Endif
+		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
+			oTmpObj	:= YExcelTag():New("v",xValor:GetStrNumber())
+			::oC:AddValor(oTmpObj:GetTag())
+			nStyAtu 	:= ::oC:GetAtributo("s")
+			If ValType(nStyAtu)!="U" .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+				//Se tem estilo e ele não tem NumFmtId aplicado
+				::oC:SetAtributo("s", ::CreateStyle(nStyAtu,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")) )	//Cria um estilo com Numfmt datetime
+			ElseIf ValType(nStyAtu)=="U"	//Não tem estilo
+				::oC:SetAtributo("s",::aPadraoSty[3])	//Estilo padrão de datetime
+			Endif
 		Else
-			nPos	:= ::SetStrComp(xValor)
-			(self:cAliasCol)->VLRNUM	:= nPos
-		Endif
-	ElseIf cTipo=="L"
-		(::cAliasCol)->VLRNUM	:= if(xValor,1,0)
-	ElseIf cTipo=="N"
-		(::cAliasCol)->VLRNUM	:= xValor
-	ElseIf cTipo=="D"
-		(::cAliasCol)->TPVLR	:= "N"	//Numerico
-		If !Empty(xValor)
-			// (::cAliasCol)->VLRTXT	:= cValToChar(xValor-STOD("19000101")+2)
-			(::cAliasCol)->VLRNUM	:= xValor-STOD("19000101")+2
-		Else
-			(::cAliasCol)->TPVLR	:= "U"	//Nulo
-			// (::cAliasCol)->VLRTXT	:= ""
-		Endif
-	ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
-		(::cAliasCol)->TPVLR	:= "N"	//Numerico
-		(::cAliasCol)->VLRNUM	:= xValor:nNumero
-		(::cAliasCol)->VLRDEC	:= xValor:nDecimal
-		// (::cAliasCol)->VLRTXT	:= cValToChar(xValor:GetStrNumber())
-		// (::cAliasCol)->TPVLR	:= "C"	//Caracteres
-	ElseIf cTipo=="U"
-		(::cAliasCol)->VLRTXT	:= ""
-		(::cAliasCol)->TPVLR	:= "U"	//Nulo
+			oTmpObj	:= YExcelTag():New("v",xValor)
+			::oC:AddValor(oTmpObj:GetTag())
+		EndIf
+		FreeObj(oTmpObj)
+		oTmpObj	:= nil
 	Else
-		(::cAliasCol)->VLRTXT	:= cValToChar(xValor)
-		(::cAliasCol)->TPVLR	:= "C"	//Caracteres
-	Endif
-	(::cAliasCol)->(MsUnLock())
+	Default cFormula	:= ""
+		If !(::cAliasLin)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)))
+			(::cAliasLin)->(RecLock(::cAliasLin,.T.))
+			(::cAliasLin)->PLA		:= ::nPlanilhaAt
+			(::cAliasLin)->LIN		:= ::nLinha
+			(::cAliasLin)->OLEVEL	:= ""
+			(::cAliasLin)->COLLAP	:= ""
+			(::cAliasLin)->CHIDDEN	:= ""
+			(::cAliasLin)->CHEIGHT	:= ""
+			(::cAliasLin)->HT		:= 0
+			If ValType(::nRowoutlineLevel)=="N"
+				(::cAliasLin)->OLEVEL	:= cValToChar(::nRowoutlineLevel)
+			Endif
+			If ::lRowcollapsed
+				(::cAliasLin)->COLLAP	:= "1"
+			Endif
+			If ::lRowhidden
+				(::cAliasLin)->CHIDDEN	:= "1"
+			Endif
+			If ValType(::nTamLinha)=="N"
+				(::cAliasLin)->CHEIGHT	:= "1"
+				(::cAliasLin)->HT	:= ::nTamLinha
+			Endif
+			(::cAliasLin)->(MsUnLock())
+		Endif
+		// ::ExecSql(cTmpCol,"SELECT R_E_C_N_O_ REGCOL FROM "+::cTabCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN="+cValToChar(::nLinha)+" AND COL="+cValToChar(::nColuna)+" AND D_E_L_E_T_=' '",::cDriver)
+		If !(::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))	//(cTmpCol)->(EOF())
+			(::cAliasCol)->(RecLock(::cAliasCol,.T.))
+			(::cAliasCol)->STY		:= -1
+			(::cAliasCol)->TPSTY	:= " "
+		else
+			// (::cAliasCol)->(DbGoTo((cTmpCol)->REGCOL))
+			(::cAliasCol)->(RecLock(::cAliasCol,.F.))
+		Endif
+		// (cTmpCol)->(DbCloseArea())
+		(::cAliasCol)->PLA		:= ::nPlanilhaAt
+		(::cAliasCol)->LIN		:= ::nLinha
+		(::cAliasCol)->COL		:= ::nColuna
+		If cTipo=="C"
+			(::cAliasCol)->TIPO		:= "s"
+			(::cAliasCol)->TPSTY	:= "S"
+		ElseIf cTipo=="L"
+			(::cAliasCol)->TIPO		:= "b"
+			(::cAliasCol)->TPSTY	:= "B"
+		ElseIf cTipo=="N"
+			(::cAliasCol)->TIPO		:= "n"
+			(::cAliasCol)->TPSTY	:= "N"
+		ElseIf cTipo=="D"
+			(::cAliasCol)->TIPO		:= "d"
+			If (::cAliasCol)->STY>=0 .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+				//Se tem estilo e ele não tem NumFmtId aplicado
+				(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,14)	//Cria um estilo com Numfmt data
+				(::cAliasCol)->TPSTY	:= "D"
+			ElseIf (::cAliasCol)->STY<0	//Não tem estilo
+				(::cAliasCol)->STY		:= ::aPadraoSty[2]	//Estilo padrão de data
+				(::cAliasCol)->TPSTY	:= "D"
+			Endif
+		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
+			(::cAliasCol)->TIPO		:= "d"
+			If (::cAliasCol)->STY>=0 .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")!="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
+				//Se tem estilo e ele não tem NumFmtId aplicado
+				(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))	//Cria estilo com Numfmt datetime
+				(::cAliasCol)->TPSTY	:= "T"
+			ElseIf (::cAliasCol)->STY<0	//Não tem estilo
+				(::cAliasCol)->STY		:= ::aPadraoSty[3]	//Estilo padrão de datetime
+				(::cAliasCol)->TPSTY	:= "T"
+			Endif
+		Endif
+		If ValType(cFormula)=="C"
+			(::cAliasCol)->FORMULA	:= cFormula
+		Endif
+		(::cAliasCol)->TPVLR	:= "N"	//Numeros
+		If cTipo=="C"
+			(::cAliasCol)->TPVLR:="N"
+			// (::cAliasCol)->VLR	:= xValor
+			nPos	:= ::GetStrComp(xValor,@lAchou)
+			If lAchou
+				(self:cAliasCol)->VLR	:= cValToChar(nPos)
+			Else
+				nPos	:= ::SetStrComp(xValor)
+				(self:cAliasCol)->VLR	:= cValToChar(nPos)
+			Endif
+		ElseIf cTipo=="L"
+			(::cAliasCol)->VLR	:= if(xValor,"1","0")
+			// (::cAliasCol)->VLRNUM	:= if(xValor,1,0)
+		ElseIf cTipo=="N"
+			(::cAliasCol)->TPVLR	:= "N"
+			(::cAliasCol)->VLR		:= cValToChar(xValor)
+			// (::cAliasCol)->TPVLR	:= "C"
+			// (::cAliasCol)->VLRTXT	:= cValToChar(xValor)
+		ElseIf cTipo=="D"
+			(::cAliasCol)->TPVLR	:= "N"	//Numerico
+			If !Empty(xValor)
+				// (::cAliasCol)->VLRTXT	:= cValToChar(xValor-STOD("19000101")+2)
+				(::cAliasCol)->VLR	:= cValToChar(xValor-STOD("19000101")+2)
+			Else
+				(::cAliasCol)->TPVLR	:= "U"	//Nulo
+				// (::cAliasCol)->VLRTXT	:= ""
+			Endif
+		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
+			(::cAliasCol)->TPVLR	:= "N"	//Numerico
+			cNumero		:= cValToChar(xValor:nNumero)
+			If xValor:nDecimal<>0
+				nPosPonto	:= At(".",cNumero)
+				If nPosPonto==0
+					cNumero	+= "."+Replicate("0",8)
+				Else
+					nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
+					If nQtdTmp>0
+						cNumero	+= Replicate("0",nQtdTmp)
+					Endif
+				Endif
+				cNumero	+= cValToChar(xValor:nDecimal)
+			Endif
+			(::cAliasCol)->VLR	:= cNumero
+			// (::cAliasCol)->VLRNUM	:= xValor:nNumero
+			// (::cAliasCol)->VLRDEC	:= xValor:nDecimal
+			
+			// (::cAliasCol)->VLRTXT	:= cValToChar(xValor:GetStrNumber())
+			// (::cAliasCol)->TPVLR	:= "C"	//Caracteres
+		ElseIf cTipo=="U"
+			(::cAliasCol)->VLR		:= ""
+			(::cAliasCol)->TPVLR	:= "U"	//Nulo
+		Else
+			(::cAliasCol)->VLR		:= cValToChar(xValor)
+			(::cAliasCol)->TPVLR	:= "C"	//Caracteres
+		Endif
+		(::cAliasCol)->(MsUnLock())
+		::asheet[::nPlanilhaAt][1]:ResetErrors()
+	EndIf
 Return self
 /*/{Protheus.doc} YExcel::SetDateTime
 Alteração de data e hora da célula posicionada
@@ -1694,7 +1955,7 @@ Method GetStrComp(xTexto,lAchou) Class YExcel
 	If ValType(xTexto)=="C"
 		(::cAliasStr)->(DbSetOrder(1))
 		cTxtMd5	:= Md5(xTexto)
-		If (::cAliasStr)->(DbSeek(PadR(cTxtMd5,200)))
+		If (::cAliasStr)->(DbSeek(PadR(cTxtMd5,32)))
 			xRet	:= (::cAliasStr)->POS
 			lAchou	:= .T.
 		Endif
@@ -1702,20 +1963,24 @@ Method GetStrComp(xTexto,lAchou) Class YExcel
 		(::cAliasStr)->(DbSetOrder(2))
 		If (::cAliasStr)->(DbSeek(Str(xTexto,10)))
 			lAchou	:= .T.
-			xRet	:= &((::cAliasStr)->VLRMEMO)
+			xRet	:= (::cAliasStr)->VLRMEMO
 		Endif
 	Endif
 Return xRet
 
 //NÃO DOCUMENTAR
+Static cStrtmp	:= GetNextAlias()
 Method SetStrComp(xTexto) Class YExcel
-	Local nPos	:= ::nQtdString
+	Local nPos
+	::ExecSql(cStrtmp,"SELECT MAX(POS)+1 MAXPOS FROM "+::cTabStr,::cDriver)//::nQtdString
+	nPos	:= (cStrtmp)->MAXPOS
+	(cStrtmp)->(DbCloseArea())
 	(::cAliasStr)->(RecLock(::cAliasStr,.T.))
 	(::cAliasStr)->POS		:= nPos
 	(::cAliasStr)->VLRTEXTO	:= Md5(xTexto)
-	(::cAliasStr)->VLRMEMO	:= "'"+Replace(xTexto,"'","'+chr(39)+'")+"'"
+	(::cAliasStr)->VLRMEMO	:= xTexto//"'"+Replace(xTexto,"'","'+chr(39)+'")+"'"
 	(::cAliasStr)->(MsUnLock())
-	::nQtdString++
+	::nQtdString	:= nPos+1
 Return nPos
 
 /*/{Protheus.doc} YExcel::GetCell
@@ -1733,9 +1998,48 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 	PARAMTYPE 0	VAR nLinha		AS NUMERIC
 	PARAMTYPE 1	VAR nColuna		AS NUMERIC
 	PARAMTYPE 2	VAR nPlanilha	AS NUMERIC OPTIONAL DEFAULT ::nPlanilhaAt
+	If ::lArquivo
+		If ValType(::oC)=="O" .AND. (::nLinha<>nLinha .OR. ::nColuna<>nColuna)
+			If nLinha<::nLinha
+				UserException("YExcel - gravação em arquivo deve ser sequencial. Linha Atual "+cValToChar(::nLinha)+" Linha enviada "+cValToChar(nLinha))
+			ElseIf nLinha==::nLinha
+				If nColuna<::nColuna
+					UserException("YExcel - gravação em arquivo deve ser sequencial. Coluna Atual "+cValToChar(::nColuna)+" Coluna enviada "+cValToChar(nColuna))
+				EndIf
+			EndIf
+			::oC:GetTag(@::nFileTmpRow,.T.)
+			FreeObj(::oC)
+			::oC	:= nil
+		EndIf
+		If ::nLinha<>nLinha
+			If ValType(::oRow)=="O"
+				FWRITE(::nFileTmpRow,"</row>")
+				FreeObj(::oRow)
+				::oRow	:= nil
+			EndIf
+			::oRow	:= YExcelTag():New("row",{},{{"r",cValToChar(nLinha)}})
+			If ValType(::nRowoutlineLevel)=="N"
+				::oRow:AddAtributo("outlineLevel",cValToChar(::nRowoutlineLevel))
+			Endif
+			If ::lRowcollapsed
+				::oRow:AddAtributo("collapsed","1")
+			Endif
+			If ::lRowhidden
+				::oRow:AddAtributo("hidden","1")
+			Endif
+			If ValType(::nTamLinha)=="N"
+				::oRow:AddAtributo("customHeight","1")
+				::oRow:AddAtributo("ht",::nTamLinha)
+			Endif
+			::oRow:GetTag(@::nFileTmpRow,.F.)
+		Endif
+	EndIf
 	::nLinha		:= nLinha
 	::nColuna		:= nColuna
 	::nPlanilhaAt	:= nPlanilha
+	If ::lArquivo
+		::oC	:= YExcelTag():New("c",{},{{"r",::Ref(nLinha,nColuna)}})
+	EndIf
 Return self
 
 /*/{Protheus.doc} YExcel::GetCell
@@ -1751,8 +2055,7 @@ Posiciona pela referência
 /*/
 Method PosR(cRef) Class YExcel
 	Local aRef := ::LocRef(cRef)
-	::nLinha		:= aRef[1]
-	::nColuna		:= aRef[2]
+	::Pos(aRef[1],aRef[2])
 Return self
 
 /*/{Protheus.doc} YExcel::Getformula
@@ -1767,9 +2070,19 @@ Retorna a Formula de uma celula
 @return character, formula gravada na celula
 /*/
 Method Getformula() Class YExcel
-	If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))	//Coluna
-		Return (::cAliasCol)->FORMULA
-	Endif
+	Local oFormula
+	If ::lArquivo
+		oFormula	:= ::oC:GetValor("f")
+		If ValType(oFormula)=="O"
+			Return oFormula:GetValor()
+		ElseIf ValType(oFormula)=="C"
+			Return oFormula
+		EndIf
+	Else
+		If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))	//Coluna
+			Return (::cAliasCol)->FORMULA
+		Endif
+	EndIf
 Return ""
 
 METHOD ColTam(nLinha,nLinha2)	Class YExcel		//Coluna Mínima e Máxima
@@ -1778,13 +2091,16 @@ METHOD ColTam(nLinha,nLinha2)	Class YExcel		//Coluna Mínima e Máxima
 	Local nMin		:= 0
 	Local nMax		:= 0
 	Default nLinha2	:= nLinha
-	cQuery	:= "SELECT MIN(COL) COL_INI,MAX(COL) COL_FIM FROM "+::cAliasCol+" WHERE"
+	If ::lArquivo
+		UserException("YExcel - Erro ao obter dados max e min colunas para arquivos. ")
+	EndIf
+	cQuery	:= "SELECT MIN(COL) COL_INI,MAX(COL) COL_FIM FROM "+::cTabCol+" WHERE"
 	If ValType(nLinha)=="N"
 		cQuery	+= " LIN>="+cValToChar(nLinha)+" AND"
 		cQuery	+= " LIN<="+cValToChar(nLinha2)+" AND"
 	Endif
 	cQuery	+= " PLA="+cValToChar(::nPlanilhaAt)+" AND TPVLR<>'U' AND D_E_L_E_T_=' '"
-	If !DbSqlExec(cAliasQry,cQuery,::cDriver)
+	If !::ExecSql(cAliasQry,cQuery,::cDriver)
 		UserException("YExcel - Erro ao obter dados max e min colunas. "+TCSqlError())
 	Endif
 	If (cAliasQry)->(!EOF())
@@ -1800,13 +2116,16 @@ METHOD LinTam(nColuna,nColuna2)	Class YExcel		//Linha Mínima e Máxima
 	Local nMin			:= 1
 	Local nMax			:= 1
 	Default nColuna2	:= nColuna
-	cQuery	:= "SELECT MIN(LIN) LIN_INI,MAX(LIN) LIN_FIM FROM "+::cAliasCol+" WHERE"
+	If ::lArquivo
+		UserException("YExcel - Erro ao obter dados max e min linhas para arquivos. ")
+	EndIf
+	cQuery	:= "SELECT MIN(LIN) LIN_INI,MAX(LIN) LIN_FIM FROM "+::cTabCol+" WHERE"
 	If ValType(nColuna)=="N"
 		cQuery	+= " COL>="+cValToChar(nColuna)+" AND"
 		cQuery	+= " COL<="+cValToChar(nColuna2)+" AND"
 	Endif
 	cQuery	+= " PLA="+cValToChar(::nPlanilhaAt)+" AND TPVLR<>'U' AND D_E_L_E_T_=' '"
-	If !DbSqlExec(cAliasQry,cQuery,::cDriver)
+	If !::ExecSql(cAliasQry,cQuery,::cDriver)
 		UserException("YExcel - Erro ao obter dados max e min linhas. "+TCSqlError())
 	Endif
 	nMin	:= (cAliasQry)->LIN_INI
@@ -1831,26 +2150,35 @@ Method GetValue(nLinha,nColuna,xDefault,lAchou) Class YExcel
 	Local cTmp
 	Default nLinha	:= ::nLinha
 	Default nColuna	:= ::nColuna
+	If ::lArquivo
+		UserException("YExcel - Não é possível usar o GetValue quando gravação em arquivos. ")
+	EndIf
 	lAchou	:= .F.
 	If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))	//Coluna
 		If (::cAliasCol)->TPVLR=="C"
-			xRet	:= Alltrim((::cAliasCol)->VLRTXT)
+			xRet	:= (::cAliasCol)->VLR
 			If (::cAliasCol)->TPSTY="D"
 				xRet	:= yExcel_DateTime():New(,,,,xRet)//STOD("19000101")+Val(xRet)-2
+			ElseIf (::cAliasCol)->TPSTY="N"
+				xRet	:= Val(xRet)
 			Endif
 		ElseIf (::cAliasCol)->TPVLR=="U"
 			Return nil
 		Else
-			xRet	:= (::cAliasCol)->VLRNUM
+			xRet	:= Val((::cAliasCol)->VLR)
 			If (::cAliasCol)->TIPO=="s"
 				cTmp	:= ::GetStrComp(xRet,@lAchou)
 				If lAchou
 					xRet	:= cTmp
 				Endif
 			ElseIf (::cAliasCol)->TIPO=="d" .AND. (::cAliasCol)->TPSTY="D"
-				xRet	:= STOD("19000101")-2+(::cAliasCol)->VLRNUM
+				If Empty((::cAliasCol)->VLR)
+					xRet	:= CTOD("")
+				Else
+					xRet	:= STOD("19000101")-2+(::cAliasCol)->VLR
+				Endif
 			ElseIf (::cAliasCol)->TIPO=="d"
-				xRet	:= yExcel_DateTime():New(,,(::cAliasCol)->VLRNUM,(::cAliasCol)->VLRDEC)
+				xRet	:= yExcel_DateTime():New(,,(::cAliasCol)->VLR)
 			ElseIf (::cAliasCol)->TIPO=="b"
 				If xRet==0
 					xRet	:= .F.
@@ -1964,6 +2292,9 @@ Method SetRowLevel(nLinha,nLinha2,nNivel,lFechado) Class YExcel
 	Local csummaryBelow	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetPr/xmlns:outlinePr","summaryBelow")
 	PARAMTYPE 0	VAR nNivel		AS NUMERIC	OPTIONAL
 	PARAMTYPE 1	VAR lFechado	AS LOGICAL	OPTIONAL	DEFAULT	.F.
+	If ::lArquivo
+		UserException("YExcel - Não é possível usar o SetRowLevel quando gravação em arquivos. ")
+	EndIf
 	If !Empty(csummaryBelow) .AND. csummaryBelow=="0"
 		lsummaryBelow	:= .F.
 	Endif
@@ -2110,11 +2441,13 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:mergeCells","mergeCell", "" )
 	::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:mergeCells/xmlns:mergeCell[last()]","ref", cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2) )
 
-	If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
-		If (::cAliasCol)->STY>=0	//Replicar estilo da primeira célula
-			::SetStyle((::cAliasCol)->STY,nLinha,nColuna,nLinha2,nColuna2)
+	If !::lArquivo
+		If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
+			If (::cAliasCol)->STY>=0	//Replicar estilo da primeira célula
+				::SetStyle((::cAliasCol)->STY,nLinha,nColuna,nLinha2,nColuna2)
+			Endif
 		Endif
-	Endif
+	EndIf
 
 Return
 
@@ -2833,7 +3166,7 @@ Method AddFmtNum(nDecimal,lMilhar,cPrefixo,cSufixo,cNegINI,cNegFim,cValorZero,cC
 	If lMilhar
 		cNumero	:= "#,##0"
 	Else
-		cNumero	:= "#"
+		cNumero	:= "#0"
 	Endif
 
 	If !Empty(cDecimal)
@@ -2900,6 +3233,9 @@ Method AddFmt(cformatCode,nNumFmtId) Class YExcel
 	Endif
 	::oStyle:XPathSetAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@numFmtId='"+cValToChar(nNumFmtId)+"']", "formatCode"	, cformatCode )
 Return nNumFmtId
+
+Method AddFmtNumCode(cformatCode,nNumFmtId) Class YExcel
+Return ::AddFmt(cformatCode,nNumFmtId)
 
 /*/{Protheus.doc} AddStyles
 Cria um estilo para ser usado nas células
@@ -3860,13 +4196,22 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	Local nNumFmtId
 	Local nStyletmp
 	Local cAliasQry
+	Local nStyAtu
 	PARAMTYPE 0	VAR xStyle			AS NUMERIC,ARRAY,OBJECT		OPTIONAL DEFAULT -1
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC					OPTIONAL DEFAULT ::nLinha
 	PARAMTYPE 2	VAR nColuna			AS NUMERIC					OPTIONAL DEFAULT ::nColuna
 	PARAMTYPE 3	VAR nLinha2			AS NUMERIC					OPTIONAL DEFAULT nLinha
 	PARAMTYPE 4	VAR nColuna2		AS NUMERIC					OPTIONAL DEFAULT nColuna
 	cTpAlte		:= ValType(xStyle)
-
+	If ::lArquivo
+		If nLinha<>nLinha2 .OR. nColuna<>nColuna2
+			UserException("YExcel - Não permitido alteração de estilos de varias linhas quando criação em arquivo!")
+		EndIf
+		If nLinha<>::nLinha .OR. nColuna<>::nColuna
+			UserException("YExcel - Não permitido alteração de fora do posicionamento quando criação em arquivo!")
+		EndIf
+		
+	EndIf
 	If ValType(xStyle)=="O" .AND. xStyle:ClassName()=="YEXCEL_STYLE"
 		xStyle	:= xStyle:GetId()
 		cTpAlte	:= "N"	
@@ -3875,60 +4220,90 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	If cTpAlte=="N" .AND. xStyle>=0 .AND. xStyle+1>::nQtdStyle
 		UserException("YExcel - Estilo informado("+cValToChar(xStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
-	
-	::InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2)	//Inserir as celulas vazias que não tem dados para preencher o estilo
+	If cTpAlte!="U" .AND. !::lArquivo
+		::InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2)	//Inserir as celulas vazias que não tem dados para preencher o estilo
+	EndIf
 	If cTpAlte=="N"	//Alteração direta de estilo
 		lNumFmtId := ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(xStyle+1)+"]","applyNumberFormat")=="1"	//Tem formatação definida
 		If lNumFmtId
 			//Altera todas a celulas com o mesmo estilo
-			If !DBSqlExec(::cAliasCol, "UPDATE "+::cAliasCol+" SET STY="+cValToChar(xStyle)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND D_E_L_E_T_=' '", ::cDriver)
-				UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(xStyle)+"). "+TCSqlError())
-			Endif
-		Else
-			cAliasQry := GetNextAlias()
-			//Verifica se tem celula com tipo datatime definido
-			cQuery	:= "SELECT DISTINCT STY FROM "+::cAliasCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" "	
-			cQuery	+= " AND D_E_L_E_T_=' '"
-			If !DbSqlExec(cAliasQry,cQuery,::cDriver)
-				UserException("YExcel - Erro ao atualiza estilo. "+TCSqlError())
-			Endif
-			While (cAliasQry)->(!EOF())
-				lnumFmtId	:= ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((cAliasQry)->STY+1)+"]","applyNumberFormat")=="1"
-				If lnumFmtId	//Tem fmtid
-					nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((cAliasQry)->STY+1)+"]","numFmtId"))
-					nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
-				Else	//Para os que não tem fmtid definido, aplica o estilo enviado
-					nStyletmp	:= xStyle
-				EndIf
-				If !DBSqlExec(::cAliasCol, "UPDATE "+::cAliasCol+" SET STY="+cValToChar(nStyletmp)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND STY='"+cValToChar((cAliasQry)->STY)+"' AND D_E_L_E_T_=' '", ::cDriver)
-					UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(nStyletmp)+"). "+TCSqlError())
+			If ::lArquivo
+				::oC:SetAtributo("s",xStyle)
+			Else
+				If !::ExecSql("", "UPDATE "+::cTabCol+" SET STY="+cValToChar(xStyle)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND D_E_L_E_T_=' '", ::cDriver)
+					UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(xStyle)+"). "+TCSqlError())
 				Endif
-				(cAliasQry)->(DbSkip())
-			EndDo
-			(cAliasQry)->(DbCloseArea())
+			EndIf
+		Else
+			If ::lArquivo
+				nStyAtu	:= ::oC:GetAtributo("s")
+				nStyletmp	:= xStyle
+				If ValType(nStyAtu)<>"U"
+					lnumFmtId	:= ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1"
+					If lnumFmtId	//Tem fmtid
+						nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","numFmtId"))
+						nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
+					Else	//Para os que não tem fmtid definido, aplica o estilo enviado
+						nStyletmp	:= xStyle
+					EndIf
+				EndIf
+				::oC:SetAtributo("s",nStyletmp)
+			Else
+				cAliasQry := GetNextAlias()
+				//Verifica se tem celula com tipo datatime definido
+				cQuery	:= "SELECT DISTINCT STY FROM "+::cTabCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" "	
+				cQuery	+= " AND D_E_L_E_T_=' '"
+				If !::ExecSql(cAliasQry,cQuery,::cDriver)
+					UserException("YExcel - Erro ao atualiza estilo. "+TCSqlError())
+				Endif
+				While (cAliasQry)->(!EOF())
+					lnumFmtId	:= ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((cAliasQry)->STY+1)+"]","applyNumberFormat")=="1"
+					If lnumFmtId	//Tem fmtid
+						nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((cAliasQry)->STY+1)+"]","numFmtId"))
+						nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
+					Else	//Para os que não tem fmtid definido, aplica o estilo enviado
+						nStyletmp	:= xStyle
+					EndIf
+					If !::ExecSql("", "UPDATE "+::cTabCol+" SET STY="+cValToChar(nStyletmp)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND STY='"+cValToChar((cAliasQry)->STY)+"' AND D_E_L_E_T_=' '", ::cDriver)
+						UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(nStyletmp)+"). "+TCSqlError())
+					Endif
+					(cAliasQry)->(DbSkip())
+				EndDo
+				(cAliasQry)->(DbCloseArea())
+			EndIf
 		EndIf
 	ElseIf cTpAlte=="O"	//Se enviado objeto vai avaliar estilo a ser usado
-		For nLin:=nLinha to nLinha2				//Ler as Linhas
-			For nCol:=nColuna to nColuna2		//Ler as colunas
-				If cTpAlte=="N"
-					nStyle		:= xStyle
-				Else				//Rules
-					nStyle		:= xStyle:GetId(nLin,nCol)
-				Endif
-				If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLin,10)+Str(nCol,10)))
-					//Se não tem fmrid no estilo da regra e tem no estilo atual 
-					If ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")!="1" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")=="1" 
-						nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","numFmtId"))
-						nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
+		If ::lArquivo
+			nStyAtu	:= ::oC:GetAtributo("s")
+			nStyle		:= xStyle:GetId(nLinha,nColuna)
+			If ValType(nStyAtu)=="N" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")!="1" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1" 
+				nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","numFmtId"))
+				nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
+			Endif
+			::oC:SetAtributo("s",nStyle)
+		Else
+			For nLin:=nLinha to nLinha2				//Ler as Linhas
+				For nCol:=nColuna to nColuna2		//Ler as colunas
+					If cTpAlte=="N"
+						nStyle		:= xStyle
+					Else				//Rules
+						nStyle		:= xStyle:GetId(nLin,nCol)
 					Endif
-					(::cAliasCol)->(RecLock(::cAliasCol,.F.))
-					(::cAliasCol)->STY	:= nStyle
-					(::cAliasCol)->(MsUnLock())
-				else
-					::Cell(nLin,nCol,nil,,nStyle)
-				Endif
+					If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLin,10)+Str(nCol,10)))
+						//Se não tem fmrid no estilo da regra e tem no estilo atual 
+						If ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")!="1" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","applyNumberFormat")=="1" 
+							nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar((::cAliasCol)->STY+1)+"]","numFmtId"))
+							nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
+						Endif
+						(::cAliasCol)->(RecLock(::cAliasCol,.F.))
+						(::cAliasCol)->STY	:= nStyle
+						(::cAliasCol)->(MsUnLock())
+					else
+						::Cell(nLin,nCol,nil,,nStyle)
+					Endif
+				Next
 			Next
-		Next
+		EndIf
 	Endif
 Return self
 
@@ -3945,9 +4320,13 @@ METHOD GetStyle(nLinha,nColuna) Class YExcel
 	Local nStyle	:= -1
 	Default nLinha	:= ::nLinha
 	Default nColuna	:= ::nColuna
-	If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
-		nStyle	:= (::cAliasCol)->STY
-	Endif
+	If ::lArquivo
+		nStyle	:= ::oC:GetAtributo("s")
+	Else
+		If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
+			nStyle	:= (::cAliasCol)->STY
+		Endif
+	EndIf
 Return nStyle
 
 /*/{Protheus.doc} Alinhamento
@@ -4065,8 +4444,8 @@ Cria um hyperlink para uma referência da planilha
 @param cDisplay, character, Texto de exibição na celula
 @return object, self
 /*/
-METHOD Addhyperlink(cLocation,ctooltip,cDisplay) Class YExcel
-	Local cRef	:= ::Ref(::nLinha,::nColuna)
+METHOD Addhyperlink(cLocation,ctooltip,cDisplay,cRef) Class YExcel
+	Default cRef	:= ::Ref(::nLinha,::nColuna)
 	PARAMTYPE 0	VAR cLocation		AS CHARACTER		OPTIONAL
 	PARAMTYPE 1	VAR ctooltip		AS CHARACTER		OPTIONAL
 	PARAMTYPE 2	VAR cDisplay		AS CHARACTER		OPTIONAL
@@ -4099,15 +4478,15 @@ Adicionar comentário
 @return object, self
 @obs pag 4682
 /*/
-METHOD AddComment(cText,cAutor) Class YExcel
+METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
 	Local aChildren
 	Local nPos
 	Local cPos
 	Local cAliasQry
 	Local cQuery
 	Local cValor
-	Local ntop
-	Local nleft
+	// Local ntop
+	// Local nleft
 	Local nCont
 	Local nQtdLinhas
 	Local cAuthorId
@@ -4176,34 +4555,42 @@ METHOD AddComment(cText,cAutor) Class YExcel
 		If !::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
 			//posição da forma de acordo com posição da célula
 			nRowHeight	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetFormatPr","defaultRowHeight"))
-			cQuery	:= "SELECT COUNT(*) QTD,SUM(1.000005*CASE WHEN CHEIGHT='1' THEN HT ELSE "+cValToChar(nRowHeight)+" END) VALOR FROM "+::cAliasLin+" WHERE"
-			cQuery	+= " LIN<"+cValToChar(::nLinha)+" AND"
-			cQuery	+= " PLA="+cValToChar(::nPlanilhaAt)+" AND D_E_L_E_T_=' '"
-			cAliasQry := GetNextAlias()
-			If !DbSqlExec(cAliasQry,cQuery,::cDriver)
-				UserException("YExcel - Erro ao tamanho das linhas. "+TCSqlError())
-			Endif
-			ntop	:= 0
-			If (cAliasQry)->(!EOF())
-				nQtdLinhas	:= (cAliasQry)->QTD		//Quantidade de linhas que tem conteudo
-				ntop		:= (cAliasQry)->VALOR
-				If (::nLinha-1)>nQtdLinhas
-					//Adiciona as linhas que não tem conteudo o tamanho padrão
-					ntop	+= (::nLinha-1-nQtdLinhas)*1.000005*nRowHeight
+			If ValType(ntop)=="U"
+				If ::lArquivo
+					ntop	:= Round((::nLinha-1)*1.000005*nRowHeight,0)
+				Else
+					cQuery	:= "SELECT COUNT(*) QTD,SUM(1.000005*CASE WHEN CHEIGHT='1' THEN HT ELSE "+cValToChar(nRowHeight)+" END) VALOR FROM "+::cTabLin+" WHERE"
+					cQuery	+= " LIN<"+cValToChar(::nLinha)+" AND"
+					cQuery	+= " PLA="+cValToChar(::nPlanilhaAt)+" AND D_E_L_E_T_=' '"
+					cAliasQry := GetNextAlias()
+					If !::ExecSql(cAliasQry,cQuery,::cDriver)
+						UserException("YExcel - Erro ao tamanho das linhas. "+TCSqlError())
+					Endif
+					ntop	:= 0
+					If (cAliasQry)->(!EOF())
+						nQtdLinhas	:= (cAliasQry)->QTD		//Quantidade de linhas que tem conteudo
+						ntop		:= (cAliasQry)->VALOR
+						If (::nLinha-1)>nQtdLinhas
+							//Adiciona as linhas que não tem conteudo o tamanho padrão
+							ntop	+= (::nLinha-1-nQtdLinhas)*1.000005*nRowHeight
+						EndIf
+						ntop		:= Round(ntop,0)
+					Endif
+					(cAliasQry)->(DbCloseArea())
 				EndIf
-				ntop		:= Round(ntop,0)
-			Endif
-			(cAliasQry)->(DbCloseArea())
-			nleft		:= 0
-			For nCont:=1 to ::nColuna
-				cValor	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt( '/xmlns:worksheet/xmlns:cols/xmlns:col['+cValToChar(nCont)+'>=@min and '+cValToChar(nCont)+'<=@max and @customWidth="1"]',"width")
-				If Empty(cValor)
-					cValor	:= "9.28"
-				Endif
-				cValor	:= Val(cValor)
-				nleft	+= cValor*5.25
-			Next
-			nleft	:= Round(nleft,0)
+			EndIf
+			If ValType(nleft)=="U"
+				nleft		:= 0
+				For nCont:=1 to ::nColuna
+					cValor	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt( '/xmlns:worksheet/xmlns:cols/xmlns:col['+cValToChar(nCont)+'>=@min and '+cValToChar(nCont)+'<=@max and @customWidth="1"]',"width")
+					If Empty(cValor)
+						cValor	:= "9.28"
+					Endif
+					cValor	:= Val(cValor)
+					nleft	+= cValor*5.25
+				Next
+				nleft	:= Round(nleft,0)
+			EndIf
 
 			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml',"v:shape","")
 			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"id","_x0000_r"+cValToChar(::nLinha-1)+"c"+cValToChar(::nColuna-1))
@@ -4407,8 +4794,8 @@ METHOD AddTabela(cNome,nLinha,nColuna) Class YExcel
 	Local oTable
 	Local cID
 	PARAMTYPE 0	VAR cNome  AS CHARACTER			OPTIONAL DEFAULT lower(CriaTrab(,.F.))
-	PARAMTYPE 1	VAR nLinha  AS NUMERIC			OPTIONAL DEFAULT ::adimension[2][1]
-	PARAMTYPE 2	VAR nColuna  AS NUMERIC
+	PARAMTYPE 1	VAR nLinha  AS NUMERIC			OPTIONAL DEFAULT ::nLinha
+	PARAMTYPE 2	VAR nColuna  AS NUMERIC			OPTIONAL DEFAULT ::nColuna
 	::nIdRelat++
 	nPos	:= ::nIdRelat
 
@@ -4445,15 +4832,16 @@ METHOD AddTabela(cNome,nLinha,nColuna) Class YExcel
 Return oTable
 
 Method Gravar(cLocal,lAbrir,lDelSrv) Class YExcel
+	Local cPathRet := ""
 	Default lAbrir	:= .F.
 	Default lDelSrv	:= .T.
 	::lDelSrv	:= lDelSrv
-	::Save(cLocal,lDelSrv)
+	cPathRet	:= ::Save(cLocal,lDelSrv)
 	If lAbrir
 		::OpenApp()
 	Endif
 	::Close(lDelSrv)
-Return
+Return cPathRet
 
 Method OpenApp() Class YExcel
 	If !Empty(::cArqGrv)
@@ -4469,10 +4857,10 @@ Method Close() Class YExcel
 		(::cAliasLin)->(DbCloseArea())
 		(::cAliasStr)->(DbCloseArea())
 		(::cAliasChv)->(DbCloseArea())
-		DBSqlExec(::cAliasCol, 'DROP TABLE ' + ::cAliasCol , ::cDriver)
-		DBSqlExec(::cAliasCol, 'DROP TABLE ' + ::cAliasLin , ::cDriver)
-		DBSqlExec(::cAliasCol, 'DROP TABLE ' + ::cAliasStr , ::cDriver)
-		DBSqlExec(::cAliasCol, 'DROP TABLE ' + ::cAliasChv , ::cDriver)
+		::ExecSql("", 'DROP TABLE ' + ::cAliasCol , ::cDriver)
+		::ExecSql("", 'DROP TABLE ' + ::cAliasLin , ::cDriver)
+		::ExecSql("", 'DROP TABLE ' + ::cAliasStr , ::cDriver)
+		::ExecSql("", 'DROP TABLE ' + ::cAliasChv , ::cDriver)
 	Endif
 	aEval(::aCleanObj, {|x| FreeObj(x) })
 	If ::lDelSrv
@@ -4504,11 +4892,27 @@ Method Save(cLocal) Class YExcel
 	Local nPos
 	Local oXmlSheet
 	Local lServidor
-	Local cNumero,nPosPonto,nQtdTmp
+	// Local cNumero,nPosPonto,nQtdTmp
+	Local cQuery
+	Local nHTmp
 	Default cLocal := GetTempPath()
 	lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
 	::cLocalFile	:= cLocal
-
+	If ::lArquivo
+		If ValType(::oC)=="O"
+			::oC:GetTag(@::nFileTmpRow,.T.)
+			FreeObj(::oC)
+			::oC	:= nil
+		EndIf
+		If ValType(::oRow)=="O"
+			FWRITE(::nFileTmpRow,"</row>")
+			FreeObj(::oRow)
+			::oRow	:= nil
+		EndIf
+		If ::nFileTmpRow<>0
+			fClose(::nFileTmpRow)
+		EndIf
+	Endif
 	If !Empty(::cLocalFile)
 		::cLocalFile	:= Alltrim(::cLocalFile)
 		If Right(::cLocalFile,1)=="\"
@@ -4523,6 +4927,14 @@ Method Save(cLocal) Class YExcel
 		Return
 	Endif
 	Private oSelf			:= Self
+
+	//Limpeza de colunas não usadas
+	If !::lArquivo
+		cQuery	:= "DELETE FROM "+::cTabCol+" WHERE STY=-1 AND TPVLR='U'"
+		If !::ExecSql("",cQuery,::cDriver)
+			UserException("YExcel - Erro ao limpar celulas vazias celulas. "+TCSqlError())
+		EndIf
+	EndIf
 
 	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\")
 	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops")
@@ -4605,14 +5017,20 @@ Method Save(cLocal) Class YExcel
 
 		nHDestino	:= FCreate("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],FO_READWRITE + FO_SHARED,,.F.)
 		nHOrigem	:= FOpen("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2],FO_READWRITE + FO_SHARED)
+		If ::lArquivo
+			nHTmp		:= FOpen("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml",FO_READWRITE + FO_SHARED)
+			nTamTmp 	:= Fseek(nHTmp,0,2)	//Determina o tamanho do arquivo de tmp
+			Fseek(nHTmp,0)
+			nBytTmp := nTamTmp
+		Endif
 		nTamArquivo := Fseek(nHOrigem,0,2)	//Determina o tamanho do arquivo de origem
 		Fseek(nHOrigem,0)					//Move o ponteiro do arquivo de origem para o inicio do arquivo
 		nBytesFalta := nTamArquivo			//Define que a quantidade que falta copiar é o próprio tamanho do Arquivo
 
 		cBuffer := SPACE(1024)
 		While nBytesFalta > 0
-			nBytesLer := Min(nBytesFalta, 1024 )
-			nBytesLidos := FREAD(nHOrigem, @cBuffer, nBytesLer )
+			nBytesLer	:= Min(nBytesFalta, 1024 )
+			nBytesLidos	:= FREAD(nHOrigem, @cBuffer, nBytesLer )
 			If nBytesLidos < nBytesLer
 				UserException("Erro de Leitura da Origem. " + Str(nBytesLer,8,2) +;
 				" bytes a LER." + Str(nBytesLidos,8,2) + " bytes Lidos." + "Ferror = " + str(ferror(),4))
@@ -4622,70 +5040,86 @@ Method Save(cLocal) Class YExcel
 			If nPos>0
 				nBytesSalvo := FWRITE(nHDestino, SubStr(cBuffer,1,nPos-1))
 				FWRITE(nHDestino, "<sheetData>")
-				(::cAliasLin)->(DbSeek(Str(nCont,10)))	//Leitura das linhas
-				While (::cAliasLin)->(!EOF()) .and. nCont==(::cAliasLin)->PLA
-					nLinha := (::cAliasLin)->LIN
-					cBuffer2	:= '<row r="'+cValToChar(nLinha)+'"'
-					If !Empty((::cAliasLin)->OLEVEL)
-						cBuffer2	+= ' outlineLevel="'+(::cAliasLin)->OLEVEL+'"'
-					Endif
-					If !Empty((::cAliasLin)->COLLAP)
-						cBuffer2	+= ' collapsed="'+(::cAliasLin)->COLLAP+'"'
-					Endif
-					If !Empty((::cAliasLin)->CHIDDEN)
-						cBuffer2	+= ' hidden="'+(::cAliasLin)->CHIDDEN+'"'
-					Endif
-					If !Empty((::cAliasLin)->CHEIGHT)
-						cBuffer2	+= ' customHeight="'+(::cAliasLin)->CHEIGHT+'"'
-						cBuffer2	+= ' ht="'+cValToChar((::cAliasLin)->HT)+'"'
-					Endif
-					cBuffer2	+= ">"
-					FWRITE(nHDestino, cBuffer2)
-					cBuffer2	:= ""
-					(::cAliasCol)->(DbSetOrder(1))
-					(::cAliasCol)->(DbSeek( Str(nCont,10)+Str(nLinha,10) ))	//Leitura das colunas
-					While (::cAliasCol)->(!EOF()) .AND. nCont==(::cAliasCol)->PLA .AND. nLinha==(::cAliasCol)->LIN
-						cBuffer2	:= '<c r="'+::Ref(nLinha,(::cAliasCol)->COL)+'"'
-						If (::cAliasCol)->STY>=0
-							cBuffer2	+= ' s="'+cValToChar((::cAliasCol)->STY)+'"'
+				cBuftmp := SPACE(1024)
+				If ::lArquivo
+					While nBytTmp > 0
+						nBLertmp	:= Min(nBytTmp, 1024 )
+						nBLidostmp	:= FREAD(nHTmp, @cBuftmp, nBLertmp )
+						If nBLidostmp < nBLertmp
+							UserException("Erro de Leitura da Origem. " + Str(nBLertmp,8,2) +;
+							" bytes a LER." + Str(nBLidostmp,8,2) + " bytes Lidos." + "Ferror = " + str(ferror(),4))
+							Exit
 						Endif
-						If !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
-							cBuffer2	+= ' t="'+Alltrim((::cAliasCol)->TIPO)+'"'
-						Endif
-						cBuffer2	+= '>'
-						nColuna	:= (::cAliasCol)->COL
-						If !Empty((::cAliasCol)->FORMULA)
-							cBuffer2	+= '<f>'+RTRIM((::cAliasCol)->FORMULA)+'</f>'
-						Endif
-						cBuffer2	+= '<v>'
-						If (::cAliasCol)->TPVLR=="C"
-							cBuffer2	+= Alltrim((::cAliasCol)->VLRTXT)
-						ElseIf (::cAliasCol)->TPVLR=="U"
-						Else
-							cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
-							If (::cAliasCol)->VLRDEC<>0
-								nPosPonto	:= At(".",cNumero)
-								If nPosPonto==0
-									cNumero	+= "."+Replicate("0",8)
-								Else
-									nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
-									If nQtdTmp>0
-										cNumero	+= Replicate("0",nQtdTmp)
-									Endif
-								Endif
-								cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
-							Endif
-							cBuffer2	+= cNumero
-						Endif
-						cBuffer2	+= '</v>'
-						cBuffer2	+= '</c>'
-						FWRITE(nHDestino, cBuffer2)
-						(::cAliasCol)->(DbSkip())
+						FWRITE(nHDestino, cBuftmp)
+						nBytTmp -= nBLidostmp
 					EndDo
-					cBuffer2	:= nil
-					FWRITE(nHDestino, "</row>")
-					(::cAliasLin)->(DbSkip())
-				EndDo
+				Else
+					(::cAliasLin)->(DbSeek(Str(nCont,10)))	//Leitura das linhas
+					While (::cAliasLin)->(!EOF()) .and. nCont==(::cAliasLin)->PLA
+						nLinha := (::cAliasLin)->LIN
+						cBuffer2	:= '<row r="'+cValToChar(nLinha)+'"'
+						If !Empty((::cAliasLin)->OLEVEL)
+							cBuffer2	+= ' outlineLevel="'+(::cAliasLin)->OLEVEL+'"'
+						Endif
+						If !Empty((::cAliasLin)->COLLAP)
+							cBuffer2	+= ' collapsed="'+(::cAliasLin)->COLLAP+'"'
+						Endif
+						If !Empty((::cAliasLin)->CHIDDEN)
+							cBuffer2	+= ' hidden="'+(::cAliasLin)->CHIDDEN+'"'
+						Endif
+						If !Empty((::cAliasLin)->CHEIGHT)
+							cBuffer2	+= ' customHeight="'+(::cAliasLin)->CHEIGHT+'"'
+							cBuffer2	+= ' ht="'+cValToChar((::cAliasLin)->HT)+'"'
+						Endif
+						cBuffer2	+= ">"
+						FWRITE(nHDestino, cBuffer2)
+						cBuffer2	:= ""
+						(::cAliasCol)->(DbSetOrder(1))
+						(::cAliasCol)->(DbSeek( Str(nCont,10)+Str(nLinha,10) ))	//Leitura das colunas
+						While (::cAliasCol)->(!EOF()) .AND. nCont==(::cAliasCol)->PLA .AND. nLinha==(::cAliasCol)->LIN
+							cBuffer2	:= '<c r="'+::Ref(nLinha,(::cAliasCol)->COL)+'"'
+							If (::cAliasCol)->STY>=0
+								cBuffer2	+= ' s="'+cValToChar((::cAliasCol)->STY)+'"'
+							Endif
+							If !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
+								cBuffer2	+= ' t="'+Alltrim((::cAliasCol)->TIPO)+'"'
+							Endif
+							cBuffer2	+= '>'
+							nColuna	:= (::cAliasCol)->COL
+							If !Empty((::cAliasCol)->FORMULA)
+								cBuffer2	+= '<f>'+RTRIM((::cAliasCol)->FORMULA)+'</f>'
+							Endif
+							cBuffer2	+= '<v>'
+							If (::cAliasCol)->TPVLR=="C"
+								cBuffer2	+= (::cAliasCol)->VLR
+							ElseIf (::cAliasCol)->TPVLR=="U"
+							Else
+								// cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
+								// If (::cAliasCol)->VLRDEC<>0
+								// 	nPosPonto	:= At(".",cNumero)
+								// 	If nPosPonto==0
+								// 		cNumero	+= "."+Replicate("0",8)
+								// 	Else
+								// 		nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
+								// 		If nQtdTmp>0
+								// 			cNumero	+= Replicate("0",nQtdTmp)
+								// 		Endif
+								// 	Endif
+								// 	cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
+								// Endif
+								// cBuffer2	+= cNumero
+								cBuffer2	+= cValToChar((::cAliasCol)->VLR)
+							Endif
+							cBuffer2	+= '</v>'
+							cBuffer2	+= '</c>'
+							FWRITE(nHDestino, cBuffer2)
+							(::cAliasCol)->(DbSkip())
+						EndDo
+						cBuffer2	:= nil
+						FWRITE(nHDestino, "</row>")
+						(::cAliasLin)->(DbSkip())
+					EndDo
+				EndIf
 				FWRITE(nHDestino, "</sheetData>")
 				nBytesSalvo += FWRITE(nHDestino, SubStr(cBuffer,nPos+12))
 				nBytesSalvo += 12
@@ -4701,8 +5135,12 @@ Method Save(cLocal) Class YExcel
 			nBytesFalta -= nBytesLer
 		EndDo
 		FCLOSE(nHOrigem)
-		FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
 		FCLOSE(nHDestino)
+		FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
+		If ::lArquivo
+			FCLOSE(nHTmp)
+			FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml")
+		Endif
 
 		If !Empty(::asheet[nCont][3])	//Se possuir comments
 			::asheet[nCont][3]:Save2File(::asheet[nCont][4])
@@ -4894,14 +5332,27 @@ Return GravaFile(nFile,cString,cLocal,cArquivo)
 
 Static Function GravaFile(nFile,cString,cLocal,cArquivo)
 	Local lOk			:= .T.
+	Local cTexto
 	If ValType(cString)=="C"
 	Endif
 	If !Empty(cArquivo)
 		nFile	:= FOPEN(cLocal+"\"+cArquivo, FO_READWRITE,,.F.)
 	Endif
-	cString	:= EncodeUTF8(cString)
+	cTexto	:= EncodeUTF8(cString)
+	If Valtype(cTexto)!="C"
+		cTexto	:= cString
+		cTexto	:= Replace(cTexto,chr(129),"")
+		cTexto	:= Replace(cTexto,chr(141),"")
+		cTexto	:= Replace(cTexto,chr(143),"")
+		cTexto	:= Replace(cTexto,chr(144),"")
+		cTexto	:= Replace(cTexto,chr(157),"")
+		cTexto	:= EncodeUTF8(cTexto)
+		If Valtype(cTexto)!="C"
+			cTexto	:= ""
+		Endif
+	EndIf
 	FSeek(nFile, 0, FS_END)
-	IF FWrite(nFile, cString, Len(cString)) < Len(cString)
+	IF FWrite(nFile, cTexto, Len(cTexto)) < Len(cTexto)
 		lOk	:= .F.
 	Endif
 Return lOk
@@ -5115,6 +5566,146 @@ Static Function AjtColConf(oExcel,nMin,nMax)
 	EndDo
 Return
 
+METHOD Masc2Style(cMascara,oStyle) Class YExcel
+	Local nPos
+	Local cTmp
+	Local lMilhar	:= .F.
+	Local oNewStyle
+	Local cTpStyle	:= ValType(oStyle)
+	Local lRules	:= .F.
+	If cTpStyle=="O" .AND. oNewStyle:ClassName()=="YEXCEL_STYLERULES"
+		oNewStyle	:= ::NewStyRules(oStyle)
+		lRules		:= .T.
+	Else
+		oNewStyle	:= ::NewStyle(oStyle)
+	EndIf
+	nDecimal	:= 0
+	cNewMasca	:= cMascara
+	If At("9",cMascara)	//Masca de numeros
+		nPos	:= At(".",cMascara)
+		If nPos>0
+			cTmp	:= SubStr(cMascara,nPos+1)
+			nPos	:= At("9",cTmp)
+			While nPos>0
+				cTmp	:= SubStr(cTmp,nPos+1)
+				nDecimal++
+				nPos	:= At("9",cTmp)
+			EndDo
+		EndIf
+		//Verifica separador milhar
+		nPos	:= RAt(",",cMascara)
+		If nPos>0
+			lMilhar	:= .T.
+			// cTmp	:= SubStr(cMascara,nPos+1)
+			// If At(",",cTmp)>0
+			// 	cTmp	:= SubStr(cTmp,1,At(",",cTmp)-1)
+			// EndIf
+			// nPos	:= At("9",cTmp)
+			// While nPos>0
+			// 	cTmp	:= SubStr(cTmp,nPos+1)
+			// 	nDecimal++
+			// 	nPos	:= At("9",cTmp)
+			// EndIf
+		EndIf
+		If lRules
+			oNewStyle:AddnumFmt({||.T.},::AddFmtNum(nDecimal,lMilhar))
+		Else
+			oNewStyle:SetnumFmt(::AddFmtNum(nDecimal,lMilhar))
+		EndIf
+	EndIf
+Return oNewStyle
+
+METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,oTabela) Class YExcel
+	Local nCont
+	Local nLinIni	:= ::nLinha
+	Local nColIni	:= ::nColuna
+	Local nQtdCol	:= (cAlias)->(DBInfo(DBI_FCOUNT))
+	Local nLinha	:= nLinIni
+	Local cTpStyle	:= ValType(oStyle)
+	Local cNomeCampo
+	Local nTamCampo
+	Local aEstilos	:= {}
+	Local aCombo	:= {}
+	Local cMascara
+	Local cCombo
+	Local cTipo
+	Local nPos
+	Local lTabela	:= ValType(oTabela)=="O"
+	Private lCab	:= .T.
+	Private cCampo	:= ""
+	Private xValor
+	Default lSx3	:= .F.
+	Default lCab	:= .T.
+	Default aCab	:= {}
+
+	For nCont:=1 to nQtdCol
+		cCampo		:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
+		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
+		cNomeCampo	:= cCampo
+		If lSx3
+			cNomeCampo	:= AllTrim(GetSx3Cache(cCampo,"X3_TITULO"))
+			IF Empty(cNomeCampo)
+				cNomeCampo	:= cCampo
+				nTamCampo	:= Max(Len(cNomeCampo),(cAlias)->(DBFIELDINFO(DBS_LEN,nCont)))
+				cMascara	:= ""
+				cCombo		:= ""
+			Else
+				nTamCampo	:= Max(GetSx3Cache(cCampo,"X3_TAMANHO"),Len(cNomeCampo))
+				cMascara	:= AllTrim(GetSx3Cache(cCampo,"X3_PICTURE"))
+				cCombo		:= AllTrim(GetSx3Cache(cCampo,"X3_CBOX"))
+				If GetSx3Cache(cCampo,"X3_TIPO")=="D" .and. cTipo=="C"
+					cTipo	:= "D"
+					TcSetField(cAlias,cCampo,"D",8,0)
+				EndIf
+				::AddTamCol(nColIni+nCont-1,nColIni+nCont-1,1.2*nTamCampo)
+			EndIf
+			If !Empty(cMascara) .AND. GetSx3Cache(cCampo,"X3_TIPO")=="N"
+				AADD(aEstilos,::Masc2Style(cMascara,oStyle))
+			Else
+				AADD(aEstilos,oStyle)
+			EndIf
+			AADD(aCombo,!Empty(cCombo))
+		Endif
+		If lCab .OR. lTabela
+			nPos	:= aScan(aCab,{|x| x[1]==cCampo})
+			If nPos>0
+				cNomeCampo	:= aCab[nPos][2]
+			EndIf
+			If lTabela
+				oTabela:AddColumn(cNomeCampo)
+			Else
+				::Pos(nLinIni,nColIni+nCont-1):SetValue(cNomeCampo)
+			EndIf
+			If cTpStyle!="U"
+				::SetStyle(oStyle)
+			EndIf
+		Endif
+	Next
+
+	lCab	:= .F.
+	While (cAlias)->(!EOF())
+		nLinha++
+		If lTabela
+			oTabela:AddLine()
+			// oTabela:Cell(nCont,xValor,"",If(lSx3,aEstilos[nCont],oStyle))
+		EndIf
+		For nCont:=1 to nQtdCol
+			cCampo	:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
+			xValor	:= (cAlias)->(&(DBFIELDINFO(DBS_NAME,nCont)))
+			If lSx3 .AND. aCombo[nCont]
+				xValor	:= x3combo(cCampo,xValor)
+			Endif
+			::Pos(nLinha,nColIni+nCont-1):SetValue(xValor)
+			If lSx3 .and. ValType(aEstilos[nCont])<>"U"
+				::SetStyle(aEstilos[nCont])
+			ElseIf cTpStyle!="U"
+				::SetStyle(oStyle)
+			EndIf
+		Next
+		(cAlias)->(DbSkip())
+	EndDo
+Return
+
 /*/{Protheus.doc} OpenRead
 Abrir planilha e armazena conteudo para leitura
 @author Saulo Gomes Martins
@@ -5128,20 +5719,21 @@ Abrir planilha e armazena conteudo para leitura
 METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Local nRet
 	Local cDrive, cDir, cNome, cExt
-	Local nCont,nCont2,nCont3
-	Local cTipo,cRef
-	Local aChildren,aChildren2,aAtributos,oXml
-	Local oXmlStyle
+	Local nCont
+	// Local nCont,nCont2,nCont3
+	// Local cTipo,cRef
+	// Local aChildren,aChildren2,aAtributos,oXml
+				
 	Local cCamSrv	:= ""
 	Local cCamLocal	:= ""
 	Local cNomeNS	:= "ns"
-	Local cNomeNS2	:= "ns"
-	Local aStyles
-	Local nPosR
-	Local nPos
-	Local cnumfmtid
-	Local aAtrr
-	Local oDataTime
+	// Local cNomeNS2	:= "ns"
+	// Local aStyles
+	// Local nPosR
+	// Local nPos
+	// Local cnumfmtid
+	// Local aAtrr
+	// Local oDataTime
 	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha		AS NUMERIC		OPTIONAL DEFAULT 1
@@ -5153,7 +5745,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	If ValType(cRootPath)=="U"
 		cRootPath	:= GetSrvProfString( "RootPath", "" )
 	Endif
-	::oCell := tHashMap():new()
+	// ::oCell := tHashMap():new()
 	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml",,.F.)
 		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
 		cNome	:= SubStr(cFile,Rat("\",cFile)+1)	//Split não está respeitando o case original
@@ -5203,84 +5795,20 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 			cNomeNS	:= aNs[nCont][1]
 		Endif
 	Next
-	oXmlStyle	:= TXmlManager():New()
-	oXmlStyle:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
-	aNs	:= oXmlStyle:XPathGetRootNsList()
+	::oXmlStyle	:= TXmlManager():New()
+	::oXmlStyle:ParseFile("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\styles.xml")
+	aNs	:= ::oXmlStyle:XPathGetRootNsList()
 	For nCont:=1 to Len(aNs)
-		oXmlStyle:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
+		::oXmlStyle:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
 		If alltrim(lower(aNs[nCont][2]))==lower("http://schemas.openxmlformats.org/spreadsheetml/2006/main")
-			cNomeNS2	:= aNs[nCont][1]
+			::cNomeNS2	:= aNs[nCont][1]
 		Endif
 	Next
-	aStyles	:= oXmlStyle:XPathGetChildArray("/"+cNomeNS2+":styleSheet/"+cNomeNS2+":cellXfs")
+	// aStyles	:= ::oXmlStyle:XPathGetChildArray("/"+cNomeNS2+":styleSheet/"+cNomeNS2+":cellXfs")
 
+	::oCell	:= oXML
 	aChildren := oXML:XPathGetChildArray("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData")
 	::adimension	:= {{0,0},{999999,999999}}
-	For nCont:=1 to Len(aChildren)	//Row
-		aChildren2	:= oXML:XPathGetChildArray( aChildren[nCont][2] )
-		For nCont2:=1 to Len(aChildren2)	//c
-			cTipo		:= "N"
-			aAtributos	:= oXML:XPathGetAttArray(aChildren2[nCont2][2])						//Atributos do elemento
-			cRet		:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")
-			nPosR		:= aScan(aAtributos,{|x| x[1]=="r"})
-			If nPosR==0
-				cRef		:= ::ref(nCont,nCont2)
-				aPosicao	:= {nCont,nCont2}
-			Else
-				cRef		:= aAtributos[nPosR][2]
-				aPosicao	:= ::LocRef(cRef)	//Retorna linha e coluna
-			Endif
-			If ::adimension[2][1]>aPosicao[1]	//Menor linha
-				::adimension[2][1] := aPosicao[1]
-			Endif
-			If ::adimension[2][2]>aPosicao[2]	//Menor Coluna
-				::adimension[2][2]	:= aPosicao[2]
-			Endif
-			If ::adimension[1][1]<aPosicao[1]	//Maior Linha
-				::adimension[1][1]	:= aPosicao[1]
-			Endif
-			If ::adimension[1][2]<aPosicao[2]	//Maior Coluna
-				::adimension[1][2]	:= aPosicao[2]
-			Endif
-			For nCont3:=1 to Len(aAtributos)
-				If aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="str"
-					cTipo	:= "C"
-				ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="inlineStrs"
-					cTipo	:= "C"
-					cRet		:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":is/"+cNomeNS+":t")
-				ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="s"
-					cRet	:= ""
-					cTipo	:= "C"
-					::oString:Get(Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")),@cRet)
-				ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="b"
-					cTipo	:= "L"
-					cRet	:= oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v")=="1"
-//			ElseIf aAtributos[nCont3][1]=="s" .and. aAtributos[nCont3][2]=="1"
-//				cTipo	:= "D"
-//				cRet	:= STOD("19000101")-2+Val(oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
-				ElseIf aAtributos[nCont3][1]=="s"
-					aAtrr	:= oXmlStyle:XPathGetAttArray(aStyles[Val(aAtributos[nCont3][2])+1][2])
-					cnumfmtid	:= ""
-					nPos	:= aScan(aAtrr,{|x| lower(x[1])=="numfmtid"})
-					If nPos>0
-						cnumfmtid	:= aAtrr[nPos][2]
-						If "|"+cnumfmtid+"|" $ "|14|15|16|17|18|19|20|21|22|45|46|47|"
-							cTipo		:= "D"
-							oDataTime	:= yExcel_DateTime():New(,,oXML:XPathGetNodeValue("/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row["+cValToChar(nCont)+"]/"+cNomeNS+":c["+cValToChar(nCont2)+"]/"+cNomeNS+":v"))
-							cRet		:= oDataTime:GetDate()
-							::oCell:Set(cRef+"_H",oDataTime:GetTime())
-							FreeObj(oDataTime)
-						Endif
-					Endif
-				Endif
-			Next
-			If cTipo=="N"
-				::oCell:Set(cRef,Val(cRet))
-			Else
-				::oCell:Set(cRef,cRet)
-			Endif
-		Next
-	Next
 Return nRet==0
 
 /*/{Protheus.doc} CellRead
@@ -5295,16 +5823,67 @@ Retorna o valor de uma celula, após o uso do método OpenRead()
 @param lAchou, logical, passa por referencia se achou a informação da celula
 @type method
 /*/
+// Method CellRead(nLinha,nColuna,xDefault,lAchou,cOutro) Class YExcel
+// 	Local cRef	:= ::Ref(nLinha,nColuna)
+// 	Local xValor:= Nil
+// 	// ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
+// 	Default cOutro	:= ""
+// 	lAchou	:= .T.
+// 	If !::oCell:Get(cRef+cOutro,@xValor)
+// 		xValor	:= xDefault
+// 		lAchou	:= .F.
+// 	Endif
+// Return xValor
 Method CellRead(nLinha,nColuna,xDefault,lAchou,cOutro) Class YExcel
-	Local cRef	:= ::Ref(nLinha,nColuna)
-	Local xValor:= Nil
-	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
-	Default cOutro	:= ""
-	lAchou	:= .T.
-	If !::oCell:Get(cRef+cOutro,@xValor)
-		xValor	:= xDefault
-		lAchou	:= .F.
-	Endif
+	Local cRef		:= ::Ref(nLinha,nColuna)
+	Local nCont3
+	Local xValor	:= xDefault
+	Local cNomeNS	:="xmlns"
+	Local nPos
+	Local cCaminho	:= "/"+cNomeNS+":worksheet/"+cNomeNS+":sheetData/"+cNomeNS+":row[@r='"+cValToChar(nLinha)+"']/"+cNomeNS+":c[@r='"+cRef+"']"
+	oXML	:= ::oCell
+	If oXML:XPathHasNode(cCaminho)
+		lAchou		:= .T.
+		cTipo		:= "N"
+		aAtributos	:= oXML:XPathGetAttArray(cCaminho)						//Atributos do elemento
+		cRet		:= oXML:XPathGetNodeValue(cCaminho+"/"+cNomeNS+":v")
+		For nCont3:=1 to Len(aAtributos)
+			If aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="str"
+				cTipo	:= "C"
+			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="inlineStrs"
+				cTipo	:= "C"
+				cRet	:= oXML:XPathGetNodeValue(cCaminho+"/"+cNomeNS+":is/"+cNomeNS+":t")
+			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="s"
+				nPos	:= Val(cRet)
+				cRet	:= ""
+				cTipo	:= "C"
+				::oString:Get(nPos,@cRet)
+			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="b"
+				cTipo	:= "L"
+				cRet	:= cRet=="1"
+			ElseIf aAtributos[nCont3][1]=="s"
+				aStyles	:= ::oXmlStyle:XPathGetChildArray("/"+::cNomeNS2+":styleSheet/"+::cNomeNS2+":cellXfs")
+				aAtrr	:= ::oXmlStyle:XPathGetAttArray(aStyles[Val(aAtributos[nCont3][2])+1][2])
+				cnumfmtid	:= ""
+				nPos	:= aScan(aAtrr,{|x| lower(x[1])=="numfmtid"})
+				If nPos>0
+					cnumfmtid	:= aAtrr[nPos][2]
+					If "|"+cnumfmtid+"|" $ "|14|15|16|17|18|19|20|21|22|45|46|47|"
+						cTipo		:= "D"
+						oDataTime	:= yExcel_DateTime():New(,,cRet)
+						cRet		:= {oDataTime:GetDate(),oDataTime:GetTime()}
+						// ::oCell:Set(cRef+"_H",oDataTime:GetTime())
+						FreeObj(oDataTime)
+					Endif
+				Endif
+			Endif
+		Next
+		If cTipo=="N"
+			xValor	:= Val(cRet)
+		Else
+			xValor	:= cRet
+		Endif
+	EndIf
 Return xValor
 
 /*/{Protheus.doc} CloseRead
@@ -5318,7 +5897,7 @@ Limpa a pasta temporaria
 METHOD CloseRead() Class YExcel
 	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	::oString:clean()
-	::oCell:clean()
+	FreeObj(::oCell)
 	::nQtdString := 0
 	DelPasta("\tmpxls\"+::cTmpFile)
 Return
@@ -5703,18 +6282,19 @@ Class YExcel_Table from yExcelTag
 	Data otableStyleInfo
 	Data cNomeTabela
 	Data nIdRelat
-	Method new() constructor
-	Method cell()
-	Method AddStyle()
-	Method AddLine()
-	Method AddColumn()
-	Method AddFilter()
+	METHOD new() constructor
+	METHOD cell()
+	METHOD AddStyle()
+	METHOD AddLine()
+	METHOD AddColumn()
+	METHOD AddFilter()
 	METHOD AddTotal()
 	METHOD AddTotais()
 	METHOD Finish()
+	METHOD Alias2Tab()
 EndClass
 
-Method new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
+METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	_Super:New("table",{},,oyExcel)
 	::oyExcel		:= oyExcel
 	::aRef			:= {{nLinha,nColuna},{0,0}}
@@ -5727,6 +6307,10 @@ Method new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	::AddLine()
 Return self
 
+METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab) Class YExcel_Table
+	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,self)
+Return
+
 /*/{Protheus.doc} AddFilter
 Adiciona filtro a tabela
 @author Saulo Gomes Martins
@@ -5734,7 +6318,7 @@ Adiciona filtro a tabela
 
 @type method
 /*/
-Method AddFilter() Class YExcel_Table
+METHOD AddFilter() Class YExcel_Table
 	::lAutoFilter:= .T.
 Return
 
@@ -5759,6 +6343,7 @@ METHOD Cell(cColuna,xValor,cFormula,nStyle) Class YExcel_Table
 		If Empty(nStyle)
 			nStyle	:= aColuna[5]
 		Endif
+		aColuna := nil
 	Else
 		nColuna	:= cColuna
 	Endif
@@ -5772,11 +6357,11 @@ Adiciona uma nova linha
 @param nQtd, numeric, Quantidade de linhas para avançar
 @type method
 /*/
-Method AddLine(nQtd) Class YExcel_Table
+METHOD AddLine(nQtd) Class YExcel_Table
 	Default nQtd	:= 1
 	::nLinha		+= nQtd
 	::aRef[2][1]	:= ::nLinha
-	If ::nLinha!=::nPrimLinha
+	If ::nLinha!=::nPrimLinha .and. !::oyExcel:lArquivo
 		::oyExcel:AddRow(nQtd,::nLinha,::aRef[1][2],::aRef[2][2])
 	Endif
 return ::nLinha
@@ -5793,10 +6378,16 @@ Adiciona uma nova coluna a tabela
 METHOD AddColumn(cNome,nStyle) Class YExcel_Table
 	Local otableColumn
 	Local nCont
+	Local aColuna
 //	Local nPosCol		:= aScan(self:GetValor(),{|x| x:GetNome()=="tableColumns"})
+	If ::oColunas:Get(cNome,@aColuna)
+		cNome	+= "2"
+	EndIf
 	::aRef[2][2]	+= 1
 	::nLinha		:= ::nPrimLinha
-	::oyExcel:AddCol(1,::aRef[2][2],::nPrimLinha,::aRef[2][1])
+	If !::oyExcel:lArquivo
+		::oyExcel:AddCol(1,::aRef[2][2],::nPrimLinha,::aRef[2][1])
+	EndIf
 
 	nCont	:= Len(self:oTableColumns:GetValor())+1
 	otableColumn	:= yExcelTag():New("tableColumn",{},,::oyExcel)
@@ -5835,8 +6426,11 @@ function-number				function-number					Function
 10							110							VAR		VAR
 11							111							VARP	VARP
 /*/
-Method AddTotal(cColuna,xValor,cFunction,nStyle) Class YExcel_Table
+METHOD AddTotal(cColuna,xValor,cFunction,nStyle) Class YExcel_Table
 	Local aColuna,otableColumn
+	If ValType(cColuna)=="N"
+		cColuna	:= ::aColunas[cColuna]
+	Endif
 	If ::oColunas:Get(cColuna,@aColuna)
 		otableColumn	:= aColuna[3]
 		aColuna[4]		:= xValor
@@ -5850,17 +6444,17 @@ Method AddTotal(cColuna,xValor,cFunction,nStyle) Class YExcel_Table
 			If UPPER(cFunction)=="AVERAGE"
 				otableColumn:SetAtributo("totalsRowFunction",lower("AVERAGE"))
 			ElseIf UPPER(cFunction)=="COUNT"
-				otableColumn:SetAtributo("totalsRowFunction",lower("COUNT"))
-//			ElseIf UPPER(cFunction)=="COUNTA"
-//				otableColumn:SetAtributo("totalsRowFunction",lower("COUNTA"))
+				otableColumn:SetAtributo("totalsRowFunction","countNums")
+			ElseIf UPPER(cFunction)=="COUNTA"
+				otableColumn:SetAtributo("totalsRowFunction","count")
 			ElseIf UPPER(cFunction)=="MAX"
 				otableColumn:SetAtributo("totalsRowFunction",lower("MAX"))
 			ElseIf UPPER(cFunction)=="MIN"
 				otableColumn:SetAtributo("totalsRowFunction",lower("MIN"))
 //			ElseIf UPPER(cFunction)=="PRODUCT"
 //				otableColumn:SetAtributo("totalsRowFunction",lower("PRODUCT"))
-//			ElseIf UPPER(cFunction)=="STDEV"
-//				otableColumn:SetAtributo("totalsRowFunction",lower("STDEV"))
+			ElseIf UPPER(cFunction)=="STDEV"
+				otableColumn:SetAtributo("totalsRowFunction","stdDev")
 //			ElseIf UPPER(cFunction)=="STDEVP"
 //				otableColumn:SetAtributo("totalsRowFunction",lower("STDEVP"))
 			ElseIf UPPER(cFunction)=="SUM"
@@ -5887,8 +6481,9 @@ Inclui a linha de totalizador
 Method AddTotais() Class YExcel_Table
 	Local nCont,xValor,cFormula
 	Local aColuna,cRef
-	
-	::oyExcel:AddRow(1,::nLinha+1,::aRef[1][2],::aRef[2][2])
+	If !::oyExcel:lArquivo
+		::oyExcel:AddRow(1,::nLinha+1,::aRef[1][2],::aRef[2][2])
+	EndIf
 
 	cRef		:= ::oyExcel:Ref(::aRef[1][1],::aRef[1][2])+":"+::oyExcel:Ref(::aRef[2][1]+1,::aRef[2][2])
 	::SetAtributo("ref",cRef)
@@ -5904,9 +6499,9 @@ Method AddTotais() Class YExcel_Table
 		ElseIf !Empty(otableColumn:GetAtributo("totalsRowFunction",""))
 			If UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="AVERAGE"
 				cFormula		:= "SUBTOTAL(101,"+::cNomeTabela+"["+::aColunas[nCont]+"])"
-			ElseIf UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="COUNT"
+			ElseIf UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="COUNTNUMS"
 				cFormula		:= "SUBTOTAL(102,"+::cNomeTabela+"["+::aColunas[nCont]+"])"
-			ElseIf UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="COUNTA"
+			ElseIf UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="COUNT"
 				cFormula		:= "SUBTOTAL(103,"+::cNomeTabela+"["+::aColunas[nCont]+"])"
 			ElseIf UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="MAX"
 				cFormula		:= "SUBTOTAL(104,"+::cNomeTabela+"["+::aColunas[nCont]+"])"
@@ -6102,6 +6697,7 @@ Method NumToDateTime(nData,nDec8) Class YExcel_DateTime
 	Local f86400		:= DEC_CREATE( "86400" , 20, 19 )
 	Local fNumTime
 	Local fSeg,fMinuto,fHora
+	Local lAddDec		:= .F.
 	If ValType(nData)=="N"
 		nInt	:= Int(nData)
 		nDec	:= nData-nInt
@@ -6109,6 +6705,9 @@ Method NumToDateTime(nData,nDec8) Class YExcel_DateTime
 		::cNumero	:= cValToChar(nData)
 		::nNumero	:= nInt+nDec
 		::nDecimal	:= nDec8
+		If ValType(self:nDecimal)=="N"
+			lAddDec	:= .T.
+		EndIf
 	Else
 		nPosPonto	:= At(".",nData)
 		If nPosPonto==0
@@ -6118,16 +6717,18 @@ Method NumToDateTime(nData,nDec8) Class YExcel_DateTime
 			nInt		:= Val(nData)
 			nDec		:= 0
 			::nNumero	:= nInt
+			fNumTime	:= DEC_CREATE("0", 20, 19 )
 		Else
 			nInt		:= Val(SubStr(nData,1,nPosPonto-1))
 			fNumTime	:= DEC_CREATE("0."+SubStr(nData,nPosPonto+1), 20, 19 )
 			// nDec		:= Val("0."+SubStr(nData,nPosPonto+1))
 			::nNumero	:= nInt+(Val("0."+SubStr(nData,nPosPonto+1,8)))
 			::nDecimal	:= Val("0."+SubStr(nData,nPosPonto+8+1))*(10^8)
+			lAddDec		:= .T.
 		Endif
 		::cNumero	:= nData
 	Endif
-	If ValType(self:nDecimal)=="N"
+	If lAddDec
 		fNumTime	:= DEC_ADD(fNumTime,DEC_DIV(DEC_CREATE(cValToChar(self:nDecimal),20,19),DEC_CREATE("10000000000000000",20,19)))
 	EndIf
 
@@ -6433,7 +7034,7 @@ Method FindRels(cCaminho,cAtrRet,cId,cType,cTarget) Class YExcel
 			If !Empty(cFiltro)
 				cFiltro	+= " and "
 			Endif
-			cFiltro	+="@Type='"+cType+"'"
+			cFiltro	+=chr(64)+"Type='"+cType+"'"
 		EndIf
 		If !Empty(cTarget)
 			If !Empty(cFiltro)
@@ -6933,9 +7534,9 @@ Method xls_sharedStrings(nFile) Class YExcel
 	(::cAliasStr)->(DbGoTop())
 	While (::cAliasStr)->(!EOF())
 		cRet	+= '<si>'
-		cTexto	:= EncodeUTF8(&((::cAliasStr)->VLRMEMO))
+		cTexto	:= EncodeUTF8((::cAliasStr)->VLRMEMO)
 		If Valtype(cTexto)!="C"
-			cTexto	:= &((::cAliasStr)->VLRMEMO)
+			cTexto	:= (::cAliasStr)->VLRMEMO
 			cTexto	:= Replace(cTexto,chr(129),"")
 			cTexto	:= Replace(cTexto,chr(141),"")
 			cTexto	:= Replace(cTexto,chr(143),"")
@@ -6974,7 +7575,7 @@ Method Read_sharedStrings(cFile) Class YExcel
 	For nCont:=1 to Len(aNs)
 		oTmp:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
 	Next
-	For nCont:=1 to Val(oTmp:XPathGetAtt("/xmlns:sst","count"))
+	For nCont:=1 to oTmp:XPathChildCount("/xmlns:sst")
 		::SetStrComp(oTmp:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(nCont)+"]/xmlns:t"))
 	Next
 	AADD(::aFiles,cFile)
@@ -7371,7 +7972,7 @@ Static Function PlainH_9()
 Return(cRet)
 
 // Static Function LimpStrC()
-// 	If !DbSqlExec(::cAliasLin,"INSERT INTO "+::cAliasLin+" (PLA,LIN) SELECT DISTINCT C.PLA,C.LIN FROM "+::cAliasCol+" C LEFT JOIN "+::cAliasLin+" L ON C.PLA=L.PLA AND C.LIN=L.LIN WHERE L.LIN IS NULL",::cDriver)
+// 	If !DbSqlExec(::cAliasLin,"INSERT INTO "+::cTabLin+" (PLA,LIN) SELECT DISTINCT C.PLA,C.LIN FROM "+::cTabCol+" C LEFT JOIN "+::cTabLin+" L ON C.PLA=L.PLA AND C.LIN=L.LIN WHERE L.LIN IS NULL",::cDriver)
 // 		UserException("YExcel - Erro ao incluir linhas. "+TCSqlError())
 // 	Endif
 // SELECT ROW_NUMBER() OVER (ORDER BY STR.ROWID)-1 SEQUENCIA,* 
@@ -7599,4 +8200,3 @@ Static Function tpExpressao(cExpression)
 		cTipo	:= "C"
 	Endif
 Return cTipo
-
