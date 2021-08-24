@@ -389,6 +389,7 @@ METHOD New(cNomeFile,cFileOpen,lArquivo) Class YExcel
 	::cAliasChv	:= ::CriaDB(aStruct,aIndex,"CHV",@::cTabChv)
 
 	If !Empty(cFileOpen)
+		::lArquivo	:= .F.
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
 		
@@ -553,7 +554,7 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	If Len(cNome)>31
 		cNome	:= SubStr(cNome,1,31)
 	Endif
-	cNome	:= EncodeUTF8(cNome)
+	cNome	:= AjusEncode(cNome)
 	nPos	:= aScan(::aPlanilhas,{|x| x[2]==cNome })
 	If nPos>0
 		UserException("Esse nome de planilha já foi usado!")
@@ -641,10 +642,10 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 	Local nContCol
 	Local cStyle
 	Local cValor
-	Local cNumero,fNumero
-	Local cDecimal
-	Local nPosE,nPosPonto
-	Local nFator,fFator
+	// Local cNumero,fNumero
+	// Local cDecimal
+	// Local nPosE,nPosPonto
+	// Local nFator,fFator
 	Local cTargetDraw
 	Local cTarget
 	Local lAchou,nPos
@@ -714,7 +715,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 							(::cAliasCol)->PLA		:= ::nPlanilhaAt
 							(::cAliasCol)->LIN		:= ::nLinha
 							(::cAliasCol)->COL		:= ::nColuna
-							(::cAliasCol)->TIPO		:= cTipoCol
+							(::cAliasCol)->TIPO		:= SubStr(cTipoCol,1,1)
 							If Empty(cStyle)
 								(::cAliasCol)->STY		:= -1
 							Else
@@ -723,58 +724,63 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 
 							(::cAliasCol)->TPVLR	:= "N"	//Numeros
 							(::cAliasCol)->TPSTY	:= " "
-							If Empty(cValor)
+							If cTipoCol=="inlineStr"	//inlineStr
+								cValor	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row["+cValToChar(nContLn)+"]/xmlns:c["+cValToChar(nContCol)+"]/xmlns:is/xmlns:t")
+								(::cAliasCol)->VLR		:= cValor
+								(::cAliasCol)->TPVLR	:= "C"
+							ElseIf Empty(cValor)
 								(::cAliasCol)->TPVLR		:= "U"
 							ElseIf cTipoCol=="str"
 								(::cAliasCol)->TPSTY		:= "S"
 								lAchou	:= .F.
 								nPos	:= ::GetStrComp(xValor,@lAchou)
 								If lAchou
-									(self:cAliasCol)->VLRNUM	:= nPos
+									(self:cAliasCol)->VLR	:= cValToChar(nPos)
 								Else
 									nPos	:= ::SetStrComp(xValor)
-									(self:cAliasCol)->VLRNUM	:= nPos
+									(self:cAliasCol)->VLR	:= cValToChar(nPos)
 								Endif
-								(self:cAliasCol)->VLRNUM	:= Val(cValor)
+								(self:cAliasCol)->VLR	:= cValor
 							ElseIf cTipoCol=="s"
 								(::cAliasCol)->TPSTY		:= "S"
-								(self:cAliasCol)->VLRNUM	:= Val(cValor)
+								(self:cAliasCol)->VLR	:= cValor
 							ElseIf cTipoCol=="b"
 								(::cAliasCol)->TPSTY	:= "B"
-								(self:cAliasCol)->VLRNUM	:= Val(cValor)
+								(self:cAliasCol)->VLR	:= cValor
 							ElseIf cTipoCol=="d"	//date and time UTF
 								(::cAliasCol)->TPSTY		:= "D"
-								(::cAliasCol)->VLRTXT		:= cValor
+								(::cAliasCol)->VLR			:= cValor
 								(::cAliasCol)->TPVLR		:= "C"
 							ElseIf cTipoCol==""
 								(::cAliasCol)->TPVLR		:= "C"
 								(::cAliasCol)->TPSTY		:= "N"
-								If "E" $ cValor
-									nPosE	:= At("E",cValor)
-									cNumero	:= SubStr(cValor,1,nPosE-1)
-									nFator	:= Val(SubStr(cValor,nPosE+2))
-									fNumero	:= DEC_CREATE(cNumero,21,20)
-									fFator	:= DEC_CREATE("1"+Replicate("0",nFator),21,20)
-									If "E-" $ cValor
-										fNumero	:= DEC_DIV(fNumero,fFator)
-									Else
-										fNumero	:= DEC_MUL(fNumero,fFator)
-									Endif
-									(self:cAliasCol)->VLRTXT	:= cValToChar(DEC_TO_DBL(fNumero))	//&(Replace(cValor,"E-","/(10^")+")")
-									(self:cAliasCol)->VLRDEC	:= Int(DEC_TO_DBL( DEC_MUL(DEC_CREATE("1000000000000000",21,20),DEC_SUB(fNumero,DEC_RESCALE(fNumero,8,2))) ))
-								Else
-									nPosPonto	:= At(".",cValor)
-									If nPosPonto>0
-										cDecimal:= SubStr(cValor,nPosPonto+1)
-										If Len(cDecimal)>8
-											(self:cAliasCol)->VLRDEC	:= Val(SubStr(cDecimal,9))
-										Endif
-									Endif
-									(self:cAliasCol)->VLRTXT	:= cValor
-								Endif
+								// If "E" $ cValor
+									
+									// nPosE	:= At("E",cValor)
+									// cNumero	:= SubStr(cValor,1,nPosE-1)
+									// nFator	:= Val(SubStr(cValor,nPosE+2))
+									// fNumero	:= DEC_CREATE(cNumero,21,20)
+									// fFator	:= DEC_CREATE("1"+Replicate("0",nFator),21,20)
+									// If "E-" $ cValor
+									// 	fNumero	:= DEC_DIV(fNumero,fFator)
+									// Else
+									// 	fNumero	:= DEC_MUL(fNumero,fFator)
+									// Endif
+									// (self:cAliasCol)->VLRTXT	:= cValToChar(DEC_TO_DBL(fNumero))	//&(Replace(cValor,"E-","/(10^")+")")
+									// (self:cAliasCol)->VLRDEC	:= Int(DEC_TO_DBL( DEC_MUL(DEC_CREATE("1000000000000000",21,20),DEC_SUB(fNumero,DEC_RESCALE(fNumero,8,2))) ))
+								// Else
+									// nPosPonto	:= At(".",cValor)
+									// If nPosPonto>0
+									// 	cDecimal:= SubStr(cValor,nPosPonto+1)
+									// 	If Len(cDecimal)>8
+									// 		(self:cAliasCol)->VLRDEC	:= Val(SubStr(cDecimal,9))
+									// 	Endif
+									// Endif
+									(self:cAliasCol)->VLR	:= cValor
+								// Endif
 							Else
 								(::cAliasCol)->TPVLR	:= "C"
-								(::cAliasCol)->VLRTXT	:= cValor
+								(::cAliasCol)->VLR		:= cValor
 							Endif
 
 							If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row["+cValToChar(nContLn)+"]/xmlns:c["+cValToChar(nContCol)+"]/xmlns:f")
@@ -1046,7 +1052,7 @@ METHOD SetPlanName(cNome) Class YExcel
 	If Len(cNome)>31
 		cNome	:= SubStr(cNome,1,31)
 	Endif
-	cNome	:= EncodeUTF8(cNome)
+	cNome	:= AjusEncode(cNome)
 	nPos	:= aScan(::aPlanilhas,{|x| x[2]==cNome })
 	If nPos>0
 		UserException("Esse nome de planilha já foi usado!")
@@ -1210,7 +1216,7 @@ METHOD SetHeader(cLeft,cCenter,cRight) Class YExcel
 	If !Empty(cRight)
 		cValor	+= "&R"+cRight
 	Endif
-	cValor	:= EncodeUTF8(Replace(cValor,"&","&amp;"))
+	cValor	:= AjusEncode(Replace(cValor,"&","&amp;"))
 	If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:headerFooter/xmlns:oddHeader")
 		::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:headerFooter","oddHeader",cValor)
 	Else
@@ -1241,7 +1247,7 @@ METHOD SetFooter(cLeft,cCenter,cRight) Class YExcel
 	If !Empty(cRight)
 		cValor	+= "&R"+cRight
 	Endif
-	cValor	:= EncodeUTF8(Replace(cValor,"&","&amp;"))
+	cValor	:= AjusEncode(Replace(cValor,"&","&amp;"))
 	If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:headerFooter/xmlns:oddFooter")
 		::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:headerFooter","oddFooter",cValor)
 	Else
@@ -1755,7 +1761,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 			// Else
 			// 	nPos	:= ::SetStrComp(xValor)
 			// Endif
-			oTmpObj	:= YExcelTag():New("is","<t><![CDATA["+xValor+"]]></t>",{{"xml:space","preserve"}})
+			oTmpObj	:= YExcelTag():New("is",'<t xml:space="preserve"><![CDATA['+xValor+']]></t>',{})
 			::oC:AddValor(oTmpObj:GetTag())
 		ElseIf cTipo=="L"
 			::oC:SetAtributo("t","b")
@@ -1973,7 +1979,11 @@ Static cStrtmp	:= GetNextAlias()
 Method SetStrComp(xTexto) Class YExcel
 	Local nPos
 	::ExecSql(cStrtmp,"SELECT MAX(POS)+1 MAXPOS FROM "+::cTabStr,::cDriver)//::nQtdString
-	nPos	:= (cStrtmp)->MAXPOS
+	If Empty((cStrtmp)->MAXPOS)
+		nPos	:= 0
+	Else
+		nPos	:= (cStrtmp)->MAXPOS
+	Endif
 	(cStrtmp)->(DbCloseArea())
 	(::cAliasStr)->(RecLock(::cAliasStr,.T.))
 	(::cAliasStr)->POS		:= nPos
@@ -2011,7 +2021,7 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 			FreeObj(::oC)
 			::oC	:= nil
 		EndIf
-		If ::nLinha<>nLinha
+		If ::nLinha<>nLinha .OR. ValType(::oRow)=="U"
 			If ValType(::oRow)=="O"
 				FWRITE(::nFileTmpRow,"</row>")
 				FreeObj(::oRow)
@@ -4629,7 +4639,7 @@ METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
 		aChildren	:= ::asheet[::nPlanilhaAt][3]:XPathGetChildArray("/xmlns:comments/xmlns:authors")
 		nPos		:= aScan(aChildren,{|x| x[3]==cAutor })
 		If nPos==0
-			::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:authors","author",EncodeUTF8(cAutor))
+			::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:authors","author",AjusEncode(cAutor))
 			cPos	:= cValToChar(Len(aChildren))
 		else
 			cPos	:= cValToChar(nPos-1)
@@ -4655,7 +4665,7 @@ METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
 		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:charset","val","1")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","scheme","")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:scheme","val","minor")
-		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","t",EncodeUTF8(cText))
+		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","t",AjusEncode(cText))
 		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:t","xml:space","preserve")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]","r","")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","rPr","")
@@ -4669,7 +4679,7 @@ METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
 		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:charset","val","1")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr","scheme","")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:rPr/xmlns:scheme","val","minor")
-		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","t",EncodeUTF8(cText))
+		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]","t",AjusEncode(cText))
 		// ::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:text[last()]/xmlns:r[last()]/xmlns:t","xml:space","preserve")
 
 
@@ -4892,6 +4902,7 @@ Method Save(cLocal) Class YExcel
 	Local nPos
 	Local oXmlSheet
 	Local lServidor
+	Local cTexto
 	// Local cNumero,nPosPonto,nQtdTmp
 	Local cQuery
 	Local nHTmp
@@ -5081,7 +5092,9 @@ Method Save(cLocal) Class YExcel
 							If (::cAliasCol)->STY>=0
 								cBuffer2	+= ' s="'+cValToChar((::cAliasCol)->STY)+'"'
 							Endif
-							If !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
+							If (::cAliasCol)->TIPO=="i"
+								cBuffer2	+= ' t="inlineStr"'
+							ElseIf !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
 								cBuffer2	+= ' t="'+Alltrim((::cAliasCol)->TIPO)+'"'
 							Endif
 							cBuffer2	+= '>'
@@ -5089,28 +5102,39 @@ Method Save(cLocal) Class YExcel
 							If !Empty((::cAliasCol)->FORMULA)
 								cBuffer2	+= '<f>'+RTRIM((::cAliasCol)->FORMULA)+'</f>'
 							Endif
-							cBuffer2	+= '<v>'
-							If (::cAliasCol)->TPVLR=="C"
-								cBuffer2	+= (::cAliasCol)->VLR
-							ElseIf (::cAliasCol)->TPVLR=="U"
+							If (::cAliasCol)->TIPO=="i"
+								cTexto	:= AjusEncode((::cAliasCol)->VLR)
+								cBuffer2	+= '<is>'
+								cBuffer2	+= '<t xml:space="preserve">'
+								cBuffer2	+= '<![CDATA['
+								cBuffer2	+= cTexto
+								cBuffer2	+= ']]>'
+								cBuffer2	+= '</t>'
+								cBuffer2	+= '</is>'
 							Else
-								// cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
-								// If (::cAliasCol)->VLRDEC<>0
-								// 	nPosPonto	:= At(".",cNumero)
-								// 	If nPosPonto==0
-								// 		cNumero	+= "."+Replicate("0",8)
-								// 	Else
-								// 		nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
-								// 		If nQtdTmp>0
-								// 			cNumero	+= Replicate("0",nQtdTmp)
-								// 		Endif
-								// 	Endif
-								// 	cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
-								// Endif
-								// cBuffer2	+= cNumero
-								cBuffer2	+= cValToChar((::cAliasCol)->VLR)
-							Endif
-							cBuffer2	+= '</v>'
+								cBuffer2	+= '<v>'
+								If (::cAliasCol)->TPVLR=="C"
+									cBuffer2	+= (::cAliasCol)->VLR
+								ElseIf (::cAliasCol)->TPVLR=="U"
+								Else
+									// cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
+									// If (::cAliasCol)->VLRDEC<>0
+									// 	nPosPonto	:= At(".",cNumero)
+									// 	If nPosPonto==0
+									// 		cNumero	+= "."+Replicate("0",8)
+									// 	Else
+									// 		nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
+									// 		If nQtdTmp>0
+									// 			cNumero	+= Replicate("0",nQtdTmp)
+									// 		Endif
+									// 	Endif
+									// 	cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
+									// Endif
+									// cBuffer2	+= cNumero
+									cBuffer2	+= cValToChar((::cAliasCol)->VLR)
+								Endif
+								cBuffer2	+= '</v>'
+							EndIf
 							cBuffer2	+= '</c>'
 							FWRITE(nHDestino, cBuffer2)
 							(::cAliasCol)->(DbSkip())
@@ -5320,7 +5344,7 @@ METHOD CriarFile(cLocal,cNome,cString) Class YExcel
 	FClose(nFile)
 //	oFile:Close()
 	nFile	:= FOPEN(cDirServ+cLocal+"\"+cNome, FO_READWRITE,,.F.)
-	cString	:= EncodeUTF8(cString)
+	cString	:= AjusEncode(cString)
 	IF FWrite(nFile, cString, Len(cString)) < Len(cString)
 		lOk	:= .F.
 	Endif
@@ -5338,19 +5362,7 @@ Static Function GravaFile(nFile,cString,cLocal,cArquivo)
 	If !Empty(cArquivo)
 		nFile	:= FOPEN(cLocal+"\"+cArquivo, FO_READWRITE,,.F.)
 	Endif
-	cTexto	:= EncodeUTF8(cString)
-	If Valtype(cTexto)!="C"
-		cTexto	:= cString
-		cTexto	:= Replace(cTexto,chr(129),"")
-		cTexto	:= Replace(cTexto,chr(141),"")
-		cTexto	:= Replace(cTexto,chr(143),"")
-		cTexto	:= Replace(cTexto,chr(144),"")
-		cTexto	:= Replace(cTexto,chr(157),"")
-		cTexto	:= EncodeUTF8(cTexto)
-		If Valtype(cTexto)!="C"
-			cTexto	:= ""
-		Endif
-	EndIf
+	cTexto	:= AjusEncode(cString)
 	FSeek(nFile, 0, FS_END)
 	IF FWrite(nFile, cTexto, Len(cTexto)) < Len(cTexto)
 		lOk	:= .F.
@@ -5850,7 +5862,7 @@ Method CellRead(nLinha,nColuna,xDefault,lAchou,cOutro) Class YExcel
 		For nCont3:=1 to Len(aAtributos)
 			If aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="str"
 				cTipo	:= "C"
-			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="inlineStrs"
+			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="inlineStr"
 				cTipo	:= "C"
 				cRet	:= oXML:XPathGetNodeValue(cCaminho+"/"+cNomeNS+":is/"+cNomeNS+":t")
 			ElseIf aAtributos[nCont3][1]=="t" .and. aAtributos[nCont3][2]=="s"
@@ -6379,10 +6391,9 @@ METHOD AddColumn(cNome,nStyle) Class YExcel_Table
 	Local otableColumn
 	Local nCont
 	Local aColuna
-//	Local nPosCol		:= aScan(self:GetValor(),{|x| x:GetNome()=="tableColumns"})
-	If ::oColunas:Get(cNome,@aColuna)
+	While ::oColunas:Get(cNome,@aColuna)
 		cNome	+= "2"
-	EndIf
+	EndDo
 	::aRef[2][2]	+= 1
 	::nLinha		:= ::nPrimLinha
 	If !::oyExcel:lArquivo
@@ -6481,10 +6492,12 @@ Inclui a linha de totalizador
 Method AddTotais() Class YExcel_Table
 	Local nCont,xValor,cFormula
 	Local aColuna,cRef
+	If ::aRef[1][1]==::aRef[2][1]
+		::AddLine()
+	EndIf
 	If !::oyExcel:lArquivo
 		::oyExcel:AddRow(1,::nLinha+1,::aRef[1][2],::aRef[2][2])
 	EndIf
-
 	cRef		:= ::oyExcel:Ref(::aRef[1][1],::aRef[1][2])+":"+::oyExcel:Ref(::aRef[2][1]+1,::aRef[2][2])
 	::SetAtributo("ref",cRef)
 	::SetAtributo("totalsRowCount",1)
@@ -7482,7 +7495,7 @@ Static Function Xml2Xml(oXml,oXml2,cPath,cFiltro,cNaoFazer,lAdd,cPath2,aOrdem)
 		//Atributos
 		aAtrr	:= oXML2:XPathGetAttArray(aChildren[nCont][2])
 		For nCont2:=1 to Len(aAtrr)
-			If (aChildren[nCont][1]=="drawing".OR.aChildren[nCont][1]=="tablePart").AND.aAtrr[nCont2][1]=="id"
+			If (aChildren[nCont][1]=="drawing".OR.aChildren[nCont][1]=="tablePart".OR.aChildren[nCont][1]=="legacyDrawing").AND.aAtrr[nCont2][1]=="id"
 				SetAtrr(oXml,cPath+"/xmlns:"+aChildren[nCont][1]+"["+cPos+"]","r:"+aAtrr[nCont2][1],aAtrr[nCont2][2])
 			Else
 				SetAtrr(oXml,cPath+"/xmlns:"+aChildren[nCont][1]+"["+cPos+"]",aAtrr[nCont2][1],aAtrr[nCont2][2])
@@ -7492,7 +7505,7 @@ Static Function Xml2Xml(oXml,oXml2,cPath,cFiltro,cNaoFazer,lAdd,cPath2,aOrdem)
 		If !Empty(oXML2:XPathGetChildArray(aChildren[nCont][2]))
 			Xml2Xml(oXml,oXml2,cPath+"/xmlns:"+aChildren[nCont][1]+"["+cPos+"]",,,,aChildren[nCont][2],aOrdem)
 		Else
-			cValor	:= EncodeUTF8(Replace(oXML2:XPathGetNodeValue(aChildren[nCont][2]),"&","&amp;"))
+			cValor	:= AjusEncode(Replace(oXML2:XPathGetNodeValue(aChildren[nCont][2]),"&","&amp;"))
 			oXml:XPathSetNode(cPath+"/xmlns:"+aChildren[nCont][1]+"["+cPos+"]",aChildren[nCont][1],cValor)
 		EndIf
 	Next
@@ -7534,19 +7547,7 @@ Method xls_sharedStrings(nFile) Class YExcel
 	(::cAliasStr)->(DbGoTop())
 	While (::cAliasStr)->(!EOF())
 		cRet	+= '<si>'
-		cTexto	:= EncodeUTF8((::cAliasStr)->VLRMEMO)
-		If Valtype(cTexto)!="C"
-			cTexto	:= (::cAliasStr)->VLRMEMO
-			cTexto	:= Replace(cTexto,chr(129),"")
-			cTexto	:= Replace(cTexto,chr(141),"")
-			cTexto	:= Replace(cTexto,chr(143),"")
-			cTexto	:= Replace(cTexto,chr(144),"")
-			cTexto	:= Replace(cTexto,chr(157),"")
-			cTexto	:= EncodeUTF8(cTexto)
-			If Valtype(cTexto)!="C"
-				cTexto	:= ""
-			Endif
-		Endif
+		cTexto	:= AjusEncode((::cAliasStr)->VLRMEMO)
 		cRet	+= '<t xml:space="preserve"><![CDATA['+cTexto+']]></t>'
 		cRet	+= '</si>'
 		FWRITE(nFile,cRet)
@@ -7627,6 +7628,22 @@ Static Function SetAtrr(oXml,cPath,cAtrr,cValAtrr)
 		oXml:XPathAddAtt(cPath,cAtrr,cValAtrr)
 	Endif
 Return
+
+Static Function AjusEncode(cTexto2)
+	Local cTexto	:= EncodeUTF8(cTexto2)
+	If Valtype(cTexto)!="C"
+		cTexto	:= cTexto2
+		cTexto	:= Replace(cTexto,chr(129),"")
+		cTexto	:= Replace(cTexto,chr(141),"")
+		cTexto	:= Replace(cTexto,chr(143),"")
+		cTexto	:= Replace(cTexto,chr(144),"")
+		cTexto	:= Replace(cTexto,chr(157),"")
+		cTexto	:= EncodeUTF8(cTexto)
+		If Valtype(cTexto)!="C"
+			cTexto	:= ""
+		Endif
+	Endif
+Return cTexto
 
 /*/{Protheus.doc} yxlsthem
 Cria thema do YExcel
