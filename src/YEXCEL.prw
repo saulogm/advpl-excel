@@ -6268,7 +6268,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,oTabela) Class YExcel
 		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
 		cNomeCampo	:= cCampo
 		If lSx3
-			cNomeCampo	:= AllTrim(GetSx3Cache(cCampo,"X3_TITULO"))
+			cNomeCampo	:= AllTrim(FWX3Titulo(cCampo))
 			IF Empty(cNomeCampo)
 				cNomeCampo	:= cCampo
 				nTamCampo	:= Max(Len(cNomeCampo),(cAlias)->(DBFIELDINFO(DBS_LEN,nCont)))
