@@ -639,6 +639,7 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 
 	::oapp:XPathAddNode("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector","lpstr",cNome)
 	::oapp:XPathSetAtt("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector","size",cValToChar(::oapp:XPathChildCount("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector")))
+	::oapp:XPathSetNode("/xmlns:Properties/xmlns:HeadingPairs/vt:vector/vt:variant[last()]/vt:i4","",cValToChar(::oapp:XPathChildCount("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector")))
 
 	::Pos(1,1)
 Return nQtdPlanilhas
@@ -5811,11 +5812,16 @@ Method Save(cLocal) Class YExcel
 	If IsSrvUnix()	//Solução para servidor linux zipar arquivos com inicio "."
 		WaitRunSrv('zip -r "'+cRootPath+replace(cArquivo,"\","/")+'" *',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 	Else
-		If File(cAr7Zip)//!FindFunction("FZIP")
+		MemoWrite("\tmpxls\"+::cTmpFile+"\fileexist.bat",'IF EXIST "'+cAr7Zip+'" ( ECHO 1 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\1.txt" ) ELSE ( ECHO 2 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\2.txt" )')
+		WaitRunSrv(cRootPath+'\tmpxls\'+::cTmpFile+'\fileexist.bat',.T.,"C:\")
+		If File("\tmpxls\"+::cTmpFile+"\1.txt")//!FindFunction("FZIP")
+			fErase("\tmpxls\"+::cTmpFile+"\1.txt")
 			WaitRunSrv('"'+cAr7Zip+'" a -tzip "'+cRootPath+cArquivo+'" "'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'\*"',.T.,"C:\")
 		Else
+			fErase("\tmpxls\"+::cTmpFile+"\2.txt")
 			StartJob("FZip",GetEnvServer(),.T.,cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		Endif
+		fErase("\tmpxls\"+::cTmpFile+"\fileexist.bat")
 	Endif
 
 	If !(::cNomeFile==::cNomeFile2)	//Ajusta Case
