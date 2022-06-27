@@ -7786,7 +7786,7 @@ Cria arquivo \xl\workbook.xml
 Method new_workbook(cFile) Class YExcel
 	Local nCont
 	Local aNs
-	Default cXml			:= ""
+	Local cXml			:= ""
 	::oworkbook	:= TXMLManager():New()
 	//::oworkbook:bDecodeUtf8	:= .F.
 	If Empty(cFile)	//Cria modelo em branco
@@ -7826,7 +7826,7 @@ Method new_draw(cFile,cCaminho) Class YExcel
 	Local nCont
 	Local aNs
 	Local oXML
-	Default cXml			:= ""
+	Local cXml			:= ""
 	oXML	:= TXMLManager():New()
 	//oXML:bDecodeUtf8	:= .F.
 	If Empty(cFile)	//Cria modelo em branco
@@ -7857,7 +7857,7 @@ Method new_comment(cFile) Class YExcel
 	Local nCont
 	Local aNs
 	Local oXml
-	Default cXml			:= ""
+	Local cXml			:= ""
 	oXml	:= TXMLManager():New()
 	//oXML:bDecodeUtf8	:= .F.
 	If Empty(cFile)	//Cria modelo em branco
@@ -7906,7 +7906,7 @@ Cria arquivo \xl\styles.xml
 Method new_styles(cFile) Class YExcel
 	Local nCont
 	Local aNs
-	Default cXml			:= ""
+	Local cXml			:= ""
 	::oStyle	:= TXMLManager():New()
 	//::oStyle:bDecodeUtf8	:= .F.
 	If Empty(cFile)	//Cria modelo em branco
