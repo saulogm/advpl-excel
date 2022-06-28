@@ -70,6 +70,7 @@ Class YExcel
 	Data nTamLinha			//Tamanho da linha atual
 	Data nColunaAtual		//Ultima Coluna
 	Data nQtdStyle			//Quantidade de styles
+	Data oMergeCell			//HashMap com celulas mescladas
 	Data nLinha
 	Data nColuna
 	Data cRef
@@ -2818,6 +2819,9 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	Local aChildren
 	Local nPos	:= 0
 	Local cStyAtu
+	Local nLin
+	Local nCol
+	Local cRet
 	If nLinha2<nLinha
 		UserException("YExcel - metodo mergeCells. Linha final não pode ser menor que linha inicial.")
 	Endif
@@ -2826,21 +2830,34 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	Endif
 	cColuna		:= NumToString(nColuna)
 	cColuna2	:= NumToString(nColuna2)
-	aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray( "/xmlns:worksheet/xmlns:mergeCells" )
-	For nCont:=1 to Len(aChildren)
-		cAtrr	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"ref")
-		If Replace(cColuna+cValToChar(nLinha),"$","") $ Replace(cAtrr,"$","") .OR. Replace(cColuna2+cValToChar(nLinha2),"$","") $ Replace(cAtrr,"$","")
-			nPos	:= nCont
-			Exit
-		Endif
-	Next
-	If nPos>0
-		UserException("YExcel - metodo mergeCells. Célula "+cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2)+" não pode ser mesclada, essa célula já foi mesclada!")
+	If ValType(::oMergeCell)=="U"	//Inicializa objeto
+		::oMergeCell	:= tHashMap():new()
+		AADD(::aCleanObj,::oMergeCell)
+		aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray( "/xmlns:worksheet/xmlns:mergeCells" )
+		For nCont:=1 to Len(aChildren)
+			cAtrr	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"ref")
+			aRefe	:= ::LocRef(cAtrr)
+
+			For nLin:=aRefe[1] to aRefe[3]
+				For nCol:=aRefe[2] to aRefe[4]
+					::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol))
+				Next
+			Next
+
+			If Replace(cColuna+cValToChar(nLinha),"$","") $ Replace(cAtrr,"$","") .OR. Replace(cColuna2+cValToChar(nLinha2),"$","") $ Replace(cAtrr,"$","")
+				nPos	:= nCont
+			Endif
+		Next
 	Endif
-	// If Empty(aChildren)
-	// 	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet","mergeCells", "" )
-	// 	::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:mergeCells","count","0")
-	// Endif
+	For nLin:=nLinha to nLinha2
+		For nCol:=nColuna to nColuna2
+			If ::oMergeCell:Get("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol),@cRet) //nPos>0
+				UserException("YExcel - metodo mergeCells. Célula "+cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2)+" não pode ser mesclada, essa célula já foi mesclada!")
+			Else
+				::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol))
+			Endif
+		Next
+	Next
 	
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:mergeCells","count", cValToChar(Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("xmlns:worksheet/xmlns:mergeCells","count"))+1) )
 	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:mergeCells","mergeCell", "" )
@@ -5319,14 +5336,28 @@ METHOD LocRef(cRef) Class YExcel
 	Local nTam	:= Len(cRef)
 	Local cColuna	:= ""
 	Local cLinha	:= ""
+	Local cColuna2	:= ""
+	Local cLinha2	:= ""
+	Local aRet		:= {0,0,0,0}
+	Local lParte2	:= .F.
 	For nCont:=1 to nTam
-		If IsAlpha(SubStr(cRef,nCont,1))
-			cColuna	+= SubStr(cRef,nCont,1)
-		ElseIf IsDigit(SubStr(cRef,nCont,1))
-			cLinha	+= SubStr(cRef,nCont,1)
+		If SubStr(cRef,nCont,1)==":"
+			lParte2		:= .T.
+		ElseIf IsAlpha(SubStr(cRef,nCont,1)) .AND. !lParte2
+			cColuna		+= SubStr(cRef,nCont,1)
+		ElseIf IsDigit(SubStr(cRef,nCont,1)) .AND. !lParte2
+			cLinha		+= SubStr(cRef,nCont,1)
+		ElseIf IsAlpha(SubStr(cRef,nCont,1)) .AND. lParte2
+			cColuna2	+= SubStr(cRef,nCont,1)
+		ElseIf IsDigit(SubStr(cRef,nCont,1)) .AND. lParte2
+			cLinha2		+= SubStr(cRef,nCont,1)
 		Endif
 	Next
-Return {Val(cLinha),If(!Empty(cColuna),::StringToNum(cColuna),0)}
+	aRet[1]	:= Val(cLinha)
+	aRet[2]	:= If(!Empty(cColuna),::StringToNum(cColuna),0)
+	aRet[3]	:= Val(cLinha2)
+	aRet[4]	:= If(!Empty(cColuna2),::StringToNum(cColuna2),0)
+Return aRet//{Val(cLinha),If(!Empty(cColuna),::StringToNum(cColuna),0)}
 
 
 /*/{Protheus.doc} NumToString
