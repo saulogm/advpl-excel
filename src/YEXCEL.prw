@@ -2948,7 +2948,7 @@ METHOD ADDdxf(aFont,aCorPreenc,aBorda) Class YExcel
 
 	//Font
 	If ValType(aFont)=="A"
-		::AddFont(aFont[1],aFont[2],aFont[3],aFont[4],aFont[5],aFont[6],aFont[7],aFont[8],aFont[9],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
+		::AddFont(aFont[1],aFont[2],aFont[3],aFont[4],aFont[5],aFont[6],aFont[7],aFont[8],aFont[9],"/xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	Endif
 	//Preenchimento
 	If ValType(aCorPreenc)=="A"
