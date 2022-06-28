@@ -2942,9 +2942,9 @@ Cria estilo para formatação condicional
 METHOD ADDdxf(aFont,aCorPreenc,aBorda) Class YExcel
 	Local nTamdxfs
 
-	::oStyle:XPathAddNode( "xmlns:styleSheet/xmlns:dxfs","dxf", "" )
-	nTamdxfs	:= Val(::oStyle:XPathGetAtt("xmlns:styleSheet/xmlns:dxfs","count"))+1
-	::oStyle:XPathSetAtt("xmlns:styleSheet/xmlns:dxfs","count",cValToChar(nTamdxfs))
+	::oStyle:XPathAddNode( "/xmlns:styleSheet/xmlns:dxfs","dxf", "" )
+	nTamdxfs	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:dxfs","count"))+1
+	::oStyle:XPathSetAtt("/xmlns:styleSheet/xmlns:dxfs","count",cValToChar(nTamdxfs))
 
 	//Font
 	If ValType(aFont)=="A"
@@ -2952,11 +2952,11 @@ METHOD ADDdxf(aFont,aCorPreenc,aBorda) Class YExcel
 	Endif
 	//Preenchimento
 	If ValType(aCorPreenc)=="A"
-		::CorPreenc(aCorPreenc[1],aCorPreenc[2],aCorPreenc[3],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
+		::CorPreenc(aCorPreenc[1],aCorPreenc[2],aCorPreenc[3],"/xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	Endif
 	//Borda
 	If ValType(aBorda)=="A"
-		::Borda(aBorda[1],aBorda[2],aBorda[3],"xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
+		::Borda(aBorda[1],aBorda[2],aBorda[3],"/xmlns:styleSheet/xmlns:dxfs/xmlns:dxf[last()]")
 	Endif
 Return nTamdxfs-1
 
