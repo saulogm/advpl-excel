@@ -52,6 +52,9 @@ Formatar como tabela:
 
 Pronto para usar a classe YExcel!
 
+Problema conhecido:
+* Para servidor Windows o arquivo gerado pela função FZip não é compatível com LibreOffice. Para contornar, realize a instalação do 7-zip no servidor Windows.
+
 ### Dúvidas
 - https://github.com/saulogm/advpl-excel/issues
 
