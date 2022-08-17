@@ -5546,7 +5546,7 @@ Method Save(cLocal) Class YExcel
 			::osharedStrings:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 			::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
-			If !::ocontent_types:XPathHasNode("/xmlns:Types/Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml'")
+			If !::ocontent_types:XPathHasNode("/xmlns:Types/xmlns:Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml']")
 				::ocontent_types:XPathAddNode("/xmlns:Types","Override","")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","PartName","/xl/sharedStrings.xml")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","ContentType","application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
@@ -5554,7 +5554,7 @@ Method Save(cLocal) Class YExcel
 		EndIf
 	Else
 		If ::nQtdString>0
-			If !::ocontent_types:XPathHasNode("/xmlns:Types/Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml'")
+			If !::ocontent_types:XPathHasNode("/xmlns:Types/xmlns:Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml'")
 				::ocontent_types:XPathAddNode("/xmlns:Types","Override","")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","PartName","/xl/sharedStrings.xml")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","ContentType","application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
@@ -7633,12 +7633,17 @@ Method add_rels(cCaminho,cType,cTarget) Class YExcel
 	If nPos==0
 		nPos	:= ::new_rels(,cCaminho)
 	Endif
-	::aRels[nPos][3]++
-	cId	:= "rId"+cValToChar(::aRels[nPos][3])
-	::aRels[nPos][1]:XPathAddNode( "/xmlns:Relationships", "Relationship", "" )
-	::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Id"		, cId )
-	::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Type"		, cType )
-	::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Target"	, cTarget )
+	//Não deixa repetir Relationship
+	If self:aRels[nPos][1]:XPathHasNode("/xmlns:Relationships/xmlns:Relationship[@Type='"+cType+"' and @Target='"+cTarget+"']")
+		cId	:= self:aRels[nPos][1]:XPathGetAtt("/xmlns:Relationships/xmlns:Relationship[@Type='"+cType+"' and @Target='"+cTarget+"']","Id")
+	Else
+		::aRels[nPos][3]++
+		cId	:= "rId"+cValToChar(::aRels[nPos][3])
+		::aRels[nPos][1]:XPathAddNode( "/xmlns:Relationships", "Relationship", "" )
+		::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Id"		, cId )
+		::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Type"		, cType )
+		::aRels[nPos][1]:XPathAddAtt( "/xmlns:Relationships/xmlns:Relationship[last()]", "Target"	, cTarget )
+	Endif
 Return cId
 /*/{Protheus.doc} YExcel::Get_rels
 Retorna atributos do Relationships relacionado ao ID
