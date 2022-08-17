@@ -5556,7 +5556,7 @@ Method Save(cLocal) Class YExcel
 		EndIf
 	Else
 		If ::nQtdString>0
-			If !::ocontent_types:XPathHasNode("/xmlns:Types/xmlns:Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml'")
+			If !::ocontent_types:XPathHasNode("/xmlns:Types/xmlns:Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml']")
 				::ocontent_types:XPathAddNode("/xmlns:Types","Override","")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","PartName","/xl/sharedStrings.xml")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","ContentType","application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
