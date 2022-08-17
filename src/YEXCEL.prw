@@ -5544,7 +5544,9 @@ Method Save(cLocal) Class YExcel
 		If ::osharedStrings:XPathGetAtt("\xmlns:sst","count")=="0"
 		Else
 			::osharedStrings:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+			If aScan(::aFiles,{|x| "SHAREDSTRINGS.XML" $ UPPER(x)})==0
+				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+			Endif
 			::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
 			If !::ocontent_types:XPathHasNode("/xmlns:Types/xmlns:Override[@ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml']")
 				::ocontent_types:XPathAddNode("/xmlns:Types","Override","")
@@ -5559,7 +5561,9 @@ Method Save(cLocal) Class YExcel
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","PartName","/xl/sharedStrings.xml")
 				::ocontent_types:XPathAddAtt("/xmlns:Types/xmlns:Override[last()]","ContentType","application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml")
 			EndIf
-			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+			If aScan(::aFiles,{|x| "SHAREDSTRINGS.XML" $ UPPER(x)})==0
+				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+			Endif
 			::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,""						,)
 			GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl","sharedStrings.xml")
 			::xls_sharedStrings(nFile)
