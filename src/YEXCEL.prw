@@ -673,7 +673,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 		If aFiles[nCont][1]=="." .or. aFiles[nCont][1]==".."
 			Loop
 		Endif
-		If aFiles[nCont][5] $ "D"
+		If "D" $ aFiles[nCont][5]
 			FRename(cCaminho+"\"+aFiles[nCont][1],cCaminho+"\"+lower(aFiles[nCont][1]),,.F.)
 			aFiles[nCont][1]	:= lower(aFiles[nCont][1])
 			::LerPasta(cCaminho+"\"+aFiles[nCont][1],cCamIni,cSufFiltro)
@@ -5913,7 +5913,7 @@ Static Function CpyPasta(cCaminho,cCaminho2)
 		If aFiles[nCont][1]=="." .or. aFiles[nCont][1]==".."
 			Loop
 		Endif
-		If aFiles[nCont][5] $ "D"
+		If "D" $ aFiles[nCont][5]
 			CpyPasta(cCaminho+"\"+aFiles[nCont][1],cCaminho2+"\"+aFiles[nCont][1])
 		Else
 			If !__COPYFILE(cCaminho+"\"+aFiles[nCont][1],cCaminho2+"\"+lower(aFiles[nCont][1]),,,.F.)
@@ -5960,7 +5960,7 @@ Static Function DelPasta(cCaminho)
 		If aFiles[nCont][1]=="." .or. aFiles[nCont][1]==".."
 			Loop
 		Endif
-		If aFiles[nCont][5] $ "D"
+		If "D" $ aFiles[nCont][5]
 			DelPasta(cCaminho+"\"+aFiles[nCont][1])
 		Else
 //			ConOut("Deletando:"+cCaminho+"\"+aFiles[nCont][1])
