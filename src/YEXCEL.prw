@@ -1882,6 +1882,10 @@ Method SetValue(xValor,cFormula) Class YExcel
 	Local oTmpObj
 	Local cNumero,nPosPonto,nQtdTmp
 	Local cTmpVar
+	If ValType(cFormula)!="U"
+		cFormula	:= Replace(cFormula,"<","&lt;")
+		cFormula	:= Replace(cFormula,">","&gt;")
+	EndIf
 	If ::lArquivo
 		If ValType(cFormula)!="U"
 			oTmpObj	:= YExcelTag():New("f",cFormula)
