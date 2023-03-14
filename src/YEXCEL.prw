@@ -3080,13 +3080,13 @@ METHOD AddFormatCond(cRefDe,cRefAte,nEstilo,cType,xFormula,operator,nPrioridade)
 	If ValType(xFormula)<>"U"
 		If ValType(xFormula)=="A"
 			For nCont:=1 to Len(xFormula)
-				::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", cValToChar(xFormula[nCont]) )
+				::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", AjusEncode(cValToChar(xFormula[nCont])) )
 				If nCont==3	//maxOccurs="3" pag 3936
 					Exit
 				EndIf
 			Next
 		Else
-			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", cValToChar(xFormula) )
+			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", AjusEncode(cValToChar(xFormula)) )
 		Endif
 	Endif
 Return
