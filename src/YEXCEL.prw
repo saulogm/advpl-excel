@@ -614,11 +614,6 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	::asheet[nQtdPlanilhas][1]:XPathAddNode( "/xmlns:worksheet/xmlns:sheetPr", "outlinePr", "" )
 	::asheet[nQtdPlanilhas][1]:XPathAddNode( "/xmlns:worksheet/xmlns:sheetPr", "pageSetUpPr", "" )
 	::asheet[nQtdPlanilhas][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:sheetPr/xmlns:pageSetUpPr", "fitToPage"	, "1")	//Flag indicating whether the Fit to Page print option is enabled. pag 1675
-	::asheet[nQtdPlanilhas][1]:XPathAddNode("/xmlns:worksheet","pageSetup","")
-	SetAtrr(::asheet[nQtdPlanilhas][1],"/xmlns:worksheet/xmlns:pageSetup","paperSize","9")
-	SetAtrr(::asheet[nQtdPlanilhas][1],"/xmlns:worksheet/xmlns:pageSetup","fitToWidth","1")
-	SetAtrr(::asheet[nQtdPlanilhas][1],"/xmlns:worksheet/xmlns:pageSetup","fitToHeight","0")
-	SetAtrr(::asheet[nQtdPlanilhas][1],"/xmlns:worksheet/xmlns:pageSetup","orientation",::cPagOrientation)
 
 
 	//Adiciona dentro do workbooks o relacionamento na planilha
@@ -1438,8 +1433,10 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) Class YExcel
 	//oneCell	- Mova-se com células, mas não redimensione
 	//twoCell	- Mover e redimensionar com células âncoras
 
-	If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing")
-		::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet","drawing","")
+	If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing").or.Empty(self:asheet[self:nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:drawing","r:id"))
+		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet","drawing","")
+		EndIf
 		::nIdRelat++
 		nPos	:= ::nIdRelat
 		cID		:= ::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing","../drawings/drawing"+cValToChar(nPos)+".xml")
@@ -5618,9 +5615,7 @@ Method Save(cLocal) Class YExcel
 		Endif
 
 		//Cria o sheet na ordem obrigatoria
-		If !::lMemoria
-			oXmlSheet	:= SheetTmp()
-		EndIf
+		oXmlSheet	:= SheetTmp()
 		//Ordenar os nodes de acordo com enviado no array
 		//aOrdem {{patch,tags}}
 		aOrdem	:= {;
@@ -5653,11 +5648,8 @@ Method Save(cLocal) Class YExcel
 						,{"pane","selection","rowBreaks","colBreaks","pageMargins","printOptions","pageSetup","headerFooter","autoFilter","extLst"};
 					};
 					}
-		If ::lMemoria
-			oXmlSheet	:= ::asheet[nCont][1]
-		Else
-			Xml2Xml(oXmlSheet,::asheet[nCont][1],"/xmlns:worksheet",,,,,aOrdem)
-		EndIf
+		//Cria o xml ordenado conforme array
+		Xml2Xml(oXmlSheet,::asheet[nCont][1],"/xmlns:worksheet",,,,,aOrdem)
 
 		If Empty(oXmlSheet:XPathGetAtt("/xmlns:worksheet/xmlns:autoFilter","ref"))
 			oXmlSheet:XPathDelNode("/xmlns:worksheet/xmlns:autoFilter")
@@ -5665,12 +5657,18 @@ Method Save(cLocal) Class YExcel
 		If Empty(oXmlSheet:XPathGetChildArray("/xmlns:worksheet/xmlns:mergeCells"))
 			oXmlSheet:XPathDelNode("/xmlns:worksheet/xmlns:mergeCells")
 		EndIf
+		If !oXmlSheet:XPathHasNode("/xmlns:worksheet/xmlns:hyperlinks/xmlns:hyperlink[1]")
+			oXmlSheet:XPathDelNode("/xmlns:worksheet/xmlns:hyperlinks")
+		EndIf
+		If Empty(oXmlSheet:XPathGetAtt("/xmlns:worksheet/xmlns:drawing","r:id"))
+			oXmlSheet:XPathDelNode("/xmlns:worksheet/xmlns:drawing")
+		EndIf
 		If ::lMemoria
 			oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2])
 		Else
 			oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
-			FreeObj(oXmlSheet)
 		EndIf
+		FreeObj(oXmlSheet)
 
 		If !::lMemoria
 			nHDestino	:= FCreate("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],FO_READWRITE + FO_SHARED,,.F.)
@@ -8011,6 +8009,7 @@ Cria arquivo \xl\worksheets\sheetX.xml
 @version 1.0
 
 @type method
+@OBS Linha 3926 definição CT_Worksheet
 /*/
 Method xls_sheet(cFile,cCaminho) Class YExcel
 	Local nCont
@@ -8025,14 +8024,27 @@ Method xls_sheet(cFile,cCaminho) Class YExcel
 		cXml	+= '<dimension ref="A1"/>'
 		cXml	+= '<sheetViews>'
 			cXml	+= '<sheetView tabSelected="0" workbookViewId="0">'
+			cXml	+= '<pane xSplit="0" ySplit="0" activePane="topLeft" state="split"/>'
 			cXml	+= '<selection sqref="A1"/>'
 			cXml	+= '</sheetView>'
 		cXml	+= '</sheetViews>'
 		cXml	+= '<sheetFormatPr defaultRowHeight="15"/>'
 		cXml	+= '<cols/>'
 		cXml	+= '<sheetData>@</sheetData>'	//Caractere para substituir
+		cXml	+= '<sheetProtection/>'
 		cXml	+= '<autoFilter/>'
 		cXml	+= '<mergeCells/>'
+		cXml	+= '<hyperlinks/>'
+		cXml	+= '<pageSetup paperSize="9" fitToWidth="1" fitToHeight="0" orientation="'+::cPagOrientation+'"/>'
+		cXml	+= '<headerFooter>'
+		cXml	+= '<oddHeader></oddHeader>'
+		cXml	+= '<oddFooter></oddFooter>'
+		cXml	+= '<evenHeader></evenHeader>'
+		cXml	+= '<evenFooter></evenFooter>'
+		cXml	+= '<firstHeader></firstHeader>'
+		cXml	+= '<firstFooter></firstFooter>'
+		cXml	+= '</headerFooter>'
+		cXml	+= '<drawing/>'
 		cXml	+= '</worksheet>'
 		oXML:Parse(cXml)
 	Else
