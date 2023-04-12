@@ -1942,9 +1942,9 @@ Method SetValue(xValor,cFormula) Class YExcel
 		//Criar Linha
 		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']")
 			cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r")
-			If ::nLinha<Val(cTmpVar)
-				UserException("YExcel - Impossível criar linha("+::cRef+"). A ultima linha criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
-			EndIf
+			//If ::nLinha<Val(cTmpVar)
+			//	UserException("YExcel - Impossível criar linha("+::cRef+"). A ultima linha criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
+			//EndIf
 			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
 			::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(::nLinha))
 			If ValType(::nRowoutlineLevel)=="N"
@@ -1965,9 +1965,9 @@ Method SetValue(xValor,cFormula) Class YExcel
 		//Criar Coluna
 		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']")
 			cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r")
-			If ::nColuna<::LocRef(cTmpVar)[2]
-				UserException("YExcel - Impossível criar coluna("+::cRef+"). A ultima coluna criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
-			EndIf
+			//If ::nColuna<::LocRef(cTmpVar)[2]
+			//	UserException("YExcel - Impossível criar coluna("+::cRef+"). A ultima coluna criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
+			//EndIf
 			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']","c","")
 			::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r",::cRef)
 		Else
@@ -8030,7 +8030,11 @@ Method xls_sheet(cFile,cCaminho) Class YExcel
 		cXml	+= '</sheetViews>'
 		cXml	+= '<sheetFormatPr defaultRowHeight="15"/>'
 		cXml	+= '<cols/>'
-		cXml	+= '<sheetData>@</sheetData>'	//Caractere para substituir
+		cXml	+= '<sheetData>'
+		If ::lArquivo
+			cXml	+= '@'
+		EndIf
+		cXml	+= '</sheetData>'	//Caractere para substituir
 		cXml	+= '<sheetProtection/>'
 		cXml	+= '<autoFilter/>'
 		cXml	+= '<mergeCells/>'
@@ -8152,10 +8156,14 @@ Organiza de acordo com ordem enviada no array
 @param cValor, character, valor para analisar ordem
 @return numeric, Posição da ordem
 /*/
-Static Function aScanOrdem(aArray,cValor)
+Static Function aScanOrdem(aArray,cValor,cPosXml,obj)
 	Local nPos := aScan(aArray,cValor)
 	If nPos==0
-		nPos	:= 99999
+		If SubStr(aArray[1],1,1)=="@"	//Organizar quando atributo
+			nPos	:= Val(RetAsc(obj:XPathGetAtt(cPosXml,SubStr(aArray[1],2)),12,.f.))
+		Else
+			nPos	:= 99999
+		EndIf
 	EndIf
 Return nPos
 /*/{Protheus.doc} Xml2Xml
@@ -8187,7 +8195,7 @@ Static Function Xml2Xml(oXml,oXml2,cPath,cFiltro,cNaoFazer,lAdd,cPath2,aOrdem)
 	aChildren	:=  oXML2:XPathGetChildArray(cPath2)	//1-Titulo,2-Path,3-Value
 	If nPosOrdem>0
 		//Se foi enviado a ordem para essa tag, reorganiza aChildren
-		aSort(aChildren,,,{|x,y| (aScanOrdem(aOrdem[nPosOrdem][2],x[1])*1000)+Val(SubStr(x[2],rat("[",x[2])+1,rat("]",x[2])-rat("[",x[2])-1))<(aScanOrdem(aOrdem[nPosOrdem][2],y[1])*1000)+Val(SubStr(y[2],rat("[",y[2])+1,rat("]",y[2])-rat("[",y[2])-1)) })
+		aSort(aChildren,,,{|x,y| (aScanOrdem(aOrdem[nPosOrdem][2],x[1],x[2],oXML2)*1000)+Val(SubStr(x[2],rat("[",x[2])+1,rat("]",x[2])-rat("[",x[2])-1))<(aScanOrdem(aOrdem[nPosOrdem][2],y[1],y[2],oXML2)*1000)+Val(SubStr(y[2],rat("[",y[2])+1,rat("]",y[2])-rat("[",y[2])-1)) })
 	EndIf
 	For nCont:=1 to Len(aChildren)
 		If !Empty(cFiltro) .and. cFiltro!=aChildren[nCont][1]
