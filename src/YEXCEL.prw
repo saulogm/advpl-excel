@@ -2217,7 +2217,7 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 	PARAMTYPE 0	VAR nLinha		AS NUMERIC
 	PARAMTYPE 1	VAR nColuna		AS NUMERIC
 	PARAMTYPE 2	VAR nPlanilha	AS NUMERIC OPTIONAL DEFAULT ::nPlanilhaAt
-	If ::lArquivo
+	If ::lArquivo .AND. nLinha>0
 		If ValType(::oC)=="O" .AND. (::nLinha<>nLinha .OR. ::nColuna<>nColuna)
 			If nLinha<::nLinha
 				UserException("YExcel - gravação em arquivo deve ser sequencial. Linha Atual "+cValToChar(::nLinha)+" Linha enviada "+cValToChar(nLinha))
@@ -2257,7 +2257,7 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 	::nColuna		:= nColuna
 	::nPlanilhaAt	:= nPlanilha
 	::cRef			:= ::Ref(nLinha,nColuna)
-	If ::lArquivo
+	If ::lArquivo .AND. nLinha>0 .AND. nColuna>0
 		::oC	:= YExcelTag():New("c",{},{{"r",::cRef}})
 	EndIf
 Return self
@@ -5309,10 +5309,10 @@ METHOD Ref(nLinha,nColuna,llinha,lColuna) Class YExcel
 	If lColuna
 		cColuna	:= "$"
 	Endif
-	If ValType(nColuna)!="U"
+	If ValType(nColuna)!="U".AND.nColuna>0
 		cRet	+= cColuna+NumToString(nColuna)
 	Endif
-	If ValType(nLinha)!="U"
+	If ValType(nLinha)!="U".AND.nLinha>0
 		cRet	+= cLinha+cValToChar(nLinha)
 	Endif
 Return cRet
@@ -6610,21 +6610,14 @@ Static Function ColunasIndex(xNum,nIdx)
 	Local cRet		:= ""
 	Default nIdx	:= 1
 	If nIdx==1
-		cRet	:= chr(xNum+64)
+		If xNum==0
+			cRet	:= ""
+		Else
+			cRet	:= chr(xNum+64)
+		EndIf
 	Else
 		cRet	:= asc(xNum)-64
 	Endif
-	// Local cRet		:= ""
-	// Local nPos
-	// Default nIdx	:= 1
-	// nPos	:= aScan(aColIdx,{|x| x[nIdx]==xNum})
-	// If nPos>0
-	// 	If nIdx==1
-	// 		cRet	:= aColIdx[nPos][2]
-	// 	Else
-	// 		cRet	:= aColIdx[nPos][1]
-	// 	Endif
-	// Endif
 Return cRet
 
 //----------------------------------------------------------------------
