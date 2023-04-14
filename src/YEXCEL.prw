@@ -637,7 +637,7 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	::oapp:XPathSetAtt("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector","size",cValToChar(::oapp:XPathChildCount("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector")))
 	::oapp:XPathSetNode("/xmlns:Properties/xmlns:HeadingPairs/vt:vector/vt:variant[last()]/vt:i4","",cValToChar(::oapp:XPathChildCount("/xmlns:Properties/xmlns:TitlesOfParts/vt:vector")))
 
-	::Pos(1,1)
+	::Pos(0,0)
 Return nQtdPlanilhas
 
 Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
@@ -1869,7 +1869,6 @@ Alteração de valores da célula posicionada
 @param cFormula, character, formula a ser gravada
 @return object, self
 /*/
-Static cTmpCol	:= GetNextAlias()
 Method SetValue(xValor,cFormula) Class YExcel
 	Local cTipo	:= ValType(xValor)
 	Local lAchou
@@ -1878,7 +1877,10 @@ Method SetValue(xValor,cFormula) Class YExcel
 	Local cStyAtu
 	Local oTmpObj
 	Local cNumero,nPosPonto,nQtdTmp
-	Local cTmpVar
+	//Local cTmpVar
+	If ::nLinha<=0 .OR. ::nColuna<=0
+		Return self
+	EndIf	
 	If ValType(cFormula)!="U"
 		cFormula	:= Replace(cFormula,"<","&lt;")
 		cFormula	:= Replace(cFormula,">","&gt;")
@@ -1941,7 +1943,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 	ElseIf ::lMemoria
 		//Criar Linha
 		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']")
-			cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r")
+			//cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r")
 			//If ::nLinha<Val(cTmpVar)
 			//	UserException("YExcel - Impossível criar linha("+::cRef+"). A ultima linha criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
 			//EndIf
@@ -1964,7 +1966,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 		//cRef	:= ::Ref(::nLinha,::nColuna)
 		//Criar Coluna
 		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']")
-			cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r")
+			//cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r")
 			//If ::nColuna<::LocRef(cTmpVar)[2]
 			//	UserException("YExcel - Impossível criar coluna("+::cRef+"). A ultima coluna criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
 			//EndIf
@@ -2038,16 +2040,13 @@ Method SetValue(xValor,cFormula) Class YExcel
 			Endif
 			(::cAliasLin)->(MsUnLock())
 		Endif
-		// ::ExecSql(cTmpCol,"SELECT R_E_C_N_O_ REGCOL FROM "+::cTabCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN="+cValToChar(::nLinha)+" AND COL="+cValToChar(::nColuna)+" AND D_E_L_E_T_=' '",::cDriver)
-		If !(::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))	//(cTmpCol)->(EOF())
+		If !(::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))
 			(::cAliasCol)->(RecLock(::cAliasCol,.T.))
 			(::cAliasCol)->STY		:= -1
 			(::cAliasCol)->TPSTY	:= " "
 		else
-			// (::cAliasCol)->(DbGoTo((cTmpCol)->REGCOL))
 			(::cAliasCol)->(RecLock(::cAliasCol,.F.))
 		Endif
-		// (cTmpCol)->(DbCloseArea())
 		(::cAliasCol)->PLA		:= ::nPlanilhaAt
 		(::cAliasCol)->LIN		:= ::nLinha
 		(::cAliasCol)->COL		:= ::nColuna
