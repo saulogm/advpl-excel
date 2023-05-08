@@ -619,7 +619,7 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	//Adiciona dentro do workbooks o relacionamento na planilha
 	cID	:= ::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
 
-	AADD(::aPlanilhas,{cID,cNome,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{},,self)/*tableParts*/})
+	AADD(::aPlanilhas,{cID,cNome,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{},,self)/*tableParts*/,tHashMap():new()})
 	::nPlanilhaAt	:= nQtdPlanilhas
 	::SetFooter("TOTVS","","Página &P/&N")
 
@@ -648,6 +648,8 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 	Local cName
 	Local cID
 	Local nCont2
+	Local aChildren,aChildren2
+	Local nContChild,nContChil2
 	//Local nContLn
 	//Local nContCol
 	//Local cStyle
@@ -702,10 +704,20 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					::xls_sheet(cCaminho+"\"+cCamSheet,cArqSheet)
 					fErase(cCaminho+"\"+cCamSheet)
 
-					AADD(::aPlanilhas,{cID,cName,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{})/*tableParts*/})
+					AADD(::aPlanilhas,{cID,cName,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{})/*tableParts*/,tHashMap():new()})
 					AADD(::aFiles,cCaminho+"\"+cCamSheet)
 					::nPlanilhaAt	:= Len(::aPlanilhas)
 					SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetPr", "codeName"	, cName)
+
+					//Preenche o HashMap das linhas e colunas
+					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData")
+					For nContChild:=1 to Len(aChildren)
+						::aPlanilhas[::nPlanilhaAt][7]:Set(Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nContChild][2],"r")),1)
+						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2])
+						For nContChil2:=1 to Len(aChildren2)
+							::aPlanilhas[::nPlanilhaAt][7]:Set(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren2[nContChil2][2],"r"),1)
+						Next
+					Next
 
 					/*For nContLn:=1 to ::asheet[::nPlanilhaAt][1]:XPathChildCount("/xmlns:worksheet/xmlns:sheetData")
 						::nLinha	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row["+cValToChar(nContLn)+"]", "r"))
@@ -1877,6 +1889,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 	Local cStyAtu
 	Local oTmpObj
 	Local cNumero,nPosPonto,nQtdTmp
+	Local nOk
 	//Local cTmpVar
 	If ::nLinha<=0 .OR. ::nColuna<=0
 		Return self
@@ -1888,7 +1901,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 	If ::lArquivo
 		If ValType(cFormula)!="U"
 			oTmpObj	:= YExcelTag():New("f",cFormula)
-			::oC:AddValor(oTmpObj:GetTag())
+			::oC:AddArr(oTmpObj:GetTag())
 			FreeObj(oTmpObj)
 			oTmpObj	:= nil
 		EndIf
@@ -1899,24 +1912,20 @@ Method SetValue(xValor,cFormula) Class YExcel
 			// Else
 			// 	nPos	:= ::SetStrComp(xValor)
 			// Endif
-			oTmpObj	:= YExcelTag():New("is",'<t xml:space="preserve"><![CDATA['+xValor+']]></t>',{})
-			::oC:AddValor(oTmpObj:GetTag())
+			::oC:AddArr('<is><t xml:space="preserve"><![CDATA['+xValor+']]></t></is>')
 		ElseIf cTipo=="L"
 			::oC:SetAtributo("t","b")
-			oTmpObj	:= YExcelTag():New("v",if(xValor,1,0))
-			::oC:AddValor(oTmpObj:GetTag())
+			::oC:AddArr('<v>'+if(xValor,'1','0')+'</v>')
 		ElseIf cTipo=="N"
-			oTmpObj	:= YExcelTag():New("v",xValor)
-			::oC:AddValor(oTmpObj:GetTag())
+			::oC:AddArr('<v>'+cValToChar(xValor)+'</v>')
 		ElseIf cTipo=="D"
 			//::SetAtributo("t","d")	//Adiciona o estilo padrão de data
 			//::SetV(SUBSTR(DTOS(v),1,4)+"-"+SUBSTR(DTOS(v),5,2)+"-"+SUBSTR(DTOS(v),7,2))
 			If !Empty(xValor)
-				oTmpObj	:= YExcelTag():New("v",xValor-STOD("19000101")+2)
+				::oC:AddArr('<v>'+cValToChar(xValor-STOD("19000101")+2)+'</v>')
 			Else
-				oTmpObj	:= YExcelTag():New("v","")
+				::oC:AddArr('<v></v>')
 			EndIf
-			::oC:AddValor(oTmpObj:GetTag())
 			nStyAtu 	:= ::oC:GetAtributo("s")
 			If ValType(nStyAtu)!="U" .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
 				//Se tem estilo e ele não tem NumFmtId aplicado
@@ -1925,8 +1934,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 				::oC:SetAtributo("s",::aPadraoSty[2])	//Estilo padrão de data
 			Endif
 		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
-			oTmpObj	:= YExcelTag():New("v",xValor:GetStrNumber())
-			::oC:AddValor(oTmpObj:GetTag())
+			::oC:AddArr('<v>'+cValToChar(xValor:GetStrNumber())+'</v>')
 			nStyAtu 	:= ::oC:GetAtributo("s")
 			If ValType(nStyAtu)!="U" .AND. !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
 				//Se tem estilo e ele não tem NumFmtId aplicado
@@ -1936,13 +1944,14 @@ Method SetValue(xValor,cFormula) Class YExcel
 			Endif
 		Else
 			oTmpObj	:= YExcelTag():New("v",xValor)
-			::oC:AddValor(oTmpObj:GetTag())
+			::oC:AddArr(oTmpObj:GetTag())
+			FreeObj(oTmpObj)
+			oTmpObj	:= nil
 		EndIf
-		FreeObj(oTmpObj)
-		oTmpObj	:= nil
 	ElseIf ::lMemoria
 		//Criar Linha
-		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']")
+		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::nLinha,@nOk)//!::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']")
+			::aPlanilhas[::nPlanilhaAt][7]:Set(::nLinha,1)
 			//cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r")
 			//If ::nLinha<Val(cTmpVar)
 			//	UserException("YExcel - Impossível criar linha("+::cRef+"). A ultima linha criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
@@ -1965,7 +1974,8 @@ Method SetValue(xValor,cFormula) Class YExcel
 		EndIf
 		//cRef	:= ::Ref(::nLinha,::nColuna)
 		//Criar Coluna
-		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']")
+		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::cRef,@nOk)//!::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']")
+			::aPlanilhas[::nPlanilhaAt][7]:Set(::cRef,1)
 			//cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r")
 			//If ::nColuna<::LocRef(cTmpVar)[2]
 			//	UserException("YExcel - Impossível criar coluna("+::cRef+"). A ultima coluna criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
@@ -2202,7 +2212,7 @@ Method SetStrComp(xTexto) Class YExcel
 	::nQtdString	:= nPos+1
 Return nPos
 
-/*/{Protheus.doc} YExcel::GetCell
+/*/{Protheus.doc} YExcel::Pos
 Posiciona em uma celula
 @type method
 @version 1.0
@@ -2262,7 +2272,7 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 	EndIf
 Return self
 
-/*/{Protheus.doc} YExcel::GetCell
+/*/{Protheus.doc} YExcel::PosR
 Posiciona pela referência
 @type method
 @version 1.0
@@ -4927,6 +4937,7 @@ Cria objeto de alinhamento da célula para ser usado na criação de estilo
 @param lReduzCaber, logical, Reduz texto para caber
 @param lQuebraTexto, logical, Quebra texto
 @param ntextRotation, numeric, Graus para rotação
+@param nRecuo, numeric, Quantidade de recuo do alinhamento(1 recuo é igual a 3 espaços)
 @type method
 @obs	HORIZONTAL
 	center
@@ -4945,12 +4956,13 @@ Cria objeto de alinhamento da célula para ser usado na criação de estilo
 	justify
 	top
 /*/
-METHOD Alinhamento(cHorizontal,cVertical,lReduzCaber,lQuebraTexto,ntextRotation) Class YExcel
+METHOD Alinhamento(cHorizontal,cVertical,lReduzCaber,lQuebraTexto,ntextRotation,nRecuo) Class YExcel
 	Local oAlinhamento	:= yExcelTag():New("alignment",,,self)
 	Default cVertical	:= "general"
 	Default cHorizontal	:= "bottom"
 	Default lReduzCaber	:= .F.
 	Default lQuebraTexto	:= .F.
+	Default nRecuo		:= 0
 	oAlinhamento:SetAtributo("horizontal",cHorizontal)
 	oAlinhamento:SetAtributo("vertical",cVertical)
 	If ValType(ntextRotation)=="N" .and. ntextRotation>0
@@ -4962,6 +4974,9 @@ METHOD Alinhamento(cHorizontal,cVertical,lReduzCaber,lQuebraTexto,ntextRotation)
 	If lQuebraTexto
 		oAlinhamento:SetAtributo("wrapText","1")	//Um valor booleano indicando se o texto em uma célula deve ser envolvido na linha dentro da célula.
 	Endif
+	If nRecuo>0 .AND. (cHorizontal=="left".OR.cHorizontal=="right".or.cHorizontal=="distributed")
+		oAlinhamento:SetAtributo("indent",nRecuo)
+	EndIf
 Return oAlinhamento
 
 /*/{Protheus.doc} AddPane
@@ -6282,10 +6297,10 @@ METHOD Masc2Style(cMascara,oStyle) Class YExcel
 	EndIf
 Return oNewStyle
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,oTabela) Class YExcel
+METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 	Local nCont
-	Local nLinIni	:= ::nLinha
-	Local nColIni	:= ::nColuna
+	Local nLinIni	:= If(::nLinha==0,1,::nLinha)
+	Local nColIni	:= If(::nColuna==0,1,::nColuna)
 	Local nQtdCol	:= (cAlias)->(DBInfo(DBI_FCOUNT))
 	Local nLinha	:= nLinIni
 	Local cTpStyle	:= ValType(oStyle)
@@ -6297,13 +6312,14 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,oTabela) Class YExcel
 	Local cCombo
 	Local cTipo
 	Local nPos
-	Local lTabela	:= ValType(oTabela)=="O"
-	Private lCab	:= .T.
-	Private cCampo	:= ""
+	Local lTabela		:= ValType(oTabela)=="O"
+	Local aStruct
+	Private lCab		:= .T.
+	Private cCampo		:= ""
 	Private xValor
-	Default lSx3	:= .F.
-	Default lCab	:= .T.
-	Default aCab	:= {}
+	Default lSx3		:= .F.
+	Default lExibirCab	:= .T.
+	Default aCab		:= {}
 
 	For nCont:=1 to nQtdCol
 		cCampo		:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
@@ -6311,29 +6327,30 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,oTabela) Class YExcel
 		cNomeCampo	:= cCampo
 		If lSx3
 			cNomeCampo	:= AllTrim(FWX3Titulo(cCampo))
-			IF Empty(cNomeCampo)
+			aStruct		:= FWSX3Util():GetFieldStruct( cCampo ) 
+			IF Empty(aStruct)
 				cNomeCampo	:= cCampo
 				nTamCampo	:= Max(Len(cNomeCampo),(cAlias)->(DBFIELDINFO(DBS_LEN,nCont)))
 				cMascara	:= ""
 				cCombo		:= ""
 			Else
-				nTamCampo	:= Max(GetSx3Cache(cCampo,"X3_TAMANHO"),Len(cNomeCampo))
+				nTamCampo	:= Max(aStruct[3],Len(cNomeCampo))
 				cMascara	:= AllTrim(GetSx3Cache(cCampo,"X3_PICTURE"))
 				cCombo		:= AllTrim(GetSx3Cache(cCampo,"X3_CBOX"))
-				If GetSx3Cache(cCampo,"X3_TIPO")=="D" .and. cTipo=="C"
+				If aStruct[2]=="D" .and. cTipo=="C"
 					cTipo	:= "D"
 					TcSetField(cAlias,cCampo,"D",8,0)
 				EndIf
 				::AddTamCol(nColIni+nCont-1,nColIni+nCont-1,1.2*nTamCampo)
 			EndIf
-			If !Empty(cMascara) .AND. GetSx3Cache(cCampo,"X3_TIPO")=="N"
+			If !Empty(cMascara) .AND. aStruct[2]=="N"
 				AADD(aEstilos,::Masc2Style(cMascara,oStyle))
 			Else
 				AADD(aEstilos,oStyle)
 			EndIf
 			AADD(aCombo,!Empty(cCombo))
 		Endif
-		If lCab .OR. lTabela
+		If lExibirCab .OR. lTabela
 			nPos	:= aScan(aCab,{|x| x[1]==cCampo})
 			If nPos>0
 				cNomeCampo	:= aCab[nPos][2]
@@ -6644,6 +6661,7 @@ Class YExcelTag
 	Method GetNome()
 	Method SetValor()
 	Method AddValor()
+	Method AddArr()
 	Method GetVAlor()
 	Method AddAtributo()
 	Method SetAtributo()
@@ -6710,18 +6728,23 @@ Return xDefault
 
 Method AddValor(xValor,xIndice) Class YExcelTag
 	Local nPos
-	If ValType(xIndice)=="C"
+	Local nType	:= ValType(xIndice)
+	If nType=="C"
 		If ::oIndice:Get(xIndice,@nPos)
 			::xValor[nPos]	:= xValor
 		Else
 			AADD(::xValor,xValor)
 			::oIndice:Set(xIndice,Len(::xValor))
 		Endif
-	ElseIf ValType(xIndice)=="N"
+	ElseIf nType=="N"
 		::xValor[xIndice]	:= xValor
 	Else
 		AADD(::xValor,xValor)
 	Endif
+Return
+
+Method AddArr(xValor) Class YExcelTag
+	AADD(::xValor,xValor)
 Return
 
 Method AddAtributo(cAtributo,xValor) Class YExcelTag
@@ -6955,6 +6978,12 @@ Class YExcel_Table from yExcelTag
 EndClass
 
 METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
+	If nLinha==0
+		nLinha	:= 1
+	EndIf
+	If nColuna==0
+		nColuna	:= 1
+	EndIf
 	_Super:New("table",{},,oyExcel)
 	::oyExcel		:= oyExcel
 	::aRef			:= {{nLinha,nColuna},{0,0}}
@@ -7003,7 +7032,6 @@ METHOD Cell(cColuna,xValor,cFormula,nStyle) Class YExcel_Table
 		If Empty(nStyle)
 			nStyle	:= aColuna[5]
 		Endif
-		aColuna := nil
 	Else
 		nColuna	:= cColuna
 	Endif
@@ -8023,7 +8051,7 @@ Method xls_sheet(cFile,cCaminho) Class YExcel
 		cXml	+= '<sheetFormatPr defaultRowHeight="15"/>'
 		cXml	+= '<cols/>'
 		cXml	+= '<sheetData>'
-		If ::lArquivo
+		If !::lMemoria
 			cXml	+= '@'
 		EndIf
 		cXml	+= '</sheetData>'	//Caractere para substituir
