@@ -71,6 +71,7 @@ Class YExcel
 	Data nColunaAtual		//Ultima Coluna
 	Data nQtdStyle			//Quantidade de styles
 	Data oMergeCell			//HashMap com celulas mescladas
+	Data aBlocos			//Bloco de código para preenchimento de linha em massa
 	Data nLinha
 	Data nColuna
 	Data cRef
@@ -119,6 +120,9 @@ Class YExcel
 	Data osharedStrings
 	Data lArquivo
 	Data lMemoria
+	Data lBD
+	Data lCanUseBulk
+	Data oBulk
 	Data oC
 	Data oRow
 
@@ -161,6 +165,10 @@ Class YExcel
 	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
 	METHOD AddComment()		//Cria um comentário para a celula posicionada
 	METHOD Alias2Tab()		//Preencher com alias informado
+	METHOD DefBulkLine()	//Cria definição de linha para preenchimento em massa
+	METHOD SetBulkLine()	//Preencher linha em massa
+	METHOD CloseBulk()		//Finaliza Bulk quando banco de dados
+	METHOD FlushBulk()
 	
 	METHOD InsertRowEmpty()	//Cria linhas vazia
 	METHOD InsertCellEmpty()//Cria células vazias
@@ -279,6 +287,7 @@ Construtor da classe
 /*/
 METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	Local nPos
+	Local oTabTmp
 	Local aStruct,aIndex
 	Local cDriver	:= "SQLITE_TMP"
 	Local cNomTmp	:= lower(CriaTrab(,.F.))
@@ -324,12 +333,14 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	::aImgdraw		:= {}
 	::lArquivo		:= .T.
 	::lMemoria		:= .F.
+	::lBD			:= .F.
 	If cTipo=="M"
 		::lArquivo		:= .F.
 		::lMemoria		:= .T.
 	ElseIf cTipo=="B"
 		::lArquivo		:= .F.
 		::lMemoria		:= .F.
+		::lBD			:= .T.
 	EndIf
 	AADD(::aCleanObj,::oString)
 
@@ -358,8 +369,17 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	// AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
 	// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
 	AADD(aIndex,{"PLA","LIN","COL"})
-	::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL",@::cTabCol)
-	
+	::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL",@::cTabCol,@oTabTmp)
+	::lCanUseBulk := FwBulk():CanBulk() // Este método não depende da classe FWBulk ser inicializada por NEW
+	if ::lCanUseBulk
+		If ::cDriver!="TMPDB"
+			::lCanUseBulk	:= .F.
+		Else
+			::oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
+			::oBulk:SetFields(aStruct)
+		EndIf
+	endif
+
 	//LINHAS
 	aStruct	:= {}
 	aIndex	:= {}
@@ -473,7 +493,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 Return self
 
 //Não Documentear
-Method CriaDB(aStruct,aIndex,cPrefixo,cRealName) Class YExcel
+Method CriaDB(aStruct,aIndex,cPrefixo,cRealName,oTabTmp) Class YExcel
 	Local oTabTmp
 	Local cAliasRet
 	Local nCont
@@ -1888,7 +1908,6 @@ Method SetValue(xValor,cFormula) Class YExcel
 	Local nStyAtu
 	Local cStyAtu
 	Local oTmpObj
-	Local cNumero,nPosPonto,nQtdTmp
 	Local nOk
 	//Local cTmpVar
 	If ::nLinha<=0 .OR. ::nColuna<=0
@@ -2123,20 +2142,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 			Endif
 		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
 			(::cAliasCol)->TPVLR	:= "N"	//Numerico
-			cNumero		:= cValToChar(xValor:nNumero)
-			If xValor:nDecimal<>0
-				nPosPonto	:= At(".",cNumero)
-				If nPosPonto==0
-					cNumero	+= "."+Replicate("0",8)
-				Else
-					nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
-					If nQtdTmp>0
-						cNumero	+= Replicate("0",nQtdTmp)
-					Endif
-				Endif
-				cNumero	+= cValToChar(xValor:nDecimal)
-			Endif
-			(::cAliasCol)->VLR	:= cNumero
+			(::cAliasCol)->VLR		:= GetNumDtTm(xValor)
 			// (::cAliasCol)->VLRNUM	:= xValor:nNumero
 			// (::cAliasCol)->VLRDEC	:= xValor:nDecimal
 			
@@ -4710,7 +4716,7 @@ Altera o estilo de uma ou várias células
 @param nColuna2, numeric, (Opcional) Coluna final a ser a ser alterada
 @type method
 /*/
-METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
+METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 	Local nLin,nCol
 	Local nStyle
 	Local cTpAlte
@@ -4728,6 +4734,7 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	PARAMTYPE 2	VAR nColuna			AS NUMERIC					OPTIONAL DEFAULT ::nColuna
 	PARAMTYPE 3	VAR nLinha2			AS NUMERIC					OPTIONAL DEFAULT nLinha
 	PARAMTYPE 4	VAR nColuna2		AS NUMERIC					OPTIONAL DEFAULT nColuna
+	PARAMTYPE 5	VAR oC				AS OBJECT					OPTIONAL DEFAULT ::oC
 	cTpAlte		:= ValType(xStyle)
 	If ::lArquivo
 		If nLinha<>nLinha2 .OR. nColuna<>nColuna2
@@ -4753,7 +4760,7 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 		If lNumFmtId
 			//Altera todas a celulas com o mesmo estilo
 			If ::lArquivo
-				::oC:SetAtributo("s",xStyle)
+				oC:SetAtributo("s",xStyle)
 			ElseIf ::lMemoria
 				cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
 				If nLinha==nLinha2
@@ -4778,7 +4785,7 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 			EndIf
 		Else
 			If ::lArquivo
-				nStyAtu	:= ::oC:GetAtributo("s")
+				nStyAtu	:= oC:GetAtributo("s")
 				nStyletmp	:= xStyle
 				If ValType(nStyAtu)<>"U"
 					lnumFmtId	:= ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1"
@@ -4789,7 +4796,7 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 						nStyletmp	:= xStyle
 					EndIf
 				EndIf
-				::oC:SetAtributo("s",nStyletmp)
+				oC:SetAtributo("s",nStyletmp)
 			ElseIf ::lMemoria
 				cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
 				If nLinha==nLinha2
@@ -4843,13 +4850,13 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	ElseIf cTpAlte=="O"	//Se enviado objeto vai avaliar estilo a ser usado
 		//Rules
 		If ::lArquivo
-			nStyAtu	:= ::oC:GetAtributo("s")
+			nStyAtu		:= oC:GetAtributo("s")
 			nStyle		:= xStyle:GetId(nLinha,nColuna)
 			If ValType(nStyAtu)=="N" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")!="1" .AND. ::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","applyNumberFormat")=="1" 
 				nNumFmtId	:= Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyAtu+1)+"]","numFmtId"))
 				nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
 			Endif
-			::oC:SetAtributo("s",nStyle)
+			oC:SetAtributo("s",nStyle)
 		ElseIf ::lMemoria
 			cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
 			If nLinha==nLinha2
@@ -5515,6 +5522,9 @@ Method Save(cLocal) Class YExcel
 	Local nHTmp
 	Local lSheetDataOk
 	Default cLocal := GetTempPath()
+	If ::lCanUseBulk
+		::CloseBulk()
+	EndIf
 	lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
 	::cLocalFile	:= cLocal
 	If ::lArquivo
@@ -6247,7 +6257,16 @@ Static Function AjtColConf(oExcel,nMin,nMax)
 		Next
 	EndDo
 Return
-
+/*/{Protheus.doc} YExcel::Masc2Style
+Criar estilo com base na picture
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 09/05/2023
+@param cMascara, character, Masca da picture
+@param oStyle, object, Estilo para copia
+@return object, Novo estilo criado
+/*/
 METHOD Masc2Style(cMascara,oStyle) Class YExcel
 	Local nPos
 	Local cTmp
@@ -6278,16 +6297,6 @@ METHOD Masc2Style(cMascara,oStyle) Class YExcel
 		nPos	:= RAt(",",cMascara)
 		If nPos>0
 			lMilhar	:= .T.
-			// cTmp	:= SubStr(cMascara,nPos+1)
-			// If At(",",cTmp)>0
-			// 	cTmp	:= SubStr(cTmp,1,At(",",cTmp)-1)
-			// EndIf
-			// nPos	:= At("9",cTmp)
-			// While nPos>0
-			// 	cTmp	:= SubStr(cTmp,nPos+1)
-			// 	nDecimal++
-			// 	nPos	:= At("9",cTmp)
-			// EndIf
 		EndIf
 		If lRules
 			oNewStyle:AddnumFmt({||.T.},::AddFmtNum(nDecimal,lMilhar))
@@ -6296,8 +6305,236 @@ METHOD Masc2Style(cMascara,oStyle) Class YExcel
 		EndIf
 	EndIf
 Return oNewStyle
+/*/{Protheus.doc} YExcel::DefBulkLine
+Criar definição de preenchimento em massa
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 09/05/2023
+@param aCampos, array, Campos das colunas, ver obs
+@obs aCampos	1-Numero da coluna,2-Tipo de conteudo(C,N,L,D),3-Logico se vai ter Formula,4-Logico se é datetime,5-Objeto Estilo
+/*/
+Method DefBulkLine(aCampos) Class YExcel
+	Local nCont
+	Local aBlocos	:= {}
+	Local cBloco
+	Local oRow	:= YExcelTag():New("row",{},{{"r","'+x+'"}})
+	Local oC
+	If ValType(::nRowoutlineLevel)=="N"
+		oRow:AddAtributo("outlineLevel",cValToChar(::nRowoutlineLevel))
+	Endif
+	If ::lRowcollapsed
+		oRow:AddAtributo("collapsed","1")
+	Endif
+	If ::lRowhidden
+		oRow:AddAtributo("hidden","1")
+	Endif
+	If ValType(::nTamLinha)=="N"
+		oRow:AddAtributo("customHeight","1")
+		oRow:AddAtributo("ht",::nTamLinha)
+	Endif
+	cBloco	:= "{|x| '"+oRow:GetTag(,.F.)+"' }"
+	FreeObj(oRow)
+	AADD(aBlocos,&(cBloco))
+	For nCont:=1 to Len(aCampos)
+		If ::lArquivo
+			cBloco	:= ""
+			cRef	:= NumToString(aCampos[nCont][1])
+			oC	:= YExcelTag():New("c",{},{{"r",cRef+"'+cLin+'"}})
+			If aCampos[nCont][3]	//Formula
+				oC:AddArr("<f>'+Replace(Replace(cFormula,'<','&lt;'),'>','&gt;')+'</f>")
+			EndIf
+			If aCampos[nCont][2]=="C"
+				oC:SetAtributo("t","inlineStr")
+				oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(xValor)+'"+']]></t></is>')
+			ElseIf aCampos[nCont][2]=="L"
+				oC:SetAtributo("t","b")
+				oC:AddArr('<v>'+"'+if(xValor,'1','0')+'"+'</v>')
+			ElseIf aCampos[nCont][2]=="N"
+				oC:AddArr('<v>'+"'+cValToChar(xValor)+'"+'</v>')
+			ElseIf aCampos[nCont][2]=="D"
+				oC:AddArr('<v>'+"'+If(!Empty(xValor),cValToChar(xValor-STOD('19000101')+2),'')+'"+'</v>')
+				oC:SetAtributo("s",::aPadraoSty[2])	//Estilo padrão de data
+			ElseIf aCampos[nCont][2]=="O" .and. aCampos[nCont][4]
+				oC:AddArr('<v>'+"'+cValToChar(xValor:GetStrNumber())+'"+'</v>')
+				oC:SetAtributo("s",::aPadraoSty[3])	//Estilo padrão de datetime
+			Else
+				oTmpObj	:= YExcelTag():New("v","'+xValor+'")
+				oC:AddArr(oTmpObj:GetTag())
+				FreeObj(oTmpObj)
+				oTmpObj	:= nil
+			EndIf
+			If !Empty(aCampos[nCont][5])
+				::SetStyle(aCampos[nCont][5],,,,,oC)
+			EndIf
+			cBloco	:= "{|cLin,xValor,cFomula| '"+oC:GetTag()+"' }"
+			AADD(aBlocos,{&(cBloco),aCampos[nCont][1]})
+			FreeObj(oC)
+		ElseIf ::lMemoria
+			AADD(aBlocos,{nil,aCampos[nCont][1]})
+		ElseIf ::lBD
+			nStyle	:= -1
+			If ValType(aCampos[nCont][5])=="O" .AND. aCampos[nCont][5]:ClassName()=="YEXCEL_STYLE"
+				nStyle		:= aCampos[nCont][5]:GetId()
+			ElseIf ValType(aCampos[nCont][5])=="O"
+				nStyle		:= aCampos[nCont][5]:GetId(::nLinha,aCampos[nCont][1])
+			ElseIf ValType(aCampos[nCont][5])=="N"
+				nStyle		:= aCampos[nCont][5]
+			EndIf
+			If nStyle>=0 .AND. nStyle+1>::nQtdStyle
+				UserException("YExcel - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
+			Endif
+			cTpVlr	:= "N"
+			If aCampos[nCont][2]=="C"
+				cTipo		:= "s"
+				cTpSty		:= "S"
+				bValor		:= {|xValor,cTp| cTp:="N",lAchou:=.F.,nPos:=::GetStrComp(xValor,@lAchou),If(lAchou,cValToChar(nPos),::SetStrComp(xValor)) }
+			ElseIf aCampos[nCont][2]=="L"
+				cTipo		:= "b"
+				cTpSty		:= "B"
+				bValor		:= {|xValor,cTp| cTp:="N",if(xValor,"1","0") }
+			ElseIf aCampos[nCont][2]=="N"
+				cTipo		:= "n"
+				cTpSty		:= "N"
+				bValor		:= {|xValor,cTp| cTp:="N",cValToChar(xValor) }
+			ElseIf aCampos[nCont][2]=="D"
+				cTipo		:= "d"
+				cTpSty		:= "D"
+				If nStyle>=0
+					If !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")=="1"	//Não tem NumFmt aplicado
+						nStyle		:= ::CreateStyle(nStyle,14)
+					EndIf
+				Else
+					nStyle		:= ::aPadraoSty[2]	//Estilo padrão de data
+				EndIf
+				bValor		:= {|xValor,cTp| If(!Empty(xValor),cValToChar(xValor-STOD("19000101")+2),(cTp:="U",,"")) }
+			ElseIf aCampos[nCont][2]=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
+				cTipo		:= "d"
+				cTpSty		:= "T"
+				If nStyle>=0
+					If !::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:cellXfs/xmlns:xf["+cValToChar(nStyle+1)+"]","applyNumberFormat")=="1"	//Não tem NumFmt aplicado
+						nStyle		:= ::CreateStyle(nStyle,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
+					EndIf
+				Else
+					nStyle		:= ::aPadraoSty[3]	//Estilo padrão de datetime
+				EndIf
+				bValor		:= {|xValor,cTp| GetNumDtTm(xValor) }
+			Endif
+			AADD(aBlocos,{bValor,aCampos[nCont][1],cTipo,cTpSty,cTpVlr,nStyle})
+		EndIf
+	Next
+	::aBlocos	:= aBlocos
+	If ValType(::oC)=="O"
+		::oC:GetTag(@::nFileTmpRow,.T.)
+		FreeObj(::oC)
+		::oC	:= nil
+	EndIf
+	If ValType(::oRow)=="O"
+		FWRITE(::nFileTmpRow,"</row>")
+		FreeObj(::oRow)
+		::oRow	:= nil
+	EndIf
+Return aBlocos
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
+/*/{Protheus.doc} YExcel::SetBulkLine
+Inserir linha em bulk
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 09/05/2023
+@param nLinha, numeric, Linha a ser inserida
+@param aValores, array, Valores das celulas a ser inseridas (Valor,Formula)
+/*/
+Method SetBulkLine(nLinha,aValores) Class YExcel
+	Local nCont
+	Local cLinha	:= cValToChar(nLinha)
+	::nLinha	:= nLinha
+	If ::lArquivo
+		FSeek(::nFileTmpRow, 0, FS_END)
+		cTexto	:= Eval(::aBlocos[1],cLinha)
+		FWrite(::nFileTmpRow, cTexto, Len(cTexto))
+		For nCont:=1 to Len(aValores)
+			cTexto	:= Eval(::aBlocos[1+nCont][1],cLinha,aValores[nCont][1],aValores[nCont][2])
+			FWrite(::nFileTmpRow, cTexto, Len(cTexto))
+		Next
+		FWrite(::nFileTmpRow, "</row>", Len("</row>"))
+	ElseIf ::lMemoria
+		For nCont:=1 to Len(aValores)
+			::Pos(nLinha,::aBlocos[1+nCont][2])
+			::SetValue(aValores[nCont][1],aValores[nCont][2])//:SetStyle()
+		Next
+	Else
+		If ::lCanUseBulk
+			(::cAliasLin)->(RecLock(::cAliasLin,.T.))
+			(::cAliasLin)->PLA		:= ::nPlanilhaAt
+			(::cAliasLin)->LIN		:= ::nLinha
+			(::cAliasLin)->OLEVEL	:= ""
+			(::cAliasLin)->COLLAP	:= ""
+			(::cAliasLin)->CHIDDEN	:= ""
+			(::cAliasLin)->CHEIGHT	:= ""
+			(::cAliasLin)->HT		:= 0
+			If ValType(::nRowoutlineLevel)=="N"
+				(::cAliasLin)->OLEVEL	:= cValToChar(::nRowoutlineLevel)
+			Endif
+			If ::lRowcollapsed
+				(::cAliasLin)->COLLAP	:= "1"
+			Endif
+			If ::lRowhidden
+				(::cAliasLin)->CHIDDEN	:= "1"
+			Endif
+			If ValType(::nTamLinha)=="N"
+				(::cAliasLin)->CHEIGHT	:= "1"
+				(::cAliasLin)->HT	:= ::nTamLinha
+			Endif
+			(::cAliasLin)->(MsUnLock())
+
+			For nCont:=1 to Len(aValores)
+				xValor	:= Eval(::aBlocos[1+nCont][1],aValores[nCont][1],@::aBlocos[1+nCont][5])
+				::oBulk:AddData({;
+					::nPlanilhaAt;				//PLA
+					,::nLinha;					//LIN
+					,::aBlocos[1+nCont][2];		//COL
+					,::aBlocos[1+nCont][6];		//STY
+					,::aBlocos[1+nCont][4];		//TPSTY
+					,::aBlocos[1+nCont][3];		//TIPO
+					,aValores[nCont][2];		//FORMULA
+					,::aBlocos[1+nCont][5];		//TPVLR
+					,xValor;					//VLR
+					})
+			Next
+		Else
+			For nCont:=1 to Len(aValores)
+				::Pos(nLinha,::aBlocos[1+nCont][2])
+				::SetValue(aValores[nCont][1],aValores[nCont][2]):SetStyle(::aBlocos[1+nCont][6])
+			Next
+		EndIf
+	EndIf
+Return
+
+Method FlushBulk() Class YExcel
+	::oBulk:Flush()
+Return
+
+Method CloseBulk() Class YExcel
+	::oBulk:Close()
+	::oBulk:Destroy()
+	::oBulk	:= nil
+Return
+/*/{Protheus.doc} YExcel::Alias2Tab
+Preeencher excel com conteudo de alias
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 09/05/2023
+@param cAlias, character, Alias com dados
+@param oStyle, object, Estilo a ser aplicado
+@param lSx3, logical, Se vai buscar os SXs para definição de campos
+@param aCab, array, Modifica Cabeçario dos campos (Campo,Descrição)
+@param lExibirCab, logical, Se vai exibir o cabeçario
+@param oTabela, object, Objeto do formato tabela do excel
+@param lSx3, logical, Se vai traduzir os campos do tipo combobox
+/*/
+METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
 	Local nCont
 	Local nLinIni	:= If(::nLinha==0,1,::nLinha)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
@@ -6306,7 +6543,6 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 	Local cTpStyle	:= ValType(oStyle)
 	Local cNomeCampo
 	Local nTamCampo
-	Local aEstilos	:= {}
 	Local aCombo	:= {}
 	Local cMascara
 	Local cCombo
@@ -6314,10 +6550,16 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 	Local nPos
 	Local lTabela		:= ValType(oTabela)=="O"
 	Local aStruct
+	Local aCampos		:= {}
+	Local aValores		:= {}
+	Local oStyTmp
+	Local jCombo
+	Local nPosicao1
 	Private lCab		:= .T.
 	Private cCampo		:= ""
 	Private xValor
 	Default lSx3		:= .F.
+	Default lCombo		:= .T.
 	Default lExibirCab	:= .T.
 	Default aCab		:= {}
 
@@ -6325,7 +6567,8 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 		cCampo		:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
 		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
 		cNomeCampo	:= cCampo
-		If lSx3
+		oStyTmp		:= oStyle
+		If lSx3		//Verificar estrutura do SX3 para formatar os campos
 			cNomeCampo	:= AllTrim(FWX3Titulo(cCampo))
 			aStruct		:= FWSX3Util():GetFieldStruct( cCampo ) 
 			IF Empty(aStruct)
@@ -6336,7 +6579,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 			Else
 				nTamCampo	:= Max(aStruct[3],Len(cNomeCampo))
 				cMascara	:= AllTrim(GetSx3Cache(cCampo,"X3_PICTURE"))
-				cCombo		:= AllTrim(GetSx3Cache(cCampo,"X3_CBOX"))
+				cCombo		:= AllTrim(GetSx3Cache(cCampo,"X3_CBOX"))	//AllTrim(FWComboBox(cCampo))
 				If aStruct[2]=="D" .and. cTipo=="C"
 					cTipo	:= "D"
 					TcSetField(cAlias,cCampo,"D",8,0)
@@ -6344,12 +6587,25 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 				::AddTamCol(nColIni+nCont-1,nColIni+nCont-1,1.2*nTamCampo)
 			EndIf
 			If !Empty(cMascara) .AND. aStruct[2]=="N"
-				AADD(aEstilos,::Masc2Style(cMascara,oStyle))
-			Else
-				AADD(aEstilos,oStyle)
+				oStyTmp	:= ::Masc2Style(cMascara,oStyle)		//Criar Estilo com base na picture numerica
 			EndIf
-			AADD(aCombo,!Empty(cCombo))
+			If lCombo .AND. !Empty(cCombo)			//Guarda cache de combo de opções
+				jCombo	:= jSonObject():New()
+				While ( !Empty(cCombo) )
+					nPosicao1   := At(";",cCombo)
+					If ( nPosicao1 == 0 )
+						nPosicao1 := Len(cCombo)+1
+					EndIf
+					nPosicao2   := At("=",cCombo)
+					jCombo[StrTran(SubStr(cCombo,1,nPosicao2-1),"&")]	:= SubStr(cCombo,nPosicao2+1,nPosicao1-nPosicao2-1)
+					cCombo := SubStr(cCombo,nPosicao1+1)
+				EndDo
+				AADD(aCombo,{.T.,jCombo})
+			Else
+				AADD(aCombo,{.F.,nil})
+			EndIf
 		Endif
+		AADD(aCampos,{nColIni+nCont-1,cTipo,.F.,.F.,oStyTmp})
 		If lExibirCab .OR. lTabela
 			nPos	:= aScan(aCab,{|x| x[1]==cCampo})
 			If nPos>0
@@ -6366,28 +6622,34 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela) Class YExcel
 		Endif
 	Next
 
+	::DefBulkLine(aCampos)	//Inicializa definições para bulk
 	lCab	:= .F.
 	While (cAlias)->(!EOF())
 		nLinha++
 		If lTabela
 			oTabela:AddLine()
-			// oTabela:Cell(nCont,xValor,"",If(lSx3,aEstilos[nCont],oStyle))
 		EndIf
+		aValores	:= {}
 		For nCont:=1 to nQtdCol
 			cCampo	:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
-			xValor	:= (cAlias)->(&(DBFIELDINFO(DBS_NAME,nCont)))
-			If lSx3 .AND. aCombo[nCont]
-				xValor	:= x3combo(cCampo,xValor)
+			xValor	:= (cAlias)->(&(cCampo))
+			If lSx3 .AND. aCombo[nCont][1]
+				xValor	:= aCombo[nCont][2][xValor]	//x3combo(cCampo,xValor)
+				If ValType(xValor)=="U"
+					xValor	:= ""
+				EndIf
 			Endif
-			::Pos(nLinha,nColIni+nCont-1):SetValue(xValor)
-			If lSx3 .and. ValType(aEstilos[nCont])<>"U"
-				::SetStyle(aEstilos[nCont])
-			ElseIf cTpStyle!="U"
-				::SetStyle(oStyle)
-			EndIf
+			AADD(aValores,{xValor,nil})
 		Next
+		::SetBulkLine(nLinha,aValores)	//Seta valores em bulk
 		(cAlias)->(DbSkip())
 	EndDo
+	If ::lCanUseBulk	//Se banco de dados com bulk, atualiza o banco
+		::FlushBulk()
+	EndIf
+	aValores	:= nil
+	aCampos		:= nil
+	aCombo		:= nil
 Return
 
 /*/{Protheus.doc} OpenRead
@@ -7560,6 +7822,33 @@ Static Function SeparaHora(cHora)
 		Endif
 	Endif
 Return {nHoras,nMinutos,nSegundos,nMilesimo}
+
+/*/{Protheus.doc} GetNumDtTm
+Retornar em string o numero referente a data e hora
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 09/05/2023
+@param oValor, object, Objeto DATETIME
+@return character, numero referente a datatime
+/*/
+Static Function GetNumDtTm(oValor)
+	Local nQtdTmp
+	Local cNumero	:= cValToChar(oValor:nNumero)
+	Local nPosPonto
+	If oValor:nDecimal<>0
+		nPosPonto	:= At(".",cNumero)
+		If nPosPonto==0
+			cNumero	+= "."+Replicate("0",8)
+		Else
+			nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
+			If nQtdTmp>0
+				cNumero	+= Replicate("0",nQtdTmp)
+			Endif
+		Endif
+		cNumero	+= cValToChar(oValor:nDecimal)
+	Endif
+Return cNumero
 
 /*/{Protheus.doc} new_content_types
 Criação do arquivo \[content_types].xml
