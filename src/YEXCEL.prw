@@ -72,6 +72,7 @@ Class YExcel
 	Data nQtdStyle			//Quantidade de styles
 	Data oMergeCell			//HashMap com celulas mescladas
 	Data aBlocos			//Bloco de código para preenchimento de linha em massa
+	Data aBulkValor			//Valores para adicionar ao Bulk
 	Data nLinha
 	Data nColuna
 	Data cRef
@@ -167,6 +168,7 @@ Class YExcel
 	METHOD Alias2Tab()		//Preencher com alias informado
 	METHOD DefBulkLine()	//Cria definição de linha para preenchimento em massa
 	METHOD SetBulkLine()	//Preencher linha em massa
+	METHOD SetValueBulk()	//Incluir valor para preenchimento em massa
 	METHOD CloseBulk()		//Finaliza Bulk quando banco de dados
 	METHOD FlushBulk()
 	
@@ -6320,6 +6322,8 @@ Method DefBulkLine(aCampos) Class YExcel
 	Local cBloco
 	Local oRow	:= YExcelTag():New("row",{},{{"r","'+x+'"}})
 	Local oC
+	Local cRef
+	::aBulkValor	:= {}
 	If ValType(::nRowoutlineLevel)=="N"
 		oRow:AddAtributo("outlineLevel",cValToChar(::nRowoutlineLevel))
 	Endif
@@ -6336,11 +6340,11 @@ Method DefBulkLine(aCampos) Class YExcel
 	cBloco	:= "{|x| '"+oRow:GetTag(,.F.)+"' }"
 	FreeObj(oRow)
 	AADD(aBlocos,&(cBloco))
-	For nCont:=1 to Len(aCampos)
-		If ::lArquivo
+	If ::lArquivo
+		For nCont:=1 to Len(aCampos)
 			cBloco	:= ""
 			cRef	:= NumToString(aCampos[nCont][1])
-			oC	:= YExcelTag():New("c",{},{{"r",cRef+"'+cLin+'"}})
+			oC		:= YExcelTag():New("c",{},{{"r",cRef+"'+cLin+'"}})
 			If aCampos[nCont][3]	//Formula
 				oC:AddArr("<f>'+Replace(Replace(cFormula,'<','&lt;'),'>','&gt;')+'</f>")
 			EndIf
@@ -6368,11 +6372,15 @@ Method DefBulkLine(aCampos) Class YExcel
 				::SetStyle(aCampos[nCont][5],,,,,oC)
 			EndIf
 			cBloco	:= "{|cLin,xValor,cFomula| '"+oC:GetTag()+"' }"
-			AADD(aBlocos,{&(cBloco),aCampos[nCont][1]})
+			AADD(aBlocos,{&cBloco,aCampos[nCont][1]})
 			FreeObj(oC)
-		ElseIf ::lMemoria
+		Next
+	ElseIf ::lMemoria
+		For nCont:=1 to Len(aCampos)
 			AADD(aBlocos,{nil,aCampos[nCont][1]})
-		ElseIf ::lBD
+		Next
+	ElseIf ::lBD
+		For nCont:=1 to Len(aCampos)
 			nStyle	:= -1
 			If ValType(aCampos[nCont][5])=="O" .AND. aCampos[nCont][5]:ClassName()=="YEXCEL_STYLE"
 				nStyle		:= aCampos[nCont][5]:GetId()
@@ -6421,8 +6429,8 @@ Method DefBulkLine(aCampos) Class YExcel
 				bValor		:= {|xValor,cTp| GetNumDtTm(xValor) }
 			Endif
 			AADD(aBlocos,{bValor,aCampos[nCont][1],cTipo,cTpSty,cTpVlr,nStyle})
-		EndIf
-	Next
+		Next
+	EndIf
 	::aBlocos	:= aBlocos
 	If ValType(::oC)=="O"
 		::oC:GetTag(@::nFileTmpRow,.T.)
@@ -6436,6 +6444,10 @@ Method DefBulkLine(aCampos) Class YExcel
 	EndIf
 Return aBlocos
 
+Method SetValueBulk(xValor,cFormula) Class YExcel
+	AADD(::aBulkValor,{xValor,cFormula})
+Return
+
 /*/{Protheus.doc} YExcel::SetBulkLine
 Inserir linha em bulk
 @type method
@@ -6445,14 +6457,16 @@ Inserir linha em bulk
 @param nLinha, numeric, Linha a ser inserida
 @param aValores, array, Valores das celulas a ser inseridas (Valor,Formula)
 /*/
-Method SetBulkLine(nLinha,aValores) Class YExcel
+Method SetBulkLine(nLinha) Class YExcel
 	Local nCont
 	Local cLinha	:= cValToChar(nLinha)
+	Local aValores	:= ::aBulkValor
 	::nLinha	:= nLinha
 	If ::lArquivo
 		FSeek(::nFileTmpRow, 0, FS_END)
 		cTexto	:= Eval(::aBlocos[1],cLinha)
 		FWrite(::nFileTmpRow, cTexto, Len(cTexto))
+		//cTexto	:= ""
 		For nCont:=1 to Len(aValores)
 			cTexto	:= Eval(::aBlocos[1+nCont][1],cLinha,aValores[nCont][1],aValores[nCont][2])
 			FWrite(::nFileTmpRow, cTexto, Len(cTexto))
@@ -6509,6 +6523,7 @@ Method SetBulkLine(nLinha,aValores) Class YExcel
 			Next
 		EndIf
 	EndIf
+	::aBulkValor	:= {}
 Return
 
 Method FlushBulk() Class YExcel
@@ -6551,7 +6566,6 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
 	Local lTabela		:= ValType(oTabela)=="O"
 	Local aStruct
 	Local aCampos		:= {}
-	Local aValores		:= {}
 	Local oStyTmp
 	Local jCombo
 	Local nPosicao1
@@ -6629,7 +6643,6 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
 		If lTabela
 			oTabela:AddLine()
 		EndIf
-		aValores	:= {}
 		For nCont:=1 to nQtdCol
 			cCampo	:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
 			xValor	:= (cAlias)->(&(cCampo))
@@ -6639,9 +6652,9 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
 					xValor	:= ""
 				EndIf
 			Endif
-			AADD(aValores,{xValor,nil})
+			::SetValueBulk(xValor)
 		Next
-		::SetBulkLine(nLinha,aValores)	//Seta valores em bulk
+		::SetBulkLine(nLinha)	//Seta valores em bulk
 		(cAlias)->(DbSkip())
 	EndDo
 	If ::lCanUseBulk	//Se banco de dados com bulk, atualiza o banco
