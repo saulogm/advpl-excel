@@ -1677,6 +1677,7 @@ Definir altura das llinhas. Se não enviado linha de/ate, considerar as próximas 
 /*/
 Method SetRowH(nHeight,nLinha,nLinha2) Class YExcel
 	Local cCHeight	:= "1"
+	Local nCont
 	PARAMTYPE 0	VAR nHeight			AS NUMERIC			OPTIONAL
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC			OPTIONAL
 	PARAMTYPE 2	VAR nLinha2			AS NUMERIC			OPTIONAL	DEFAULT nLinha
@@ -1692,20 +1693,16 @@ Method SetRowH(nHeight,nLinha,nLinha2) Class YExcel
 		::InsertRowEmpty(nLinha,nLinha2)
 
 		If ::lMemoria
-			cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
-			If nLinha==nLinha2
-				cxpath		+= "='"+cValToChar(nLinha)+"'"
-			Else
-				cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
-			EndIf
-			cxpath		+= "]"
-			If ValType(nHeight)=="U"
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cxpath,"customHeight")
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cxpath,"ht")
-			Else
-				SetAtrr(::asheet[::nPlanilhaAt][1],cxpath,"customHeight",cCHeight)
-				SetAtrr(::asheet[::nPlanilhaAt][1],cxpath,"ht",cValToChar(nHeight))
-			EndIf
+			For nCont:=nLinha to nLinha2
+				cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']"
+				If ValType(nHeight)=="U"
+					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cxpath,"customHeight")
+					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cxpath,"ht")
+				Else
+					SetAtrr(::asheet[::nPlanilhaAt][1],cxpath,"customHeight",cCHeight)
+					SetAtrr(::asheet[::nPlanilhaAt][1],cxpath,"ht",cValToChar(nHeight))
+				EndIf
+			Next 
 		Else
 			If !::ExecSql("","UPDATE "+::cTabLin+" SET CHEIGHT='"+cCHeight+"',HT="+cValToChar(nHeight)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" ",::cDriver)
 				UserException("YExcel - 2 Erro ao atualiza tamanho das linhas. "+TCSqlError())
@@ -1733,6 +1730,7 @@ Method InsertRowEmpty(nLinha,nLinha2) Class YExcel
 	ElseIf ::lMemoria
 		For nCont:=nLinha to nLinha2
 			If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']")
+				::aPlanilhas[::nPlanilhaAt][7]:Set(nCont,1)
 				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
 				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(nCont))
 			EndIf
