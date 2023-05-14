@@ -91,7 +91,7 @@ Class YExcel
 	Data cAliasCol
 	Data cAliasLin
 	Data cAliasStr
-	Data cAliasChv
+	Data oChaves
 	Data cTabCol
 	Data cTabLin
 	Data cTabStr
@@ -306,6 +306,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	::cName			:= "YEXCEL"
 	::oString		:= tHashMap():new()
 	::oCell			:= nil	//Usado no leitura simples
+	::oChaves		:= jSonObject():New()
 	::nQtdString	:= 0
 	::nQtdStyle		:= 0
 	::nNumFmtId		:= 166
@@ -407,16 +408,6 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	AADD(aIndex,{"VLRTEXTO","POS"})
 	AADD(aIndex,{"POS"})
 	::cAliasStr	:= ::CriaDB(aStruct,aIndex,"STR",@::cTabStr)
-	
-	//CHAVES E IDS
-	aStruct	:= {}
-	aIndex	:= {}
-	AADD(aStruct,{"TIPO"		,"C", 10	, 00})
-	AADD(aStruct,{"CHAVE"		,"C", 200	, 00})
-	AADD(aStruct,{"ID"			,"N", 7		, 00})
-	AADD(aIndex,{"TIPO","CHAVE"})
-	AADD(aIndex,{"TIPO","ID"})
-	::cAliasChv	:= ::CriaDB(aStruct,aIndex,"CHV",@::cTabChv)
 
 	If !Empty(cFileOpen)
 		::lArquivo	:= .F.
@@ -1025,11 +1016,8 @@ Static Function LerChvStys(oSelf)
 			Endif
 		Next
 		cChave	+= "}"
-		RecLock(oSelf:cAliasChv,.T.)
-		(oSelf:cAliasChv)->TIPO		:= "STYLE     "
-		(oSelf:cAliasChv)->CHAVE	:= cChave
-		(oSelf:cAliasChv)->ID		:= nCont-1
-		MsUnLock()
+		::oChaves["STYLEID   "+cValToChar(nCont-1)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nCont-1
 	Next
 
 	For nCont:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:fills")
@@ -1044,11 +1032,7 @@ Static Function LerChvStys(oSelf)
 			cChave	+= oSelf:oStyle:XPathGetAtt( cLocal+"/xmlns:fills/xmlns:fill["+cValToChar(nCont)+"]/xmlns:patternFill", "patternType")
 			cChave	+= "|"
 			cChave	+= cLocal+"/xmlns:fills"
-			RecLock(oSelf:cAliasChv,.T.)
-			(oSelf:cAliasChv)->TIPO		:= "CORPREENC "
-			(oSelf:cAliasChv)->CHAVE	:= cChave
-			(oSelf:cAliasChv)->ID		:= nCont-1
-			MsUnLock()
+			nPos	:= ::oChaves["CORPREENC "+cChave]	:= nCont-1
 		ElseIf oSelf:oStyle:XPathHasNode( cLocal+"/xmlns:fill["+cValToChar(nCont)+"]/xmlns:gradientFill")
 			aCores	:= {}
 			For nCont2:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:fills/xmlns:gradientFill["+cValToChar(nCont)+"]")
@@ -1103,11 +1087,7 @@ Static Function LerChvStys(oSelf)
 		cChave	+= If(oSelf:oStyle:XPathHasNode( cLocal+"/xmlns:fonts/xmlns:font["+cValToChar(nCont)+"]/xmlns:strike"),".T.",".F.")
 		cChave	+= "|"
 		cChave	+= cLocal+"/xmlns:fonts"
-		RecLock(oSelf:cAliasChv,.T.)
-		(oSelf:cAliasChv)->TIPO		:= "FONTE     "
-		(oSelf:cAliasChv)->CHAVE	:= cChave
-		(oSelf:cAliasChv)->ID		:= nCont-1
-		MsUnLock()
+		nPos	:= ::oChaves["FONTE     "+cChave]	:= nCont-1
 	Next
 	For nCont:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:borders")
 		cChave	:= ""
@@ -1137,11 +1117,7 @@ Static Function LerChvStys(oSelf)
 		cChave	+= oSelf:oStyle:XPathGetAtt( cLocal+"/xmlns:borders/xmlns:border["+cValToChar(nCont)+"]/xmlns:diagonal/xmlns:color", "indexed")
 		cChave	+= "|"
 		cChave	+= cLocal+"/xmlns:borders"
-		RecLock(oSelf:cAliasChv,.T.)
-		(oSelf:cAliasChv)->TIPO		:= "BORDER    "
-		(oSelf:cAliasChv)->CHAVE	:= cChave
-		(oSelf:cAliasChv)->ID		:= nCont-1
-		MsUnLock()
+		nPos	:= ::oChaves["BORDER    "+cChave]	:= nCont-1
 	Next
 
 Return
@@ -3166,20 +3142,17 @@ METHOD AddFont(nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinh
 		cCorRGB	:= "FF"+cCorRGB
 	Endif
 	//Busca se já existe chave
-	cChave	:= PadR(cValToChar(nTamanho)+"|"+cValToChar(cCorRGB)+"|"+cValToChar(cNome)+"|"+cValToChar(cfamily)+"|"+cValToChar(cScheme)+"|"+cValToChar(lNegrito)+"|"+cValToChar(lItalico)+"|"+cValToChar(lSublinhado)+"|"+cValToChar(lTachado)+"|"+cValToChar(cLocal),200)
-	If (::cAliasChv)->(DbSeek("FONTE     "+cChave))
-		return (::cAliasChv)->ID
-	Endif
+	cChave	:= cValToChar(nTamanho)+"|"+cValToChar(cCorRGB)+"|"+cValToChar(cNome)+"|"+cValToChar(cfamily)+"|"+cValToChar(cScheme)+"|"+cValToChar(lNegrito)+"|"+cValToChar(lItalico)+"|"+cValToChar(lSublinhado)+"|"+cValToChar(lTachado)+"|"+cValToChar(cLocal)
+	nTamFonts	:= ::oChaves["FONTE     "+cChave]
+	If ValType(nTamFonts)=="N"
+		Return nTamFonts
+	EndIf
 
 	If cLocal=="/xmlns:styleSheet/xmlns:fonts"
 		nTamFonts	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
 		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nTamFonts))
 	Endif
-	RecLock(::cAliasChv,.T.)
-	(::cAliasChv)->TIPO		:= "FONTE     "
-	(::cAliasChv)->CHAVE	:= cChave
-	(::cAliasChv)->ID		:= nTamFonts-1
-	MsUnLock()
+	::oChaves["FONTE     "+cChave]	:= nTamFonts-1
 
 	::oStyle:XPathAddNode( cLocal, "font", "" )
 	If lNegrito
@@ -3286,22 +3259,18 @@ METHOD CorPreenc(cFgCor,cBgCor,cType,cLocal) Class YExcel
 		Endif
 	EndIf
 	//Busca se já existe chave
-	cChave	:= PadR(cValToChar(cFgCor)+"|"+cValToChar(cBgCor)+"|"+cValToChar(cType)+"|"+cValToChar(cLocal),200)
-	If (::cAliasChv)->(DbSeek("CORPREENC "+cChave))
-		return (::cAliasChv)->ID
-	Endif
+	cChave	:= cValToChar(cFgCor)+"|"+cValToChar(cBgCor)+"|"+cValToChar(cType)+"|"+cValToChar(cLocal)
+	nPos	:= ::oChaves["CORPREENC "+cChave]
+	If ValType(nPos)=="N"
+		Return nPos
+	EndIf
 
 	::oStyle:XPathAddNode( cLocal, "fill", "" )
 	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
 	If cLocal=="/xmlns:styleSheet/xmlns:fills"
 		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
 	Endif
-
-	RecLock(::cAliasChv,.T.)
-	(::cAliasChv)->TIPO		:= "CORPREENC "
-	(::cAliasChv)->CHAVE	:= cChave
-	(::cAliasChv)->ID		:= nPos-1
-	MsUnLock()
+	::oChaves["CORPREENC "+cChave]	:= nPos-1
 
 	::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]", "patternFill", "" )
 	::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "patternType"	, cType )
@@ -3355,10 +3324,11 @@ METHOD EfeitoPreenc(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal) Class
 		nbottom	:= nil
 	Endif
 	//Busca se já existe chave
-	cChave	:= PadR(cValToChar(nAngulo)+"|"+Var2Chr(aCores)+"|"+cValToChar(ctype)+"|"+cValToChar(nleft)+"|"+cValToChar(nright)+"|"+cValToChar(ntop)+"|"+cValToChar(nbottom)+"|"+cValToChar(cLocal),200)
-	If (::cAliasChv)->(DbSeek("EFEITOPREE"+cChave))
-		return (::cAliasChv)->ID
-	Endif
+	cChave	:= cValToChar(nAngulo)+"|"+Var2Chr(aCores)+"|"+cValToChar(ctype)+"|"+cValToChar(nleft)+"|"+cValToChar(nright)+"|"+cValToChar(ntop)+"|"+cValToChar(nbottom)+"|"+cValToChar(cLocal)
+	nPos	:= ::oChaves["EFEITOPREE"+cChave]
+	If ValType(nPos)=="N"
+		Return nPos
+	EndIf
 	
 	::oStyle:XPathAddNode( cLocal, "fill", "" )
 	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
@@ -3366,11 +3336,7 @@ METHOD EfeitoPreenc(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal) Class
 		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
 	Endif
 	::gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal+"/xmlns:fill[last()]")
-	RecLock(::cAliasChv,.T.)
-	(::cAliasChv)->TIPO		:= "EFEITOPREE"
-	(::cAliasChv)->CHAVE	:= cChave
-	(::cAliasChv)->ID		:= nPos-1
-	MsUnLock()
+	::oChaves["EFEITOPREE"+cChave]	:= nPos-1
 Return nPos-1
 
 METHOD gradientFill(nAngulo,aCores,ctype,nleft,nright,ntop,nbottom,cLocal) Class YExcel	//Pag 1779
@@ -3496,18 +3462,15 @@ METHOD Border(cleft,cright,ctop,cbottom,cdiagonal,cCorleft,cCorright,cCortop,cCo
 		cCordiagonal	:= ""
 	EndIf
 	//Busca se já existe chave
-	cChave	:= PadR(cValToChar(cleft)+"|"+cValToChar(cright)+"|"+cValToChar(ctop)+"|"+cValToChar(cbottom)+"|"+cValToChar(cdiagonal)+"|"+cValToChar(cCorleft)+"|"+cValToChar(cCorright)+"|"+cValToChar(cCortop)+"|"+cValToChar(cCorbottom)+"|"+cValToChar(cCordiagonal)+"|"+cValToChar(cLocal),200)
-	If (::cAliasChv)->(DbSeek("BORDER    "+cChave))
-		return (::cAliasChv)->ID
-	Endif
+	cChave	:= cValToChar(cleft)+"|"+cValToChar(cright)+"|"+cValToChar(ctop)+"|"+cValToChar(cbottom)+"|"+cValToChar(cdiagonal)+"|"+cValToChar(cCorleft)+"|"+cValToChar(cCorright)+"|"+cValToChar(cCortop)+"|"+cValToChar(cCorbottom)+"|"+cValToChar(cCordiagonal)+"|"+cValToChar(cLocal)
+	nPos	:= ::oChaves["BORDER    "+cChave]
+	If ValType(nPos)=="N"
+		Return nPos
+	EndIf
 
 	::oStyle:XPathAddNode( cLocal, "border", "" )
 	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
-	RecLock(::cAliasChv,.T.)
-	(::cAliasChv)->TIPO		:= "BORDER    "
-	(::cAliasChv)->CHAVE	:= cChave
-	(::cAliasChv)->ID		:= nPos-1
-	MsUnLock()
+	::oChaves["BORDER    "+cChave]	:= nPos-1
 	If cLocal=="/xmlns:styleSheet/xmlns:borders"
 		::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
 	Endif
@@ -3704,17 +3667,21 @@ Cria um formatos personalizado ou altera um existente
 @type method
 /*/
 Method AddFmt(cformatCode,nNumFmtId) Class YExcel
-	Local cChave
+	Local nPos
 	PARAMTYPE 0	VAR cformatCode			AS CHARACTER
 	PARAMTYPE 1	VAR nNumFmtId			AS NUMERIC					OPTIONAL
 
-	cChave	:= PadR(cValToChar(cformatCode),200)
 	If Empty(nNumFmtId)
 		//Busca se já existe chave
+		nPos	:= ::oChaves["FMTNUM    "+cformatCode]
+		If ValType(nPos)=="N"
+			Return nPos
+		EndIf
 		If ::oStyle:XPathHasNode("/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@formatCode='"+cformatCode+"']")
 			Return Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@formatCode='"+cformatCode+"']","numFmtId"))
 		Endif
 		nNumFmtId	:= ::nNumFmtId++
+		::oChaves["FMTNUM    "+cformatCode]	:= nNumFmtId
 	Endif
 	If !::oStyle:XPathHasNode( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@numFmtId='"+cValToChar(nNumFmtId)+"']")	//Se não existe o ID
 		::oStyle:XPathAddNode( "/xmlns:styleSheet/xmlns:numFmts", "numFmt", "" )
@@ -3820,21 +3787,19 @@ METHOD AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
 		aDel(aOutrosAtributos,aDel[nCont])
 		aSize(aOutrosAtributos,Len(aOutrosAtributos)-1)
 	Next
-	cChave	:= PadR(aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos),200)
-	If (::cAliasChv)->(DbSeek("STYLE     "+cChave))
-		return (::cAliasChv)->ID
-	Endif
+	cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos)
+	nPos	:= ::oChaves["STYLE     "+cChave]
+	If ValType(nPos)=="N"
+		Return nPos
+	EndIf
 
 	::oStyle:XPathAddNode( cLocal, "xf", "" )
 	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
 	::oStyle:XPathSetAtt(cLocal,"count",cValToChar(nPos))
 	::nQtdStyle	:= nPos
 
-	RecLock(::cAliasChv,.T.)
-	(::cAliasChv)->TIPO		:= "STYLE     "
-	(::cAliasChv)->CHAVE	:= cChave
-	(::cAliasChv)->ID		:= nPos-1
-	MsUnLock()
+	::oChaves["STYLE     "+cChave]	:= nPos-1
+	::oChaves["STYLEID   "+cValToChar(nPos-1)]	:= cChave
 
 	::SetStyFmt(nPos-1,numFmtId)
 
@@ -4129,21 +4094,21 @@ Method SetStyFmt(nStyle,numFmtId) Class YExcel
 		::oStyle:XPathAddAtt(cXPath,"applyNumberFormat","1")
 		::oStyle:XPathAddAtt(cXPath,"numFmtId",cValToChar(numFmtId))
 	Endif
+
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
 		If ValType(numFmtId)=="U"
 			aChave[6]	:= "0"
 		Else
 			aChave[6]	:= "1"
 		EndIf
-		cChave	:= PadR(cValToChar(numFmtId)+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11],200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
+		cChave	:= cValToChar(numFmtId)+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11]
+		::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
-	(::cAliasChv)->(DbSetOrder(1))
 Return self
 
 /*/{Protheus.doc} YExcel::SetStyFont
@@ -4179,20 +4144,19 @@ Method SetStyFont(nStyle,fontId) Class YExcel
 		::oStyle:XPathAddAtt(cXPath,"fontId",cValToChar(fontId))
 	Endif
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
 		If ValType(fontId)=="U"
 			aChave[7]	:= "0"
 		Else
 			aChave[7]	:= "1"
 		EndIf
-		cChave	:= PadR(aChave[1]+"|"+cValToChar(fontId)+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11],200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
+		cChave	:= aChave[1]+"|"+cValToChar(fontId)+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11]
+		::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
-	(::cAliasChv)->(DbSetOrder(1))
 Return self
 
 /*/{Protheus.doc} YExcel::SetStyFill
@@ -4228,20 +4192,19 @@ Method SetStyFill(nStyle,fillId) Class YExcel
 		::oStyle:XPathAddAtt(cXPath,"fillId",cValToChar(fillId))
 	Endif
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
 		If ValType(fillId)=="U"
 			aChave[8]	:= "0"
 		Else
 			aChave[8]	:= "1"
 		EndIf
-		cChave	:= PadR(aChave[1]+"|"+aChave[2]+"|"+cValToChar(fillId)+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11],200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
+		cChave	:= aChave[1]+"|"+aChave[2]+"|"+cValToChar(fillId)+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11]
+		::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
-	(::cAliasChv)->(DbSetOrder(1))
 Return self
 
 /*/{Protheus.doc} YExcel::SetStyborder
@@ -4277,20 +4240,19 @@ Method SetStyborder(nStyle,borderId) Class YExcel
 		::oStyle:XPathAddAtt(cXPath,"borderId",cValToChar(borderId))
 	Endif
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
 		If ValType(borderId)=="U"
 			aChave[9]	:= "0"
 		Else
 			aChave[9]	:= "1"
 		EndIf
-		cChave	:= PadR(aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+cValToChar(borderId)+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11],200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
+		cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+cValToChar(borderId)+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11]
+		::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
-	(::cAliasChv)->(DbSetOrder(1))
 Return self
 
 /*/{Protheus.doc} YExcel::SetStyxf
@@ -4321,15 +4283,14 @@ Method SetStyxf(nStyle,xfId) Class YExcel
 		::oStyle:XPathAddAtt(cXPath,"xfId",cValToChar(xfId))
 	Endif
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
-		cChave	:= PadR(aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+cValToChar(xfId)+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11],200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
+		cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+cValToChar(xfId)+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+aChave[11]
+		::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
-	(::cAliasChv)->(DbSetOrder(1))
 Return self
 
 /*/{Protheus.doc} YExcel::SetStyaValores
@@ -4381,15 +4342,14 @@ Method SetStyaValores(nStyle,aValores) Class YExcel
 		Next
 	Endif
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
-		cChave	:= PadR(aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+Var2Chr(aValores)+"|"+aChave[11],200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
+		cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+Var2Chr(aValores)+"|"+aChave[11]
+		::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
-	(::cAliasChv)->(DbSetOrder(1))
 Return self
 
 /*/{Protheus.doc} YExcel::SetStyaOutrosAtributos
@@ -4415,9 +4375,10 @@ Method SetStyaOutrosAtributos(nStyle,aOutrosAtributos) Class YExcel
 		UserException("YExcel - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		aChave	:= Separa(Alltrim((::cAliasChv)->CHAVE),"|")
+	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
+	If ValType(cChave)=="C"
+		::oChaves:DelName("STYLE     "+cChave)
+		aChave	:= Separa(Alltrim(cChave),"|")
 	EndIf
 	If ValType(aOutrosAtributos)!="U"
 		For nCont:=1 to Len(aOutrosAtributos)
@@ -4446,14 +4407,9 @@ Method SetStyaOutrosAtributos(nStyle,aOutrosAtributos) Class YExcel
 		aSize(aOutrosAtributos,Len(aOutrosAtributos)-1)
 	Next
 	// Altera chave
-	(::cAliasChv)->(DbSetOrder(2))
-	If (::cAliasChv)->(DbSeek("STYLE     "+Str(nStyle,7)))
-		cChave	:= PadR(aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos),200)
-		RecLock(::cAliasChv,.F.)
-		(::cAliasChv)->CHAVE	:= cChave
-		MsUnLock()
-	Endif
-	(::cAliasChv)->(DbSetOrder(1))
+	cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos)
+	::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
+	::oChaves["STYLE     "+cChave]				:= nStyle
 Return self
 
 /*/{Protheus.doc} YExcel::CreateStyle
@@ -5512,11 +5468,9 @@ Method Close() Class YExcel
 		(::cAliasCol)->(DbCloseArea())
 		(::cAliasLin)->(DbCloseArea())
 		(::cAliasStr)->(DbCloseArea())
-		(::cAliasChv)->(DbCloseArea())
 		::ExecSql("", 'DROP TABLE ' + ::cAliasCol , ::cDriver)
 		::ExecSql("", 'DROP TABLE ' + ::cAliasLin , ::cDriver)
 		::ExecSql("", 'DROP TABLE ' + ::cAliasStr , ::cDriver)
-		::ExecSql("", 'DROP TABLE ' + ::cAliasChv , ::cDriver)
 	Endif
 	aEval(::aCleanObj, {|x| FreeObj(x) })
 	If substr(::cLocalFile,1,8)<>"\tmpxls\"//::lDelSrv
