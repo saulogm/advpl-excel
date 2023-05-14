@@ -6,6 +6,7 @@
 
 Static cAr7Zip	//Caminho do 7zip para compactar o arquivo
 Static cRootPath
+Static c7Zip	:= "Z"	//Existe 7Zip
 //CLASSE EXCEL
 /*/{Protheus.doc} YExcel
 Gerar Excel formato xlsx
@@ -340,6 +341,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	::lArquivo		:= .T.
 	::lMemoria		:= .F.
 	::lBD			:= .F.
+	::lCanUseBulk	:= .F.
 	If cTipo=="M"
 		::lArquivo		:= .F.
 		::lMemoria		:= .T.
@@ -351,64 +353,65 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	AADD(::aCleanObj,::oString)
 
 	//CRIAR ESTRUTURA DO BANCO
-	If TYPE("__TTSInUse")=="U"
-		CriaPublica()
-	Endif
-	::cDriver	:= cDriver
-	If TCIsConnected()
-		::cDriver:="TMPDB"
-	EndIf
-
-	//COLUNAS
-	aStruct	:= {}
-	aIndex	:= {}
-	AADD(aStruct,{"PLA"		,	"N", 10		, 00})
-	AADD(aStruct,{"LIN"		,	"N", 10		, 00})
-	AADD(aStruct,{"COL"		,	"N", 10		, 00})
-	AADD(aStruct,{"STY"		,	"N", 10		, 00})
-	AADD(aStruct,{"TPSTY"	,	"C", 1		, 00})	//Tipo de estilo(texto,numero,data,datetime,logico)
-	AADD(aStruct,{"TIPO"	,	"C", 1		, 00})
-	AADD(aStruct,{"FORMULA"	,	"C", 200	, 00})
-	AADD(aStruct,{"TPVLR"	,	"C", 1		, 00})	//Tipo campo usado, txt ou num
-	AADD(aStruct,{"VLR"		,	"M", 8		, 00})
-	// AADD(aStruct,{"VLRTXT"	,	"C", 200	, 00})
-	// AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
-	// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
-	AADD(aIndex,{"PLA","LIN","COL"})
-	::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL",@::cTabCol,@oTabTmp)
-	::lCanUseBulk := FwBulk():CanBulk() // Este método não depende da classe FWBulk ser inicializada por NEW
-	if ::lCanUseBulk
-		If ::cDriver!="TMPDB"
-			::lCanUseBulk	:= .F.
-		Else
-			::oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
-			::oBulk:SetFields(aStruct)
+	If ::lBD
+		If TYPE("__TTSInUse")=="U"
+			CriaPublica()
+		Endif
+		::cDriver	:= cDriver
+		If TCIsConnected()
+			::cDriver:="TMPDB"
 		EndIf
-	endif
 
-	//LINHAS
-	aStruct	:= {}
-	aIndex	:= {}
-	AADD(aStruct,{"PLA"		,	"N", 10		, 00})
-	AADD(aStruct,{"LIN"		,	"N", 10		, 00})
-	AADD(aStruct,{"OLEVEL"	,	"C", 1		, 00})
-	AADD(aStruct,{"COLLAP"	,	"C", 1		, 00})
-	AADD(aStruct,{"CHIDDEN"	,	"C", 1		, 00})
-	AADD(aStruct,{"CHEIGHT"	,	"C", 1		, 02})
-	AADD(aStruct,{"HT"		,	"N", 8		, 02})
-	AADD(aIndex,{"PLA","LIN"})
-	::cAliasLin	:= ::CriaDB(aStruct,aIndex,"LIN",@::cTabLin)
-	
-	//STRING COMPARTILHAS
-	aStruct	:= {}
-	aIndex	:= {}
-	AADD(aStruct,{"POS"			,"N", 10	, 00})
-	AADD(aStruct,{"VLRTEXTO"	,"C", 32	, 00})
-	AADD(aStruct,{"VLRMEMO"		,"M", 8		, 00})
-	AADD(aIndex,{"VLRTEXTO","POS"})
-	AADD(aIndex,{"POS"})
-	::cAliasStr	:= ::CriaDB(aStruct,aIndex,"STR",@::cTabStr)
+		//COLUNAS
+		aStruct	:= {}
+		aIndex	:= {}
+		AADD(aStruct,{"PLA"		,	"N", 10		, 00})
+		AADD(aStruct,{"LIN"		,	"N", 10		, 00})
+		AADD(aStruct,{"COL"		,	"N", 10		, 00})
+		AADD(aStruct,{"STY"		,	"N", 10		, 00})
+		AADD(aStruct,{"TPSTY"	,	"C", 1		, 00})	//Tipo de estilo(texto,numero,data,datetime,logico)
+		AADD(aStruct,{"TIPO"	,	"C", 1		, 00})
+		AADD(aStruct,{"FORMULA"	,	"C", 200	, 00})
+		AADD(aStruct,{"TPVLR"	,	"C", 1		, 00})	//Tipo campo usado, txt ou num
+		AADD(aStruct,{"VLR"		,	"M", 8		, 00})
+		// AADD(aStruct,{"VLRTXT"	,	"C", 200	, 00})
+		// AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
+		// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
+		AADD(aIndex,{"PLA","LIN","COL"})
+		::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL",@::cTabCol,@oTabTmp)
+		::lCanUseBulk := FwBulk():CanBulk() // Este método não depende da classe FWBulk ser inicializada por NEW
+		if ::lCanUseBulk
+			If ::cDriver!="TMPDB"
+				::lCanUseBulk	:= .F.
+			Else
+				::oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
+				::oBulk:SetFields(aStruct)
+			EndIf
+		endif
 
+		//LINHAS
+		aStruct	:= {}
+		aIndex	:= {}
+		AADD(aStruct,{"PLA"		,	"N", 10		, 00})
+		AADD(aStruct,{"LIN"		,	"N", 10		, 00})
+		AADD(aStruct,{"OLEVEL"	,	"C", 1		, 00})
+		AADD(aStruct,{"COLLAP"	,	"C", 1		, 00})
+		AADD(aStruct,{"CHIDDEN"	,	"C", 1		, 00})
+		AADD(aStruct,{"CHEIGHT"	,	"C", 1		, 02})
+		AADD(aStruct,{"HT"		,	"N", 8		, 02})
+		AADD(aIndex,{"PLA","LIN"})
+		::cAliasLin	:= ::CriaDB(aStruct,aIndex,"LIN",@::cTabLin)
+		
+		//STRING COMPARTILHAS
+		aStruct	:= {}
+		aIndex	:= {}
+		AADD(aStruct,{"POS"			,"N", 10	, 00})
+		AADD(aStruct,{"VLRTEXTO"	,"C", 32	, 00})
+		AADD(aStruct,{"VLRMEMO"		,"M", 8		, 00})
+		AADD(aIndex,{"VLRTEXTO","POS"})
+		AADD(aIndex,{"POS"})
+		::cAliasStr	:= ::CriaDB(aStruct,aIndex,"STR",@::cTabStr)
+	EndIf
 	If !Empty(cFileOpen)
 		::lArquivo	:= .F.
 		::lMemoria	:= .T.
@@ -5462,7 +5465,7 @@ Return
 Method Close() Class YExcel
 	If ::cDriver=="TMPDB"
 		aEval(::aTmpDB, {|x| x:Delete(),FreeObj(x) })
-	Else
+	ElseIf ::lBD
 		(::cAliasCol)->(DbCloseArea())
 		(::cAliasLin)->(DbCloseArea())
 		(::cAliasStr)->(DbCloseArea())
@@ -5857,16 +5860,23 @@ Method Save(cLocal) Class YExcel
 	If IsSrvUnix()	//Solução para servidor linux zipar arquivos com inicio "."
 		WaitRunSrv('zip -r "'+cRootPath+replace(cArquivo,"\","/")+'" *',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 	Else
-		MemoWrite("\tmpxls\"+::cTmpFile+"\fileexist.bat",'IF EXIST "'+cAr7Zip+'" ( ECHO 1 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\1.txt" ) ELSE ( ECHO 2 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\2.txt" )')
-		WaitRunSrv(cRootPath+'\tmpxls\'+::cTmpFile+'\fileexist.bat',.T.,"C:\")
-		If File("\tmpxls\"+::cTmpFile+"\1.txt")//!FindFunction("FZIP")
-			fErase("\tmpxls\"+::cTmpFile+"\1.txt")
+		If c7Zip=="Z"
+			MemoWrite("\tmpxls\"+::cTmpFile+"\fileexist.bat",'IF EXIST "'+cAr7Zip+'" ( ECHO 1 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\1.txt" ) ELSE ( ECHO 2 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\2.txt" )')
+			WaitRunSrv(cRootPath+'\tmpxls\'+::cTmpFile+'\fileexist.bat',.T.,"C:\")
+			If File("\tmpxls\"+::cTmpFile+"\1.txt")//!FindFunction("FZIP")
+				c7Zip	:= "S"
+				fErase("\tmpxls\"+::cTmpFile+"\1.txt")
+			Else
+				c7Zip	:= "N"
+				fErase("\tmpxls\"+::cTmpFile+"\2.txt")
+			Endif
+			fErase("\tmpxls\"+::cTmpFile+"\fileexist.bat")
+		EndIf
+		If c7Zip=="S"
 			WaitRunSrv('"'+cAr7Zip+'" a -tzip "'+cRootPath+cArquivo+'" "'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'\*"',.T.,"C:\")
 		Else
-			fErase("\tmpxls\"+::cTmpFile+"\2.txt")
 			StartJob("FZip",GetEnvServer(),.T.,cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
-		Endif
-		fErase("\tmpxls\"+::cTmpFile+"\fileexist.bat")
+		EndIf
 	Endif
 
 	If !(::cNomeFile==::cNomeFile2)	//Ajusta Case
@@ -6642,7 +6652,7 @@ Preeencher excel com conteudo de alias
 @param cAlias, character, Alias com dados
 @param oStyle, object, Estilo a ser aplicado
 @param lSx3, logical, Se vai buscar os SXs para definição de campos
-@param aCab, array, Modifica Cabeçario dos campos (Campo,Descrição,Tamanho,aCombos)
+@param aCab, array, Modifica Cabeçario dos campos (Campo,Descrição,Tamanho,cCombos)
 @param lExibirCab, logical, Se vai exibir o cabeçario
 @param oTabela, object, Objeto do formato tabela do excel
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
