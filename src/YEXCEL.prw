@@ -168,6 +168,7 @@ Class YExcel
 	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
 	METHOD AddComment()		//Cria um comentário para a celula posicionada
 	METHOD Alias2Tab()		//Preencher com alias informado
+	METHOD NewFldTab()		//Cria definição de campo para Alias2Tab
 	Method BulkNewField()	//Cria um campo para criar Bulk
 	METHOD DefBulkLine()	//Cria definição de linha para preenchimento em massa
 	METHOD SetBulkLine()	//Preencher linha em massa
@@ -6643,6 +6644,28 @@ Method CloseBulk() Class YExcel
 	::oBulk:Destroy()
 	::oBulk	:= nil
 Return
+
+/*/{Protheus.doc} YExcel::NewFldTab
+Inicializa campo para ser usado na definição do Alias2Tab
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 13/05/2023
+@param cCampo, character, Nome do campo no alias
+@param cDescricao, character, Descrição a ser alterada, enviar nil para não alterar
+@param nTamanho, numeric, Tamanho da coluna, enviar nil para não alterar
+@param cCombo, character, Combo de opções, enviar nil para não alterar
+@return json, definição de campos
+/*/
+Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle) Class YExcel
+	jCab[cCampo]				:= jSonObject():New()
+	jCab[cCampo]["descricao"]	:= cDescricao
+	jCab[cCampo]["tamanho"]		:= nTamanho
+	jCab[cCampo]["picture"]		:= cPicture
+	jCab[cCampo]["combo"]		:= cCombo
+	jCab[cCampo]["style"]		:= xStyle
+return jCab
+
 /*/{Protheus.doc} YExcel::Alias2Tab
 Preeencher excel com conteudo de alias
 @type method
@@ -6650,14 +6673,14 @@ Preeencher excel com conteudo de alias
 @author Saulo Gomes Martins
 @since 09/05/2023
 @param cAlias, character, Alias com dados
-@param oStyle, object, Estilo a ser aplicado
+@param oStyle, object, Estilo a ser aplicado no cabeçario
 @param lSx3, logical, Se vai buscar os SXs para definição de campos
-@param aCab, array, Modifica Cabeçario dos campos (Campo,Descrição,Tamanho,cCombos)
+@param jCab, array, json Modifica Cabeçario dos campos (campo,descricao,tamanho,combo)
 @param lExibirCab, logical, Se vai exibir o cabeçario
-@param oTabela, object, Objeto do formato tabela do excel
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
+@param oTabela, object, Objeto do formato tabela do excel
 /*/
-METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,oTabela) Class YExcel
 	Local nCont
 	Local nLinIni	:= If(::nLinha==0,1,::nLinha)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
@@ -6670,34 +6693,45 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
 	Local cMascara
 	Local cCombo
 	Local cTipo
-	Local nPos
 	Local lTabela		:= ValType(oTabela)=="O"
 	Local aStruct
 	Local aCampos		:= {}
 	Local oStyTmp
 	Local xValor
+	Local lFilFields	:= .F.
+	Local lDefCampos	:= Valtype(jCab)=="J"
+	Local lDefCampo
 	Private lCab		:= .T.//Private cCampo
 	Default lSx3		:= .F.
 	Default lCombo		:= .T.
 	Default lExibirCab	:= .T.
-	Default aCab		:= {}
+	Default aOnlyFieds	:= {}
+	If Len(aOnlyFieds)>0
+		lFilFields	:= .T.
+	ENdif
 
 	For nCont:=1 to nQtdCol
 		cCampo		:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
+		If lFilFields .AND. aScan(aOnlyFieds,{|x| x==cCampo})==0
+			Loop
+		EndIf
 		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
 		cNomeCampo	:= cCampo
-		oStyTmp		:= oStyle
+		oStyTmp		:= nil
 		cCombo		:= ""
+		lDefCampo	:= lDefCampos .AND. Valtype(jCab[cCampo])=="J"
+		nTamCampo	:= nil
+		cMascara	:= nil
 		If lSx3		//Verificar estrutura do SX3 para formatar os campos
 			cNomeCampo		:= AllTrim(FWX3Titulo(cCampo))
 			aStruct			:= FWSX3Util():GetFieldStruct( cCampo ) 
 			IF Empty(aStruct)
 				cNomeCampo	:= cCampo
-				nTamCampo	:= Max(Len(cNomeCampo),(cAlias)->(DBFIELDINFO(DBS_LEN,nCont)))
+				nTamCampo	:= 1.2*Max(Len(cNomeCampo),(cAlias)->(DBFIELDINFO(DBS_LEN,nCont)))
 				cMascara	:= ""
 				cCombo		:= ""
 			Else
-				nTamCampo	:= Max(aStruct[3],Len(cNomeCampo))
+				nTamCampo	:= 1.2*Max(aStruct[3],Len(cNomeCampo))
 				cMascara	:= AllTrim(GetSx3Cache(cCampo,"X3_PICTURE"))
 				cCombo		:= AllTrim(GetSx3Cache(cCampo,"X3_CBOX"))	//AllTrim(FWComboBox(cCampo))
 				If aStruct[2]=="M"	//Campo Memo
@@ -6709,22 +6743,34 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lExibirCab,oTabela,lCombo) Class YExcel
 					TcSetField(cAlias,cCampo,"D",8,0)
 				EndIf
 			EndIf
-			nPos	:= aScan(aCab,{|x| x[1]==cCampo})
-			If nPos>0
-				cNomeCampo	:= aCab[nPos][2]
-			EndIf
-			::AddTamCol(nColIni+nCont-1,nColIni+nCont-1,1.2*nTamCampo)
-			If !Empty(cMascara) .AND. aStruct[2]=="N"
-				oStyTmp	:= ::Masc2Style(cMascara,oStyle)		//Criar Estilo com base na picture numerica
-			EndIf
+			
 		Endif
+		If lDefCampo
+			If ValType(jCab[cCampo]["descricao"])=="C"
+				cNomeCampo	:= jCab[cCampo]["descricao"]
+			EndIf
+			If ValType(jCab[cCampo]["tamanho"])=="N"
+				nTamCampo	:= jCab[cCampo]["tamanho"]
+			EndIf
+			If ValType(jCab[cCampo]["picture"])=="C"
+				cMascara	:= jCab[cCampo]["picture"]
+			EndIf
+			If ValType(jCab[cCampo]["combo"])=="C"
+				cCombo		:= jCab[cCampo]["combo"]
+			EndIf
+			If ValType(jCab[cCampo]["style"])!="U"
+				oStyTmp		:= jCab[cCampo]["style"]
+			EndIf
+		EndIf
+		If ValType(nTamCampo)=="N"
+			::AddTamCol(nColIni+nCont-1,nColIni+nCont-1,nTamCampo)
+		EndIf
+		If !Empty(cMascara) .AND. cTipo=="N"
+			oStyTmp	:= ::Masc2Style(cMascara,oStyTmp)		//Criar Estilo com base na picture numerica
+		EndIf
 		
 		AADD(aCampos,::BulkNewField(nColIni+nCont-1,cTipo,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.))
 		If lExibirCab .OR. lTabela
-			nPos	:= aScan(aCab,{|x| x[1]==cCampo})
-			If nPos>0 .AND. ValType(aCab[nPos][2])<>"U"
-				cNomeCampo	:= aCab[nPos][2]
-			EndIf
 			If lTabela
 				oTabela:AddColumn(cNomeCampo)
 			Else
@@ -7367,8 +7413,8 @@ METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	::AddLine()
 Return self
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab) Class YExcel_Table
-	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,aCab,lCab,self)
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds) Class YExcel_Table
+	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,self)
 Return
 
 /*/{Protheus.doc} AddFilter
