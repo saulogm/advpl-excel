@@ -6481,10 +6481,11 @@ Method DefBulkLine(aCampos,lStyleDinamico) Class YExcel
 		FreeObj(::oC)
 		::oC	:= nil
 	EndIf
-	If ValType(::oRow)=="O"
+	If ValType(::oRow)=="O"		//Se tem linha criada, finaliza a linha
 		FWRITE(::nFileTmpRow,"</row>")
 		FreeObj(::oRow)
 		::oRow	:= nil
+		::nLinha++
 	EndIf
 Return ::aDadosBulk
 
@@ -6498,16 +6499,14 @@ Inserir linha em bulk
 @version 1.0
 @author Saulo Gomes Martins
 @since 09/05/2023
-@param nLinha, numeric, Linha a ser inserida
 @param aValores, array, Valores das celulas a ser inseridas (Valor,Formula)
 @param oStyle, object, Estilo a ser definido dinamicamente(se enviado a performance pode cair )
 /*/
-Method SetBulkLine(nLinha,oStyle) Class YExcel
+Method SetBulkLine(oStyle) Class YExcel
 	Local nCont
-	Local cLinha	:= cValToChar(nLinha)
+	Local cLinha	:= cValToChar(::nLinha)
 	Local aValores	:= ::aBulkValor
 	Local nStyle
-	::nLinha	:= nLinha
 	If ::lArquivo
 		FSeek(::nFileTmpRow, 0, FS_END)
 		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
@@ -6517,7 +6516,7 @@ Method SetBulkLine(nLinha,oStyle) Class YExcel
 			For nCont:=1 to Len(aValores)
 				::nColuna	:= ::aDadosBulk[1+nCont][2]
 				::xValor	:= aValores[nCont][1]
-				nStyle		:= oStyle:GetId(nLinha,::nColuna)
+				nStyle		:= oStyle:GetId(::nLinha,::nColuna)
 				If ::aDadosBulk[1+nCont][3]=="D".AND.::GetStyleAtt(nStyle,"applyNumberFormat")!="1"
 					nStyle	:= ::CreateStyle(nStyle,14)
 				ElseIf ::aDadosBulk[1+nCont][3]=="O".AND.::aDadosBulk[1+nCont][4].AND.::GetStyleAtt(nStyle,"applyNumberFormat")!="1"
@@ -6537,7 +6536,7 @@ Method SetBulkLine(nLinha,oStyle) Class YExcel
 		FWrite(::nFileTmpRow, "</row>", Len("</row>"))
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aValores)
-			::Pos(nLinha,::aDadosBulk[1+nCont][2])
+			::Pos(::nLinha,::aDadosBulk[1+nCont][2])
 			::SetValue(aValores[nCont][1],aValores[nCont][2])
 			If ValType(oStyle)!="U"
 				::SetStyle(oStyle)
@@ -6585,13 +6584,14 @@ Method SetBulkLine(nLinha,oStyle) Class YExcel
 			Next
 		Else
 			For nCont:=1 to Len(aValores)
-				::Pos(nLinha,::aDadosBulk[1+nCont][2])
+				::Pos(::nLinha,::aDadosBulk[1+nCont][2])
 				::SetValue(aValores[nCont][1],aValores[nCont][2]):SetStyle(::aDadosBulk[1+nCont][6])
 			Next
 		EndIf
 	EndIf
 	::aBulkValor	:= {}
 	::cRef			:= ::Ref(::nLinha,::nColuna)
+	::nLinha++
 Return
 
 Static Function jCombo(cCombo,lStringC,oExcel)
@@ -6682,10 +6682,9 @@ Preeencher excel com conteudo de alias
 /*/
 METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,oTabela) Class YExcel
 	Local nCont
-	Local nLinIni	:= If(::nLinha==0,1,::nLinha)
+	Local nLinIni	:= If(::nLinha==0,1,::nLinha)+If(ValType(::oRow)=="O",1,0)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
 	Local nQtdCol	:= (cAlias)->(DBInfo(DBI_FCOUNT))
-	Local nLinha	:= nLinIni
 	Local cTpStyle	:= ValType(oStyle)
 	Local cNomeCampo
 	Local nTamCampo
@@ -6785,7 +6784,6 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,oTabela) C
 	::DefBulkLine(aCampos)	//Inicializa definições para bulk
 	lCab	:= .F.
 	While (cAlias)->(!EOF())
-		nLinha++
 		If lTabela
 			oTabela:AddLine()
 		EndIf
@@ -6794,7 +6792,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,oTabela) C
 			xValor	:= (cAlias)->(&(cCampo))
 			::SetValueBulk(xValor)
 		Next
-		::SetBulkLine(nLinha)	//Seta valores em bulk
+		::SetBulkLine()	//Seta valores em bulk
 		(cAlias)->(DbSkip())
 	EndDo
 	If ::lCanUseBulk	//Se banco de dados com bulk, atualiza o banco
