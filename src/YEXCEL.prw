@@ -6554,9 +6554,8 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 				oTmpObj	:= nil
 			EndIf
 			If lStyleDinamico
-				If ValType(aCampos[nCont]["style"])!="O"	//Se estilo numerico, cria estilo objeto
-					aCampos[nCont]["style"]	:= ::NewStyle(aCampos[nCont]["style"])
-				EndIf
+				aCampos[nCont]["style"]	:= ::NewStyle(aCampos[nCont]["style"])
+				aCampos[nCont]["style"]:SetParent()			//Retirar o pai
 				cStyle		:=	cValToChar(::CreateStyle(aCampos[nCont]["style"]:GetID()))	//Estilo padrão se não tem regra
 				If Empty(aCampos[nCont]["style"]:GetnumFmt())	//Não tem formato aplicado
 					If aCampos[nCont]["tipo"]=="D"				//É data
@@ -6579,9 +6578,6 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 						EndIf
 						jsonstyle[aNames[1]]	:= cValToChar(aRegraStyle[2][aNames[i]]["style"]:GetID())
 					Else
-						If ValType(aCampos[nCont]["style"]:oPai)!="U"	//Tem pai
-							aCampos[nCont]["style"]:SetParent()			//Retirar o pai
-						EndIf
 						aCampos[nCont]["style"]:SetParent(aRegraStyle[2][aNames[i]]["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
 						If Empty(aCampos[nCont]["style"]:GetnumFmt())
 							If aCampos[nCont]["tipo"]=="D"
@@ -6698,6 +6694,7 @@ Inserir linha em bulk
 /*/
 Method SetBulkLine(oStyle) Class YExcel
 	Local nCont
+	Local nCont2
 	Local cLinha	:= cValToChar(::nLinha)
 	Local aValores	:= ::aBulkValor
 	//Local nStyle
@@ -6721,10 +6718,11 @@ Method SetBulkLine(oStyle) Class YExcel
 		//	Next
 		//Else
 			For nCont:=1 to Len(aValores)
-				::nColuna	:= ::aDadosBulk[1+nCont][2]
+				nCont2		:= nCont+1
+				::nColuna	:= ::aDadosBulk[nCont2][2]
 				::xValor	:= aValores[nCont][1]
-				::cCampo	:= ::aDadosBulk[1+nCont][8]
-				cTexto		:= Eval(::aDadosBulk[1+nCont][1],cLinha,::xValor,aValores[nCont][2],::aDadosBulk[1+nCont][6],::aDadosBulk[1+nCont][5],::aDadosBulk[1+nCont][7])
+				::cCampo	:= ::aDadosBulk[nCont2][8]
+				cTexto		:= Eval(::aDadosBulk[nCont2][1],cLinha,::xValor,aValores[nCont][2],::aDadosBulk[nCont2][6],::aDadosBulk[nCont2][5],::aDadosBulk[nCont2][7])
 				FWrite(::nFileTmpRow, cTexto, Len(cTexto))
 			Next
 		//EndIf
@@ -6880,6 +6878,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local nCont
 	Local nLinIni	:= If(::nLinha==0,1,::nLinha)+If(ValType(::oRow)=="O",1,0)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
+	Local nColAtu	:= nColIni
 	Local nQtdCol	:= (cAlias)->(DBInfo(DBI_FCOUNT))
 	Local cTpStyle	:= ValType(oStyle)
 	Local cNomeCampo
@@ -6897,6 +6896,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local lDefCampos	:= Valtype(jCab)=="J"
 	Local lDefCampo
 	Local cCampo
+	Local cTpStyle2
 	Private lCab		:= .T.
 	Default lSx3		:= .F.
 	Default lCombo		:= .T.
@@ -6959,24 +6959,33 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 			EndIf
 		EndIf
 		If ValType(nTamCampo)=="N"
-			::AddTamCol(nColIni+nCont-1,nColIni+nCont-1,nTamCampo)
+			::AddTamCol(nColAtu,nColAtu,nTamCampo)
 		EndIf
 		If !Empty(cMascara) .AND. cTipo=="N"
-			oStyTmp	:= ::Masc2Style(cMascara,oStyTmp)		//Criar Estilo com base na picture numerica
+			cTpStyle2	:=  ValType(oStyTmp)
+			If cTpStyle2=="N".AND. ::GetStyleAtt(oStyTmp,"applyNumberFormat")=="1"
+				//Já tem formato numerico aplicado
+			ElseIf cTpStyle2=="O".AND.!Empty(oStyTmp:GetnumFmt())
+				//Já tem formato numerico aplicado
+			Else
+				oStyTmp	:= ::Masc2Style(cMascara,oStyTmp)		//Criar Estilo baseado na picture numerica
+			EndIf
 		EndIf
 		
-		AADD(aCampos,::BulkNewField(nColIni+nCont-1,cTipo,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo))
+		AADD(aCampos,::BulkNewField(nColAtu,cTipo,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo))
 		If lExibirCab .OR. lTabela
 			If lTabela
 				oTabela:AddColumn(cNomeCampo)
 			Else
-				::Pos(nLinIni,nColIni+nCont-1):SetValue(cNomeCampo)
+				::Pos(nLinIni,nColAtu):SetValue(cNomeCampo)
 			EndIf
 			If cTpStyle!="U"
 				::SetStyle(oStyle)
 			EndIf
 		Endif
+		nColAtu++
 	Next
+	nQtdCol	:= Len(aCampos)
 
 	::DefBulkLine(aCampos,aRegraStyle)	//Inicializa definições para bulk
 	lCab	:= .F.
@@ -6985,7 +6994,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 			oTabela:AddLine()
 		EndIf
 		For nCont:=1 to nQtdCol
-			cCampo	:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
+			cCampo	:= aCampos[nCont]["campo"]
 			xValor	:= (cAlias)->(&(cCampo))
 			::SetValueBulk(xValor)
 		Next
