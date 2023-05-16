@@ -5574,7 +5574,7 @@ Method Close() Class YExcel
 	Endif
 Return
 
-/*/{Protheus.doc} Gravar
+/*/{Protheus.doc} Save
 Grava o excel processado
 @author Saulo Gomes Martins
 @since 03/05/2017
@@ -6480,6 +6480,7 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 	Local nStyle
 	Local jsonstyle
 	Local lStyleDinamico
+	Local nOk
 	If ValType(aRegraStyle)=="O"
 		aRegraStyle	:= aRegraStyle:GetArray()
 	EndIf
@@ -6612,7 +6613,7 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 		Next
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aCampos)
-			AADD(aDadosBulk,{nil,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,cStyle,jsonstyle})
+			AADD(aDadosBulk,{nil,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,aCampos[nCont]["style"],jsonstyle})
 		Next
 	ElseIf ::lBD
 		For nCont:=1 to Len(aCampos)
@@ -6679,16 +6680,26 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 		Next
 	EndIf
 	::aDadosBulk	:= aDadosBulk
-	If ValType(::oC)=="O"		//Se tem uma celula criada, finaliza a criação da celula
-		::oC:GetTag(@::nFileTmpRow,.T.)
-		FreeObj(::oC)
-		::oC	:= nil
-	EndIf
-	If ValType(::oRow)=="O"		//Se tem linha criada, finaliza a linha
-		FWRITE(::nFileTmpRow,"</row>")
-		FreeObj(::oRow)
-		::oRow	:= nil
-		::nLinha++
+	If ::lArquivo
+		If ValType(::oC)=="O"		//Se tem uma celula criada, finaliza a criação da celula
+			::oC:GetTag(@::nFileTmpRow,.T.)
+			FreeObj(::oC)
+			::oC	:= nil
+		EndIf
+		If ValType(::oRow)=="O"		//Se tem linha criada, finaliza a linha
+			FWRITE(::nFileTmpRow,"</row>")
+			FreeObj(::oRow)
+			::oRow	:= nil
+			::nLinha++
+		EndIf
+	ElseIf ::lMemoria
+		If ::aPlanilhas[::nPlanilhaAt][7]:Get(::nLinha,@nOk)
+			::Pos(::nLinha+1,1)
+		EndIf
+	ElseIf ::lBD
+		If (::cAliasLin)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)))
+			::nLinha++
+		EndIf
 	EndIf
 	If ::lArquivo
 		FSeek(::nFileTmpRow, 0, FS_END)
@@ -6749,10 +6760,11 @@ Method SetBulkLine(oStyle) Class YExcel
 		FWrite(::nFileTmpRow, "</row>", Len("</row>"))
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aValores)
-			::Pos(::nLinha,::aDadosBulk[1+nCont][2])
+			nCont2		:= nCont+1
+			::Pos(::nLinha,::aDadosBulk[nCont2][2])
 			::SetValue(aValores[nCont][1],aValores[nCont][2])
-			If ValType(oStyle)!="U"
-				::SetStyle(oStyle)
+			If ValType(::aDadosBulk[nCont2][6])!="U"
+				::SetStyle(::aDadosBulk[nCont2][6])
 			EndIf
 		Next
 	Else
