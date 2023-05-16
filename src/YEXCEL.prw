@@ -20,7 +20,7 @@ RECURSOS DISPONIVEIS
 * Definir células String,Numérica,data,DateTime,Logica,formula
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
-* Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação)
+* Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação,Recuo)
 * Formato da célula
 * Mesclar células
 * Auto Filtro
@@ -41,6 +41,7 @@ RECURSOS DISPONIVEIS
 * Definir orientação da pagina na impressão
 * Cabeçalho e Ropadé
 * Leitura de dados já gravados
+* Gravaçãod e dados em massa(bulk)
 
 * Leitura simples dos dados
 @type class
@@ -97,7 +98,6 @@ Class YExcel
 	Data cTabCol
 	Data cTabLin
 	Data cTabStr
-	Data cTabChv
 	Data aworkdrawing	//arquivo drawing do worksheets
 	Data odrawing		//tag drawing dentro do sheet
 	Data aImagens		//Imagens adicionada
@@ -168,6 +168,7 @@ Class YExcel
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
 	METHOD AddComment()		//Cria um comentário para a celula posicionada
+	//Bulk
 	METHOD Alias2Tab()		//Preencher com alias informado
 	METHOD NewFldTab()		//Cria definição de campo para Alias2Tab
 	Method BulkNewField()	//Cria um campo para criar Bulk
@@ -357,6 +358,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		::lBD			:= .T.
 	EndIf
 	AADD(::aCleanObj,::oString)
+	AADD(::aCleanObj,::oChaves)
 
 	//CRIAR ESTRUTURA DO BANCO
 	If ::lBD
@@ -379,7 +381,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		AADD(aStruct,{"TIPO"	,	"C", 1		, 00})
 		AADD(aStruct,{"FORMULA"	,	"C", 200	, 00})
 		AADD(aStruct,{"TPVLR"	,	"C", 1		, 00})	//Tipo campo usado, txt ou num
-		AADD(aStruct,{"VLR"		,	"M", 8		, 00})
+		AADD(aStruct,{"VLR"		,	"C", 200	, 00})
 		// AADD(aStruct,{"VLRTXT"	,	"C", 200	, 00})
 		// AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
 		// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
