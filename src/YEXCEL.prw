@@ -126,7 +126,7 @@ Class YExcel
 	Data lMemoria
 	Data lBD
 	Data lCanUseBulk
-	Data oBulk
+	Data aBulkDB
 	Data oC
 	Data oRow
 
@@ -297,6 +297,7 @@ Construtor da classe
 METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	Local nPos
 	Local oTabTmp
+	Local oBulk
 	Local aStruct,aIndex
 	Local cDriver	:= "SQLITE_TMP"
 	Local cNomTmp	:= lower(CriaTrab(,.F.))
@@ -346,6 +347,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	::lMemoria		:= .F.
 	::lBD			:= .F.
 	::lCanUseBulk	:= .F.
+	::aBulkDB		:= {}
 	If cTipo=="M"
 		::lArquivo		:= .F.
 		::lMemoria		:= .T.
@@ -388,12 +390,14 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 			If ::cDriver!="TMPDB"
 				::lCanUseBulk	:= .F.
 			Else
-				::oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
-				::oBulk:SetFields(aStruct)
+				oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
+				oBulk:SetFields(aStruct)
+				AADD(::aBulkDB,oBulk)
 			EndIf
 		endif
 
 		//LINHAS
+		oTabTmp	:= nil
 		aStruct	:= {}
 		aIndex	:= {}
 		AADD(aStruct,{"PLA"		,	"N", 10		, 00})
@@ -404,8 +408,17 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		AADD(aStruct,{"CHEIGHT"	,	"C", 1		, 02})
 		AADD(aStruct,{"HT"		,	"N", 8		, 02})
 		AADD(aIndex,{"PLA","LIN"})
-		::cAliasLin	:= ::CriaDB(aStruct,aIndex,"LIN",@::cTabLin)
-		
+		::cAliasLin	:= ::CriaDB(aStruct,aIndex,"LIN",@::cTabLin,@oTabTmp)
+		if ::lCanUseBulk
+			If ::cDriver!="TMPDB"
+				::lCanUseBulk	:= .F.
+			Else
+				oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
+				oBulk:SetFields(aStruct)
+				AADD(::aBulkDB,oBulk)
+			EndIf
+		endif
+
 		//STRING COMPARTILHAS
 		aStruct	:= {}
 		aIndex	:= {}
@@ -4888,7 +4901,7 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 					If !Empty(cStyAtu)
 						lnumFmtId		:= ::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
 						If lnumFmtId	//Tem fmtid
-							nNumFmtId	:= Val(::GetStyleAtt((cAliasQry)->STY,"numFmtId"))
+							nNumFmtId	:= Val(::GetStyleAtt(Val(cStyAtu),"numFmtId"))
 							nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
 						EndIf
 					EndIf
@@ -6677,6 +6690,9 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 		::oRow	:= nil
 		::nLinha++
 	EndIf
+	If ::lArquivo
+		FSeek(::nFileTmpRow, 0, FS_END)
+	EndIf
 Return ::aDadosBulk
 
 Method SetValueBulk(xValor,cFormula) Class YExcel
@@ -6697,9 +6713,13 @@ Method SetBulkLine(oStyle) Class YExcel
 	Local nCont2
 	Local cLinha	:= cValToChar(::nLinha)
 	Local aValores	:= ::aBulkValor
+	Local cOLEVEL
+	Local cCOLLAP
+	Local cCHIDDEN
+	Local cCHEIGHT
+	Local nHT
 	//Local nStyle
 	If ::lArquivo
-		FSeek(::nFileTmpRow, 0, FS_END)
 		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
 		FWrite(::nFileTmpRow, cTexto, Len(cTexto))
 		//cTexto	:= ""
@@ -6737,33 +6757,38 @@ Method SetBulkLine(oStyle) Class YExcel
 		Next
 	Else
 		If ::lCanUseBulk
-			(::cAliasLin)->(RecLock(::cAliasLin,.T.))
-			(::cAliasLin)->PLA		:= ::nPlanilhaAt
-			(::cAliasLin)->LIN		:= ::nLinha
-			(::cAliasLin)->OLEVEL	:= ""
-			(::cAliasLin)->COLLAP	:= ""
-			(::cAliasLin)->CHIDDEN	:= ""
-			(::cAliasLin)->CHEIGHT	:= ""
-			(::cAliasLin)->HT		:= 0
+			cOLEVEL		:= ""
+			cCOLLAP		:= ""
+			cCHIDDEN	:= ""
+			cCHEIGHT	:= ""
+			nHT			:= 0
 			If ValType(::nRowoutlineLevel)=="N"
-				(::cAliasLin)->OLEVEL	:= cValToChar(::nRowoutlineLevel)
+				cOLEVEL	:= cValToChar(::nRowoutlineLevel)
 			Endif
 			If ::lRowcollapsed
-				(::cAliasLin)->COLLAP	:= "1"
+				cCOLLAP		:= "1"
 			Endif
 			If ::lRowhidden
-				(::cAliasLin)->CHIDDEN	:= "1"
+				cCHIDDEN	:= "1"
 			Endif
 			If ValType(::nTamLinha)=="N"
-				(::cAliasLin)->CHEIGHT	:= "1"
-				(::cAliasLin)->HT	:= ::nTamLinha
+				cCHEIGHT	:= "1"
+				nHT			:= ::nTamLinha
 			Endif
-			(::cAliasLin)->(MsUnLock())
+			::aBulkDB[2]:AddData({;
+				::nPlanilhaAt;					//PLA
+				,::nLinha;						//LIN
+				,cOLEVEL;						//OLEVEL
+				,cCOLLAP;						//COLLAP
+				,cCHIDDEN;						//CHIDDEN
+				,cCHEIGHT;						//CHEIGHT
+				,nHT;							//HT
+				})
 
 			For nCont:=1 to Len(aValores)
 				::nColuna	:= ::aDadosBulk[1+nCont][2]
 				::xValor	:= Eval(::aDadosBulk[1+nCont][1],aValores[nCont][1],@::aDadosBulk[1+nCont][5],::aDadosBulk[1+nCont][7])
-				::oBulk:AddData({;
+				::aBulkDB[1]:AddData({;
 					::nPlanilhaAt;					//PLA
 					,::nLinha;						//LIN
 					,::aDadosBulk[1+nCont][2];		//COL
@@ -6783,7 +6808,6 @@ Method SetBulkLine(oStyle) Class YExcel
 		EndIf
 	EndIf
 	::aBulkValor	:= {}
-	::cRef			:= ::Ref(::nLinha,::nColuna)
 	::nLinha++
 	::cCampo		:= ""
 Return
@@ -6824,7 +6848,13 @@ Atualiza dados da tabela quando gravação em banco de dados
 @since 13/05/2023
 /*/
 Method FlushBulk() Class YExcel
-	::oBulk:Flush()
+	Local nCont
+	If ::lCanUseBulk
+		For nCont:=1 to Len(::aBulkDB)
+			::aBulkDB[nCont]:Flush()
+		Next
+	EndIf
+	::cRef			:= ::Ref(::nLinha,::nColuna)
 Return
 /*/{Protheus.doc} YExcel::CloseBulk
 Finaliza gravação de bulk de banco de dados
@@ -6834,9 +6864,13 @@ Finaliza gravação de bulk de banco de dados
 @since 13/05/2023
 /*/
 Method CloseBulk() Class YExcel
-	::oBulk:Close()
-	::oBulk:Destroy()
-	::oBulk	:= nil
+	Local nCont
+	For nCont:=1 to Len(::aBulkDB)
+		::aBulkDB[nCont]:Close()
+		::aBulkDB[nCont]:Destroy()
+		::aBulkDB[nCont]	:= nil
+	Next
+	::aBulkDB			:= {}
 Return
 
 /*/{Protheus.doc} YExcel::NewFldTab
@@ -7001,9 +7035,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 		::SetBulkLine()	//Seta valores em bulk
 		(cAlias)->(DbSkip())
 	EndDo
-	If ::lCanUseBulk	//Se banco de dados com bulk, atualiza o banco
-		::FlushBulk()
-	EndIf
+	::FlushBulk()
 	aValores	:= nil
 	aCampos		:= nil
 	aCombo		:= nil
