@@ -64,7 +64,7 @@ Class YExcel
 	Data cTmpFile			//Arquivo temporario criado no servidor
 	Data cNomeFile			//Nome do arquivo para gerar
 	Data cNomeFile2			//Nome do arquivo para gerar
-	Data nFileTmpRow		//nHeader do Arquivo temporario de linhas
+	Data oFile				//Arquivo temporario dos dados
 	Data cPlanilhaAt		//Nome da planilha atual
 	Data nPlanilhaAt		//Indice da planilha atual
 	Data aPlanilhas			//Dados das planilhas
@@ -320,7 +320,6 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	::cTmpFile		:= cNomTmp
 	::cNomeFile2	:= cNomeFile
 	::cNomeFile		:= cNomTmp
-	::nFileTmpRow	:= 0
 	::lRowDef		:= .F.
 	::nColunaAtual	:= 0
 	::aFiles		:= {}
@@ -623,20 +622,23 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	nQtdPlanilhas++
 	If ::lArquivo
 		If ValType(::oC)=="O"
-			::oC:GetTag(@::nFileTmpRow,.T.)
+			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
 			::oC	:= nil
 		EndIf
 		If ValType(::oRow)=="O"
-			FWRITE(::nFileTmpRow,"</row>")
+			::oFile:Write("</row>")
 			FreeObj(::oRow)
 			::oRow	:= nil
 		EndIf
-		If ::nFileTmpRow<>0
-			fClose(::nFileTmpRow)
+		If ValType(::oFile)=="O"
+			::oFile:close()
+			::oFile	:= nil
 		EndIf
-		::CriarFile("\"+::cNomeFile+"\xl\worksheets"	,"tmprow"+cValToChar(nQtdPlanilhas)+".xml"			,""			,.F.)
-		GravaFile(@::nFileTmpRow,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets","tmprow"+cValToChar(nQtdPlanilhas)+".xml")
+		::oFile := FWFileWriter():New("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nQtdPlanilhas)+".xml",.T.)
+		::oFile:SetCaseSensitive(.T.)
+		::oFile:CreateDirectory()
+		::oFile:Create()
 	Endif
 	::xls_sheet(,"sheet"+cValToChar(nQtdPlanilhas)+".xml")
 	// ::asheet[nQtdPlanilhas][1]:XPathAddNode( "/xmlns:worksheet", "sheetPr", "" )
@@ -952,8 +954,8 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 			Endif
 			If lDelete
 				If fErase(cCaminho+"\"+aFiles[nCont][1],,.F.)<>0
-					ConOut(cCaminho+"\"+aFiles[nCont][1])
-					ConOut("Ferror:"+cValToChar(ferror()))
+					WarnLogMsg(cCaminho+"\"+aFiles[nCont][1])
+					WarnLogMsg("Ferror:"+cValToChar(ferror()))
 				Endif
 			Endif
 		Endif
@@ -2266,13 +2268,13 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 					UserException("YExcel - gravação em arquivo deve ser sequencial. Coluna Atual "+cValToChar(::nColuna)+" Coluna enviada "+cValToChar(nColuna))
 				EndIf
 			EndIf
-			::oC:GetTag(@::nFileTmpRow,.T.)
+			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
 			::oC	:= nil
 		EndIf
 		If ::nLinha<>nLinha .OR. ValType(::oRow)=="U"
 			If ValType(::oRow)=="O"
-				FWRITE(::nFileTmpRow,"</row>")
+				::oFile:Write("</row>")
 				FreeObj(::oRow)
 				::oRow	:= nil
 			EndIf
@@ -2290,7 +2292,7 @@ Method Pos(nLinha,nColuna,nPlanilha) Class YExcel
 				::oRow:AddAtributo("customHeight","1")
 				::oRow:AddAtributo("ht",::nTamLinha)
 			Endif
-			::oRow:GetTag(@::nFileTmpRow,.F.)
+			::oRow:GetTag(::oFile,.F.)
 		Endif
 	EndIf
 	::nLinha		:= nLinha
@@ -2600,7 +2602,7 @@ Defini as colunas da linha. Habilita a gravação automatica de cada coluna. Impor
 METHOD SetDefRow(lHabilitar,aSpanRow) Class YExcel
 	Default	lHabilitar	:= .T.
 	::lRowDef		:= lHabilitar
-	ConOut("[Warning] Method deprecated")
+	WarnLogMsg("[Warning] Method deprecated")
 Return
 /*/{Protheus.doc} YExcel::NivelLinha
 Controla nível da estrutura de tópicos das próximas linhas criadas
@@ -5588,15 +5590,14 @@ Grava o excel processado
 @type method
 /*/
 Method Save(cLocal) Class YExcel
-	Local nFile
 	Local nCont,nQtdPlanilhas
 	Local nCont2
 	Local cArquivo	:= ""	//Nome do arquivo em minusculo
 	Local cArquivo2	:= ""	//Nome do arquivo no case original
 	Local cPath
 	Local cDrive,cNome,cExtensao
-	Local nHDestino,nHOrigem
-	Local nTamArquivo,nBytesFalta,nBytesLidos,cBuffer,nBytesLer,nBytesSalvo,cBuffer2
+	Local nHOrigem
+	Local nTamArquivo,nBytesFalta,nBytesLidos,cBuffer,nBytesLer,cBuffer2
 	Local nPos
 	Local oXmlSheet
 	Local lServidor
@@ -5605,6 +5606,7 @@ Method Save(cLocal) Class YExcel
 	Local cQuery
 	Local nHTmp
 	Local lSheetDataOk
+	Local oFile
 	Default cLocal := GetTempPath()
 	If ::lCanUseBulk
 		::CloseBulk()
@@ -5613,17 +5615,18 @@ Method Save(cLocal) Class YExcel
 	::cLocalFile	:= cLocal
 	If ::lArquivo
 		If ValType(::oC)=="O"
-			::oC:GetTag(@::nFileTmpRow,.T.)
+			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
 			::oC	:= nil
 		EndIf
 		If ValType(::oRow)=="O"
-			FWRITE(::nFileTmpRow,"</row>")
+			::oFile:Write("</row>")
 			FreeObj(::oRow)
 			::oRow	:= nil
 		EndIf
-		If ::nFileTmpRow<>0
-			fClose(::nFileTmpRow)
+		If ValType(::oFile)=="O"
+			::oFile:Close()
+			::oFile	:= nil
 		EndIf
 	Endif
 	If !Empty(::cLocalFile)
@@ -5648,6 +5651,11 @@ Method Save(cLocal) Class YExcel
 			UserException("YExcel - Erro ao limpar celulas vazias celulas. "+TCSqlError())
 		EndIf
 	EndIf
+	
+	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\")
+	//FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops")
+	MakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps",,.F.)
+	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl")
 
 	If ::lMemoria
 		If ::osharedStrings:XPathGetAtt("\xmlns:sst","count")=="0"
@@ -5673,19 +5681,18 @@ Method Save(cLocal) Class YExcel
 			If aScan(::aFiles,{|x| "SHAREDSTRINGS.XML" $ UPPER(x)})==0
 				AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 			Endif
-			::CriarFile("\"+::cNomeFile+"\xl"				,"sharedStrings.xml"	,""						,.F.)
-			GravaFile(@nFile,"","\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl","sharedStrings.xml")
-			::xls_sharedStrings(nFile)
+			oFile	:= FWFileWriter():New("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml",.T.)
+			oFile:SetCaseSensitive(.T.)
+			If !oFile:Create()
+				WarnLogMsg(oFile:Error():MESSAGE)
+			EndIf
+			::xls_sharedStrings(oFile)
+			oFile:Close()
+			oFile	:= nil
 			::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
-			fClose(nFile)
-			nFile	:= nil
 		EndIf
 	EndIf
 
-	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\")
-	//FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops")
-	MakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps",,.F.)
-	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl")
 	::ocontent_types:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[content_types].xml")
 	FRename( "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[content_types].xml", "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\[Content_Types].xml", , .F. )
 	::oapp:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps\app.xml")
@@ -5779,7 +5786,9 @@ Method Save(cLocal) Class YExcel
 		FreeObj(oXmlSheet)
 
 		If !::lMemoria
-			nHDestino	:= FCreate("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],FO_READWRITE + FO_SHARED,,.F.)
+			oFile		:= FWFileWriter():New("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],.T.)
+			oFile:SetCaseSensitive(.T.)
+			oFile:Create()
 			nHOrigem	:= FOpen("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2],FO_READWRITE + FO_SHARED)
 			If ::lArquivo
 				nHTmp		:= FOpen("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml",FO_READWRITE + FO_SHARED)
@@ -5806,8 +5815,7 @@ Method Save(cLocal) Class YExcel
 				Endif
 				If !lSheetDataOk .and. nPos>0
 					lSheetDataOk	:= .T.
-					nBytesSalvo := FWRITE(nHDestino, SubStr(cBuffer,1,nPos-1))
-					//FWRITE(nHDestino, "<sheetData>")
+					oFile:Write(SubStr(cBuffer,1,nPos-1))
 					cBuftmp := SPACE(1024)
 					If ::lArquivo
 						While nBytTmp > 0
@@ -5818,7 +5826,7 @@ Method Save(cLocal) Class YExcel
 								" bytes a LER." + Str(nBLidostmp,8,2) + " bytes Lidos." + "Ferror = " + str(ferror(),4))
 								Exit
 							Endif
-							FWRITE(nHDestino, cBuftmp)
+							oFile:Write(cBuftmp)
 							nBytTmp -= nBLidostmp
 						EndDo
 					Else
@@ -5840,7 +5848,7 @@ Method Save(cLocal) Class YExcel
 								cBuffer2	+= ' ht="'+cValToChar((::cAliasLin)->HT)+'"'
 							Endif
 							cBuffer2	+= ">"
-							FWRITE(nHDestino, cBuffer2)
+							oFile:Write(cBuffer2)
 							cBuffer2	:= ""
 							(::cAliasCol)->(DbSetOrder(1))
 							(::cAliasCol)->(DbSeek( Str(nCont,10)+Str(nLinha,10) ))	//Leitura das colunas
@@ -5874,49 +5882,29 @@ Method Save(cLocal) Class YExcel
 										cBuffer2	+= (::cAliasCol)->VLR
 									ElseIf (::cAliasCol)->TPVLR=="U"
 									Else
-										// cNumero		:= cValToChar((::cAliasCol)->VLRNUM)
-										// If (::cAliasCol)->VLRDEC<>0
-										// 	nPosPonto	:= At(".",cNumero)
-										// 	If nPosPonto==0
-										// 		cNumero	+= "."+Replicate("0",8)
-										// 	Else
-										// 		nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
-										// 		If nQtdTmp>0
-										// 			cNumero	+= Replicate("0",nQtdTmp)
-										// 		Endif
-										// 	Endif
-										// 	cNumero	+= cValToChar((::cAliasCol)->VLRDEC)
-										// Endif
-										// cBuffer2	+= cNumero
 										cBuffer2	+= cValToChar((::cAliasCol)->VLR)
 									Endif
 									cBuffer2	+= '</v>'
 								EndIf
 								cBuffer2	+= '</c>'
-								FWRITE(nHDestino, cBuffer2)
+								oFile:Write( cBuffer2)
 								(::cAliasCol)->(DbSkip())
 							EndDo
 							cBuffer2	:= nil
-							FWRITE(nHDestino, "</row>")
+							oFile:Write("</row>")
 							(::cAliasLin)->(DbSkip())
 						EndDo
 					EndIf
-					//FWRITE(nHDestino, "</sheetData>")
-					nBytesSalvo += FWRITE(nHDestino, SubStr(cBuffer,nPos+1))
-					nBytesSalvo += 1
+					oFile:Write( SubStr(cBuffer,nPos+1))
 				Else
-					nBytesSalvo := FWRITE(nHDestino, cBuffer,nBytesLer)
-				Endif
-				If nBytesSalvo < nBytesLer
-					UserException("Erro de gravação do Destino. " + Str(nBytesLer,8,2) +;
-					" bytes a SALVAR." + Str(nBytesSalvo,8,2) + " bytes gravados." + "Ferror = " + str(ferror(),4))
-					EXIT
+					oFile:Write(cBuffer)
 				Endif
 				// Elimina do Total do Arquivo a quantidade de bytes copiados
 				nBytesFalta -= nBytesLer
 			EndDo
 			FCLOSE(nHOrigem)
-			FCLOSE(nHDestino)
+			oFile:Close()
+			oFile	:= nil
 			FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
 			If ::lArquivo
 				FCLOSE(nHTmp)
@@ -5983,8 +5971,8 @@ Method Save(cLocal) Class YExcel
 	//Apaga arquivos temporarios listados
 	For nCont:=1 to Len(::aFiles)
 		If fErase(::aFiles[nCont],,.F.)<>0
-			ConOut(::aFiles[nCont])
-			ConOut("Ferror:"+cValToChar(ferror()))
+			WarnLogMsg(::aFiles[nCont])
+			WarnLogMsg("Ferror:"+cValToChar(ferror()))
 		Endif
 	Next
 
@@ -6004,6 +5992,10 @@ Method Save(cLocal) Class YExcel
 		::lDelSrv	:= .F.
 	Endif
 Return cArquivo2
+
+Static Function WarnLogMsg(cTexto)
+	FWLogMsg("WARN", "LAST"/*cTransactionId*/, "YEXCEL", ""/*cCategory*/, ""/*cStep*/,"" /*cMsgId*/, cTexto, /*nMensure*/, /*nElapseTime*/, /*aMessage*/)
+Return
 
 /*/{Protheus.doc} CpyPasta
 Copia pasta para o servidor
@@ -6080,17 +6072,17 @@ Static Function DelPasta(cCaminho)
 		If "D" $ aFiles[nCont][5]
 			DelPasta(cCaminho+"\"+aFiles[nCont][1])
 		Else
-//			ConOut("Deletando:"+cCaminho+"\"+aFiles[nCont][1])
+//			WarnLogMsg("Deletando:"+cCaminho+"\"+aFiles[nCont][1])
 			If fErase(cCaminho+"\"+aFiles[nCont][1],,.F.)<>0
-				ConOut(cCaminho+"\"+aFiles[nCont][1])
-				ConOut("Ferror:"+cValToChar(ferror()))
+				WarnLogMsg(cCaminho+"\"+aFiles[nCont][1])
+				WarnLogMsg("Ferror:"+cValToChar(ferror()))
 			Endif
 		Endif
 	Next
-//	ConOut("Apagando pasta:"+cCaminho)
+//	WarnLogMsg("Apagando pasta:"+cCaminho)
 	If !DirRemove(cCaminho,,.F.)
-		ConOut(cCaminho)
-		ConOut("Ferror:"+cValToChar(ferror()))
+		WarnLogMsg(cCaminho)
+		WarnLogMsg("Ferror:"+cValToChar(ferror()))
 	Endif
 Return
 //NÃO DOCUMENTAR
@@ -6684,12 +6676,12 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 	::aDadosBulk	:= aDadosBulk
 	If ::lArquivo
 		If ValType(::oC)=="O"		//Se tem uma celula criada, finaliza a criação da celula
-			::oC:GetTag(@::nFileTmpRow,.T.)
+			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
 			::oC	:= nil
 		EndIf
 		If ValType(::oRow)=="O"		//Se tem linha criada, finaliza a linha
-			FWRITE(::nFileTmpRow,"</row>")
+			::oFile:Write("</row>")
 			FreeObj(::oRow)
 			::oRow	:= nil
 			::nLinha++
@@ -6704,7 +6696,7 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 		EndIf
 	EndIf
 	If ::lArquivo
-		FSeek(::nFileTmpRow, 0, FS_END)
+		::oFile:goBottom()
 	EndIf
 Return ::aDadosBulk
 
@@ -6734,7 +6726,7 @@ Method SetBulkLine(oStyle) Class YExcel
 	//Local nStyle
 	If ::lArquivo
 		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
-		FWrite(::nFileTmpRow, cTexto, Len(cTexto))
+		::oFile:Write(cTexto)
 		//cTexto	:= ""
 		//If ValType(oStyle)!="U"
 		//	For nCont:=1 to Len(aValores)
@@ -6747,7 +6739,7 @@ Method SetBulkLine(oStyle) Class YExcel
 		//			nStyle	:= ::CreateStyle(nStyle,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
 		//		EndIf
 		//		cTexto	:= Eval(::aDadosBulk[1+nCont][1],cLinha,::xValor,aValores[nCont][2],nStyle,::aDadosBulk[1+nCont][5])
-		//		FWrite(::nFileTmpRow, cTexto, Len(cTexto))
+		//		::oFile:Write(cTexto)
 		//	Next
 		//Else
 			For nCont:=1 to Len(aValores)
@@ -6756,10 +6748,10 @@ Method SetBulkLine(oStyle) Class YExcel
 				::xValor	:= aValores[nCont][1]
 				::cCampo	:= ::aDadosBulk[nCont2][8]
 				cTexto		:= Eval(::aDadosBulk[nCont2][1],cLinha,::xValor,aValores[nCont][2],::aDadosBulk[nCont2][6],::aDadosBulk[nCont2][5],::aDadosBulk[nCont2][7])
-				FWrite(::nFileTmpRow, cTexto, Len(cTexto))
+				::oFile:Write(cTexto)
 			Next
 		//EndIf
-		FWrite(::nFileTmpRow, "</row>", Len("</row>"))
+		::oFile:Write("</row>")
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aValores)
 			nCont2		:= nCont+1
@@ -7083,12 +7075,12 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	// Local cnumfmtid
 	// Local aAtrr
 	// Local oDataTime
-	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
+	WarnLogMsg("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	PARAMTYPE 0	VAR cFile			AS CHARACTER
 	PARAMTYPE 1	VAR nPlanilha		AS NUMERIC		OPTIONAL DEFAULT 1
 	cFile	:= Alltrim(cFile)
 	If !File(cFile,,.F.)
-		ConOut("Arquivo nao encontrado!")
+		WarnLogMsg("Arquivo nao encontrado!")
 		Return .F.
 	Endif
 	If ValType(cRootPath)=="U"
@@ -7112,7 +7104,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 			WaitRunSrv('"'+cAr7Zip+'" x -tzip "'+cCamSrv+'" -o"'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'" * -r -y',.T.,"C:\")
 			If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml",,.F.)
 				nRet	:= -1
-				ConOut("Arquivo nao descompactado!")
+				WarnLogMsg("Arquivo nao descompactado!")
 				Return .F.
 			Else
 				nRet	:= 0
@@ -7121,8 +7113,8 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 			nRet	:= StartJob("FUnZip",GetEnvServer(),.T.,cCamLocal,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		Endif
 		If nRet!=0
-			ConOut(Ferror())
-			ConOut("Arquivo nao descompactado!")
+			WarnLogMsg(Ferror())
+			WarnLogMsg("Arquivo nao descompactado!")
 			Return .F.
 		Endif
 		oXml	:= TXmlManager():New()
@@ -7175,7 +7167,7 @@ Retorna o valor de uma celula, após o uso do método OpenRead()
 // Method CellRead(nLinha,nColuna,xDefault,lAchou,cOutro) Class YExcel
 // 	Local cRef	:= ::Ref(nLinha,nColuna)
 // 	Local xValor:= Nil
-// 	// ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
+// 	// WarnLogMsg("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 // 	Default cOutro	:= ""
 // 	lAchou	:= .T.
 // 	If !::oCell:Get(cRef+cOutro,@xValor)
@@ -7244,7 +7236,7 @@ Limpa a pasta temporaria
 @type method
 /*/
 METHOD CloseRead() Class YExcel
-	ConOut("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
+	WarnLogMsg("[Warning] Method deprecated, see https://github.com/saulogm/advpl-excel/wiki/Exemplo-ler-planilha")
 	::oString:clean()
 	FreeObj(::oCell)
 	::nQtdString := 0
@@ -7434,16 +7426,16 @@ Method GetAtributo(cAtributo,cDefault) Class YExcelTag
 	Endif
 Return cDefault
 
-Method GetTag(nFile,lFechaTag,lSoValor) Class YExcelTag
+Method GetTag(oFile,lFechaTag,lSoValor) Class YExcelTag
 	Local cRet	:= ""
 	Local nCont
 	Local aListAtt
 	Default lFechaTag	:= .T.
 	Default lSoValor	:= .F.
-	If ValType(nFile)<>"U"	//Gravação direto no arquivo
+	If ValType(oFile)<>"U"	//Gravação direto no arquivo
 		If lSoValor
 			cRet	+= VarTipo(::xValor)
-			FWrite(nFile, cRet, Len(cRet))
+			oFile:Write(cRet)
 		Else
 			cRet	+= '<'+::cNome
 			::oAtributos:List(@aListAtt)
@@ -7463,7 +7455,7 @@ Method GetTag(nFile,lFechaTag,lSoValor) Class YExcelTag
 					cRet	+= '</'+::cNome+'>'
 				Endif
 			Endif
-			FWrite(nFile, cRet, Len(cRet))
+			oFile:Write(cRet)
 		Endif
 	Else
 		If lSoValor
@@ -8965,17 +8957,17 @@ Cria arquivo /xl/sharedStrings.xml
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
-@param nFile, numeric, header do arquivo
+@param oFile, object, objeto para gravação de dados
 @type method
 /*/
-Method xls_sharedStrings(nFile) Class YExcel
+Method xls_sharedStrings(oFile) Class YExcel
 	Local nTam
 	Local cRet	:= ""
 	Local cTexto
 	nTam	:= ::nQtdString
 	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	cRet	+= '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+cValToChar(nTam)+'" uniqueCount="'+cValToChar(nTam)+'">'
-	FWRITE(nFile,cRet)
+	oFile:Write(cRet)
 	cRet	:= ""
 
 	(::cAliasStr)->(DbSetOrder(2))	//POS
@@ -8985,12 +8977,12 @@ Method xls_sharedStrings(nFile) Class YExcel
 		cTexto	:= AjusEncode((::cAliasStr)->VLRMEMO)
 		cRet	+= '<t xml:space="preserve"><![CDATA['+cTexto+']]></t>'
 		cRet	+= '</si>'
-		FWRITE(nFile,cRet)
+		oFile:Write(cRet)
 		cRet	:= ""
 		(::cAliasStr)->(DbSkip())
 	EndDo
 	cRet	+= '</sst>'
-	FWRITE(nFile,cRet)
+	oFile:Write(cRet)
 	cRet	:= ""
 Return cRet
 /*/{Protheus.doc} YExcel::Read_sharedStrings
