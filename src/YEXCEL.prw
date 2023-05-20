@@ -130,6 +130,8 @@ Class YExcel
 	Data oC
 	Data oRow
 
+	Data cPathsheetData
+
 	METHOD New() CONSTRUCTOR
 	METHOD ClassName()
 
@@ -217,6 +219,8 @@ Class YExcel
 	METHOD Pane()			//Congelar Painéis
 	METHOD CriaDB()			//Cria base de dados interna
 	METHOD ExecSql()		//Executa comandos sql
+	Method NewLinhaM()		//Busca caminho da linha se não existe cria
+	Method NewColunaM()		//Busca caminho da celula se não existe cria
 
 	//Estilo
 	METHOD CorPreenc()		//Cria um nova cor para ser usada
@@ -297,6 +301,7 @@ Construtor da classe
 /*/
 METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	Local nPos
+	Local aChildren
 	Local oTabTmp
 	Local oBulk
 	Local aStruct,aIndex
@@ -360,7 +365,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	AADD(::aCleanObj,::oChaves)
 
 	//CRIAR ESTRUTURA DO BANCO
-	If ::lBD
+	If ::lBD .AND. Empty(cFileOpen)
 		If TYPE("__TTSInUse")=="U"
 			CriaPublica()
 		Endif
@@ -465,6 +470,15 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,"sharedstrings.rels")	//Ler todos sharedstrings
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile)
 		LerChvStys(::self)
+		
+		aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet")
+		nPos	:= aScan(aChildren,{|x| lower(x[1])=="sheetdata"})
+		If nPos>0
+			::cPathsheetData	:= aChildren[nPos][2]
+		Else
+			::cPathsheetData	:= "/xmlns:worksheet/xmlns:sheetData"
+		EndIf
+
 		//If aScan(::aFiles,{|x| lower(x)=="\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedstrings.xml"})==0
 			//AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 			//nPos	:= aScan(::aRels,{|x| x[2]=="\xl\_rels\workbook.xml.rels"})
@@ -655,11 +669,18 @@ METHOD ADDPlan(cNome,cCor) Class YExcel
 	::asheet[nQtdPlanilhas][1]:XPathAddNode( "/xmlns:worksheet/xmlns:sheetPr", "pageSetUpPr", "" )
 	::asheet[nQtdPlanilhas][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:sheetPr/xmlns:pageSetUpPr", "fitToPage"	, "1")	//Flag indicating whether the Fit to Page print option is enabled. pag 1675
 
+	aChildren	:= ::asheet[nQtdPlanilhas][1]:XPathGetChildArray("/xmlns:worksheet")
+	nPos	:= aScan(aChildren,{|x| lower(x[1])=="sheetdata"})
+	If nPos>0
+		::cPathsheetData	:= aChildren[nPos][2]
+	Else
+		::cPathsheetData	:= "/xmlns:worksheet/xmlns:sheetData"
+	EndIf
 
 	//Adiciona dentro do workbooks o relacionamento na planilha
 	cID	:= ::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
 
-	AADD(::aPlanilhas,{cID,cNome,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{},,self)/*tableParts*/,tHashMap():new()})
+	AADD(::aPlanilhas,{cID,cNome,/*3-id draw*/,/*4-drawsID*/,{}/*5-atable*/,yExcelTag():New("tableParts",{},,self)/*6-tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/})
 	::nPlanilhaAt	:= nQtdPlanilhas
 	::SetFooter("TOTVS","","Página &P/&N")
 
@@ -690,6 +711,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 	Local nCont2
 	Local aChildren,aChildren2
 	Local nContChild,nContChil2
+	Local nRefLinha
 	//Local nContLn
 	//Local nContCol
 	//Local cStyle
@@ -744,18 +766,21 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					::xls_sheet(cCaminho+"\"+cCamSheet,cArqSheet)
 					fErase(cCaminho+"\"+cCamSheet)
 
-					AADD(::aPlanilhas,{cID,cName,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{})/*tableParts*/,tHashMap():new()})
+					AADD(::aPlanilhas,{cID,cName,/*id draw*/,/*drawsID*/,{}/*atable*/,yExcelTag():New("tableParts",{})/*tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/})
 					AADD(::aFiles,cCaminho+"\"+cCamSheet)
 					::nPlanilhaAt	:= Len(::aPlanilhas)
 					SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetPr", "codeName"	, cName)
 
 					//Preenche o HashMap das linhas e colunas
-					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData")
+					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData")	//Linhas
+					::aPlanilhas[::nPlanilhaAt][8]	:= Len(aChildren)	//Quantidade de linhas
 					For nContChild:=1 to Len(aChildren)
-						::aPlanilhas[::nPlanilhaAt][7]:Set(Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nContChild][2],"r")),1)
-						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2])
+						nRefLinha	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nContChild][2],"r"))
+						::aPlanilhas[::nPlanilhaAt][7]:Set(nRefLinha,aChildren[nContChild][2])
+						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2])			//Colunas
+						::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(nRefLinha),Len(aChildren2))	//Quantidade de coluna da linha
 						For nContChil2:=1 to Len(aChildren2)
-							::aPlanilhas[::nPlanilhaAt][7]:Set(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren2[nContChil2][2],"r"),1)
+							::aPlanilhas[::nPlanilhaAt][7]:Set(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren2[nContChil2][2],"r"),aChildren2[nContChil2][2])
 						Next
 					Next
 
@@ -1040,8 +1065,8 @@ Static Function LerChvStys(oSelf)
 			Endif
 		Next
 		cChave	+= "}"
-		::oChaves["STYLEID   "+cValToChar(nCont-1)]	:= cChave
-		::oChaves["STYLE     "+cChave]				:= nCont-1
+		oSelf:oChaves["STYLEID   "+cValToChar(nCont-1)]	:= cChave
+		oSelf:oChaves["STYLE     "+cChave]				:= nCont-1
 	Next
 
 	For nCont:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:fills")
@@ -1056,7 +1081,7 @@ Static Function LerChvStys(oSelf)
 			cChave	+= oSelf:oStyle:XPathGetAtt( cLocal+"/xmlns:fills/xmlns:fill["+cValToChar(nCont)+"]/xmlns:patternFill", "patternType")
 			cChave	+= "|"
 			cChave	+= cLocal+"/xmlns:fills"
-			nPos	:= ::oChaves["CORPREENC "+cChave]	:= nCont-1
+			nPos	:= oSelf:oChaves["CORPREENC "+cChave]	:= nCont-1
 		ElseIf oSelf:oStyle:XPathHasNode( cLocal+"/xmlns:fill["+cValToChar(nCont)+"]/xmlns:gradientFill")
 			aCores	:= {}
 			For nCont2:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:fills/xmlns:gradientFill["+cValToChar(nCont)+"]")
@@ -1111,7 +1136,7 @@ Static Function LerChvStys(oSelf)
 		cChave	+= If(oSelf:oStyle:XPathHasNode( cLocal+"/xmlns:fonts/xmlns:font["+cValToChar(nCont)+"]/xmlns:strike"),".T.",".F.")
 		cChave	+= "|"
 		cChave	+= cLocal+"/xmlns:fonts"
-		nPos	:= ::oChaves["FONTE     "+cChave]	:= nCont-1
+		nPos	:= oSelf:oChaves["FONTE     "+cChave]	:= nCont-1
 	Next
 	For nCont:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:borders")
 		cChave	:= ""
@@ -1141,7 +1166,7 @@ Static Function LerChvStys(oSelf)
 		cChave	+= oSelf:oStyle:XPathGetAtt( cLocal+"/xmlns:borders/xmlns:border["+cValToChar(nCont)+"]/xmlns:diagonal/xmlns:color", "indexed")
 		cChave	+= "|"
 		cChave	+= cLocal+"/xmlns:borders"
-		nPos	:= ::oChaves["BORDER    "+cChave]	:= nCont-1
+		nPos	:= oSelf:oChaves["BORDER    "+cChave]	:= nCont-1
 	Next
 
 Return
@@ -1182,6 +1207,7 @@ Infoma a planilha de alteração
 METHOD SetPlanAt(xPlan) Class YExcel
 	Local nPos
 	Local lOk	:= .T.
+	Local aChildren
 	If ValType(xPlan)=="N"
 		If xPlan>Len(::aPlanilhas)
 			lOk := .F.
@@ -1197,6 +1223,13 @@ METHOD SetPlanAt(xPlan) Class YExcel
 			::cPlanilhaAt	:= ::aPlanilhas[::nPlanilhaAt][2]
 		Endif
 	Endif
+	aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet")
+	nPos		:= aScan(aChildren,{|x| lower(x[1])=="sheetdata"})
+	If nPos>0
+		::cPathsheetData	:= aChildren[nPos][2]
+	Else
+		::cPathsheetData	:= "/xmlns:worksheet/xmlns:sheetData"
+	EndIf
 Return lOk
 /*/{Protheus.doc} GetPlanAt
 Retorna Indice da planilha ou nome da planilha
@@ -1702,6 +1735,7 @@ Definir altura das llinhas. Se não enviado linha de/ate, considerar as próximas 
 Method SetRowH(nHeight,nLinha,nLinha2) Class YExcel
 	Local cCHeight	:= "1"
 	Local nCont
+	Local cPathLinha
 	PARAMTYPE 0	VAR nHeight			AS NUMERIC			OPTIONAL
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC			OPTIONAL
 	PARAMTYPE 2	VAR nLinha2			AS NUMERIC			OPTIONAL	DEFAULT nLinha
@@ -1713,21 +1747,21 @@ Method SetRowH(nHeight,nLinha,nLinha2) Class YExcel
 			nHeight		:= 0
 		Endif
 		
-		//Inserir linhas que não existe para definir o tamanho
-		::InsertRowEmpty(nLinha,nLinha2)
 
 		If ::lMemoria
 			For nCont:=nLinha to nLinha2
-				cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']"
+				cPathLinha := ::NewLinhaM(nCont)
 				If ValType(nHeight)=="U"
-					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cxpath,"customHeight")
-					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cxpath,"ht")
+					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"customHeight")
+					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"ht")
 				Else
-					SetAtrr(::asheet[::nPlanilhaAt][1],cxpath,"customHeight",cCHeight)
-					SetAtrr(::asheet[::nPlanilhaAt][1],cxpath,"ht",cValToChar(nHeight))
+					SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"customHeight",cCHeight)
+					SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"ht",cValToChar(nHeight))
 				EndIf
 			Next 
 		Else
+			//Inserir linhas que não existe para definir o tamanho
+			::InsertRowEmpty(nLinha,nLinha2)
 			If !::ExecSql("","UPDATE "+::cTabLin+" SET CHEIGHT='"+cCHeight+"',HT="+cValToChar(nHeight)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" ",::cDriver)
 				UserException("YExcel - 2 Erro ao atualiza tamanho das linhas. "+TCSqlError())
 			Endif
@@ -1753,11 +1787,7 @@ Method InsertRowEmpty(nLinha,nLinha2) Class YExcel
 		UserException("YExcel - Não é possível adicionar linhas na criação direta com arquivo")
 	ElseIf ::lMemoria
 		For nCont:=nLinha to nLinha2
-			If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']")
-				::aPlanilhas[::nPlanilhaAt][7]:Set(nCont,1)
-				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(nCont))
-			EndIf
+			::NewLinhaM(nCont)
 		Next
 	Else
 		If "SQLITE" $ ::cDriver
@@ -1805,6 +1835,8 @@ Method InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	Local cUpdate
 	Local cRef
 	Local nCont,nCont2
+	Local cPathLinha
+	Local cPathColuna
 	// Local lUpdate		:= .F.
 	Default nLinha2		:= nLinha
 	Default nColuna2	:= nColuna
@@ -1815,18 +1847,16 @@ Method InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	If ::lArquivo
 		UserException("YExcel - Não é possível adicionar linhas na criação direta com arquivo")
 	Else
-		::InsertRowEmpty(nLinha,nLinha2)
 		If ::lMemoria
 			For nCont:=nLinha to nLinha2
+				cPathLinha	:= ::NewLinhaM(nCont)
 				For nCont2:=nColuna to nColuna2
 					cRef	:= ::Ref(nCont,nCont2)
-					If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']/xmlns:c[@r='"+cRef+"']")
-						::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","c","")
-						::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']/xmlns:c[last()]","r",cRef)
-					EndIf
+					cPathColuna	:= ::NewColunaM(cRef,nLinha)
 				Next
 			Next
 		Else
+			::InsertRowEmpty(nLinha,nLinha2)
 			If "SQLITE" $ ::cDriver
 				cQuery	:= "INSERT INTO "+::cTabCol+" (PLA,LIN,COL,TIPO,TPSTY,TPVLR,STY)"+;
 					" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
@@ -1911,7 +1941,9 @@ Method SetValue(xValor,cFormula) Class YExcel
 	Local nStyAtu
 	Local cStyAtu
 	Local oTmpObj
-	Local nOk
+	Local cPathLinha	//Caminho da linha
+	Local cPathColuna	//Caminho da Coluna
+	Local nCQtd			//Quantidade de "c" na linha
 	//Local cTmpVar
 	If ::nLinha<=0 .OR. ::nColuna<=0
 		Return self
@@ -1972,79 +2004,80 @@ Method SetValue(xValor,cFormula) Class YExcel
 		EndIf
 	ElseIf ::lMemoria
 		//Criar Linha
-		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::nLinha,@nOk)//!::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']")
-			::aPlanilhas[::nPlanilhaAt][7]:Set(::nLinha,1)
-			//cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r")
-			//If ::nLinha<Val(cTmpVar)
-			//	UserException("YExcel - Impossível criar linha("+::cRef+"). A ultima linha criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
-			//EndIf
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(::nLinha))
+		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::nLinha,@cPathLinha)
+			::aPlanilhas[::nPlanilhaAt][8]	+= 1
+			cPathLinha	:= ::cPathsheetData+"/*["+cValToChar(::aPlanilhas[::nPlanilhaAt][8])+"]"
+			::aPlanilhas[::nPlanilhaAt][7]:Set(::nLinha,cPathLinha)
+			::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(::nLinha),0)	//Quantidade de colunas da linha
+
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(::cPathsheetData,"row","")
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"r",cValToChar(::nLinha))
 			If ValType(::nRowoutlineLevel)=="N"
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","outlineLevel",cValToChar(::nRowoutlineLevel))
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"outlineLevel",cValToChar(::nRowoutlineLevel))
 			EndIf
 			If ::lRowcollapsed
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","collapsed","1")
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"collapsed","1")
 			EndIf
 			If ::lRowhidden
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","hidden","1")
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"hidden","1")
 			EndIf
 			If ValType(::nTamLinha)=="N"
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","customHeight","1")
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","ht",cValToChar(::nTamLinha))
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"customHeight","1")
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"ht",cValToChar(::nTamLinha))
 			EndIf
 		EndIf
 		//cRef	:= ::Ref(::nLinha,::nColuna)
 		//Criar Coluna
-		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::cRef,@nOk)//!::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']")
-			::aPlanilhas[::nPlanilhaAt][7]:Set(::cRef,1)
-			//cTmpVar	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r")
-			//If ::nColuna<::LocRef(cTmpVar)[2]
-			//	UserException("YExcel - Impossível criar coluna("+::cRef+"). A ultima coluna criado foi "+cTmpVar+". Seguir ordem crecente de criação!")
-			//EndIf
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']","c","")
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[last()]","r",::cRef)
+		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::cRef,@cPathColuna)
+			::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(::nLinha),@nCQtd)
+			nCQtd++
+			cPathColuna	:= cPathLinha+"/*["+cValToChar(nCQtd)+"]"
+			::aPlanilhas[::nPlanilhaAt][7]:Set(::cRef,cPathColuna)
+			::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(::nLinha),nCQtd)	//Quantidade de colunas da linha
+
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathLinha,"c","")
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"r",::cRef)
 		Else
-			::asheet[::nPlanilhaAt][1]:XPathDelAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","t")
-			While ::asheet[::nPlanilhaAt][1]:XPathDelNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']/*[1]")
+			::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathColuna,"t")
+			While ::asheet[::nPlanilhaAt][1]:XPathDelNode(cPathColuna+"/*[1]")
 			EndDo
 		EndIf
 		If ValType(cFormula)!="U"
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","f",cFormula)
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"f",cFormula)
 		EndIf
 		If cTipo=="C"
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","t","inlineStr")
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","is","")
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"t","inlineStr")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"is","")
 
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']/xmlns:is","t",AjusEncode(xValor))
-			//::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']/xmlns:is/xmlns:t","xml:space","preserve")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna+"/xmlns:is","t",AjusEncode(xValor))
+			//::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha+"/xmlns:c[@r='"+::cRef+"']/xmlns:is/xmlns:t","xml:space","preserve")
 		ElseIf cTipo=="L"
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","t","b")
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","v",if(xValor,"1","0"))
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"t","b")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",if(xValor,"1","0"))
 		ElseIf cTipo=="N"
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","v",cValToChar(xValor))
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",cValToChar(xValor))
 		ElseIf cTipo=="D"
 			If !Empty(xValor)
-				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","v",cValToChar(xValor-STOD("19000101")+2))
+				::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",cValToChar(xValor-STOD("19000101")+2))
 			Else
-				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","v","")
+				::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v","")
 			EndIf
-			cStyAtu 	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","s")
+			cStyAtu 	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 			If ValType(cStyAtu)!="U" .AND. !::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","s",cValToChar(::CreateStyle(Val(cStyAtu),14)))
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::CreateStyle(Val(cStyAtu),14)))
 			ElseIf ValType(cStyAtu)=="U"
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","s",cValToChar(::aPadraoSty[2]))
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::aPadraoSty[2]))
 			EndIf
 		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","v",xValor:GetStrNumber())
-			cStyAtu 	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","s")
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",xValor:GetStrNumber())
+			cStyAtu 	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 			If ValType(cStyAtu)!="U" .AND. !::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","s",cValToChar(::CreateStyle(Val(cStyAtu),::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))) )
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::CreateStyle(Val(cStyAtu),::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))) )
 			ElseIf ValType(cStyAtu)=="U"
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","s",cValToChar(::aPadraoSty[3]))
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::aPadraoSty[3]))
 			EndIf
 		Else
-			::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::cRef+"']","v",Transform(xValor,""))
+			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",Transform(xValor,""))
 		EndIf
 	Else
 		Default cFormula	:= ""
@@ -2203,6 +2236,42 @@ Method GetStrComp(xTexto,lAchou) Class YExcel
 Return xRet
 
 //NÃO DOCUMENTAR
+//Caminho da linha ou nova linha
+Method NewLinhaM(nLinha) Class YExcel
+	Local cPathLinha
+	Default nLinha	:= ::nLinha
+	If !::aPlanilhas[::nPlanilhaAt][7]:Get(nLinha,@cPathLinha)
+		::aPlanilhas[::nPlanilhaAt][8]	+= 1
+		cPathLinha	:= ::cPathsheetData+"/*["+cValToChar(::aPlanilhas[::nPlanilhaAt][8])+"]"
+		::aPlanilhas[::nPlanilhaAt][7]:Set(nLinha,cPathLinha)
+		::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(nLinha),0)	//Quantidade de colunas da linha
+
+		::asheet[::nPlanilhaAt][1]:XPathAddNode(::cPathsheetData,"row","")
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"r",cValToChar(nLinha))
+	Endif
+Return cPathLinha
+
+Method NewColunaM(cRef,nLinha) Class YExcel
+	Local cPathColuna
+	Local nCQtd
+	Default cRef	:= ::cRef
+	Default nLinha	:= ::nLinha
+	If !::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(nLinha),@nCQtd)
+		If ValType(nCQtd)=="U"
+			::NewLinhaM(nLinha)
+			::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(nLinha),@nCQtd)
+		EndIf
+		nCQtd++
+		cPathColuna	:= cPathLinha+"/*["+cValToChar(nCQtd)+"]"
+		::aPlanilhas[::nPlanilhaAt][7]:Set(cRef,cPathColuna)
+		::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(nLinha),nCQtd)	//Quantidade de colunas da linha
+
+		::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathLinha,"c","")
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"r",cRef)
+	EndIf
+Return cPathColuna
+//NÃO DOCUMENTAR
 Static cStrtmp	:= GetNextAlias()
 Method SetStrComp(xTexto) Class YExcel
 	Local nPos
@@ -2333,6 +2402,7 @@ Retorna a Formula de uma celula
 /*/
 Method Getformula() Class YExcel
 	Local oFormula
+	Local cPathColuna
 	If ::lArquivo
 		oFormula	:= ::oC:GetValor("f")
 		If ValType(oFormula)=="O"
@@ -2341,7 +2411,9 @@ Method Getformula() Class YExcel
 			Return oFormula
 		EndIf
 	ElseIf ::lMemoria
-		Return ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(::nLinha)+"']/xmlns:c[@r='"+::Ref(::nLinha,::nColuna)+"']","f")
+		If ::aPlanilhas[::nPlanilhaAt][7]:Get(::cRef,@cPathColuna)
+			Return ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna,"f")
+		EndIf
 	Else
 		If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)+Str(::nColuna,10)))	//Coluna
 			Return Rtrim((::cAliasCol)->FORMULA)
@@ -2352,6 +2424,7 @@ Return ""
 METHOD ColTam(nLinha,nLinha2)	Class YExcel		//Coluna Mínima e Máxima
 	Local cQuery
 	Local cAliasQry
+	Local cPathLinha
 	Local nMin		:= 0
 	Local nMax		:= 0
 	//Local nCont
@@ -2363,12 +2436,19 @@ METHOD ColTam(nLinha,nLinha2)	Class YExcel		//Coluna Mínima e Máxima
 		UserException("YExcel - Erro ao obter dados max e min colunas para arquivos. ")
 	EndIf
 	If ::lMemoria
-		cQuery	:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r>='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"']"
-		If ::asheet[::nPlanilhaAt][1]:XPathHasNode(cQuery)
-			nMin	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cQuery+"/xmlns:c[1]","r"))[2]
-			nMax	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cQuery+"/xmlns:c[last()]","r"))[2]
+		If nLinha==nLinha2
+			If ::aPlanilhas[::nPlanilhaAt][7]:Get(nLinha,@cPathLinha)
+				nMin	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathLinha+"/xmlns:c[1]","r"))[2]
+				nMax	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathLinha+"/xmlns:c[last()]","r"))[2]
+			EndIf
+		Else
+			cQuery	:= ::cPathsheetData+"/xmlns:row[@r>='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"']"
+			If ::asheet[::nPlanilhaAt][1]:XPathHasNode(cQuery)
+				nMin	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cQuery+"/xmlns:c[1]","r"))[2]
+				nMax	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cQuery+"/xmlns:c[last()]","r"))[2]
+			EndIf
 		EndIf
-		/*cQuery	:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row"
+		/*cQuery	:= ::cPathsheetData+"/xmlns:row"
 		If ValType(nLinha)=="N"
 			cQuery	+= "[@r>='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"']"
 		EndIf
@@ -2410,11 +2490,11 @@ METHOD LinTam(nColuna,nColuna2)	Class YExcel		//Linha Mínima e Máxima
 		UserException("YExcel - Erro ao obter dados max e min linhas para arquivos. ")
 	EndIf
 	If  ::lMemoria
-		If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[1]")
-			nMin	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[1]","r"))
-			nMax	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r"))
+		If ::asheet[::nPlanilhaAt][1]:XPathHasNode(::cPathsheetData+"/xmlns:row[1]")
+			nMin	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(::cPathsheetData+"/xmlns:row[1]","r"))
+			nMax	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(::cPathsheetData+"/xmlns:row[last()]","r"))
 		Endif
-		/*cQuery	:= "/xmlns:worksheet/xmlns:sheetData"
+		/*cQuery	:= ::cPathsheetData
 		aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cQuery)
 		For nCont:=1 to Len(aChildren)
 			cRef	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r")
@@ -2446,43 +2526,62 @@ Return {nMin,nMax}
 
 Method GetString(nLinha,nColuna,cTipo) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
-	Local cRet
-	Default cTipo	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']","t")
-	If cTipo=="s"
-		xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
-		xRet	:= ::osharedStrings:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(Val(xRet)+1)+"]")
-	Else
-		cRet := ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:is/xmlns:t")
-	Endif
+	Local cRet	:= ""
+	Local cPathColuna
+	If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		Default cTipo	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"t")
+		If cTipo=="s"
+			xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
+			xRet	:= ::osharedStrings:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(Val(xRet)+1)+"]")
+		Else
+			cRet := ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:is/xmlns:t")
+		Endif
+	EndIf
 Return cRet
 
 Method GetNumber(nLinha,nColuna) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
-	Local nRet	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v"))
+	Local cPathColuna
+	Local nRet	:= 0
+	If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		nRet	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v"))
+	EndIf
 Return nRet
 
 Method GetBoolean(nLinha,nColuna) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
-	Local nRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")=="1"
-Return nRet
+	Local cPathColuna
+	Local lRet	:= .F.
+	If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		lRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")=="1"
+	EndIf
+Return lRet
 
 Method GetDate(nLinha,nColuna) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
-	Local xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
-	If Empty(xRet)
-		xRet	:= CTOD("")
-	Else
-		xRet	:= STOD("19000101")-2+Val(xRet)
-	Endif
+	Local cPathColuna
+	Local xRet	:= CTOD("")
+	If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
+		If !Empty(xRet)
+			xRet	:= STOD("19000101")-2+Val(xRet)
+		Endif
+	EndIf
 Return xRet
 
 Method GetDtTime(nLinha,nColuna) Class YExcel
 	Local cRef	:= ::Ref(nLinha,nColuna)
+	Local cPathColuna
 	Local oDataTime
-	Local xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
-	oDataTime	:= yExcel_DateTime():New(,,xRet)
-	xRet		:= {oDataTime:GetDate(),oDataTime:GetTime()}
-	FreeObj(oDataTime)
+	Local xRet
+	If !::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
+		oDataTime	:= yExcel_DateTime():New(,,xRet)
+		xRet		:= {oDataTime:GetDate(),oDataTime:GetTime()}
+		FreeObj(oDataTime)
+	Else
+		xRet		:= {CTOD(""),"00:00:00"}
+	EndIf
 Return xRet
 
 /*/{Protheus.doc} GetValue
@@ -2504,6 +2603,7 @@ Method GetValue(nLinha,nColuna,xDefault,lAchou) Class YExcel
 	Local cTipo
 	Local cStyle
 	Local cStyleTp
+	Local cPathColuna
 	Default nLinha	:= ::nLinha
 	Default nColuna	:= ::nColuna
 	If ::lArquivo
@@ -2511,14 +2611,14 @@ Method GetValue(nLinha,nColuna,xDefault,lAchou) Class YExcel
 	EndIf
 	lAchou	:= .F.
 	If ::lMemoria
-		::asheet[::nPlanilhaAt][1]:ResetErrors()
+		//::asheet[::nPlanilhaAt][1]:ResetErrors()
 		//cRef	:= ::Ref(nLinha,nColuna)
-		If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']")
+		If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
 			lAchou	:= .T.
-			cTipo	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']","t")
+			cTipo	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"t")
 			If Empty(cTipo)
-				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
-				cStyle	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']","s")
+				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
+				cStyle	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 				If !Empty(cStyle)
 					cStyleTp	:= ::StyleType(Val(cStyle))
 					If cStyleTp=="N"
@@ -2538,17 +2638,17 @@ Method GetValue(nLinha,nColuna,xDefault,lAchou) Class YExcel
 					xRet	:= Val(xRet)
 				EndIf
 			ElseIf cTipo=="s"
-				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
+				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
 				xRet	:= ::osharedStrings:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(Val(xRet)+1)+"]")
 			ElseIf cTipo=="inlineStr"
-				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:is/xmlns:t")
+				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:is/xmlns:t")
 			ElseIf cTipo=="b"
-				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")=="1"
+				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")=="1"
 			//ElseIf cTipo=="d"
-			//	xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
+			//	xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
 
 			Else
-				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+cRef+"']/xmlns:v")
+				xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
 			EndIf
 		EndIf
 	Else
@@ -2686,6 +2786,7 @@ Defini o nível das linhas informadas (agrupamento de linhas)
 @param lFechado, logical, Se esse nível está fechado
 /*/
 Method SetRowLevel(nLinha,nLinha2,nNivel,lFechado) Class YExcel
+	Local cPathLinha
 	Local nCont			:= nLinha-1
 	Local lsummaryBelow	:= .T.		//Resumo abaixo
 	Local csummaryBelow	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetPr/xmlns:outlinePr","summaryBelow")
@@ -2702,48 +2803,39 @@ Method SetRowLevel(nLinha,nLinha2,nNivel,lFechado) Class YExcel
 	Endif
 	If ::lMemoria
 		If !lsummaryBelow .AND. lFechado .AND. nCont>0
-			If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']")
-				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(::nLinha))
-			Endif
+			cPathLinha	:= ::NewLinhaM(nCont)
 			If lFechado
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","collapsed","1")
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"collapsed","1")
 			Else
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","collapsed")
+				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"collapsed")
 			Endif
 		Endif
 		For nCont:=nLinha to nLinha2
-			If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']")
-				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(::nLinha))
-			Endif
+			cPathLinha	:= ::NewLinhaM(nCont)
 			If ValType(nNivel)=="N"
-				If nNivel>Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","outlineLevel"))
-					SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","outlineLevel",cValToChar(nNivel))
+				If nNivel>Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathLinha,"outlineLevel"))
+					SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"outlineLevel",cValToChar(nNivel))
 					(::cAliasLin)->OLEVEL	:= cValToChar(nNivel)
 					If !lFechado
-						::asheet[::nPlanilhaAt][1]:XPathDelAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","hidden")
+						::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"hidden")
 					EndIf
 				Endif
 			Else
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","outlineLevel")
+				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"outlineLevel")
 				If !lFechado
-					::asheet[::nPlanilhaAt][1]:XPathDelAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","hidden")
+					::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"hidden")
 				EndIf
 			Endif
 			If lFechado
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","hidden","1")
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"hidden","1")
 			EndIf
 		Next
 		If lsummaryBelow .AND. lFechado
-			If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']")
-				::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet/xmlns:sheetData","row","")
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","r",cValToChar(::nLinha))
-			Endif
+			cPathLinha	:= ::NewLinhaM(nCont)
 			If lFechado
-				SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nCont)+"']","collapsed","1")
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"collapsed","1")
 			Else
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[last()]","collapsed")
+				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathLinha,"collapsed")
 			Endif
 		Endif
 	Else
@@ -2864,6 +2956,7 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	Local nLin
 	Local nCol
 	Local cRet
+	Local cPathColuna
 	If nLinha2<nLinha
 		UserException("YExcel - metodo mergeCells. Linha final não pode ser menor que linha inicial.")
 	Endif
@@ -2907,10 +3000,12 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 
 	If !::lArquivo
 		If ::lMemoria
-			cStyAtu	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+::Ref(nLinha,nColuna)+"']","s")
-			If !Empty(cStyAtu)
-				::SetStyle(Val(cStyAtu),nLinha,nColuna,nLinha2,nColuna2)
-			Endif
+			If !::aPlanilhas[::nPlanilhaAt][7]:Get(::Ref(nLinha,nColuna),@cPathColuna)
+				cStyAtu	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
+				If !Empty(cStyAtu)
+					::SetStyle(Val(cStyAtu),nLinha,nColuna,nLinha2,nColuna2)
+				Endif
+			EndIf
 		Else
 			If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
 				If (::cAliasCol)->STY>=0	//Replicar estilo da primeira célula
@@ -3127,6 +3222,7 @@ METHOD AddFormatCond(cRefDe,cRefAte,nEstilo,cType,xFormula,operator,nPrioridade)
 			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", AjusEncode(cValToChar(xFormula)) )
 		Endif
 	Endif
+	::aPlanilhas[::nPlanilhaAt][9]	:= .T.	//Quando enviado formatação condicional é obrigatorio reorganizar o xml
 Return
 
 /*/{Protheus.doc} AddFont
@@ -4817,12 +4913,18 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 	Local aChildren
 	Local nCont
 	Local cxpath
+	Local cRef
+	Local cPathColuna
+	If ValType(nLinha)=="U".AND.ValType(nColuna)=="U"
+		cRef	:= ::cRef
+	Endif
 	PARAMTYPE 0	VAR xStyle			AS NUMERIC,ARRAY,OBJECT		OPTIONAL DEFAULT -1
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC					OPTIONAL DEFAULT ::nLinha
 	PARAMTYPE 2	VAR nColuna			AS NUMERIC					OPTIONAL DEFAULT ::nColuna
 	PARAMTYPE 3	VAR nLinha2			AS NUMERIC					OPTIONAL DEFAULT nLinha
 	PARAMTYPE 4	VAR nColuna2		AS NUMERIC					OPTIONAL DEFAULT nColuna
 	PARAMTYPE 5	VAR oC				AS OBJECT					OPTIONAL DEFAULT ::oC
+	Default cRef	:= ::Ref(nLinha,nColuna)
 	cTpAlte		:= ValType(xStyle)
 	If ::lArquivo
 		If nLinha<>nLinha2 .OR. nColuna<>nColuna2
@@ -4850,22 +4952,27 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 			If ::lArquivo
 				oC:SetAtributo("s",xStyle)
 			ElseIf ::lMemoria
-				cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
-				If nLinha==nLinha2
-					cxpath		+= "='"+cValToChar(nLinha)+"'"
+				If nLinha==nLinha2 .AND. nColuna==nColuna2
+					cPathColuna := ::NewColunaM(cRef,nLinha)
+					SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(xStyle))
 				Else
-					cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
-				EndIf
-				cxpath		+= "]"
-
-				aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cxpath)
-				For nCont:=1 to Len(aChildren)
-					aRef	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r"))
-					If !(aRef[2]>=nColuna .AND. aRef[2]<=nColuna2)
-						Loop
+					cxpath		:= ::cPathsheetData+"/xmlns:row[@r"
+					If nLinha==nLinha2
+						cxpath		+= "='"+cValToChar(nLinha)+"'"
+					Else
+						cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
 					EndIf
-					SetAtrr(::asheet[::nPlanilhaAt][1],aChildren[nCont][2],"s",cValToChar(xStyle))
-				Next
+					cxpath		+= "]"
+
+					aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cxpath)
+					For nCont:=1 to Len(aChildren)
+						aRef	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r"))
+						If !(aRef[2]>=nColuna .AND. aRef[2]<=nColuna2)
+							Loop
+						EndIf
+						SetAtrr(::asheet[::nPlanilhaAt][1],aChildren[nCont][2],"s",cValToChar(xStyle))
+					Next
+				EndIf
 			Else
 				If !::ExecSql("", "UPDATE "+::cTabCol+" SET STY="+cValToChar(xStyle)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND D_E_L_E_T_=' '", ::cDriver)
 					UserException("YExcel - Erro ao atualiza estilo ("+cValToChar(xStyle)+"). "+TCSqlError())
@@ -4886,21 +4993,9 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 				EndIf
 				oC:SetAtributo("s",nStyletmp)
 			ElseIf ::lMemoria
-				cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
-				If nLinha==nLinha2
-					cxpath		+= "='"+cValToChar(nLinha)+"'"
-				Else
-					cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
-				EndIf
-				cxpath		+= "]"
-
-				aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cxpath)
-				For nCont:=1 to Len(aChildren)
-					aRef	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r"))
-					If !(aRef[2]>=nColuna .AND. aRef[2]<=nColuna2)
-						Loop
-					EndIf
-					cStyAtu		:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"s")
+				If nLinha==nLinha2 .AND. nColuna==nColuna2
+					cPathColuna := ::NewColunaM(cRef,nLinha)
+					cStyAtu		:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 					nStyletmp	:= xStyle
 					If !Empty(cStyAtu)
 						lnumFmtId		:= ::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
@@ -4909,8 +5004,34 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 							nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
 						EndIf
 					EndIf
-					SetAtrr(::asheet[::nPlanilhaAt][1],aChildren[nCont][2],"s",cValToChar(nStyletmp))
-				Next
+					SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(nStyletmp))
+				Else
+					cxpath		:= ::cPathsheetData+"/xmlns:row[@r"
+					If nLinha==nLinha2
+						cxpath		+= "='"+cValToChar(nLinha)+"'"
+					Else
+						cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
+					EndIf
+					cxpath		+= "]"
+
+					aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cxpath)
+					For nCont:=1 to Len(aChildren)
+						aRef	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r"))
+						If !(aRef[2]>=nColuna .AND. aRef[2]<=nColuna2)
+							Loop
+						EndIf
+						cStyAtu		:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"s")
+						nStyletmp	:= xStyle
+						If !Empty(cStyAtu)
+							lnumFmtId		:= ::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
+							If lnumFmtId	//Tem fmtid
+								nNumFmtId	:= Val(::GetStyleAtt(Val(cStyAtu),"numFmtId"))
+								nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
+							EndIf
+						EndIf
+						SetAtrr(::asheet[::nPlanilhaAt][1],aChildren[nCont][2],"s",cValToChar(nStyletmp))
+					Next
+				EndIf
 			Else
 				cAliasQry := GetNextAlias()
 				//Verifica se tem celula com tipo datatime definido
@@ -4946,22 +5067,10 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 			Endif
 			oC:SetAtributo("s",nStyle)
 		ElseIf ::lMemoria
-			cxpath		:= "/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r"
-			If nLinha==nLinha2
-				cxpath		+= "='"+cValToChar(nLinha)+"'"
-			Else
-				cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
-			EndIf
-			cxpath		+= "]"
-
-			aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cxpath)
-			For nCont:=1 to Len(aChildren)
-				aRef	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r"))
-				If !(aRef[2]>=nColuna .AND. aRef[2]<=nColuna2)
-					Loop
-				EndIf
-				nStyle		:= xStyle:GetId(aRef[1],aRef[2])
-				cStyAtu		:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"s")
+			If nLinha==nLinha2 .AND. nColuna==nColuna2
+				cPathColuna := ::NewColunaM(cRef,nLinha)
+				nStyle		:= xStyle:GetId(nLinha,nColuna)
+				cStyAtu		:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 				nStyletmp	:= nStyle
 				If !Empty(cStyAtu)
 					lnumFmtId		:= ::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
@@ -4970,8 +5079,35 @@ METHOD SetStyle(xStyle,nLinha,nColuna,nLinha2,nColuna2,oC) Class YExcel
 						nStyletmp	:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
 					EndIf
 				EndIf
-				SetAtrr(::asheet[::nPlanilhaAt][1],aChildren[nCont][2],"s",cValToChar(nStyletmp))
-			Next
+				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(nStyletmp))
+			Else
+				cxpath		:= ::cPathsheetData+"/xmlns:row[@r"
+				If nLinha==nLinha2
+					cxpath		+= "='"+cValToChar(nLinha)+"'"
+				Else
+					cxpath		+= ">='"+cValToChar(nLinha)+"' and @r<='"+cValToChar(nLinha2)+"'"
+				EndIf
+				cxpath		+= "]"
+
+				aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(cxpath)
+				For nCont:=1 to Len(aChildren)
+					aRef	:= ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"r"))
+					If !(aRef[2]>=nColuna .AND. aRef[2]<=nColuna2)
+						Loop
+					EndIf
+					nStyle		:= xStyle:GetId(aRef[1],aRef[2])
+					cStyAtu		:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nCont][2],"s")
+					nStyletmp	:= nStyle
+					If !Empty(cStyAtu)
+						lnumFmtId		:= ::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
+						If lnumFmtId	//Tem fmtid
+							nNumFmtId	:= Val(::GetStyleAtt(Val(cStyAtu),"numFmtId"))
+							nStyletmp	:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
+						EndIf
+					EndIf
+					SetAtrr(::asheet[::nPlanilhaAt][1],aChildren[nCont][2],"s",cValToChar(nStyletmp))
+				Next
+			EndIf
 		Else
 			For nLin:=nLinha to nLinha2				//Ler as Linhas
 				For nCol:=nColuna to nColuna2		//Ler as colunas
@@ -5006,14 +5142,23 @@ Retorna o estilo de uma células
 METHOD GetStyle(nLinha,nColuna) Class YExcel
 	Local nStyle	:= -1
 	Local cStyle
+	Local cRef
+	Local cPathColuna
+	If ValType(nLinha)=="U".AND.ValType(nColuna)=="U"
+		cRef	:= ::cRef
+	EndIf
 	Default nLinha	:= ::nLinha
 	Default nColuna	:= ::nColuna
+	Default cRef	:= ::Ref(nLinha,nColuna)
+
 	If ::lArquivo
 		nStyle	:= ::oC:GetAtributo("s")
 	ElseIf ::lMemoria
-		cStyle := ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetData/xmlns:row[@r='"+cValToChar(nLinha)+"']/xmlns:c[@r='"+::Ref(nLinha,nColuna)+"']","s")
-		If !Empty(cStyle)
-			nStyle	:= Val(cStyle)
+		If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+			cStyle := ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
+			If !Empty(cStyle)
+				nStyle	:= Val(cStyle)
+			EndIf
 		EndIf
 	Else
 		If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
@@ -5729,8 +5874,6 @@ Method Save(cLocal) Class YExcel
 			::aPlanilhas[nCont][6]:PutTxml(::asheet[nCont][1],"/xmlns:worksheet")
 		Endif
 
-		//Cria o sheet na ordem obrigatoria
-		oXmlSheet	:= SheetTmp()
 		//Ordenar os nodes de acordo com enviado no array
 		//aOrdem {{patch,tags}}
 		aOrdem	:= {;
@@ -5764,7 +5907,13 @@ Method Save(cLocal) Class YExcel
 					};
 					}
 		//Cria o xml ordenado conforme array
-		Xml2Xml(oXmlSheet,::asheet[nCont][1],"/xmlns:worksheet",,,,,aOrdem)
+		If ::aPlanilhas[nCont][9]
+			//Cria o sheet na ordem obrigatoria
+			oXmlSheet	:= SheetTmp()
+			Xml2Xml(oXmlSheet,::asheet[nCont][1],"/xmlns:worksheet",,,,,aOrdem)
+		Else
+			oXmlSheet	:= ::asheet[nCont][1]
+		EndIf
 
 		If Empty(oXmlSheet:XPathGetAtt("/xmlns:worksheet/xmlns:autoFilter","ref"))
 			oXmlSheet:XPathDelNode("/xmlns:worksheet/xmlns:autoFilter")
@@ -6266,6 +6415,9 @@ Method AddTamCol(nMin,nMax,nWidth,lbestFit,lcustomWidth) Class YExcel
 	PARAMTYPE 4	VAR lcustomWidth	AS LOGICAL		OPTIONAL DEFAULT .T.
 	nWidth := nWidth+0.7109375	//Microsoft excel soma esse valor na coluna
 	
+	If ValType(::nPlanilhaAt)=="U"
+		UserException("YExcel - Planilha não inicializada. Utilize o metodo ADDPlan")
+	EndIf
 	AjtColConf(self,nMin,nMax)
 
 	For nCont:=nMin to nMax
