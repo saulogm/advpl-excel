@@ -6597,6 +6597,7 @@ Criar definição de preenchimento em massa
 @since 09/05/2023
 @param aCampos, array, Campos das colunas, ver obs
 @param aRegraStyle, array, Array com regra para formatação dinamica de linhas
+@param lMontarLin, logical, Se vai avaliar montagem de linnha a linha
 @obs aCampos
 		[coluna]-Numero da coluna
 		[tipo]-Tipo de conteudo(C,N,L,D)
@@ -6609,11 +6610,11 @@ Criar definição de preenchimento em massa
 			1-Bloco para avaliar regra
 			2-json com regras ({"regras":{"style":xStyle,"principal":lprincipal}},{...},..)
 /*/
-Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
+Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 	Local nCont
 	Local aDadosBulk	:= {}
 	Local cBloco
-	Local oRow	:= YExcelTag():New("row",{},{{"r","'+x+'"}})
+	Local bRow
 	Local oC
 	Local cRef
 	Local cCombo
@@ -6627,6 +6628,7 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 	Local jsonstyle
 	Local lStyleDinamico
 	Local nOk
+	Default lMontarLin	:= .F.
 	If ValType(aRegraStyle)=="O"
 		aRegraStyle	:= aRegraStyle:GetArray()
 	EndIf
@@ -6647,23 +6649,24 @@ Method DefBulkLine(aCampos,aRegraStyle) Class YExcel
 		next i
 	EndIf
 	::aBulkValor	:= {}
-	If ValType(::nRowoutlineLevel)=="N"
-		oRow:AddAtributo("outlineLevel",cValToChar(::nRowoutlineLevel))
-	Endif
-	If ::lRowcollapsed
-		oRow:AddAtributo("collapsed","1")
-	Endif
-	If ::lRowhidden
-		oRow:AddAtributo("hidden","1")
-	Endif
-	If ValType(::nTamLinha)=="N"
-		oRow:AddAtributo("customHeight","1")
-		oRow:AddAtributo("ht",::nTamLinha)
-	Endif
-	cBloco	:= "{|x| '"+oRow:GetTag(,.F.)+"' }"
+	If lMontarLin
+		bRow	:= {|nLin| '<row r="'+nLin+'"'+;
+				If(ValType(::nRowoutlineLevel)=='N',' outlineLevel="'+cValToChar(::nRowoutlineLevel)+'"','')+;
+				If(::lRowcollapsed,' collapsed="1"','')+;
+				If(::lRowhidden,' hidden="1"','')+;
+				If(ValType(::nTamLinha)=='N',' customHeight="1" ht="'+cValToChar(::nTamLinha)+'"','')+;
+				 '>'}
+	Else
+		cBloco	:= "{|nLin| '<row r="+chr(34)+"'+nLin+'"+chr(34)+"'"+;
+				If(ValType(::nRowoutlineLevel)=='N',' outlineLevel="'+cValToChar(::nRowoutlineLevel)+'"','')+;
+				If(::lRowcollapsed,' collapsed="1"','')+;
+				If(::lRowhidden,' hidden="1"','')+;
+				If(ValType(::nTamLinha)=='N',' customHeight="1" ht="'+cValToChar(::nTamLinha)+'"','')+;
+				 '>}'
+		bRow	:= &(cBloco)
+	EndIf
 	
-	FreeObj(oRow)
-	AADD(aDadosBulk,&(cBloco))	//Primeiro dado é a definição da linha
+	AADD(aDadosBulk,bRow)	//Primeiro dado é a definição da linha
 	If ::lArquivo
 		For nCont:=1 to Len(aCampos)
 			::cCampo	:= aCampos[nCont]["campo"]
@@ -7064,9 +7067,12 @@ Preeencher excel com conteudo de alias
 @param jCab, array, json Modifica Cabeçario dos campos (campo,descricao,tamanho,combo)
 @param lExibirCab, logical, Se vai exibir o cabeçario
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
+@param aOnlyFieds, array, Se enviado somente os campos enviado vai ser exibido
+@param aRegraStyle, array, Array com regra para formatação dinamica de linhas 
+@param lMontarLin, logical, Se vai avaliar montagem de linnha a linha
 @param oTabela, object, Objeto do formato tabela do excel
 /*/
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oTabela) Class YExcel
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,lMontarLin,oTabela) Class YExcel
 	Local nCont
 	Local nLinIni	:= If(::nLinha==0,1,::nLinha)+If(ValType(::oRow)=="O",1,0)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
@@ -7179,7 +7185,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Next
 	nQtdCol	:= Len(aCampos)
 
-	::DefBulkLine(aCampos,aRegraStyle)	//Inicializa definições para bulk
+	::DefBulkLine(aCampos,aRegraStyle,lMontarLin)	//Inicializa definições para bulk
 	lCab	:= .F.
 	While (cAlias)->(!EOF())
 		If lTabela
@@ -7807,8 +7813,8 @@ METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	::AddLine()
 Return self
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,aRegraStyle) Class YExcel_Table
-	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,aRegraStyle,self)
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,aRegraStyle,lMontarLin) Class YExcel_Table
+	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,aRegraStyle,lMontarLin,self)
 Return
 
 /*/{Protheus.doc} AddFilter
