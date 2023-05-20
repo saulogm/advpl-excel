@@ -6299,6 +6299,7 @@ Method SetColLevel(nMin,nMax,nNivel,lFechado) Class YExcel
 	Local nCont		:= nMin-1
 	Local cPath
 	Local cNivelAtu
+	Local cwidth
 	Local lsummaryRight	:= .T.		//Resumo abaixo
 	Local csummaryRight	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetPr/xmlns:outlinePr","summaryRight")
 	PARAMTYPE 0	VAR nMin			AS NUMERIC
@@ -6319,9 +6320,15 @@ Method SetColLevel(nMin,nMax,nNivel,lFechado) Class YExcel
 			If !Empty(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "collapsed"))
 				::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "collapsed"	, "1" )
 			Else
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPath, "collapsed")
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPath, "collapsed"	, "1")
 			EndIf
 		EndIf
+		cwidth	:=  ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "width")
+		If Empty(cwidth)
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPath, "width"	, "9.140625" )
+		ElseIf Val(cwidth)==0
+			::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "collapsed"	, "9.140625")
+		Endif
 	Endif
 
 	For nCont:=nMin to nMax
@@ -6356,9 +6363,15 @@ Method SetColLevel(nMin,nMax,nNivel,lFechado) Class YExcel
 			If !Empty(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "collapsed"))
 				::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "collapsed"	, "1" )
 			Else
-				::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPath, "collapsed")
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPath, "collapsed"	, "1")
 			EndIf
 		EndIf
+		cwidth	:=  ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "width")
+		If Empty(cwidth)
+			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPath, "width"	, "9.140625" )
+		ElseIf Val(cwidth)==0
+			::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "collapsed"	, "9.140625")
+		Endif
 	Endif
 Return
 /*/{Protheus.doc} ColNew
