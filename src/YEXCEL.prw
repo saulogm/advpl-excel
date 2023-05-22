@@ -6612,14 +6612,14 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 	EndIf
 	::aBulkValor	:= {}
 	If lMontarLin
-		bRow	:= {|nLin| '<row r="'+nLin+'"'+;
+		bRow	:= {|cLin| '<row r="'+cLin+'"'+;
 				If(ValType(::nRowoutlineLevel)=='N',' outlineLevel="'+cValToChar(::nRowoutlineLevel)+'"','')+;
 				If(::lRowcollapsed,' collapsed="1"','')+;
 				If(::lRowhidden,' hidden="1"','')+;
 				If(ValType(::nTamLinha)=='N',' customHeight="1" ht="'+cValToChar(::nTamLinha)+'"','')+;
 				 '>'}
 	Else
-		cBloco	:= "{|nLin| '<row r="+chr(34)+"'+nLin+'"+chr(34)+;
+		cBloco	:= "{|cLin| '<row r="+chr(34)+"'+cLin+'"+chr(34)+;
 				If(ValType(::nRowoutlineLevel)=='N',' outlineLevel="'+cValToChar(::nRowoutlineLevel)+'"','')+;
 				If(::lRowcollapsed,' collapsed="1"','')+;
 				If(::lRowhidden,' hidden="1"','')+;
@@ -6991,13 +6991,14 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @param cCombo, character, Combo de opções, enviar nil para não alterar
 @return json, definição de campos
 /*/
-Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle) Class YExcel
+Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem) Class YExcel
 	jCab[cCampo]				:= jSonObject():New()
 	jCab[cCampo]["descricao"]	:= cDescricao
 	jCab[cCampo]["tamanho"]		:= nTamanho
 	jCab[cCampo]["picture"]		:= cPicture
 	jCab[cCampo]["combo"]		:= cCombo
 	jCab[cCampo]["style"]		:= xStyle
+	jCab[cCampo]["ordem"]		:= nOrdem
 return jCab
 
 /*/{Protheus.doc} YExcel::Alias2Tab
@@ -7040,6 +7041,9 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local lDefCampo
 	Local cCampo
 	Local cTpStyle2
+	Local aCamposAlias	:= {}
+	Local nOrdem
+	Local nCont2		:= 0
 	Private lCab		:= .T.
 	Default lSx3		:= .F.
 	Default lCombo		:= .T.
@@ -7047,14 +7051,23 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Default aOnlyFieds	:= {}
 	If Len(aOnlyFieds)>0
 		lFilFields	:= .T.
-	ENdif
-
+	Endif
 	For nCont:=1 to nQtdCol
 		cCampo		:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
 		If lFilFields .AND. aScan(aOnlyFieds,{|x| x==cCampo})==0
 			Loop
 		EndIf
+		nCont2++
 		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
+		nTamCampo	:= (cAlias)->(DBFIELDINFO(DBS_LEN,nCont))
+		lDefCampo	:= lDefCampos .AND. Valtype(jCab[cCampo])=="J"
+		nOrdem		:= If(lDefCampo.AND.ValType(jCab[cCampo]["ordem"])=="N",jCab[cCampo]["ordem"]*10,(nCont2*10)+1)
+		AADD(aCamposAlias,{cCampo,cTipo,nTamCampo,nOrdem})
+	Next
+	aSort(aCamposAlias,,,{|x,y| x[4]<y[4] })
+	For nCont:=1 to Len(aCamposAlias)
+		cCampo		:= aCamposAlias[nCont][1]
+		cTipo		:= aCamposAlias[nCont][2]
 		cNomeCampo	:= cCampo
 		oStyTmp		:= nil
 		cCombo		:= ""
@@ -7066,7 +7079,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 			aStruct			:= FWSX3Util():GetFieldStruct( cCampo ) 
 			IF Empty(aStruct)
 				cNomeCampo	:= cCampo
-				nTamCampo	:= 1.2*Max(Len(cNomeCampo),(cAlias)->(DBFIELDINFO(DBS_LEN,nCont)))
+				nTamCampo	:= 1.2*Max(Len(cNomeCampo),aCamposAlias[nCont][3])
 				cMascara	:= ""
 				cCombo		:= ""
 			Else
