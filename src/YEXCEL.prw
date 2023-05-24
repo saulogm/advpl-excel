@@ -76,6 +76,8 @@ Class YExcel
 	Data aDadosBulk			//Bloco de código para preenchimento de linha em massa
 	Data aBulkValor			//Valores para adicionar ao Bulk
 	Data cCampo				//Nome do campo quando preenchimento em bulk
+	Data cSubTotalTp		//Tipo de linha sendo impressa quando subtotal(L=Linha,S=SubTotal,T=TotalGeral) quando Alias2Tab
+	Data jSubTotal			//SubTotal no Alias2Tab
 	Data xValor
 	Data nLinha
 	Data nColuna
@@ -171,8 +173,6 @@ Class YExcel
 	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
 	METHOD AddComment()		//Cria um comentário para a celula posicionada
 	//Bulk
-	METHOD Alias2Tab()		//Preencher com alias informado
-	METHOD NewFldTab()		//Cria definição de campo para Alias2Tab
 	Method BulkNewField()	//Cria um campo para criar Bulk
 	METHOD DefBulkLine()	//Cria definição de linha para preenchimento em massa
 	METHOD SetBulkLine()	//Preencher linha em massa
@@ -180,6 +180,12 @@ Class YExcel
 	METHOD CloseBulk()		//Finaliza Bulk quando banco de dados
 	METHOD FlushBulk()
 	METHOD NewRuleLine()	//Cria regra para formatação de linha no bulk
+	METHOD LenColBulk()		//Quantidade de colunas criada no ultimo bulk definido
+	//Alias2Tab
+	METHOD Alias2Tab()		//Preencher com alias informado
+	METHOD NewFldTab()		//Cria definição de campo para Alias2Tab
+	METHOD DefSubTotal()	//Cria definição de subtotal
+	METHOD AddSubTotal()	//Cria nova definição de subtotal para alias2tab
 	
 	METHOD InsertRowEmpty()	//Cria linhas vazia
 	METHOD InsertCellEmpty()//Cria células vazias
@@ -6505,18 +6511,43 @@ METHOD Masc2Style(cMascara,oStyle) Class YExcel
 		EndIf
 	EndIf
 Return oNewStyle
-
-Method BulkNewField(nColuna,cTipo,cCombo,oStyle,lFormula,lDatetime,cCampo) Class YExcel
+/*/{Protheus.doc} YExcel::BulkNewField
+Definição de novas colunas do bulk
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 24/05/2023
+@param nColuna, numeric, posição da coluna
+@param cTipo, character, Tipo de dado da coluna(C=character;N=numeric;L=logical;D=Date)
+@param cCombo, character, String com opções de combo
+@param oStyle, object, Objeto de formatação da coluna
+@param lFormula, logical, Se o campo vai receber formula
+@param lDatetime, logical, Se o campo do é do tipo datetime
+@param cCampo, character, Nome do campo no alias(Alias2Tab)
+@param cDados, character, Conteudo do campo no alias(Alias2Tab)
+@return json, definição do campo no formato json
+/*/
+Method BulkNewField(nColuna,cTipo,cCombo,oStyle,lFormula,lDatetime,cCampo,cDados) Class YExcel
 	Local jCampo	:= jSonObject():New()
-	Default lFormula	:= .F.
-	Default lDatetime	:= .F.
-	jCampo["coluna"]	:= nColuna
-	jCampo["tipo"]		:= cTipo
-	jCampo["lformula"]	:= lFormula
-	jCampo["ldatetime"]	:= lDatetime
-	jCampo["combo"]		:= cCombo
-	jCampo["style"]		:= oStyle
-	jCampo["campo"]		:= cCampo	//Nome do campo, apenas informativo
+	PARAMTYPE 0	VAR nColuna			AS NUMERIC
+	PARAMTYPE 1	VAR cTipo			AS CHARACTER
+	PARAMTYPE 2	VAR cCombo			AS CHARACTER	OPTIONAL
+	PARAMTYPE 3	VAR oStyle			AS OBJECT		OPTIONAL
+	PARAMTYPE 4	VAR lFormula		AS LOGICAL		OPTIONAL DEFAULT .F.
+	PARAMTYPE 5	VAR lDatetime		AS LOGICAL		OPTIONAL DEFAULT .F.
+	PARAMTYPE 6	VAR cCampo			AS CHARACTER	OPTIONAL
+	PARAMTYPE 7	VAR cDados			AS CHARACTER	OPTIONAL DEFAULT cCampo
+	Default lFormula		:= .F.
+	Default lDatetime		:= .F.
+	jCampo["coluna"]		:= nColuna
+	jCampo["tipo"]			:= cTipo
+	jCampo["lformula"]		:= lFormula
+	jCampo["ldatetime"]		:= lDatetime
+	jCampo["combo"]			:= cCombo
+	jCampo["style"]			:= oStyle
+	jCampo["campo"]			:= cCampo	//Nome do campo quando Alias2Tab
+	jCampo["alfa_coluna"]	:= NumToString(nColuna)
+	jCampo["dados"]			:= cDados	//Dados do campo quando Alias2Tab
 Return jCampo
 
 Method NewRuleLine(bBloco,aRegra) Class YExcel
@@ -6565,7 +6596,7 @@ Criar definição de preenchimento em massa
 		[tipo]-Tipo de conteudo(C,N,L,D)
 		[lformula]-Logico se vai ter Formula
 		[ldatetime]-Logico se é datetime
-		[combo]-aCombo
+		[combo]-cCombo
 		[style]-Objeto Estilo
 		[campo]-nome do campo
 	aRegrasStyle
@@ -6644,7 +6675,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				jCombo	:= nil
 				lCombo	:= .F.
 			EndIf
-			cRef		:= NumToString(aCampos[nCont]["coluna"])
+			cRef		:= aCampos[nCont]["alfa_coluna"]
 			oC			:= YExcelTag():New("c",{},{{"r",cRef+"'+cLin+'"}})
 			If aCampos[nCont]["lformula"]	//Formula
 				oC:AddArr("<f>'+Replace(Replace(cFormula,'<','&lt;'),'>','&gt;')+'</f>")
@@ -6718,13 +6749,13 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 			ElseIf !Empty(aCampos[nCont]["style"])
 				::SetStyle(aCampos[nCont]["style"],,,,,oC)
 			EndIf
-			cBloco	:= "{|cLin,xValor,cFomula,cStyle,jCombo,jsonstyle| '"+oC:GetTag()+"' }"
+			cBloco	:= "{|cLin,xValor,cFormula,cStyle,jCombo,jsonstyle| '"+oC:GetTag()+"' }"
 			AADD(aDadosBulk,{&cBloco,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,cStyle,jsonstyle,aCampos[nCont]["campo"]})
 			FreeObj(oC)
 		Next
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aCampos)
-			AADD(aDadosBulk,{nil,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,aCampos[nCont]["style"],jsonstyle})
+			AADD(aDadosBulk,{nil,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,aCampos[nCont]["style"],jsonstyle,aCampos[nCont]["campo"]})
 		Next
 	ElseIf ::lBD
 		For nCont:=1 to Len(aCampos)
@@ -6787,7 +6818,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				EndIf
 				bValor		:= {|xValor,cTp,jCombo| GetNumDtTm(xValor) }
 			Endif
-			AADD(aDadosBulk,{bValor,aCampos[nCont]["coluna"],cTipo,cTpSty,cTpVlr,nStyle,jCombo})
+			AADD(aDadosBulk,{bValor,aCampos[nCont]["coluna"],cTipo,cTpSty,cTpVlr,nStyle,jCombo,})
 		Next
 	EndIf
 	::aDadosBulk	:= aDadosBulk
@@ -6820,6 +6851,9 @@ Return ::aDadosBulk
 Method SetValueBulk(xValor,cFormula) Class YExcel
 	AADD(::aBulkValor,{xValor,cFormula})
 Return
+
+Method LenColBulk() Class YExcel
+Return Len(::aDadosBulk)-1	//Menos 1, pois o primeiro é definição da linha
 
 /*/{Protheus.doc} YExcel::SetBulkLine
 Inserir linha em bulk
@@ -6892,24 +6926,26 @@ Method SetBulkLine() Class YExcel
 				})
 
 			For nCont:=1 to Len(aValores)
-				::nColuna	:= ::aDadosBulk[1+nCont][2]
-				::xValor	:= Eval(::aDadosBulk[1+nCont][1],aValores[nCont][1],@::aDadosBulk[1+nCont][5],::aDadosBulk[1+nCont][7])
+				nCont2		:= nCont+1
+				::nColuna	:= ::aDadosBulk[nCont2][2]
+				::xValor	:= Eval(::aDadosBulk[nCont2][1],aValores[nCont][1],@::aDadosBulk[nCont2][5],::aDadosBulk[nCont2][7])
 				::aBulkDB[1]:AddData({;
 					::nPlanilhaAt;					//PLA
 					,::nLinha;						//LIN
-					,::aDadosBulk[1+nCont][2];		//COL
-					,::aDadosBulk[1+nCont][6];		//STY
-					,::aDadosBulk[1+nCont][4];		//TPSTY
-					,::aDadosBulk[1+nCont][3];		//TIPO
+					,::aDadosBulk[nCont2][2];		//COL
+					,::aDadosBulk[nCont2][6];		//STY
+					,::aDadosBulk[nCont2][4];		//TPSTY
+					,::aDadosBulk[nCont2][3];		//TIPO
 					,aValores[nCont][2];			//FORMULA
-					,::aDadosBulk[1+nCont][5];		//TPVLR
+					,::aDadosBulk[nCont2][5];		//TPVLR
 					,::xValor;						//VLR
 					})
 			Next
 		Else
 			For nCont:=1 to Len(aValores)
-				::Pos(::nLinha,::aDadosBulk[1+nCont][2])
-				::SetValue(aValores[nCont][1],aValores[nCont][2]):SetStyle(::aDadosBulk[1+nCont][6])
+				nCont2		:= nCont+1
+				::Pos(::nLinha,::aDadosBulk[nCont2][2])
+				::SetValue(aValores[nCont][1],aValores[nCont][2]):SetStyle(::aDadosBulk[nCont2][6])
 			Next
 		EndIf
 	EndIf
@@ -6989,9 +7025,14 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @param cDescricao, character, Descrição a ser alterada, enviar nil para não alterar
 @param nTamanho, numeric, Tamanho da coluna, enviar nil para não alterar
 @param cCombo, character, Combo de opções, enviar nil para não alterar
+@param nOrdem, numeric, Definir a ordem da coluna
+@param cTipo, character, altera o tipo de dado
+@param cDados, character, altera o dado de leitura
 @return json, definição de campos
 /*/
-Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem) Class YExcel
+
+Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo) Class YExcel
+	Default lNewCampo			:= .F.
 	jCab[cCampo]				:= jSonObject():New()
 	jCab[cCampo]["descricao"]	:= cDescricao
 	jCab[cCampo]["tamanho"]		:= nTamanho
@@ -6999,6 +7040,9 @@ Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem) 
 	jCab[cCampo]["combo"]		:= cCombo
 	jCab[cCampo]["style"]		:= xStyle
 	jCab[cCampo]["ordem"]		:= nOrdem
+	jCab[cCampo]["tipo"]		:= cTipo
+	jCab[cCampo]["dados"]		:= cDados
+	jCab[cCampo]["newcampo"]	:= lNewCampo
 return jCab
 
 /*/{Protheus.doc} YExcel::Alias2Tab
@@ -7010,15 +7054,15 @@ Preeencher excel com conteudo de alias
 @param cAlias, character, Alias com dados
 @param oStyle, object, Estilo a ser aplicado no cabeçario
 @param lSx3, logical, Se vai buscar os SXs para definição de campos
-@param jCab, array, json Modifica Cabeçario dos campos (campo,descricao,tamanho,combo)
+@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem)
 @param lExibirCab, logical, Se vai exibir o cabeçario
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
 @param aOnlyFieds, array, Se enviado somente os campos enviado vai ser exibido
 @param aRegraStyle, array, Array com regra para formatação dinamica de linhas 
-@param lMontarLin, logical, Se vai avaliar montagem de linnha a linha
+@param oStyleLinha, object, Estilo padrão para as linhas
 @param oTabela, object, Objeto do formato tabela do excel
 /*/
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,lMontarLin,oTabela) Class YExcel
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,oTabela) Class YExcel
 	Local nCont
 	Local nLinIni	:= If(::nLinha==0,1,::nLinha)+If(ValType(::oRow)=="O",1,0)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
@@ -7027,7 +7071,6 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local cTpStyle	:= ValType(oStyle)
 	Local cNomeCampo
 	Local nTamCampo
-	Local aCombo	:= {}
 	Local cMascara
 	Local cCombo
 	Local cTipo
@@ -7037,6 +7080,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local oStyTmp
 	Local xValor
 	Local lFilFields	:= .F.
+	Local lDefSubTotal	:= Valtype(::jSubTotal)=="J"
 	Local lDefCampos	:= Valtype(jCab)=="J"
 	Local lDefCampo
 	Local cCampo
@@ -7044,6 +7088,18 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local aCamposAlias	:= {}
 	Local nOrdem
 	Local nCont2		:= 0
+	Local nPos
+	Local nLinIniDad	:= 0
+	Local cChave
+	Local nLinIniSub	:= 0
+	Local nLinFimSub	:= 0
+	Local lAgrupLin		:= .F.
+	Local aCombo
+	Local nMaxCombo
+	Local cidioma		:= FwRetIdiom()
+	Local cCamComb		:= "X3_CBOX"
+	Local cDados
+	Local aCamposjson
 	Private lCab		:= .T.
 	Default lSx3		:= .F.
 	Default lCombo		:= .T.
@@ -7052,6 +7108,11 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	If Len(aOnlyFieds)>0
 		lFilFields	:= .T.
 	Endif
+	If cidioma=="en"
+		cCamComb		:= "X3_CBOXENG"
+	ElseIf cidioma=="es"
+		cCamComb		:= "X3_CBOXSPA"
+	EndIf
 	For nCont:=1 to nQtdCol
 		cCampo		:= (cAlias)->(DBFIELDINFO(DBS_NAME,nCont))
 		If lFilFields .AND. aScan(aOnlyFieds,{|x| x==cCampo})==0
@@ -7059,19 +7120,70 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 		EndIf
 		nCont2++
 		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
+		lDefCampo	:= lDefCampos .AND. jCab:HasProperty(cCampo)
+		If lDefCampo .AND. ValType(jCab[cCampo]["tipo"])=="C"	//Alterar tipo do campo
+			cTipo		:= jCab[cCampo]["tipo"]
+		EndIf
+		cDados		:= cCampo
+		If lDefCampo .AND. ValType(jCab[cCampo]["dados"])=="C"	//Alterar conteudo dos dados
+			cDados		:= jCab[cCampo]["dados"]
+		EndIf
 		nTamCampo	:= (cAlias)->(DBFIELDINFO(DBS_LEN,nCont))
-		lDefCampo	:= lDefCampos .AND. Valtype(jCab[cCampo])=="J"
+		//Se enviado ordem multiplica por 10 para ter prioridade na ordem, caso contrario pega a ordem multiplica por 10 e soma 1
 		nOrdem		:= If(lDefCampo.AND.ValType(jCab[cCampo]["ordem"])=="N",jCab[cCampo]["ordem"]*10,(nCont2*10)+1)
-		AADD(aCamposAlias,{cCampo,cTipo,nTamCampo,nOrdem})
+		AADD(aCamposAlias,{cCampo,cTipo,nTamCampo,nOrdem;
+			,/*5-bFORMULA EXCEL*/,/*6-bFORMULA ADVPL*/;
+			,/*7-lSUBTOTAL*/,/*8-SUBTOTAL*/;
+			,/*9-lTOTAL_GERAL*/,/*10-TOTAL_GERAL*/;
+			,/*11-Coluna Alfa*/;
+			,/*12-Bloco para exibir*/;
+			,/*13-Valor Inicial*/;
+			,cDados/*14-Dados do campo*/;
+			})
 	Next
+	//Busca campos para incluidos
+	If lDefCampos
+		aCamposjson	:= jCab:GetNames()
+		For nCont:=1 to Len(aCamposjson)
+			cCampo		:= aCamposjson[nCont]
+			If jCab[cCampo]["newcampo"]
+				cTipo		:= jCab[cCampo]["tipo"]
+				nTamCampo	:= jCab[cCampo]["tamanho"]
+				If ValType(jCab[cCampo]["ordem"])=="N"
+					nOrdem		:= jCab[cCampo]["ordem"]*10
+				Else
+					nOrdem		:= ((Len(aCamposAlias)+1)*10)+1
+				EndIf
+				cDados		:= "''"
+				If ValType(jCab[cCampo]["dados"])=="C"	//Alterar conteudo dos dados
+					cDados		:= jCab[cCampo]["dados"]
+				EndIf
+				Default cTipo		:= "C"
+				Default nTamCampo	:= 1
+				AADD(aCamposAlias,{cCampo,cTipo,nTamCampo,nOrdem;
+					,/*5-bFORMULA EXCEL*/,/*6-bFORMULA ADVPL*/;
+					,/*7-lSUBTOTAL*/,/*8-SUBTOTAL*/;
+					,/*9-lTOTAL_GERAL*/,/*10-TOTAL_GERAL*/;
+					,/*11-Coluna Alfa*/;
+					,/*12-Bloco para exibir*/;
+					,/*13-Valor Inicial*/;
+					,cDados/*14-Dados do campo*/;
+					})
+			EndIf
+		Next
+	EndIf
 	aSort(aCamposAlias,,,{|x,y| x[4]<y[4] })
+	If ValType(oStyleLinha)=="N"
+		oStyleLinha := ::NewStyle(oStyleLinha)
+	EndIf
 	For nCont:=1 to Len(aCamposAlias)
 		cCampo		:= aCamposAlias[nCont][1]
 		cTipo		:= aCamposAlias[nCont][2]
+		cDados		:= aCamposAlias[nCont][14]
 		cNomeCampo	:= cCampo
 		oStyTmp		:= nil
 		cCombo		:= ""
-		lDefCampo	:= lDefCampos .AND. Valtype(jCab[cCampo])=="J"
+		lDefCampo	:= lDefCampos .AND. jCab:HasProperty(cCampo)
 		nTamCampo	:= nil
 		cMascara	:= nil
 		If lSx3		//Verificar estrutura do SX3 para formatar os campos
@@ -7083,9 +7195,17 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 				cMascara	:= ""
 				cCombo		:= ""
 			Else
-				nTamCampo	:= 1.2*Max(aStruct[3],Len(cNomeCampo))
+				nTamCampo	:= Max(aStruct[3],Len(cNomeCampo))
 				cMascara	:= AllTrim(GetSx3Cache(cCampo,"X3_PICTURE"))
-				cCombo		:= AllTrim(GetSx3Cache(cCampo,"X3_CBOX"))	//AllTrim(FWComboBox(cCampo))	//TODO Verificar o idioma no combobox
+				cCombo		:= AllTrim(GetSx3Cache(cCampo,cCamComb))	//AllTrim(FWComboBox(cCampo))
+				If !Empty(cCombo)
+					aCombo		:= StrToKArr(cCombo,";")
+					nMaxCombo	:= 0
+					aEval(aCombo,{|x| nMaxCombo := Max(nMaxCombo,Len(x)) })
+					nMaxCombo	-= aStruct[3]+1
+					nTamCampo	:= Max(nMaxCombo,nTamCampo)
+				EndIf
+				nTamCampo	*= 1.2
 				If aStruct[2]=="M"	//Campo Memo
 					aStruct[2]	:= "C"
 					nTamCampo	:= 40
@@ -7111,8 +7231,19 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 				cCombo		:= jCab[cCampo]["combo"]
 			EndIf
 			If ValType(jCab[cCampo]["style"])!="U"
-				oStyTmp		:= jCab[cCampo]["style"]
+				If ValType(oStyleLinha)=="O"
+					jCab[cCampo]["style"]	:= ::NewStyle(jCab[cCampo]["style"])
+					jCab[cCampo]["style"]:SetParent()
+					jCab[cCampo]["style"]:SetParent(oStyleLinha)
+					oStyTmp		:= jCab[cCampo]["style"]
+				Else
+					oStyTmp		:= jCab[cCampo]["style"]
+				EndIf
+			Else
+				oStyTmp	:= oStyleLinha
 			EndIf
+		Else
+			oStyTmp	:= oStyleLinha
 		EndIf
 		If ValType(nTamCampo)=="N"
 			::AddTamCol(nColAtu,nColAtu,nTamCampo)
@@ -7128,7 +7259,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 			EndIf
 		EndIf
 		
-		AADD(aCampos,::BulkNewField(nColAtu,cTipo,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo))
+		AADD(aCampos,::BulkNewField(nColAtu,cTipo,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo,cDados))
 		If lExibirCab .OR. lTabela
 			If lTabela
 				oTabela:AddColumn(cNomeCampo)
@@ -7139,28 +7270,294 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 				::SetStyle(oStyle)
 			EndIf
 		Endif
+		//DEFINIÇÃO DE SUBTOTAL E TOTAL
+		If lDefSubTotal .AND. (::jSubTotal["subtotal"] .OR. ::jSubTotal["totalgeral"])
+			nPos	:= aScan(::jSubTotal["campos"],{|x| x["campo"]==cCampo })
+			If nPos>0
+				aCamposAlias[nCont][11]		:= aCampos[nCont]["alfa_coluna"]
+				If ::jSubTotal["campos"][nPos]["funcao"]=="formula".AND.ValType(::jSubTotal["campos"][nPos]["advpl"])=="B"
+					If ValType(::jSubTotal["campos"][nPos]["formula"])=="B"
+						aCampos[nCont]["lformula"]	:= .T.
+						aCamposAlias[nCont][5]		:= ::jSubTotal["campos"][nPos]["formula"]
+					Else
+						aCamposAlias[nCont][5]		:= {||}
+					EndIf
+					aCamposAlias[nCont][6]			:= ::jSubTotal["campos"][nPos]["advpl"]
+					aCamposAlias[nCont][7]			:= ::jSubTotal["subtotal"]
+					If ValType(::jSubTotal["campos"][nPos]["valor_ini"])=="A"
+						aCamposAlias[nCont][8]		:= ::jSubTotal["campos"][nPos]["valor_ini"]
+					ElseIf ValType(::jSubTotal["campos"][nPos]["valor_ini"])!="U"
+						aCamposAlias[nCont][8]		:= VlrZeroTp(cTipo)
+						aCamposAlias[nCont][8][1]	:= ::jSubTotal["campos"][nPos]["valor_ini"]
+					Else
+						aCamposAlias[nCont][8]		:= VlrZeroTp(cTipo)
+					EndIf
+					aCamposAlias[nCont][9]			:= ::jSubTotal["totalgeral"]
+					aCamposAlias[nCont][10]			:= aClone(aCamposAlias[nCont][8])
+					If ValType(::jSubTotal["campos"][nPos]["advpl_exibir"])=="B"
+						aCamposAlias[nCont][12]		:= ::jSubTotal["campos"][nPos]["advpl_exibir"]
+					Else
+						aCamposAlias[nCont][12]		:= {|aValAtu| aValAtu[1] }
+					Endif
+					aCamposAlias[nCont][13]			:= aClone(aCamposAlias[nCont][8])
+				ElseIf  (cTipo=="N" .OR. (::jSubTotal["campos"][nPos]["funcao"]+"|" $ "102|2|103|3|last|"))
+					If Val(::jSubTotal["campos"][nPos]["funcao"])>0
+						aCampos[nCont]["lformula"]	:= .T.
+						aCamposAlias[nCont][5]		:= FormuExcel(aCampos[nCont]["alfa_coluna"],::jSubTotal["campos"][nPos]["funcao"])
+					Else
+						aCamposAlias[nCont][5]		:= {||}
+					EndIf
+					aCamposAlias[nCont][6]		:= FormuADVPL(::jSubTotal["campos"][nPos]["funcao"],cTipo)
+					aCamposAlias[nCont][7]		:= ::jSubTotal["subtotal"]
+					aCamposAlias[nCont][8]		:= VlrZeroTp(cTipo)
+					aCamposAlias[nCont][9]		:= ::jSubTotal["totalgeral"]
+					aCamposAlias[nCont][10]		:= aClone(aCamposAlias[nCont][8])
+					aCamposAlias[nCont][12]		:= FormuADVPL(::jSubTotal["campos"][nPos]["funcao"],cTipo,.T.)
+					aCamposAlias[nCont][13]		:= aClone(aCamposAlias[nCont][8])
+				Else
+					aCamposAlias[nCont][5]		:= nil
+					aCamposAlias[nCont][6]		:= nil
+					aCamposAlias[nCont][7]		:= .F.
+					aCamposAlias[nCont][8]		:= VlrZeroTp(cTipo,.T.)
+					aCamposAlias[nCont][9]		:= .F.
+					aCamposAlias[nCont][10]		:= aCamposAlias[nCont][8]
+					aCamposAlias[nCont][12]		:= {|aValAtu| aValAtu }
+					aCamposAlias[nCont][13]		:= aClone(aCamposAlias[nCont][8])
+				EndIf
+			Else
+				aCamposAlias[nCont][5]		:= nil
+				aCamposAlias[nCont][6]		:= nil
+				aCamposAlias[nCont][7]		:= .F.
+				aCamposAlias[nCont][8]		:= VlrZeroTp(cTipo,.T.)
+				aCamposAlias[nCont][9]		:= .F.
+				aCamposAlias[nCont][10]		:= aCamposAlias[nCont][8]
+				aCamposAlias[nCont][12]		:= {|aValAtu| aValAtu }
+				aCamposAlias[nCont][13]		:= aClone(aCamposAlias[nCont][8])
+			EndIf
+		Else
+			lDefSubTotal	:= .F.
+		EndIf
 		nColAtu++
 	Next
 	nQtdCol	:= Len(aCampos)
 
-	::DefBulkLine(aCampos,aRegraStyle,lMontarLin)	//Inicializa definições para bulk
+	::DefBulkLine(aCampos,aRegraStyle,lDefSubTotal)	//Inicializa definições para bulk
 	lCab	:= .F.
-	While (cAlias)->(!EOF())
-		If lTabela
-			oTabela:AddLine()
+	::cSubTotalTp	:= "L"
+	If lDefSubTotal
+		lAgrupLin	:= ::jSubTotal["agrupar"]
+		nLinIniDad	:= ::nLinha		//Linha inicial do dados
+		nLinIniSub	:= ::nLinha
+		If lAgrupLin
+			::SetsumBelow(.T.)				//Defini que o agrupamento de linhas vai ser em baixo
+			::NivelLinha(2,.T.,::jSubTotal["nivel"]<3)
 		EndIf
-		For nCont:=1 to nQtdCol
-			cCampo	:= aCampos[nCont]["campo"]
-			xValor	:= (cAlias)->(&(cCampo))
-			::SetValueBulk(xValor)
-		Next
-		::SetBulkLine()	//Seta valores em bulk
-		(cAlias)->(DbSkip())
-	EndDo
+		While (cAlias)->(!EOF())
+			cChave	:= (cAlias)->(&(::jSubTotal["chave"]))
+			If lTabela
+				oTabela:AddLine()
+			EndIf
+			For nCont:=1 to nQtdCol
+				cCampo	:= aCampos[nCont]["dados"]
+				xValor	:= (cAlias)->(&(cCampo))
+				::SetValueBulk(xValor,"")		//Seta valores em bulk
+				
+				If aCamposAlias[nCont][7]	//SubTotal
+					Eval(aCamposAlias[nCont][6],@aCamposAlias[nCont][8],xValor,cChave)
+				EndIf
+				If aCamposAlias[nCont][9]	//Total Geral
+					Eval(aCamposAlias[nCont][6],@aCamposAlias[nCont][10],xValor,cChave)
+				EndIf
+			Next
+			::SetBulkLine()	//Preenche linha
+			(cAlias)->(DbSkip())
+			//SUBTOTAL
+			If ::jSubTotal["subtotal"]
+				If (cAlias)->(EOF()) .OR. !(cChave == (cAlias)->(&(::jSubTotal["chave"])))
+					::cSubTotalTp	:= "S"
+					nLinFimSub	:= ::nLinha-1	//Informa a ultima linha para formula
+					If lAgrupLin
+						::NivelLinha(1,.T.,::jSubTotal["nivel"]<2)
+					EndIf
+					For nCont:=1 to nQtdCol
+						If aCamposAlias[nCont][7]	//SubTotal
+							xValor	:= Eval(aCamposAlias[nCont][12],aCamposAlias[nCont][8])
+							::SetValueBulk(xValor;																								//Valor
+								,Eval(aCamposAlias[nCont][5],cValToChar(nLinIniSub),cValToChar(nLinFimSub),aCamposAlias[nCont][11],cChave,.F.);	//Formula
+							)
+							aCamposAlias[nCont][8]		:= aClone(aCamposAlias[nCont][13])
+						Else
+							::SetValueBulk(aCamposAlias[nCont][8][1])	//Seta valores em bulk
+						Endif
+					Next
+					nLinIniSub	:= ::nLinha+1	//Informa a primeira linha para formula
+					::SetBulkLine()	//Preenche linha
+					::cSubTotalTp	:= "L"
+					If lAgrupLin
+						::NivelLinha(2,.T.,::jSubTotal["nivel"]<3)
+					EndIf
+				EndIf
+			EndIf
+			//TOTAL GERAL
+			If ::jSubTotal["totalgeral"]
+				If (cAlias)->(EOF())
+					::cSubTotalTp	:= "T"
+					nLinIniSub	:= nLinIniDad	//Informa a primeira linha para formula
+					nLinFimSub	:= ::nLinha-1		//Informa a ultima linha para formula
+					If ::jSubTotal["subtotal"]
+						nLinFimSub	-= 1
+					EndIf
+					If lAgrupLin
+						::NivelLinha(nil,.T.,::jSubTotal["nivel"]<1)
+					EndIf
+					For nCont:=1 to nQtdCol
+						If aCamposAlias[nCont][9]	//Total Geral
+							xValor	:= Eval(aCamposAlias[nCont][12],aCamposAlias[nCont][10])
+							::SetValueBulk(xValor;																								//Valor
+								,Eval(aCamposAlias[nCont][5],cValToChar(nLinIniSub),cValToChar(nLinFimSub),aCamposAlias[nCont][11],cChave,.T.);	//Formula
+							)
+							aCamposAlias[nCont][10]		:= aClone(aCamposAlias[nCont][13])
+						Else
+							::SetValueBulk(aCamposAlias[nCont][8][1])	//Seta valores em bulk
+						EndIf
+					Next
+					::SetBulkLine()	//Preenche linha
+				EndIf
+			EndIf
+		EndDo
+		If lAgrupLin
+			::NivelLinha(nil,.F.,.F.)
+		EndIf
+	Else
+		While (cAlias)->(!EOF())
+			If lTabela
+				oTabela:AddLine()
+			EndIf
+			For nCont:=1 to nQtdCol
+				cCampo	:= aCampos[nCont]["dados"]
+				xValor	:= (cAlias)->(&(cCampo))
+				::SetValueBulk(xValor)	//Seta valores em bulk
+			Next
+			::SetBulkLine()	//Preenche linha
+			(cAlias)->(DbSkip())
+		EndDo
+	EndIf
 	::FlushBulk()
-
+	::jSubTotal	:= nil
 	aCampos		:= nil
 	aCombo		:= nil
+Return
+
+Static Function FormuADVPL(cFuncao,cTipo,lExibir)
+	Local cReturn	:= "{|aValAtu,xValor| "
+	Default lExibir	:= .F.
+	If lExibir
+		If cFuncao=="101".OR.cFuncao=="1"	//MÉDIA
+			cReturn += "aValAtu[1]/aValAtu[2]"
+		ElseIf cFuncao+"|" $ "102|2|103|3|".AND.cTipo=="C"
+			cReturn += "cValToChar(aValAtu[1])"
+		Else
+			cReturn += "aValAtu[1]"
+		EndIf
+	Else
+		If cFuncao=="109".OR.cFuncao=="9"		//SOMA
+			cReturn += "aValAtu[1]+=xValor"
+		ElseIf cFuncao=="101".OR.cFuncao=="1"	//MÉDIA
+			cReturn += "aValAtu[1]+=xValor,aValAtu[2]+=1"
+		ElseIf cFuncao=="last"					//Exibir ultimo valor do campo
+			cReturn += "aValAtu[1]:=xValor"
+		ElseIf cFuncao=="102".OR.cFuncao=="2"	//CONTAR NUMERO
+			cReturn += "If(ValType(xValor)=='N',aValAtu[1]+=1,nil)"
+		ElseIf cFuncao=="103".OR.cFuncao=="3"	//CONT.VALORES
+			cReturn += "If(ValType(xValor)!='U',IF(ValType(xValor)=='C'.AND.xValor='',nil,IF(ValType(xValor)=='D'.AND.Empty(xValor),nil,aValAtu[1]+=1)),nil)"
+		ElseIf cFuncao=="104".OR.cFuncao=="4"	//MAX
+			cReturn += "aValAtu[1] := Max(aValAtu[1],xValor"
+		ElseIf cFuncao=="105".OR.cFuncao=="5"	//MIN
+			cReturn += "aValAtu[1] := Mix(aValAtu[1],xValor)"
+		ElseIf cFuncao=="106".OR.cFuncao=="6"	//MULT
+			cReturn += "aValAtu[1]*=xValor"
+		ElseIf cFuncao=="107".OR.cFuncao=="7"	//DESVPAD
+			cReturn += "aValAtu[1]"
+		ElseIf cFuncao=="108".OR.cFuncao=="8"	//DESVPADP
+			cReturn += "aValAtu[1]"
+		ElseIf cFuncao=="110".OR.cFuncao=="10"	//VAR
+			cReturn += "aValAtu[1]"
+		ElseIf cFuncao=="111".OR.cFuncao=="11"	//VARP
+			cReturn += "aValAtu[1]"
+		Else
+			cReturn += "aValAtu[1]"
+		EndIf
+	EndIf
+	cReturn	+= "}"
+Return &(cReturn)
+
+Static Function FormuExcel(cColuna,cFuncao)
+	Local cReturn	:= "{|cLinhaIni,cLinhaFim| "
+	cReturn += "'SUBTOTAL("+cFuncao+","+cColuna+"'+cLinhaIni+':"+cColuna+"'+cLinhaFim+')'"
+	cReturn	+= "}"
+Return &(cReturn)
+
+Static Function VlrZeroTp(cTipo,lNulo)
+	Local xRet	:= ""
+	Default lNulo := .F.
+	If cTipo=="N" .AND. !lNulo
+		xRet	:= 0
+	ElseIf cTipo=="D" .AND. !lNulo
+		xRet	:= CTOD("")
+	EndIf
+Return {xRet,0}	//{Valor atual,No total Dividir por}
+
+/*/{Protheus.doc} YExcel::DefSubTotal
+Cria nova definição de subtotal para alias2tab
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 24/05/2023
+@param cChave, character, Chave do subtotal
+@param lSubTotal, logical, Se vai cria subtotal a cada modificação da chave
+@param lTotalGeral, logical, Se vai criar total geral
+@param lAgrupar, logical, Se vai agrupar as linhas
+@param nNivel, numeric, Nivel para exibir(1=Total Geral,2=SubTotal,3=Linhas)
+/*/
+Method DefSubTotal(cChave,lSubTotal,lTotalGeral,lAgrupar,nNivel) Class YExcel
+	::jSubTotal					:= jSonObject():New()
+	::jSubTotal["chave"]		:= cChave
+	::jSubTotal["subtotal"]		:= .T.	//Exibir SubTotal
+	::jSubTotal["totalgeral"]	:= .T.	//Exibir Total Geral
+	::jSubTotal["agrupar"]		:= .T.	//Cria agrupador de linhas
+	::jSubTotal["nivel"]		:= nNivel
+	::jSubTotal["campos"]		:= {}
+Return
+
+/*/{Protheus.doc} YExcel::AddSubTotal
+Adiciona nova coluna ao subtotal
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 24/05/2023
+@param cCampo, character, Nome do campo
+@param cFuncao, character, Função a ser totalizada
+@param bFormula, codeblock, Block de código com retorno da formula, enviar quando funcao=formula
+@param bAdvpl, codeblock, Block de código com função advpl para acumular subtotal da coluna
+@param bAdvplExib, codeblock, Bloco de código para exibição da linha de subtotal
+@param xValorIni, variant, Valor inicial do subtotal
+/*/
+Method AddSubTotal(cCampo,cFuncao,bFormula,bAdvpl,bAdvplExib,xValorIni) Class YExcel
+	Local nPos
+	PARAMTYPE 0	VAR cCampo		AS CHARACTER
+	PARAMTYPE 1	VAR cFuncao		AS CHARACTER	OPTIONAL Default "9"	//Somar
+	If ValType(::jSubTotal)!="J"
+		UserException("YExcel - Definicao de subtotal nao informada. Utilize o metodo DefSubTotal.")
+	EndIf
+	AADD(::jSubTotal["campos"],jSonObject():New())
+	nPos	:= Len(::jSubTotal["campos"])
+	::jSubTotal["campos"][nPos]["campo"]		:= cCampo
+	::jSubTotal["campos"][nPos]["funcao"]		:= cFuncao
+	::jSubTotal["campos"][nPos]["formula"]		:= bFormula
+	::jSubTotal["campos"][nPos]["advpl"]		:= bAdvpl
+	::jSubTotal["campos"][nPos]["advpl_exibir"]	:= bAdvplExib
+	::jSubTotal["campos"][nPos]["valor_ini"]	:= xValorIni
+	//::jSubTotal["campos"][nPos]["tipo"]			:= cTipo
 Return
 
 /*/{Protheus.doc} OpenRead
@@ -7746,8 +8143,8 @@ METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	::AddLine()
 Return self
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,aRegraStyle,lMontarLin) Class YExcel_Table
-	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lCab,lCombo,aOnlyFieds,aRegraStyle,lMontarLin,self)
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha) Class YExcel_Table
+	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,self)
 Return
 
 /*/{Protheus.doc} AddFilter
