@@ -406,8 +406,11 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 				oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
 				oBulk:SetFields(aStruct)
 				AADD(::aBulkDB,oBulk)
+				AADD(::aCleanObj,oBulk)
 			EndIf
 		endif
+		FwFreeArray(aStruct)
+		FwFreeArray(aIndex)
 
 		//LINHAS
 		oTabTmp	:= nil
@@ -429,8 +432,11 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 				oBulk	:= FwBulk():New(oTabTmp:GetTableNameForTCFunctions())
 				oBulk:SetFields(aStruct)
 				AADD(::aBulkDB,oBulk)
+				AADD(::aCleanObj,oBulk)
 			EndIf
 		endif
+		FwFreeArray(aStruct)
+		FwFreeArray(aIndex)
 
 		//STRING COMPARTILHAS
 		aStruct	:= {}
@@ -441,6 +447,8 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		AADD(aIndex,{"VLRTEXTO","POS"})
 		AADD(aIndex,{"POS"})
 		::cAliasStr	:= ::CriaDB(aStruct,aIndex,"STR",@::cTabStr)
+		FwFreeArray(aStruct)
+		FwFreeArray(aIndex)
 	EndIf
 	If !Empty(cFileOpen)
 		::lArquivo	:= .F.
@@ -538,6 +546,7 @@ Method CriaDB(aStruct,aIndex,cPrefixo,cRealName,oTabTmp) Class YExcel
 		cAliasRet	:= oTabTmp:GetAlias()
 		cRealName	:= oTabTmp:GetRealName()
 		AADD(::aTmpDB,oTabTmp)
+		AADD(::aCleanObj,oTabTmp)
 	Else
 		cAliasRet	:= cPrefixo+CriaTrab(,.F.)
 		cRealName	:= cAliasRet
@@ -1108,6 +1117,7 @@ Static Function LerChvStys(oSelf)
 				cChave	+= "|"
 				cChave	+= "|"+cLocal+"/xmlns:fills"
 			Endif
+			FwFreeArray(aCores)
 		Endif
 	Next
 	For nCont:=1 to oSelf:oStyle:XPathChildCount("/xmlns:styleSheet/xmlns:numFmts")
@@ -3870,6 +3880,7 @@ METHOD AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
 		aDel(aOutrosAtributos,aDel[nCont])
 		aSize(aOutrosAtributos,Len(aOutrosAtributos)-1)
 	Next
+	FwFreeArray(aDel)
 	cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos)
 	nPos	:= ::oChaves["STYLE     "+cChave]
 	If ValType(nPos)=="N"
@@ -4561,6 +4572,7 @@ Method SetStyaOutrosAtributos(nStyle,aOutrosAtributos) Class YExcel
 		aDel(aOutrosAtributos,aDel[nCont])
 		aSize(aOutrosAtributos,Len(aOutrosAtributos)-1)
 	Next
+	FwFreeArray(aDel)
 	// Altera chave
 	cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos)
 	::oChaves["STYLEID   "+cValToChar(nStyle)]	:= cChave
@@ -5681,6 +5693,17 @@ Method Close() Class YExcel
 	If substr(::cLocalFile,1,8)<>"\tmpxls\"
 		DelPasta("\tmpxls\"+::cTmpFile)
 	Endif
+	FwFreeArray(::aFiles)
+	FwFreeArray(::aPadraoSty)
+	FwFreeArray(::aTmpDB)
+	FwFreeArray(::aCleanObj)
+	FwFreeArray(::aCleanObj)
+	FwFreeArray(::aPlanilhas)
+	FwFreeArray(::aworkdrawing)
+	FwFreeArray(::aImagens)
+	FwFreeArray(::aImgdraw)
+	FwFreeArray(::aDadosBulk)
+	FwFreeArray(::aBulkValor)
 Return
 
 /*/{Protheus.doc} Save
@@ -5732,6 +5755,7 @@ Method Save(cLocal) Class YExcel
 		EndIf
 		If ValType(::oFile)=="O"
 			::oFile:Close()
+			FreeObj(::oFile)
 			::oFile	:= nil
 		EndIf
 	Endif
@@ -5794,6 +5818,7 @@ Method Save(cLocal) Class YExcel
 			EndIf
 			::xls_sharedStrings(oFile)
 			oFile:Close()
+			FreeObj(oFile)
 			oFile	:= nil
 			::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
 		EndIf
@@ -6014,6 +6039,7 @@ Method Save(cLocal) Class YExcel
 			EndDo
 			FCLOSE(nHOrigem)
 			oFile:Close()
+			FreeObj(oFile)
 			oFile	:= nil
 			FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
 			If ::lArquivo
@@ -6548,10 +6574,12 @@ Method BulkNewField(nColuna,cTipo,cCombo,oStyle,lFormula,lDatetime,cCampo,cDados
 	jCampo["campo"]			:= cCampo	//Nome do campo quando Alias2Tab
 	jCampo["alfa_coluna"]	:= NumToString(nColuna)
 	jCampo["dados"]			:= cDados	//Dados do campo quando Alias2Tab
+	AADD(::aCleanObj,jCampo)
 Return jCampo
 
 Method NewRuleLine(bBloco,aRegra) Class YExcel
 	Local oRegra	:= YExcel_RegraLinha():New(bBloco,aRegra,self)
+	AADD(::aCleanObj,oRegra)
 Return oRegra
 
 Class YExcel_RegraLinha
@@ -6621,7 +6649,12 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 	Local jsonstyle
 	Local lStyleDinamico
 	Local nOk
-	Default lMontarLin	:= .F.
+	PARAMTYPE 0	VAR aCampos		AS ARRAY
+	PARAMTYPE 1	VAR aRegraStyle	AS ARRAY,OBJECT		OPTIONAL
+	PARAMTYPE 2	VAR lMontarLin	AS LOGICAL			OPTIONAL Default .F.
+	If Len(aCampos)>16385
+		UserException("YExcel - Quantidade informadas de colunas("+cValToChar(Len(aCampos))+") é superior ao limite do excel")
+	EndIf
 	If ValType(aRegraStyle)=="O"
 		aRegraStyle	:= aRegraStyle:GetArray()
 	EndIf
@@ -6670,6 +6703,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 			jsonstyle	:= nil
 			If !Empty(cCombo)			//Guarda cache de combo de opções
 				jCombo	:= jCombo(cCombo)
+				AADD(::aCleanObj,jCombo)
 				lCombo	:= .T.
 			Else
 				jCombo	:= nil
@@ -6752,6 +6786,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 			cBloco	:= "{|cLin,xValor,cFormula,cStyle,jCombo,jsonstyle| '"+oC:GetTag()+"' }"
 			AADD(aDadosBulk,{&cBloco,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,cStyle,jsonstyle,aCampos[nCont]["campo"]})
 			FreeObj(oC)
+			oC	:= nil
 		Next
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aCampos)
@@ -6773,6 +6808,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 			cCombo		:= aCampos[nCont]["combo"]
 			If !Empty(cCombo)			//Guarda cache de combo de opções
 				jCombo	:= jCombo(cCombo,.T.,self)
+				AADD(::aCleanObj,jCombo)
 				lCombo	:= .T.
 			Else
 				jCombo	:= nil
@@ -6842,6 +6878,9 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 		If (::cAliasLin)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)))
 			::nLinha++
 		EndIf
+	EndIf
+	If ::nLinha<=0
+		::nLinha	:= 1
 	EndIf
 	If ::lArquivo
 		::oFile:goBottom()
@@ -6949,6 +6988,7 @@ Method SetBulkLine() Class YExcel
 			Next
 		EndIf
 	EndIf
+	FwFreeArray(::aBulkValor)
 	::aBulkValor	:= {}
 	::nLinha++
 	::cCampo		:= ""
@@ -7043,6 +7083,7 @@ Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,c
 	jCab[cCampo]["tipo"]		:= cTipo
 	jCab[cCampo]["dados"]		:= cDados
 	jCab[cCampo]["newcampo"]	:= lNewCampo
+	AADD(::aCleanObj,jCab)
 return jCab
 
 /*/{Protheus.doc} YExcel::Alias2Tab
@@ -7444,6 +7485,8 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	EndIf
 	::FlushBulk()
 	::jSubTotal	:= nil
+	FwFreeArray(aCampos)
+	FwFreeArray(aCamposAlias)
 	aCampos		:= nil
 	aCombo		:= nil
 Return
@@ -7527,6 +7570,7 @@ Method DefSubTotal(cChave,lSubTotal,lTotalGeral,lAgrupar,nNivel) Class YExcel
 	::jSubTotal["agrupar"]		:= .T.	//Cria agrupador de linhas
 	::jSubTotal["nivel"]		:= nNivel
 	::jSubTotal["campos"]		:= {}
+	AADD(::aCleanObj,::jSubTotal)
 Return
 
 /*/{Protheus.doc} YExcel::AddSubTotal
@@ -8749,6 +8793,7 @@ Method new_content_types(cFile) Class YExcel
 	Local aNs
 	Local cXml			:= ""
 	::ocontent_types	:= TXMLManager():New()
+	AADD(::aCleanObj,::ocontent_types)
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 		cXml	+= '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
@@ -8792,6 +8837,7 @@ Method new_rels(cFile,cCaminho) Class YExcel
 	Local cXml			:= ""
 	Default cCaminho	:= cFile
 	oXML	:= TXMLManager():New()
+	AADD(::aCleanObj,oXML)
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 		cXml	+= '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -8932,6 +8978,7 @@ Method new_app(cFile) Class YExcel
 	Local aNs
 	Local cXml			:= ""
 	::oapp	:= TXMLManager():New()
+	AADD(::aCleanObj,::oapp)
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 		cXml	+= '<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">'
@@ -8986,6 +9033,7 @@ Method new_core(cFile) Class YExcel
 	Local aRet
 	Local cXml			:= ""
 	::ocore	:= TXMLManager():New()
+	AADD(::aCleanObj,::ocore)
 	If Empty(cXml)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 		cXml	+= '<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">'
@@ -9020,6 +9068,7 @@ Method new_workbook(cFile) Class YExcel
 	Local aNs
 	Local cXml			:= ""
 	::oworkbook	:= TXMLManager():New()
+	AADD(::aCleanObj,::oworkbook)
 	//::oworkbook:bDecodeUtf8	:= .F.
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -9060,6 +9109,7 @@ Method new_draw(cFile,cCaminho) Class YExcel
 	Local oXML
 	Local cXml			:= ""
 	oXML	:= TXMLManager():New()
+	AADD(::aCleanObj,oXML)
 	//oXML:bDecodeUtf8	:= .F.
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -9091,6 +9141,7 @@ Method new_comment(cFile) Class YExcel
 	Local oXml
 	Local cXml			:= ""
 	oXml	:= TXMLManager():New()
+	AADD(::aCleanObj,oXml)
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 		cXml	+= '<comments xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
@@ -9139,6 +9190,7 @@ Method new_styles(cFile) Class YExcel
 	Local aNs
 	Local cXml			:= ""
 	::oStyle	:= TXMLManager():New()
+	AADD(::aCleanObj,::oStyle)
 	If Empty(cFile)	//Cria modelo em branco
 		cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 		cXml	+= '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
