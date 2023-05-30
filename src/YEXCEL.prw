@@ -41,7 +41,8 @@ RECURSOS DISPONIVEIS
 * Definir orientação da pagina na impressão
 * Cabeçalho e Ropadé
 * Leitura de dados já gravados
-* Gravaçãod e dados em massa(bulk)
+* Preenchimento de dados em massa(bulk)
+* Preenchimento de dados de Alias, com definição dos SXs
 
 * Leitura simples dos dados
 @type class
@@ -387,12 +388,13 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		AADD(aStruct,{"PLA"		,	"N", 10		, 00})
 		AADD(aStruct,{"LIN"		,	"N", 10		, 00})
 		AADD(aStruct,{"COL"		,	"N", 10		, 00})
+		AADD(aStruct,{"REF"		,	"C", 10		, 00})
 		AADD(aStruct,{"STY"		,	"N", 10		, 00})
 		AADD(aStruct,{"TPSTY"	,	"C", 1		, 00})	//Tipo de estilo(texto,numero,data,datetime,logico)
 		AADD(aStruct,{"TIPO"	,	"C", 1		, 00})
 		AADD(aStruct,{"FORMULA"	,	"C", 200	, 00})
 		AADD(aStruct,{"TPVLR"	,	"C", 1		, 00})	//Tipo campo usado, txt ou num
-		AADD(aStruct,{"VLR"		,	"C", 200	, 00})
+		AADD(aStruct,{"VLR"		,	"C", 254	, 00})
 		// AADD(aStruct,{"VLRTXT"	,	"C", 200	, 00})
 		// AADD(aStruct,{"VLRNUM"	,	"N", 20		, 08})
 		// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
@@ -1794,16 +1796,35 @@ Method InsertRowEmpty(nLinha,nLinha2) Class YExcel
 		Else
 			cQuery	:= " SELECT LIN FROM "+::cTabLin+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" ORDER BY LIN"
 			cAliasTmp	:= MpSysOpenQuery(cQuery)
-			For nCont:=nLinha to nLinha2
-				If (cAliasTmp)->LIN==nCont
-					(cAliasTmp)->(DbSkip())
-					Loop
-				EndIf
-				RecLock(::cAliasLin,.T.)
-				(::cAliasLin)->PLA	:= ::nPlanilhaAt
-				(::cAliasLin)->LIN	:= nCont
-				MsUnLock()
-			Next
+			if ::lCanUseBulk
+				For nCont:=nLinha to nLinha2
+					If (cAliasTmp)->LIN==nCont
+						(cAliasTmp)->(DbSkip())
+						Loop
+					EndIf
+					::aBulkDB[2]:AddData({;
+										::nPlanilhaAt;				//PLA
+										,nCont;						//LIN
+										,"";						//OLEVEL
+										,"";						//COLLAP
+										,"";						//CHIDDEN
+										,"";						//CHEIGHT
+										,0;							//HT
+										})
+				Next
+				::aBulkDB[2]:Flush()
+			Else
+				For nCont:=nLinha to nLinha2
+					If (cAliasTmp)->LIN==nCont
+						(cAliasTmp)->(DbSkip())
+						Loop
+					EndIf
+					RecLock(::cAliasLin,.T.)
+					(::cAliasLin)->PLA	:= ::nPlanilhaAt
+					(::cAliasLin)->LIN	:= nCont
+					MsUnLock()
+				Next
+			EndIf
 			(cAliasTmp)->(DbCloseArea())
 		EndIf
 	EndIf
@@ -1821,22 +1842,13 @@ Inserir células vazias
 @param nColuna2, numeric, Coluna final
 /*/
 Method InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
-	// Local nPos
-	// Local lAchou
 	Local cQuery
-	// Local cAliasTmp
-	Local cUpdate
 	Local cRef
 	Local nCont,nCont2
 	Local cPathLinha
 	Local cPathColuna
-	// Local lUpdate		:= .F.
 	Default nLinha2		:= nLinha
 	Default nColuna2	:= nColuna
-	// nPos	:= ::GetStrComp("",@lAchou)
-	// If !lAchou
-	// 	nPos	:= ::SetStrComp("")
-	// Endif
 	If ::lArquivo
 		UserException("YExcel - Não é possível adicionar linhas na criação direta com arquivo")
 	Else
@@ -1844,75 +1856,68 @@ Method InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 			For nCont:=nLinha to nLinha2
 				cPathLinha	:= ::NewLinhaM(nCont)
 				For nCont2:=nColuna to nColuna2
-					cRef	:= ::Ref(nCont,nCont2)
+					cRef		:= ::Ref(nCont,nCont2)
 					cPathColuna	:= ::NewColunaM(cRef,nLinha)
 				Next
 			Next
 		Else
 			::InsertRowEmpty(nLinha,nLinha2)
-			If "SQLITE" $ ::cDriver
-				cQuery	:= "INSERT INTO "+::cTabCol+" (PLA,LIN,COL,TIPO,TPSTY,TPVLR,STY)"+;
-					" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
-					" ,col(y) AS (VALUES("+cValToChar(nColuna)+") UNION ALL SELECT y+1 FROM col WHERE y<"+cValToChar(nColuna2)+")"+;
-					" SELECT "+cValToChar(::nPlanilhaAt)+",x,y,'s','S','U',-1 FROM lin INNER JOIN col on 1=1 LEFT JOIN "+::cTabCol+" TAB ON TAB.PLA="+cValToChar(::nPlanilhaAt)+" AND lin.x=TAB.LIN AND col.y=TAB.COL"+;
-					" WHERE TAB.LIN is null"
-				If !::ExecSql("",cQuery,::cDriver)
-					UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
-				Endif
+			//If "SQLITE" $ ::cDriver
+			//	cQuery	:= "INSERT INTO "+::cTabCol+" (PLA,LIN,COL,TIPO,TPSTY,TPVLR,STY)"+;
+			//		" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
+			//		" ,col(y) AS (VALUES("+cValToChar(nColuna)+") UNION ALL SELECT y+1 FROM col WHERE y<"+cValToChar(nColuna2)+")"+;
+			//		" SELECT "+cValToChar(::nPlanilhaAt)+",x,y,'s','S','U',-1 FROM lin INNER JOIN col on 1=1 LEFT JOIN "+::cTabCol+" TAB ON TAB.PLA="+cValToChar(::nPlanilhaAt)+" AND lin.x=TAB.LIN AND col.y=TAB.COL"+;
+			//		" WHERE TAB.LIN is null"
+			//	If !::ExecSql("",cQuery,::cDriver)
+			//		UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
+			//	Endif
+			//Else
+			cQuery	:= " SELECT LIN,COL FROM "+::cTabCol+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" AND COL BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+" ORDER BY COL,LIN"
+			cAliasTmp	:= MpSysOpenQuery(cQuery)
+			if ::lCanUseBulk
+				For nCont2:=nColuna to nColuna2
+					cRef	:= ::NumToString(nCont2)
+					For nCont:=nLinha to nLinha2
+						If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
+							(cAliasTmp)->(DbSkip())
+							Loop
+						EndIf
+						::aBulkDB[1]:AddData({;
+											::nPlanilhaAt;				//PLA
+											,nCont;						//LIN
+											,nCont2;					//COL
+											,cRef+cValToChar(nCont);	//REF
+											,-1;						//STY
+											,"S";						//TPSTY
+											,"s";						//TIPO
+											,"";						//FORMULA
+											,"U";						//TPVLR
+											,"";						//VLR
+											})
+					Next
+				Next
+				::aBulkDB[1]:Flush()
 			Else
-				// cUpdate	:= "SET NOCOUNT ON;"
-				// cQuery	:= " SELECT LIN,COL FROM "+::cTabCol+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" AND COL BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+" ORDER BY LIN,COL"
-				// cAliasTmp	:= MpSysOpenQuery(cQuery)
-				// For nCont:=nLinha to nLinha2
-				// 	For nCont2:=nColuna to nColuna2
-				// 		If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
-				// 			(cAliasTmp)->(DbSkip())
-				// 			Loop
-				// 		EndIf
-				// 		lUpdate	:= .T.
-				// 		cUpdate	+= " INSERT INTO "+::cTabCol+"(PLA,LIN,COL,STY,TPSTY,TIPO,TPVLR) VALUES ("+;
-				// 					cValToChar(::nPlanilhaAt)+;
-				// 					","+cValToChar(nCont)+;
-				// 					","+cValToChar(nCont2)+;
-				// 					",-1"+;
-				// 					",'S'"+;
-				// 					",'s'"+;
-				// 					",'U'"+;
-				// 					");"
-				// 		// RecLock(::cAliasCol,.T.)
-				// 		// (::cAliasCol)->PLA	:= ::nPlanilhaAt
-				// 		// (::cAliasCol)->LIN	:= nCont
-				// 		// (::cAliasCol)->COL	:= nCont2
-				// 		// (::cAliasCol)->TIPO	:= 's'
-				// 		// (::cAliasCol)->TPSTY:= 'S'
-				// 		// (::cAliasCol)->TPVLR:= 'U'
-				// 		// (::cAliasCol)->STY	:= -1
-				// 		// MsUnLock()
-				// 	Next
-				// Next
-				// (cAliasTmp)->(DbCloseArea())
-
-				cUpdate	:= "WITH numeros(numero)"
-				cUpdate	+= " AS"
-				cUpdate	+= " ("
-				cUpdate	+= " SELECT "+cValToChar(Min(nLinha,nColuna))+" numero"
-				cUpdate	+= " UNION ALL"
-				cUpdate	+= " SELECT numero+1 FROM numeros"
-				cUpdate	+= " WHERE"
-				cUpdate	+= " numero<"+cValToChar(MAX(nLinha2,nColuna2))+""
-				cUpdate	+= " )"
-				cUpdate	+= " INSERT INTO "+::cTabCol+" (PLA,LIN,COL,STY,TPSTY,TIPO,TPVLR) "
-				cUpdate	+= " SELECT "+cValToChar(::nPlanilhaAt)+" PLA,LINHAS.numero LINHA,COLUNAS.numero COLUNA,-1 STY,'S' TPSTY,'s' TIPO,'U' TPVLR "
-				cUpdate	+= " FROM numeros LINHAS "
-				cUpdate	+= " INNER JOIN numeros COLUNAS ON COLUNAS.numero BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+""
-				cUpdate	+= " LEFT JOIN "+::cTabCol+" TABCOL ON TABCOL.PLA="+cValToChar(::nPlanilhaAt)+" AND TABCOL.LIN=LINHAS.numero AND TABCOL.COL=COLUNAS.numero"
-				cUpdate	+= " WHERE TABCOL.PLA IS NULL AND LINHAS.numero BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+""
-				cUpdate	+= " OPTION (MAXRECURSION "+cValToChar(MAX(nLinha2,nColuna2))+")"
-				If TCSqlExec(cUpdate)<0
-					UserException("YExcel - Erro ao inserrir celulas. "+TCSqlError())
-				Endif
-				
+				For nCont:=nLinha to nLinha2
+					For nCont2:=nColuna to nColuna2
+						If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
+							(cAliasTmp)->(DbSkip())
+							Loop
+						EndIf
+						RecLock(::cAliasCol,.T.)
+						(::cAliasCol)->PLA	:= ::nPlanilhaAt
+						(::cAliasCol)->LIN	:= nCont
+						(::cAliasCol)->COL	:= nCont2
+						(::cAliasCol)->TIPO	:= 's'
+						(::cAliasCol)->TPSTY:= 'S'
+						(::cAliasCol)->TPVLR:= 'U'
+						(::cAliasCol)->STY	:= -1
+						MsUnLock()
+					Next
+				Next
 			EndIf
+			(cAliasTmp)->(DbCloseArea())
+			//EndIf
 		EndIf
 	EndIf
 Return
@@ -1937,6 +1942,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 	Local cPathLinha	//Caminho da linha
 	Local cPathColuna	//Caminho da Coluna
 	Local nCQtd			//Quantidade de "c" na linha
+	Local aAtt
 	//Local cTmpVar
 	If ::nLinha<=0 .OR. ::nColuna<=0
 		Return self
@@ -2004,23 +2010,26 @@ Method SetValue(xValor,cFormula) Class YExcel
 			::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(::nLinha),0)	//Quantidade de colunas da linha
 
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(::cPathsheetData,"row","")
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"r",cValToChar(::nLinha))
+			aAtt	:= {}
+			AADD(aAtt,{"r",cValToChar(::nLinha)})
 			If ValType(::nRowoutlineLevel)=="N"
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"outlineLevel",cValToChar(::nRowoutlineLevel))
+				AADD(aAtt,{"outlineLevel",cValToChar(::nRowoutlineLevel)})
 			EndIf
 			If ::lRowcollapsed
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"collapsed","1")
+				AADD(aAtt,{"collapsed","1"})
 			EndIf
 			If ::lRowhidden
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"hidden","1")
+				AADD(aAtt,{"hidden","1"})
 			EndIf
 			If ValType(::nTamLinha)=="N"
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"customHeight","1")
-				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha,"ht",cValToChar(::nTamLinha))
+				AADD(aAtt,{"customHeight","1"})
+				AADD(aAtt,{"hidden",cValToChar(::nTamLinha)})
 			EndIf
+			::asheet[::nPlanilhaAt][1]:XPathAddAttArray(cPathLinha,aAtt)
 		EndIf
 		//a variavel ::cRef é preenchida no ::Pos()
 		//Criar Coluna
+		aAtt	:= {}
 		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::cRef,@cPathColuna)
 			::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(::nLinha),@nCQtd)
 			nCQtd++
@@ -2029,9 +2038,11 @@ Method SetValue(xValor,cFormula) Class YExcel
 			::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(::nLinha),nCQtd)	//Quantidade de colunas da linha
 
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathLinha,"c","")
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"r",::cRef)
+			//::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"r",::cRef)
+			AADD(aAtt,{"r",::cRef})
 		Else
-			::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPathColuna,"t")
+			AADD(aAtt,{"r",::cRef})
+			::asheet[::nPlanilhaAt][1]:XPathDelAllAtt(cPathColuna)
 			While ::asheet[::nPlanilhaAt][1]:XPathDelNode(cPathColuna+"/*[1]")
 			EndDo
 		EndIf
@@ -2039,13 +2050,13 @@ Method SetValue(xValor,cFormula) Class YExcel
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"f",cFormula)
 		EndIf
 		If cTipo=="C"
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"t","inlineStr")
+			AADD(aAtt,{"t","inlineStr"})
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"is","")
 
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna+"/xmlns:is","t",AjusEncode(xValor))
 			//::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathLinha+"/xmlns:c[@r='"+::cRef+"']/xmlns:is/xmlns:t","xml:space","preserve")
 		ElseIf cTipo=="L"
-			::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"t","b")
+			AADD(aAtt,{"t","b"})
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",if(xValor,"1","0"))
 		ElseIf cTipo=="N"
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",cValToChar(xValor))
@@ -2057,21 +2068,22 @@ Method SetValue(xValor,cFormula) Class YExcel
 			EndIf
 			cStyAtu 	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 			If ValType(cStyAtu)!="U" .AND. !::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
-				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::CreateStyle(Val(cStyAtu),14)))
+				AADD(aAtt,{"s",cValToChar(::CreateStyle(Val(cStyAtu),14))})
 			ElseIf ValType(cStyAtu)=="U"
-				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::aPadraoSty[2]))
+				AADD(aAtt,{"s",cValToChar(::aPadraoSty[2])})
 			EndIf
 		ElseIf cTipo=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",xValor:GetStrNumber())
 			cStyAtu 	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
 			If ValType(cStyAtu)!="U" .AND. !::GetStyleAtt(Val(cStyAtu),"applyNumberFormat")=="1"
-				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::CreateStyle(Val(cStyAtu),::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))) )
+				AADD(aAtt,{"s",cValToChar(::CreateStyle(Val(cStyAtu),::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))) })
 			ElseIf ValType(cStyAtu)=="U"
-				SetAtrr(::asheet[::nPlanilhaAt][1],cPathColuna,"s",cValToChar(::aPadraoSty[3]))
+				AADD(aAtt,{"s",cValToChar(::aPadraoSty[3])})
 			EndIf
 		Else
 			::asheet[::nPlanilhaAt][1]:XPathAddNode(cPathColuna,"v",Transform(xValor,""))
 		EndIf
+		::asheet[::nPlanilhaAt][1]:XPathAddAttArray(cPathColuna,aAtt)
 	Else
 		Default cFormula	:= ""
 		If !(::cAliasLin)->(DbSeek(Str(::nPlanilhaAt,10)+Str(::nLinha,10)))
@@ -2108,6 +2120,7 @@ Method SetValue(xValor,cFormula) Class YExcel
 		(::cAliasCol)->PLA		:= ::nPlanilhaAt
 		(::cAliasCol)->LIN		:= ::nLinha
 		(::cAliasCol)->COL		:= ::nColuna
+		(::cAliasCol)->REF		:= ::cRef
 		If cTipo=="C"
 			(::cAliasCol)->TIPO		:= "s"
 			(::cAliasCol)->TPSTY	:= "S"
@@ -2180,7 +2193,6 @@ Method SetValue(xValor,cFormula) Class YExcel
 			(::cAliasCol)->TPVLR	:= "C"	//Caracteres
 		Endif
 		(::cAliasCol)->(MsUnLock())
-		::asheet[::nPlanilhaAt][1]:ResetErrors()
 	EndIf
 Return self
 /*/{Protheus.doc} YExcel::SetDateTime
@@ -2263,13 +2275,14 @@ Return cPathColuna
 Static cStrtmp	:= GetNextAlias()
 Method SetStrComp(xTexto) Class YExcel
 	Local nPos
-	::ExecSql(cStrtmp,"SELECT MAX(POS)+1 MAXPOS FROM "+::cTabStr,::cDriver)//::nQtdString
-	If Empty((cStrtmp)->MAXPOS)
-		nPos	:= 0
-	Else
-		nPos	:= (cStrtmp)->MAXPOS
-	Endif
-	(cStrtmp)->(DbCloseArea())
+	nPos	:= ::nQtdString
+	//::ExecSql(cStrtmp,"SELECT MAX(POS)+1 MAXPOS FROM "+::cTabStr,::cDriver)//::nQtdString
+	//If Empty((cStrtmp)->MAXPOS)
+	//	nPos	:= 0
+	//Else
+	//	nPos	:= (cStrtmp)->MAXPOS
+	//Endif
+	//(cStrtmp)->(DbCloseArea())
 	(::cAliasStr)->(RecLock(::cAliasStr,.T.))
 	(::cAliasStr)->POS		:= nPos
 	(::cAliasStr)->VLRTEXTO	:= Md5(xTexto)
@@ -2286,13 +2299,14 @@ Method SetStrComp2(xTexto) Class YExcel
 	If lAchou
 		Return nPos
 	EndIf
-	::ExecSql(cStrtmp,"SELECT MAX(POS)+1 MAXPOS FROM "+::cTabStr,::cDriver)//::nQtdString
-	If Empty((cStrtmp)->MAXPOS)
-		nPos	:= 0
-	Else
-		nPos	:= (cStrtmp)->MAXPOS
-	Endif
-	(cStrtmp)->(DbCloseArea())
+	nPos	:= ::nQtdString
+	//::ExecSql(cStrtmp,"SELECT MAX(POS)+1 MAXPOS FROM "+::cTabStr,::cDriver)//::nQtdString
+	//If Empty((cStrtmp)->MAXPOS)
+	//	nPos	:= 0
+	//Else
+	//	nPos	:= (cStrtmp)->MAXPOS
+	//Endif
+	//(cStrtmp)->(DbCloseArea())
 	(::cAliasStr)->(RecLock(::cAliasStr,.T.))
 	(::cAliasStr)->POS		:= nPos
 	(::cAliasStr)->VLRTEXTO	:= Md5(xTexto)
@@ -4580,7 +4594,7 @@ Method SetStyaOutrosAtributos(nStyle,aOutrosAtributos) Class YExcel
 Return self
 
 /*/{Protheus.doc} YExcel::CreateStyle
-Adiciona estilo com herança de outro estilo
+Adiciona novo estilo. Mescla informações do estilo enviado com o novo estilo
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -5736,7 +5750,23 @@ Method Save(cLocal) Class YExcel
 	Local nHTmp
 	Local lSheetDataOk
 	Local oFile
+	Local oQryPlan
+	Local cAliasQry
 	Default cLocal := GetTempPath()
+	If ::lBD
+		If ValType(oQryPlan)=="U"
+			cQuery		:= "SELECT P.PLA,P.LIN,OLEVEL,COLLAP,CHIDDEN,CHEIGHT,HT"
+			cQuery		+= " ,COL,REF,STY,TPSTY,TIPO,FORMULA,TPVLR,VLR"
+			cQuery		+= " FROM "+::cTabLin+" P"
+			cQuery		+= " INNER JOIN "+::cTabCol+" C"
+			cQuery		+= " ON P.PLA=C.PLA AND P.LIN=C.LIN"
+			cQuery		+= " WHERE P.PLA= ? "
+			cQuery		+= " AND P.D_E_L_E_T_=' '"
+			cQuery		+= " ORDER BY P.PLA,P.LIN"
+			oQryPlan	:= FWPreparedStatement():New()
+			oQryPlan:SetQuery(cQuery)
+		EndIf
+	EndIf
 	If ::lCanUseBulk
 		::CloseBulk()
 	EndIf
@@ -5965,45 +5995,46 @@ Method Save(cLocal) Class YExcel
 							nBytTmp -= nBLidostmp
 						EndDo
 					Else
-						(::cAliasLin)->(DbSeek(Str(nCont,10)))	//Leitura das linhas
-						While (::cAliasLin)->(!EOF()) .and. nCont==(::cAliasLin)->PLA
-							nLinha := (::cAliasLin)->LIN
+						oQryPlan:setNumeric(1,nCont)
+						cAliasQry	:= MpSysOpenQuery(oQryPlan:GetFixQuery())
+						//Leitura das linhas
+						While (cAliasQry)->(!EOF())
+							nLinha := (cAliasQry)->LIN
 							cBuffer2	:= '<row r="'+cValToChar(nLinha)+'"'
-							If !Empty((::cAliasLin)->OLEVEL)
-								cBuffer2	+= ' outlineLevel="'+(::cAliasLin)->OLEVEL+'"'
+							If !Empty((cAliasQry)->OLEVEL)
+								cBuffer2	+= ' outlineLevel="'+(cAliasQry)->OLEVEL+'"'
 							Endif
-							If !Empty((::cAliasLin)->COLLAP)
-								cBuffer2	+= ' collapsed="'+(::cAliasLin)->COLLAP+'"'
+							If !Empty((cAliasQry)->COLLAP)
+								cBuffer2	+= ' collapsed="'+(cAliasQry)->COLLAP+'"'
 							Endif
-							If !Empty((::cAliasLin)->CHIDDEN)
-								cBuffer2	+= ' hidden="'+(::cAliasLin)->CHIDDEN+'"'
+							If !Empty((cAliasQry)->CHIDDEN)
+								cBuffer2	+= ' hidden="'+(cAliasQry)->CHIDDEN+'"'
 							Endif
-							If !Empty((::cAliasLin)->CHEIGHT)
-								cBuffer2	+= ' customHeight="'+(::cAliasLin)->CHEIGHT+'"'
-								cBuffer2	+= ' ht="'+cValToChar((::cAliasLin)->HT)+'"'
+							If !Empty((cAliasQry)->CHEIGHT)
+								cBuffer2	+= ' customHeight="'+(cAliasQry)->CHEIGHT+'"'
+								cBuffer2	+= ' ht="'+cValToChar((cAliasQry)->HT)+'"'
 							Endif
 							cBuffer2	+= ">"
 							oFile:Write(cBuffer2)
 							cBuffer2	:= ""
-							(::cAliasCol)->(DbSetOrder(1))
-							(::cAliasCol)->(DbSeek( Str(nCont,10)+Str(nLinha,10) ))	//Leitura das colunas
-							While (::cAliasCol)->(!EOF()) .AND. nCont==(::cAliasCol)->PLA .AND. nLinha==(::cAliasCol)->LIN
-								cBuffer2	:= '<c r="'+::Ref(nLinha,(::cAliasCol)->COL)+'"'
-								If (::cAliasCol)->STY>=0
-									cBuffer2	+= ' s="'+cValToChar((::cAliasCol)->STY)+'"'
+							//Leitura das colunas
+							While (cAliasQry)->(!EOF()) .AND. nLinha==(cAliasQry)->LIN
+								cBuffer2	:= '<c r="'+(cAliasQry)->REF+'"'
+								If (cAliasQry)->STY>=0
+									cBuffer2	+= ' s="'+cValToChar((cAliasQry)->STY)+'"'
 								Endif
-								If (::cAliasCol)->TIPO=="i"
+								If (cAliasQry)->TIPO=="i"
 									cBuffer2	+= ' t="inlineStr"'
-								ElseIf !Empty((::cAliasCol)->TIPO) .AND. (::cAliasCol)->TPVLR!="U" .AND. !( ((::cAliasCol)->TIPO =="d".AND.(::cAliasCol)->TPVLR=="N") .OR. (::cAliasCol)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
-									cBuffer2	+= ' t="'+Alltrim((::cAliasCol)->TIPO)+'"'
+								ElseIf !Empty((cAliasQry)->TIPO) .AND. (cAliasQry)->TPVLR!="U" .AND. !( ((cAliasQry)->TIPO =="d".AND.(cAliasQry)->TPVLR=="N") .OR. (cAliasQry)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
+									cBuffer2	+= ' t="'+Alltrim((cAliasQry)->TIPO)+'"'
 								Endif
 								cBuffer2	+= '>'
-								nColuna	:= (::cAliasCol)->COL
-								If !Empty((::cAliasCol)->FORMULA)
-									cBuffer2	+= '<f>'+RTRIM((::cAliasCol)->FORMULA)+'</f>'
+								nColuna	:= (cAliasQry)->COL
+								If !Empty((cAliasQry)->FORMULA)
+									cBuffer2	+= '<f>'+RTRIM((cAliasQry)->FORMULA)+'</f>'
 								Endif
-								If (::cAliasCol)->TIPO=="i"
-									cTexto	:= AjusEncode((::cAliasCol)->VLR)
+								If (cAliasQry)->TIPO=="i"
+									cTexto	:= AjusEncode((cAliasQry)->VLR)
 									cBuffer2	+= '<is>'
 									cBuffer2	+= '<t xml:space="preserve">'
 									cBuffer2	+= '<![CDATA['
@@ -6013,22 +6044,22 @@ Method Save(cLocal) Class YExcel
 									cBuffer2	+= '</is>'
 								Else
 									cBuffer2	+= '<v>'
-									If (::cAliasCol)->TPVLR=="C"
-										cBuffer2	+= (::cAliasCol)->VLR
-									ElseIf (::cAliasCol)->TPVLR=="U"
+									If (cAliasQry)->TPVLR=="C"
+										cBuffer2	+= (cAliasQry)->VLR
+									ElseIf (cAliasQry)->TPVLR=="U"
 									Else
-										cBuffer2	+= cValToChar((::cAliasCol)->VLR)
+										cBuffer2	+= cValToChar((cAliasQry)->VLR)
 									Endif
 									cBuffer2	+= '</v>'
 								EndIf
 								cBuffer2	+= '</c>'
 								oFile:Write( cBuffer2)
-								(::cAliasCol)->(DbSkip())
+								(cAliasQry)->(DbSkip())
 							EndDo
 							cBuffer2	:= nil
 							oFile:Write("</row>")
-							(::cAliasLin)->(DbSkip())
 						EndDo
+						(cAliasQry)->(DBCloseArea())
 					EndIf
 					oFile:Write( SubStr(cBuffer,nPos+1))
 				Else
@@ -6545,6 +6576,7 @@ Definição de novas colunas do bulk
 @since 24/05/2023
 @param nColuna, numeric, posição da coluna
 @param cTipo, character, Tipo de dado da coluna(C=character;N=numeric;L=logical;D=Date)
+@param nTamanho, numeric, Tamanho do conteudo de dados, para otimização na gravação de string
 @param cCombo, character, String com opções de combo
 @param oStyle, object, Objeto de formatação da coluna
 @param lFormula, logical, Se o campo vai receber formula
@@ -6553,7 +6585,7 @@ Definição de novas colunas do bulk
 @param cDados, character, Conteudo do campo no alias(Alias2Tab)
 @return json, definição do campo no formato json
 /*/
-Method BulkNewField(nColuna,cTipo,cCombo,oStyle,lFormula,lDatetime,cCampo,cDados) Class YExcel
+Method BulkNewField(nColuna,cTipo,nTamanho,cCombo,oStyle,lFormula,lDatetime,cCampo,cDados) Class YExcel
 	Local jCampo	:= jSonObject():New()
 	PARAMTYPE 0	VAR nColuna			AS NUMERIC
 	PARAMTYPE 1	VAR cTipo			AS CHARACTER
@@ -6574,6 +6606,7 @@ Method BulkNewField(nColuna,cTipo,cCombo,oStyle,lFormula,lDatetime,cCampo,cDados
 	jCampo["campo"]			:= cCampo	//Nome do campo quando Alias2Tab
 	jCampo["alfa_coluna"]	:= NumToString(nColuna)
 	jCampo["dados"]			:= cDados	//Dados do campo quando Alias2Tab
+	jCampo["tamanho"]		:= nTamanho	//Tamanho dos dados
 	AADD(::aCleanObj,jCampo)
 Return jCampo
 
@@ -6611,7 +6644,7 @@ Method GetArray() Class YExcel_RegraLinha
 Return ::aRegraStyle
 
 /*/{Protheus.doc} YExcel::DefBulkLine
-Criar definição de preenchimento em massa
+Criar definição de campos para preenchimento em massa
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -6795,6 +6828,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 	ElseIf ::lBD
 		For nCont:=1 to Len(aCampos)
 			nStyle	:= -1
+			cRef		:= aCampos[nCont]["alfa_coluna"]
 			If ValType(aCampos[nCont]["style"])=="O" .AND. aCampos[nCont]["style"]:ClassName()=="YEXCEL_STYLE"
 				nStyle		:= aCampos[nCont]["style"]:GetId()
 			ElseIf ValType(aCampos[nCont]["style"])=="O"
@@ -6819,9 +6853,12 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				cTipo		:= "s"
 				cTpSty		:= "S"
 				If lCombo
-					bValor		:= {|xValor,cTp,jCombo| cTp:="N",xValor2:=jCombo[xValor],If(ValType(xValor2)=="U",(jCombo[xValor]:=cValToChar(::SetStrComp2(xValor))),xValor2) }
+					bValor		:= {|xValor,cTp,jCombo| cTp:="N",If(jCombo:HasProperty(xValor),jCombo[xValor],(jCombo[xValor]:=cValToChar(::SetStrComp2(xValor)))) }
+				ElseIf ValType(aCampos[nCont]["tamanho"])=="N".AND.aCampos[nCont]["tamanho"]<255
+					cTipo		:= "i"
+					bValor		:= {|xValor,cTp,jCombo| cTp:="C",xValor }
 				Else
-					bValor		:= {|xValor,cTp,jCombo| cTp:="N",lAchou:=.F.,nPos:=cValToChar(::SetStrComp2(xValor)) }
+					bValor		:= {|xValor,cTp,jCombo| cTp:="N",nPos:=cValToChar(::SetStrComp2(xValor)) }
 				EndIf
 			ElseIf aCampos[nCont]["tipo"]=="L"
 				cTipo		:= "b"
@@ -6854,7 +6891,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				EndIf
 				bValor		:= {|xValor,cTp,jCombo| GetNumDtTm(xValor) }
 			Endif
-			AADD(aDadosBulk,{bValor,aCampos[nCont]["coluna"],cTipo,cTpSty,cTpVlr,nStyle,jCombo,})
+			AADD(aDadosBulk,{bValor,aCampos[nCont]["coluna"],cTipo,cTpSty,cTpVlr,nStyle,jCombo,,cRef})
 		Next
 	EndIf
 	::aDadosBulk	:= aDadosBulk
@@ -6886,7 +6923,15 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 		::oFile:goBottom()
 	EndIf
 Return ::aDadosBulk
-
+/*/{Protheus.doc} YExcel::SetValueBulk
+Definir valor para preenchimeno de bulk, informar na sequência de colunas
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 29/05/2023
+@param xValor, variant, Valor a ser preenchido no mesmo formato da definição de colunas
+@param cFormula, character, Formula a ser preenchida
+/*/
 Method SetValueBulk(xValor,cFormula) Class YExcel
 	AADD(::aBulkValor,{xValor,cFormula})
 Return
@@ -6895,7 +6940,7 @@ Method LenColBulk() Class YExcel
 Return Len(::aDadosBulk)-1	//Menos 1, pois o primeiro é definição da linha
 
 /*/{Protheus.doc} YExcel::SetBulkLine
-Inserir linha em bulk
+Preenche a linha em bulk do excel
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -6969,15 +7014,16 @@ Method SetBulkLine() Class YExcel
 				::nColuna	:= ::aDadosBulk[nCont2][2]
 				::xValor	:= Eval(::aDadosBulk[nCont2][1],aValores[nCont][1],@::aDadosBulk[nCont2][5],::aDadosBulk[nCont2][7])
 				::aBulkDB[1]:AddData({;
-					::nPlanilhaAt;					//PLA
-					,::nLinha;						//LIN
-					,::aDadosBulk[nCont2][2];		//COL
-					,::aDadosBulk[nCont2][6];		//STY
-					,::aDadosBulk[nCont2][4];		//TPSTY
-					,::aDadosBulk[nCont2][3];		//TIPO
-					,aValores[nCont][2];			//FORMULA
-					,::aDadosBulk[nCont2][5];		//TPVLR
-					,::xValor;						//VLR
+					::nPlanilhaAt;									//PLA
+					,::nLinha;										//LIN
+					,::aDadosBulk[nCont2][2];						//COL
+					,::aDadosBulk[nCont2][9]+cValToChar(::nLinha);	//REF
+					,::aDadosBulk[nCont2][6];						//STY
+					,::aDadosBulk[nCont2][4];						//TPSTY
+					,::aDadosBulk[nCont2][3];						//TIPO
+					,aValores[nCont][2];							//FORMULA
+					,::aDadosBulk[nCont2][5];						//TPVLR
+					,::xValor;										//VLR
 					})
 			Next
 		Else
@@ -7023,7 +7069,7 @@ Static Function jCombo(cCombo,lStringC,oExcel)
 Return jCombo
 
 /*/{Protheus.doc} YExcel::FlushBulk
-Atualiza dados da tabela quando gravação em banco de dados
+Atualiza dados do excel
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -7063,15 +7109,16 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @since 13/05/2023
 @param cCampo, character, Nome do campo no alias
 @param cDescricao, character, Descrição a ser alterada, enviar nil para não alterar
-@param nTamanho, numeric, Tamanho da coluna, enviar nil para não alterar
+@param nTamanho, numeric, Tamanho da coluna(no excel), enviar nil para não alterar
 @param cCombo, character, Combo de opções, enviar nil para não alterar
 @param nOrdem, numeric, Definir a ordem da coluna
 @param cTipo, character, altera o tipo de dado
 @param cDados, character, altera o dado de leitura
+@param nTamDados, numeric, Tamanho dos dados
 @return json, definição de campos
 /*/
 
-Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo) Class YExcel
+Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo,nTamDados) Class YExcel
 	Default lNewCampo			:= .F.
 	jCab[cCampo]				:= jSonObject():New()
 	jCab[cCampo]["descricao"]	:= cDescricao
@@ -7083,6 +7130,7 @@ Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,c
 	jCab[cCampo]["tipo"]		:= cTipo
 	jCab[cCampo]["dados"]		:= cDados
 	jCab[cCampo]["newcampo"]	:= lNewCampo
+	jCab[cCampo]["tamdados"]	:= nTamDados
 	AADD(::aCleanObj,jCab)
 return jCab
 
@@ -7141,6 +7189,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local cCamComb		:= "X3_CBOX"
 	Local cDados
 	Local aCamposjson
+	Local nTamDados
 	Private lCab		:= .T.
 	Default lSx3		:= .F.
 	Default lCombo		:= .T.
@@ -7199,9 +7248,12 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 				If ValType(jCab[cCampo]["dados"])=="C"	//Alterar conteudo dos dados
 					cDados		:= jCab[cCampo]["dados"]
 				EndIf
+				If ValType(jCab[cCampo]["tamdados"])=="N"	//Alterar conteudo dos dados
+					nTamDados		:= jCab[cCampo]["tamdados"]
+				EndIf
 				Default cTipo		:= "C"
-				Default nTamCampo	:= 1
-				AADD(aCamposAlias,{cCampo,cTipo,nTamCampo,nOrdem;
+				Default nTamDados	:= 1
+				AADD(aCamposAlias,{cCampo,cTipo,nTamDados,nOrdem;
 					,/*5-bFORMULA EXCEL*/,/*6-bFORMULA ADVPL*/;
 					,/*7-lSUBTOTAL*/,/*8-SUBTOTAL*/;
 					,/*9-lTOTAL_GERAL*/,/*10-TOTAL_GERAL*/;
@@ -7227,6 +7279,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 		lDefCampo	:= lDefCampos .AND. jCab:HasProperty(cCampo)
 		nTamCampo	:= nil
 		cMascara	:= nil
+		nTamDados	:= aCamposAlias[nCont][3]
 		If lSx3		//Verificar estrutura do SX3 para formatar os campos
 			cNomeCampo		:= AllTrim(FWX3Titulo(cCampo))
 			aStruct			:= FWSX3Util():GetFieldStruct( cCampo ) 
@@ -7300,7 +7353,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 			EndIf
 		EndIf
 		
-		AADD(aCampos,::BulkNewField(nColAtu,cTipo,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo,cDados))
+		AADD(aCampos,::BulkNewField(nColAtu,cTipo,nTamDados,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo,cDados))
 		If lExibirCab .OR. lTabela
 			If lTabela
 				oTabela:AddColumn(cNomeCampo)
@@ -7778,8 +7831,13 @@ Return
 
 //-----------------------------------------------------------
 //ALGORITIMO PARA CONVERTE COLUNAS DA PLANILHA
+Static jColunas	:= jSonObject():New()	//Cache da referencia de colunas
 Static Function NumToString(nNum)
 	Local cRet	:= ""
+	Local cNum	:= cValToChar(nNum)
+	If jColunas:HasProperty(cNum)
+		Return jColunas[cNum]
+	EndIf
 	If nNum<=26
 		cRet	:= ColunasIndex(nNum)
 	ElseIf nNum<=702
@@ -7799,33 +7857,40 @@ Static Function NumToString(nNum)
 			cRet	+= ColunasIndex(nNum % 26)
 		Endif
 	Endif
+	jColunas[cNum]	:= cRet
+	jColunas[cRet]	:= nNum
 Return cRet
 
 Static Function StringToNum(cString)
-	Local nTam	:= Len(cString)
+	Local nTam
 	Local nRet
+	If jColunas:HasProperty(cString)
+		Return jColunas[cString]
+	EndIf
+	nTam	:= Len(cString)
 	If nTam==1
-		nRet	:= ColunasIndex(cString,2)
+		nRet	:= IndexColunas(cString)
 	ElseIf nTam==2
-		nRet	:= (ColunasIndex(SubStr(cString,1,1),2)*26)+ColunasIndex(SubStr(cString,2,1),2)
+		nRet	:= (IndexColunas(SubStr(cString,1,1))*26)+IndexColunas(SubStr(cString,2,1))
 	ElseIf nTam==3
-		nRet	:= (ColunasIndex(SubStr(cString,1,1),2)*676)+(ColunasIndex(SubStr(cString,2,1),2)*26)+ColunasIndex(SubStr(cString,3,1),2)
+		nRet	:= (IndexColunas(SubStr(cString,1,1))*676)+(IndexColunas(SubStr(cString,2,1))*26)+IndexColunas(SubStr(cString,3,1))
 	Endif
+	jColunas[cString]				:= nRet
+	jColunas[cValToChar(nRet)]		:= cString
 Return nRet
 
-Static Function ColunasIndex(xNum,nIdx)
+Static Function ColunasIndex(nNum)
 	Local cRet		:= ""
-	Default nIdx	:= 1
-	If nIdx==1
-		If xNum==0
-			cRet	:= ""
-		Else
-			cRet	:= chr(xNum+64)
-		EndIf
+	If nNum==0
+		cRet	:= ""
 	Else
-		cRet	:= asc(xNum)-64
-	Endif
+		cRet	:= chr(nNum+64)
+	EndIf
 Return cRet
+
+Static Function IndexColunas(cNum)
+	Local nRet := asc(cNum)-64
+Return nRet
 
 //----------------------------------------------------------------------
 //CLASSE DE TAGS
@@ -9493,26 +9558,39 @@ Method xls_sharedStrings(oFile) Class YExcel
 	Local nTam
 	Local cRet	:= ""
 	Local cTexto
+	Local cQuery,cAliasQry
+	Local cConfig	:= TCConfig( 'GETMEMOINQUERY' )
 	nTam	:= ::nQtdString
 	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	cRet	+= '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+cValToChar(nTam)+'" uniqueCount="'+cValToChar(nTam)+'">'
 	oFile:Write(cRet)
 	cRet	:= ""
+	If cConfig=="OFF"
+		TCConfig('SETMEMOINQUERY=ON')
+	EndIf
 
-	(::cAliasStr)->(DbSetOrder(2))	//POS
-	(::cAliasStr)->(DbGoTop())
-	While (::cAliasStr)->(!EOF())
+	cQuery		:= "SELECT POS,VLRMEMO"
+	cQuery		+= " FROM "+::cTabStr+" S"
+	cQuery		+= " WHERE "
+	cQuery		+= " S.D_E_L_E_T_=' '"
+	cQuery		+= " ORDER BY POS"
+	cAliasQry	:= MpSysOpenQuery(cQuery)
+	While (cAliasQry)->(!EOF())
 		cRet	+= '<si>'
-		cTexto	:= AjusEncode((::cAliasStr)->VLRMEMO)
+		cTexto	:= AjusEncode((cAliasQry)->VLRMEMO)
 		cRet	+= '<t xml:space="preserve"><![CDATA['+cTexto+']]></t>'
 		cRet	+= '</si>'
 		oFile:Write(cRet)
 		cRet	:= ""
-		(::cAliasStr)->(DbSkip())
+		(cAliasQry)->(DbSkip())
 	EndDo
+	(cAliasQry)->(DBCloseArea())
 	cRet	+= '</sst>'
 	oFile:Write(cRet)
 	cRet	:= ""
+	If cConfig=="OFF"
+		TCConfig('SETMEMOINQUERY=OFF')
+	EndIf
 Return cRet
 /*/{Protheus.doc} YExcel::Read_sharedStrings
 Ler strings compartilhada para gravar no banco
