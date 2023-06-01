@@ -6019,7 +6019,7 @@ Method Save(cLocal) Class YExcel
 							cBuffer2	:= ""
 							//Leitura das colunas
 							While (cAliasQry)->(!EOF()) .AND. nLinha==(cAliasQry)->LIN
-								cBuffer2	:= '<c r="'+(cAliasQry)->REF+'"'
+								cBuffer2	:= '<c r="'+Rtrim((cAliasQry)->REF)+'"'
 								If (cAliasQry)->STY>=0
 									cBuffer2	+= ' s="'+cValToChar((cAliasQry)->STY)+'"'
 								Endif
@@ -6732,7 +6732,6 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 			::nColuna	:= aCampos[nCont]["coluna"]
 			cBloco		:= ""
 			cCombo		:= aCampos[nCont]["combo"]
-			cStyle		:= cValToChar(::aPadraoSty[1])
 			jsonstyle	:= nil
 			If !Empty(cCombo)			//Guarda cache de combo de opções
 				jCombo	:= jCombo(cCombo)
@@ -6761,12 +6760,8 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				oC:AddArr('<v>'+"'+cValToChar(xValor)+'"+'</v>')
 			ElseIf aCampos[nCont]["tipo"]=="D"
 				oC:AddArr('<v>'+"'+If(!Empty(xValor),cValToChar(xValor-STOD('19000101')+2),'')+'"+'</v>')
-				cStyle	:= cValToChar(::aPadraoSty[2])
-				oC:SetAtributo("s",::aPadraoSty[2])	//Estilo padrão de data
 			ElseIf aCampos[nCont]["tipo"]=="O" .and. aCampos[nCont]["ldatetime"]
 				oC:AddArr('<v>'+"'+cValToChar(xValor:GetStrNumber())+'"+'</v>')
-				cStyle	:= cValToChar(::aPadraoSty[3])
-				oC:SetAtributo("s",::aPadraoSty[3])	//Estilo padrão de datetime
 			ElseIf aCampos[nCont]["tipo"]=="M"
 				oC:SetAtributo("t","inlineStr")
 				oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(xValor)+'"+']]></t></is>')
@@ -6776,45 +6771,13 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				FreeObj(oTmpObj)
 				oTmpObj	:= nil
 			EndIf
+			jsonstyle	:= nil
+			cStyle		:= nil
+			StyDinamico(aCampos[nCont],@jsonstyle,aRegraStyle,aNames,@cStyle,.T.,self)
 			If lStyleDinamico
-				aCampos[nCont]["style"]	:= ::NewStyle(aCampos[nCont]["style"])
-				aCampos[nCont]["style"]:SetParent()			//Retirar o pai
-				cStyle		:=	cValToChar(::CreateStyle(aCampos[nCont]["style"]:GetID()))	//Estilo padrão se não tem regra
-				If Empty(aCampos[nCont]["style"]:GetnumFmt())	//Não tem formato aplicado
-					If aCampos[nCont]["tipo"]=="D"				//É data
-						cStyle		:=	cValToChar(::CreateStyle(Val(cStyle),14))
-					ElseIf aCampos[nCont]["tipo"]=="O" .and. aCampos[nCont]["ldatetime"]	//É datetime
-						cStyle		:=	cValToChar(::CreateStyle(Val(cStyle),::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")))
-					EndIf
-				EndIf
-
-				jsonstyle	:= jSonObject():New()
-				For i := 1 to len(aNames)
-					If aRegraStyle[2][aNames[i]]["principal"]
-						aRegraStyle[2][aNames[i]]["style"]:SetParent(aCampos[nCont]["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
-						If Empty(aRegraStyle[2][aNames[i]]["style"]:GetnumFmt())
-							If aCampos[nCont]["tipo"]=="D"
-								aRegraStyle[2][aNames[i]]["style"]:SetnumFmt(14)
-							ElseIf aCampos[nCont]["tipo"]=="O" .and. aCampos[nCont]["ldatetime"]
-								aRegraStyle[2][aNames[i]]["style"]:SetnumFmt(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
-							EndIf
-						EndIf
-						jsonstyle[aNames[1]]	:= cValToChar(aRegraStyle[2][aNames[i]]["style"]:GetID())
-					Else
-						aCampos[nCont]["style"]:SetParent(aRegraStyle[2][aNames[i]]["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
-						If Empty(aCampos[nCont]["style"]:GetnumFmt())
-							If aCampos[nCont]["tipo"]=="D"
-								aCampos[nCont]["style"]:SetnumFmt(14)
-							ElseIf aCampos[nCont]["tipo"]=="O" .and. aCampos[nCont]["ldatetime"]
-								aCampos[nCont]["style"]:SetnumFmt(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
-							EndIf
-						EndIf
-						jsonstyle[aNames[1]]	:= cValToChar(aCampos[nCont]["style"]:GetID())
-					EndIf
-				next i
 				oC:SetAtributo("s","'+(cRegraStyle:=Eval(aRegraStyle[1]),if(jsonstyle:HasProperty(cRegraStyle),jsonstyle[cRegraStyle],cStyle))+'")
 			ElseIf !Empty(aCampos[nCont]["style"])
-				::SetStyle(aCampos[nCont]["style"],,,,,oC)
+				::SetStyle(Val(cStyle),,,,,oC)
 			EndIf
 			cBloco	:= "{|cLin,xValor,cFormula,cStyle,jCombo,jsonstyle| '"+oC:GetTag()+"' }"
 			AADD(aDadosBulk,{&cBloco,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,cStyle,jsonstyle,aCampos[nCont]["campo"]})
@@ -6829,13 +6792,6 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 		For nCont:=1 to Len(aCampos)
 			nStyle	:= -1
 			cRef		:= aCampos[nCont]["alfa_coluna"]
-			If ValType(aCampos[nCont]["style"])=="O" .AND. aCampos[nCont]["style"]:ClassName()=="YEXCEL_STYLE"
-				nStyle		:= aCampos[nCont]["style"]:GetId()
-			ElseIf ValType(aCampos[nCont]["style"])=="O"
-				nStyle		:= aCampos[nCont]["style"]:GetId(::nLinha,aCampos[nCont]["coluna"])
-			ElseIf ValType(aCampos[nCont]["style"])=="N"
-				nStyle		:= aCampos[nCont]["style"]
-			EndIf
 			If nStyle>=0 .AND. nStyle+1>::nQtdStyle
 				UserException("YExcel - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 			Endif
@@ -6849,49 +6805,43 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				lCombo	:= .F.
 			EndIf
 			cTpVlr	:= "N"
+			cBloco	:= "{|xValor,cTp,jCombo,nSty,jsonstyle|"
+			jsonstyle	:= nil
+			nStyle		:= nil
+			StyDinamico(aCampos[nCont],@jsonstyle,aRegraStyle,aNames,@nStyle,.F.,self)
+			If lStyleDinamico
+				cBloco		+= "nSty:=(cRegraStyle:=Eval(aRegraStyle[1]),if(jsonstyle:HasProperty(cRegraStyle),jsonstyle[cRegraStyle],nSty)),"
+			EndIf
 			If aCampos[nCont]["tipo"]=="C"
 				cTipo		:= "s"
 				cTpSty		:= "S"
 				If lCombo
-					bValor		:= {|xValor,cTp,jCombo| cTp:="N",If(jCombo:HasProperty(xValor),jCombo[xValor],(jCombo[xValor]:=cValToChar(::SetStrComp2(xValor)))) }
+					cBloco		+= ' cTp:="N",If(jCombo:HasProperty(xValor),jCombo[xValor],(jCombo[xValor]:=cValToChar(self:SetStrComp2(xValor)))) '
 				ElseIf ValType(aCampos[nCont]["tamanho"])=="N".AND.aCampos[nCont]["tamanho"]<255
 					cTipo		:= "i"
-					bValor		:= {|xValor,cTp,jCombo| cTp:="C",xValor }
+					cBloco		+= ' cTp:="C",xValor '
 				Else
-					bValor		:= {|xValor,cTp,jCombo| cTp:="N",nPos:=cValToChar(::SetStrComp2(xValor)) }
+					cBloco		+= ' cTp:="N",nPos:=cValToChar(self:SetStrComp2(xValor)) '
 				EndIf
 			ElseIf aCampos[nCont]["tipo"]=="L"
 				cTipo		:= "b"
 				cTpSty		:= "B"
-				bValor		:= {|xValor,cTp,jCombo| cTp:="N",if(xValor,"1","0") }
+				cBloco		+= ' cTp:="N",if(xValor,"1","0") '
 			ElseIf aCampos[nCont]["tipo"]=="N"
 				cTipo		:= "n"
 				cTpSty		:= "N"
-				bValor		:= {|xValor,cTp,jCombo| cTp:="N",cValToChar(xValor) }
+				cBloco		+= ' cTp:="N",cValToChar(xValor) '
 			ElseIf aCampos[nCont]["tipo"]=="D"
 				cTipo		:= "d"
 				cTpSty		:= "D"
-				If nStyle>=0
-					If !::GetStyleAtt(nStyle,"applyNumberFormat")=="1"	//Não tem NumFmt aplicado
-						nStyle		:= ::CreateStyle(nStyle,14)
-					EndIf
-				Else
-					nStyle		:= ::aPadraoSty[2]	//Estilo padrão de data
-				EndIf
-				bValor		:= {|xValor,cTp,jCombo| If(!Empty(xValor),cValToChar(xValor-STOD("19000101")+2),(cTp:="U",,"")) }
-			ElseIf aCampos[nCont]["tipo"]=="O" .and. GetClassName(xValor)=="YEXCEL_DATETIME"
+				cBloco		+= ' If(!Empty(xValor),cValToChar(xValor-STOD("19000101")+2),(cTp:="U","")) '
+			ElseIf aCampos[nCont]["tipo"]=="O" .and. aCampos[nCont]["ldatetime"]
 				cTipo		:= "d"
 				cTpSty		:= "T"
-				If nStyle>=0
-					If !::GetStyleAtt(nStyle,"applyNumberFormat")=="1"	//Não tem NumFmt aplicado
-						nStyle		:= ::CreateStyle(nStyle,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
-					EndIf
-				Else
-					nStyle		:= ::aPadraoSty[3]	//Estilo padrão de datetime
-				EndIf
-				bValor		:= {|xValor,cTp,jCombo| GetNumDtTm(xValor) }
+				cBloco		+= ' GetNumDtTm(xValor) '
 			Endif
-			AADD(aDadosBulk,{bValor,aCampos[nCont]["coluna"],cTipo,cTpSty,cTpVlr,nStyle,jCombo,,cRef})
+			cBloco	+= " }"
+			AADD(aDadosBulk,{&(cBloco),aCampos[nCont]["coluna"],cTipo,cTpSty,cTpVlr,nStyle,jCombo,jsonstyle,cRef})
 		Next
 	EndIf
 	::aDadosBulk	:= aDadosBulk
@@ -6923,6 +6873,55 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 		::oFile:goBottom()
 	EndIf
 Return ::aDadosBulk
+
+Static Function StyDinamico(jCampos,jsonstyle,aRegraStyle,aNames,xStyle,lString,oExcel)
+	Local i
+	Default lString		:= .T.
+	jCampos["style"]	:= oExcel:NewStyle(jCampos["style"])
+	jCampos["style"]:SetParent()			//Retirar o pai
+	xStyle		:=	oExcel:CreateStyle(jCampos["style"]:GetID())	//Estilo padrão se não tem regra
+	If Empty(jCampos["style"]:GetnumFmt())	//Não tem formato aplicado
+		If jCampos["tipo"]=="D"				//É data
+			xStyle		:=	oExcel:CreateStyle(xStyle,14)
+		ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]	//É datetime
+			xStyle		:=	oExcel:CreateStyle(xStyle,oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
+		EndIf
+	EndIf
+	If lString
+		xStyle		:=	cValToChar(xStyle)
+	EndIf
+
+	If !Empty(aNames)
+		jsonstyle	:= jSonObject():New()
+		For i := 1 to len(aNames)
+			If aRegraStyle[2][aNames[i]]["principal"]
+				aRegraStyle[2][aNames[i]]["style"]:SetParent(jCampos["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
+				If Empty(aRegraStyle[2][aNames[i]]["style"]:GetnumFmt())
+					If jCampos["tipo"]=="D"
+						aRegraStyle[2][aNames[i]]["style"]:SetnumFmt(14)
+					ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]
+						aRegraStyle[2][aNames[i]]["style"]:SetnumFmt(oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
+					EndIf
+				EndIf
+				jsonstyle[aNames[i]]	:= aRegraStyle[2][aNames[i]]["style"]:GetID()
+			Else
+				jCampos["style"]:SetParent(aRegraStyle[2][aNames[i]]["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
+				If Empty(jCampos["style"]:GetnumFmt())
+					If jCampos["tipo"]=="D"
+						jCampos["style"]:SetnumFmt(14)
+					ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]
+						jCampos["style"]:SetnumFmt(oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
+					EndIf
+				EndIf
+				jsonstyle[aNames[i]]	:= jCampos["style"]:GetID()
+			EndIf
+			If lString
+				jsonstyle[aNames[i]]	:= cValToChar(jsonstyle[aNames[i]])
+			EndIf
+		next i
+	EndIf
+Return
+
 /*/{Protheus.doc} YExcel::SetValueBulk
 Definir valor para preenchimeno de bulk, informar na sequência de colunas
 @type method
@@ -6958,6 +6957,8 @@ Method SetBulkLine() Class YExcel
 	Local cCHEIGHT
 	Local nHT
 	Local cTexto
+	Local nStyle
+	Local cTpVlr
 	If ::lArquivo
 		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
 		::oFile:Write(cTexto)
@@ -7012,13 +7013,15 @@ Method SetBulkLine() Class YExcel
 			For nCont:=1 to Len(aValores)
 				nCont2		:= nCont+1
 				::nColuna	:= ::aDadosBulk[nCont2][2]
-				::xValor	:= Eval(::aDadosBulk[nCont2][1],aValores[nCont][1],@::aDadosBulk[nCont2][5],::aDadosBulk[nCont2][7])
+				nStyle		:= ::aDadosBulk[nCont2][6]
+				cTpVlr		:= ::aDadosBulk[nCont2][5]
+				::xValor	:= Eval(::aDadosBulk[nCont2][1],aValores[nCont][1],@cTpVlr,::aDadosBulk[nCont2][7],@nStyle,::aDadosBulk[nCont2][8])
 				::aBulkDB[1]:AddData({;
 					::nPlanilhaAt;									//PLA
 					,::nLinha;										//LIN
 					,::aDadosBulk[nCont2][2];						//COL
 					,::aDadosBulk[nCont2][9]+cValToChar(::nLinha);	//REF
-					,::aDadosBulk[nCont2][6];						//STY
+					,nStyle;										//STY
 					,::aDadosBulk[nCont2][4];						//TPSTY
 					,::aDadosBulk[nCont2][3];						//TIPO
 					,aValores[nCont][2];							//FORMULA
@@ -7114,12 +7117,14 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @param nOrdem, numeric, Definir a ordem da coluna
 @param cTipo, character, altera o tipo de dado
 @param cDados, character, altera o dado de leitura
+@param lNewCampo, logical, Cria novo campo
+@param lHidden, logical, Oculta campo
 @param nTamDados, numeric, Tamanho dos dados
 @return json, definição de campos
 /*/
-
-Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo,nTamDados) Class YExcel
+Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo,lHidden,nTamDados) Class YExcel
 	Default lNewCampo			:= .F.
+	Default lHidden				:= .F.
 	jCab[cCampo]				:= jSonObject():New()
 	jCab[cCampo]["descricao"]	:= cDescricao
 	jCab[cCampo]["tamanho"]		:= nTamanho
@@ -7131,6 +7136,7 @@ Method NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,c
 	jCab[cCampo]["dados"]		:= cDados
 	jCab[cCampo]["newcampo"]	:= lNewCampo
 	jCab[cCampo]["tamdados"]	:= nTamDados
+	jCab[cCampo]["hidden"]		:= lHidden
 	AADD(::aCleanObj,jCab)
 return jCab
 
@@ -7149,11 +7155,12 @@ Preeencher excel com conteudo de alias
 @param aOnlyFieds, array, Se enviado somente os campos enviado vai ser exibido
 @param aRegraStyle, array, Array com regra para formatação dinamica de linhas 
 @param oStyleLinha, object, Estilo padrão para as linhas
+@param lFiltro, logical, Habilitar filtro automatico
 @param oTabela, object, Objeto do formato tabela do excel
 /*/
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,oTabela) Class YExcel
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lFiltro,oTabela) Class YExcel
 	Local nCont
-	Local nLinIni	:= If(::nLinha==0,1,::nLinha)+If(ValType(::oRow)=="O",1,0)
+	Local nLinIni	:= If(::nLinha==0,1,::nLinha)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
 	Local nColAtu	:= nColIni
 	Local nQtdCol	:= (cAlias)->(DBInfo(DBI_FCOUNT))
@@ -7190,11 +7197,25 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Local cDados
 	Local aCamposjson
 	Local nTamDados
+	Local cPathLinha
 	Private lCab		:= .T.
 	Default lSx3		:= .F.
 	Default lCombo		:= .T.
 	Default lExibirCab	:= .T.
+	Default lFiltro		:= .T.
 	Default aOnlyFieds	:= {}
+	If ::lArquivo
+		nLinIni	+= If(ValType(::oRow)=="O",1,0)
+	ElseIf ::lMemoria
+		If ::aPlanilhas[::nPlanilhaAt][7]:Get(nLinIni,@cPathLinha)
+			nLinIni	+= 1
+		EndIf
+	ElseIf ::lBD
+		If (::cAliasLin)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinIni,10)))
+			nLinIni	+= 1
+		EndIf
+	EndIf
+
 	If Len(aOnlyFieds)>0
 		lFilFields	:= .T.
 	Endif
@@ -7208,9 +7229,11 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 		If lFilFields .AND. aScan(aOnlyFieds,{|x| x==cCampo})==0
 			Loop
 		EndIf
-		nCont2++
-		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
 		lDefCampo	:= lDefCampos .AND. jCab:HasProperty(cCampo)
+		If lDefCampo .AND. jCab[cCampo]["hidden"]				//Não exibir campo
+			Loop
+		EndIf
+		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
 		If lDefCampo .AND. ValType(jCab[cCampo]["tipo"])=="C"	//Alterar tipo do campo
 			cTipo		:= jCab[cCampo]["tipo"]
 		EndIf
@@ -7218,7 +7241,11 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 		If lDefCampo .AND. ValType(jCab[cCampo]["dados"])=="C"	//Alterar conteudo dos dados
 			cDados		:= jCab[cCampo]["dados"]
 		EndIf
+		If lDefCampo
+			jCab[cCampo]["newcampo"]	:= .F.
+		Endif
 		nTamCampo	:= (cAlias)->(DBFIELDINFO(DBS_LEN,nCont))
+		nCont2++
 		//Se enviado ordem multiplica por 10 para ter prioridade na ordem, caso contrario pega a ordem multiplica por 10 e soma 1
 		nOrdem		:= If(lDefCampo.AND.ValType(jCab[cCampo]["ordem"])=="N",jCab[cCampo]["ordem"]*10,(nCont2*10)+1)
 		AADD(aCamposAlias,{cCampo,cTipo,nTamCampo,nOrdem;
@@ -7537,6 +7564,9 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 		EndDo
 	EndIf
 	::FlushBulk()
+	If lFiltro
+		::AutoFilter(nLinIni,nColIni,::nLinha-1,::LenColBulk())	//Auto filtro
+	EndIf
 	::jSubTotal	:= nil
 	FwFreeArray(aCampos)
 	FwFreeArray(aCamposAlias)
@@ -8252,8 +8282,11 @@ METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	::AddLine()
 Return self
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha) Class YExcel_Table
-	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,self)
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lFiltro) Class YExcel_Table
+	If lFiltro
+		::AddFilter(lFiltro)
+	EndIf
+	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,.F.,self)
 Return
 
 /*/{Protheus.doc} AddFilter
@@ -8263,8 +8296,9 @@ Adiciona filtro a tabela
 
 @type method
 /*/
-METHOD AddFilter() Class YExcel_Table
-	::lAutoFilter:= .T.
+METHOD AddFilter(lFiltro) Class YExcel_Table
+	Default lFiltro	:= .T.
+	::lAutoFilter:= lFiltro
 Return
 
 /*/{Protheus.doc} Cell
