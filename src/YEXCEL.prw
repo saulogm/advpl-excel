@@ -461,8 +461,30 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		cNome	:= SubStr(cFileOpen,Rat("\",cFileOpen)+1)
 
 		__COPYFILE(cFileOpen,"\tmpxls\"+::cTmpFile+'\'+cNome,,,.F.)
+		
+		If c7Zip=="Z"
+			lTem7Zip(self)
+		EndIf
+		If IsSrvUnix()
+			nRet	:= 0
+			If !WaitRunSrv('unzip -a "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+cNome+'" -d "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+::cNomeFile+'/"',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
+				nRet	:= -1
+			EndIf
+		Else
+			If c7Zip=="S"
+				If WaitRunSrv('"'+cAr7Zip+'" x "'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+'" -o"'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\"',.T.,"C:\")
+					nRet	:= 0
+				Else
+					nRet	:= -1
+				EndIf
+			Else
+				nRet	:= StartJob("FUnZip",GetEnvServer(), .T.,"\tmpxls\"+::cTmpFile+'\'+cNome,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			EndIf
+		EndIf
+		If nRet<0
+			UserException("YExcel, erro ao descompactar arquivo no servidor!")
+		EndIf
 
-		nRet	:= StartJob("FUnZip",GetEnvServer(), .T.,"\tmpxls\"+::cTmpFile+'\'+cNome,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
 		//Problema de não descompactar direto no servidor linux
 		If nRet==0 .and. !File("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,.F.)
 			If ValType(cRootPath)=="U"
@@ -6034,7 +6056,7 @@ Method Save(cLocal) Class YExcel
 									cBuffer2	+= '<f>'+RTRIM((cAliasQry)->FORMULA)+'</f>'
 								Endif
 								If (cAliasQry)->TIPO=="i"
-									cTexto	:= AjusEncode((cAliasQry)->VLR)
+									cTexto	:= AjusEncode(RTRIM((cAliasQry)->VLR))
 									cBuffer2	+= '<is>'
 									cBuffer2	+= '<t xml:space="preserve">'
 									cBuffer2	+= '<![CDATA['
@@ -6045,10 +6067,10 @@ Method Save(cLocal) Class YExcel
 								Else
 									cBuffer2	+= '<v>'
 									If (cAliasQry)->TPVLR=="C"
-										cBuffer2	+= (cAliasQry)->VLR
+										cBuffer2	+= RTRIM((cAliasQry)->VLR)
 									ElseIf (cAliasQry)->TPVLR=="U"
 									Else
-										cBuffer2	+= cValToChar((cAliasQry)->VLR)
+										cBuffer2	+= RTRIM((cAliasQry)->VLR)
 									Endif
 									cBuffer2	+= '</v>'
 								EndIf
@@ -6113,16 +6135,7 @@ Method Save(cLocal) Class YExcel
 		WaitRunSrv('zip -r "'+cRootPath+replace(cArquivo,"\","/")+'" *',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 	Else
 		If c7Zip=="Z"
-			MemoWrite("\tmpxls\"+::cTmpFile+"\fileexist.bat",'IF EXIST "'+cAr7Zip+'" ( ECHO 1 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\1.txt" ) ELSE ( ECHO 2 >> "'+cRootPath+'\tmpxls\'+::cTmpFile+'\2.txt" )')
-			WaitRunSrv(cRootPath+'\tmpxls\'+::cTmpFile+'\fileexist.bat',.T.,"C:\")
-			If File("\tmpxls\"+::cTmpFile+"\1.txt")//!FindFunction("FZIP")
-				c7Zip	:= "S"
-				fErase("\tmpxls\"+::cTmpFile+"\1.txt")
-			Else
-				c7Zip	:= "N"
-				fErase("\tmpxls\"+::cTmpFile+"\2.txt")
-			Endif
-			fErase("\tmpxls\"+::cTmpFile+"\fileexist.bat")
+			lTem7Zip(self)
 		EndIf
 		If c7Zip=="S"
 			WaitRunSrv('"'+cAr7Zip+'" a -tzip "'+cRootPath+cArquivo+'" "'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'\*"',.T.,"C:\")
@@ -10300,3 +10313,19 @@ Static Function tpExpressao(cExpression)
 		cTipo	:= "C"
 	Endif
 Return cTipo
+
+Static Function lTem7Zip(oSelf)
+	If ValType(cRootPath)=="U"
+		cRootPath	:= GetSrvProfString( "RootPath", "" )
+	Endif
+	MemoWrite("\tmpxls\"+oSelf:cTmpFile+"\fileexist.bat",'IF EXIST "'+cAr7Zip+'" ( ECHO 1 >> "'+cRootPath+'\tmpxls\'+oSelf:cTmpFile+'\1.txt" ) ELSE ( ECHO 2 >> "'+cRootPath+'\tmpxls\'+oSelf:cTmpFile+'\2.txt" )')
+	WaitRunSrv(cRootPath+'\tmpxls\'+oSelf:cTmpFile+'\fileexist.bat',.T.,"C:\")
+	If File("\tmpxls\"+oSelf:cTmpFile+"\1.txt")//!FindFunction("FZIP")
+		c7Zip	:= "S"
+		fErase("\tmpxls\"+oSelf:cTmpFile+"\1.txt")
+	Else
+		c7Zip	:= "N"
+		fErase("\tmpxls\"+oSelf:cTmpFile+"\2.txt")
+	Endif
+	fErase("\tmpxls\"+oSelf:cTmpFile+"\fileexist.bat")
+Return
