@@ -462,15 +462,15 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 
 		__COPYFILE(cFileOpen,"\tmpxls\"+::cTmpFile+'\'+cNome,,,.F.)
 		
-		If c7Zip=="Z"
-			lTem7Zip(self)
-		EndIf
 		If IsSrvUnix()
 			nRet	:= 0
 			If !WaitRunSrv('unzip -a "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+cNome+'" -d "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+::cNomeFile+'/"',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 				nRet	:= -1
 			EndIf
 		Else
+			If c7Zip=="Z"
+				lTem7Zip(self)
+			EndIf
 			If c7Zip=="S"
 				If WaitRunSrv('"'+cAr7Zip+'" x "'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+'" -o"'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\"',.T.,"C:\")
 					nRet	:= 0
