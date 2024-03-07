@@ -5774,7 +5774,7 @@ Method Save(cLocal) Class YExcel
 	Local oFile
 	Local oQryPlan
 	Local cAliasQry
-	Default cLocal := GetTempPath()
+	Default cLocal := If(!IsBlind(),GetTempPath(),"\")
 	If ::lBD
 		If ValType(oQryPlan)=="U"
 			cQuery		:= "SELECT P.PLA,P.LIN,OLEVEL,COLLAP,CHIDDEN,CHEIGHT,HT"
@@ -7974,7 +7974,7 @@ Method New(cNome,xValor,oAtributo,oExcel) Class YExcelTag
 	PARAMTYPE 0	VAR cNome  AS CHARACTER
 	PARAMTYPE 1	VAR xValor  AS ARRAY, CHARACTER, DATE, NUMERIC, LOGICAL, OBJECT		OPTIONAL DEFAULT Nil
 	PARAMTYPE 2	VAR oAtributo  AS ARRAY,OBJECT		OPTIONAL DEFAULT tHashMap():new()
-	::oExcel		:= oExcel
+	//::oExcel		:= oExcel	retirado, pois existe um limite de referenciamento de objetos (32700)
 	::cNome			:= cNome
 	::xValor		:= xValor
 	::oIndice		:= tHashMap():new()
@@ -7987,8 +7987,8 @@ Method New(cNome,xValor,oAtributo,oExcel) Class YExcelTag
 		::oAtributos		:= oAtributo
 	Endif
 	::cClassName	:= "YEXCELTAG"
-	If ValType(::oExcel)=="O"
-		AADD(::oExcel:aCleanObj,self)
+	If ValType(oExcel)=="O"
+		AADD(oExcel:aCleanObj,self)
 	Endif
 Return self
 
