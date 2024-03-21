@@ -3920,6 +3920,9 @@ METHOD AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
 	cChave	:= aChave[1]+"|"+aChave[2]+"|"+aChave[3]+"|"+aChave[4]+"|"+aChave[5]+"|"+aChave[6]+"|"+aChave[7]+"|"+aChave[8]+"|"+aChave[9]+"|"+aChave[10]+"|"+Var2Chr(aOutrosAtributos)
 	nPos	:= ::oChaves["STYLE     "+cChave]
 	If ValType(nPos)=="N"
+		aEval(aValores,{|x| If(ValType(x)=="O",FreeObj(x),nil) })
+		FwFreeArray(aValores)
+		FwFreeArray(aOutrosAtributos)
 		Return nPos
 	EndIf
 
