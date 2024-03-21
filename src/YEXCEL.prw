@@ -453,6 +453,7 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		FwFreeArray(aIndex)
 	EndIf
 	If !Empty(cFileOpen)
+		cFileOpen	:= Rtrim(cFileOpen)
 		::lArquivo	:= .F.
 		::lMemoria	:= .T.
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
@@ -489,17 +490,20 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		If nRet==0 .and. !File("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,.F.)
 			If ValType(cRootPath)=="U"
 				cRootPath	:= GetSrvProfString( "RootPath", "" )
+				If !File(cRootPath,1)	//Validar o RootPath existe no servidor
+					UserException("YExcel, erro RootPath:"+cRootPath)
+				EndIf
 			Endif
 			If IsSrvUnix()
 				WaitRunSrv('unzip -a "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+cNome+'" -d "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+::cNomeFile+'/"',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 			Endif
 			If !File("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,.F.)
-				FWMakeDir(GetTempPath()+"tmpxls\"+::cTmpFile)
-				CpyS2T("\tmpxls\"+::cTmpFile+'\'+cNome, GetTempPath()+"tmpxls\"+::cTmpFile,,.F.)
-				StartJob("FUnZip",GetEnvServer(),.T.,GetTempPath()+"tmpxls\"+::cTmpFile+"\"+cNome,GetTempPath()+"\tmpxls\"+::cTmpFile)
-				fErase(GetTempPath()+"tmpxls\"+::cTmpFile+"\"+cNome)
-				CpyPasta(GetTempPath()+"tmpxls/"+::cTmpFile,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
-				__COPYFILE(GetTempPath()+"tmpxls/"+::cTmpFile+"/_rels/.rels","\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,,.F.)
+				//FWMakeDir(GetTempPath()+"tmpxls\"+::cTmpFile)
+				//CpyS2T("\tmpxls\"+::cTmpFile+'\'+cNome, GetTempPath()+"tmpxls\"+::cTmpFile,,.F.)
+				StartJob("FUnZip",GetEnvServer(),.T.,"\tmpxls\"+::cTmpFile+"\"+cNome,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile)
+				//fErase(GetTempPath()+"tmpxls\"+::cTmpFile+"\"+cNome)
+				//CpyPasta(GetTempPath()+"tmpxls/"+::cTmpFile,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+				//__COPYFILE(GetTempPath()+"tmpxls/"+::cTmpFile+"/_rels/.rels","\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,,.F.)
 			Endif
 		Endif
 
@@ -2544,10 +2548,12 @@ Method GetString(nLinha,nColuna,cTipo) Class YExcel
 	If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
 		Default cTipo	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"t")
 		If cTipo=="s"
-			xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
-			xRet	:= ::osharedStrings:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(Val(xRet)+1)+"]")
-		Else
+			cRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
+			cRet	:= ::osharedStrings:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(Val(cRet)+1)+"]")
+		ElseIf ::asheet[::nPlanilhaAt][1]:xPathHasNode(cPathColuna+"/xmlns:is/xmlns:t")
 			cRet := ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:is/xmlns:t")
+		Else
+			cRet := ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
 		Endif
 	EndIf
 Return cRet
@@ -5822,6 +5828,9 @@ Method Save(cLocal) Class YExcel
 	Endif
 	If ValType(cRootPath)=="U"
 		cRootPath	:= GetSrvProfString( "RootPath", "" )
+		If !File(cRootPath,1)	//Validar o RootPath existe no servidor
+			UserException("YExcel, erro RootPath:"+cRootPath)
+		EndIf
 	Endif
 
 	If Empty(::cNomeFile)
@@ -7730,6 +7739,9 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Endif
 	If ValType(cRootPath)=="U"
 		cRootPath	:= GetSrvProfString( "RootPath", "" )
+		If !File(cRootPath,1)	//Validar o RootPath existe no servidor
+			UserException("YExcel, erro RootPath:"+cRootPath)
+		EndIf
 	Endif
 	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml",,.F.)
 		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
@@ -10320,6 +10332,9 @@ Return cTipo
 Static Function lTem7Zip(oSelf)
 	If ValType(cRootPath)=="U"
 		cRootPath	:= GetSrvProfString( "RootPath", "" )
+		If !File(cRootPath,1)	//Validar o RootPath existe no servidor
+			UserException("YExcel, erro RootPath:"+cRootPath)
+		EndIf
 	Endif
 	MemoWrite("\tmpxls\"+oSelf:cTmpFile+"\fileexist.bat",'IF EXIST "'+cAr7Zip+'" ( ECHO 1 >> "'+cRootPath+'\tmpxls\'+oSelf:cTmpFile+'\1.txt" ) ELSE ( ECHO 2 >> "'+cRootPath+'\tmpxls\'+oSelf:cTmpFile+'\2.txt" )')
 	WaitRunSrv(cRootPath+'\tmpxls\'+oSelf:cTmpFile+'\fileexist.bat',.T.,"C:\")
