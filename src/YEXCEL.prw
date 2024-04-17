@@ -7181,9 +7181,10 @@ Preeencher excel com conteudo de alias
 @param aRegraStyle, array, Array com regra para formatação dinamica de linhas 
 @param oStyleLinha, object, Estilo padrão para as linhas
 @param lFiltro, logical, Habilitar filtro automatico
+@param lRTrim, logical, Habilitar rtrim para campos caractere
 @param oTabela, object, Objeto do formato tabela do excel
 /*/
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lFiltro,oTabela) Class YExcel
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lFiltro,lRTrim,oTabela) Class YExcel
 	Local nCont
 	Local nLinIni	:= If(::nLinha==0,1,::nLinha)
 	Local nColIni	:= If(::nColuna==0,1,::nColuna)
@@ -7229,6 +7230,7 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 	Default lExibirCab	:= .T.
 	Default lFiltro		:= .T.
 	Default aOnlyFieds	:= {}
+	Default lRTrim		:= .F.
 	If ::lArquivo
 		nLinIni	+= If(ValType(::oRow)=="O",1,0)
 	ElseIf ::lMemoria
@@ -7361,8 +7363,11 @@ METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyl
 					TcSetField(cAlias,cCampo,"D",8,0)
 				EndIf
 			EndIf
-			
 		Endif
+		If cTipo=="C".AND.lRTrim	//Incluir rtrim em campos caractere
+			aCamposAlias[nCont][14]		:= "Rtrim("+aCamposAlias[nCont][14]+")"
+			cDados						:= aCamposAlias[nCont][14]
+		EndIf
 		If lDefCampo
 			If ValType(jCab[cCampo]["descricao"])=="C"
 				cNomeCampo	:= jCab[cCampo]["descricao"]
@@ -8310,11 +8315,11 @@ METHOD new(oyExcel,nLinha,nColuna,cNome) Class YExcel_Table
 	::AddLine()
 Return self
 
-METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lFiltro) Class YExcel_Table
+METHOD Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lRTrim,lFiltro) Class YExcel_Table
 	If lFiltro
 		::AddFilter(lFiltro)
 	EndIf
-	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,.F.,self)
+	::oyExcel:Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,.F.,lRTrim,self)
 Return
 
 /*/{Protheus.doc} AddFilter
