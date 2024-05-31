@@ -462,7 +462,12 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		cNome	:= SubStr(cFileOpen,Rat("\",cFileOpen)+1)
 
 		__COPYFILE(cFileOpen,"\tmpxls\"+::cTmpFile+'\'+cNome,,,.F.)
-		
+		If ValType(cRootPath)=="U"
+			cRootPath	:= GetSrvProfString( "RootPath", "" )
+			If !File(cRootPath,1)	//Validar o RootPath existe no servidor
+				UserException("YExcel, erro RootPath:"+cRootPath)
+			EndIf
+		Endif
 		If IsSrvUnix()
 			nRet	:= 0
 			If !WaitRunSrv('unzip -a "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+cNome+'" -d "'+cRootPath+'/tmpxls/'+::cTmpFile+'/'+::cNomeFile+'/"',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
@@ -797,7 +802,7 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					// nQtdPlanilhas++
 					cName			:= ::oworkbook:XPathGetAtt("/xmlns:workbook/xmlns:sheets/xmlns:sheet["+cValToChar(nCont2)+"]","name")
 					cID				:= ::oworkbook:XPathGetAtt("/xmlns:workbook/xmlns:sheets/xmlns:sheet["+cValToChar(nCont2)+"]","id")
-					cCamSheet		:= Replace(::Get_rels(cCaminho+"\_rels\workbook.xml.rels",cID,"Target"),"/","\")
+					cCamSheet		:= Replace(Replace(::Get_rels(cCaminho+"\_rels\workbook.xml.rels",cID,"Target"),"/","\"),"\xl\","")
 					cArqSheet		:= SubStr(cCamSheet,Rat("\",cCamSheet)+1)
 					::xls_sheet(cCaminho+"\"+cCamSheet,cArqSheet)
 					fErase(cCaminho+"\"+cCamSheet)
