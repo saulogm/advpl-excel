@@ -3020,6 +3020,7 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:mergeCells","mergeCell", "" )
 	::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:mergeCells/xmlns:mergeCell[last()]","ref", cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2) )
 
+	//Copia o estilo para as demais celulas
 	If !::lArquivo
 		If ::lMemoria
 			If !::aPlanilhas[::nPlanilhaAt][7]:Get(::Ref(nLinha,nColuna),@cPathColuna)
@@ -3035,6 +3036,13 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 				Endif
 			Endif
 		EndIf
+	//Else
+	//	nStyle	:= ::GetStyle(nLinha,nColuna)
+	//	//Copia para outras colunas
+	//	For nCont:=nColuna+1 to nColuna2
+	//		::Pos(nLinha,nCont):SetValue(""):SetStyle(nStyle)
+	//	Next
+	//	//Não copia para outras linhas, pois ainda pode existir informação na mesma linha 
 	EndIf
 
 Return
@@ -6907,6 +6915,7 @@ Return ::aDadosBulk
 
 Static Function StyDinamico(jCampos,jsonstyle,aRegraStyle,aNames,xStyle,lString,oExcel)
 	Local i
+	Local otmpStype
 	Default lString		:= .T.
 	jCampos["style"]	:= oExcel:NewStyle(jCampos["style"])
 	jCampos["style"]:SetParent()			//Retirar o pai
@@ -6927,24 +6936,26 @@ Static Function StyDinamico(jCampos,jsonstyle,aRegraStyle,aNames,xStyle,lString,
 		For i := 1 to len(aNames)
 			If aRegraStyle[2][aNames[i]]["principal"]
 				aRegraStyle[2][aNames[i]]["style"]:SetParent(jCampos["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
+				otmpStype	:= aRegraStyle[2][aNames[i]]["style"]
 				If Empty(aRegraStyle[2][aNames[i]]["style"]:GetnumFmt())
 					If jCampos["tipo"]=="D"
-						aRegraStyle[2][aNames[i]]["style"]:SetnumFmt(14)
+						otmpStype	:= oExcel:NewStyle(aRegraStyle[2][aNames[i]]["style"]):SetnumFmt(14)
 					ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]
-						aRegraStyle[2][aNames[i]]["style"]:SetnumFmt(oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
+						otmpStype	:= oExcel:NewStyle(aRegraStyle[2][aNames[i]]["style"]):SetnumFmt(oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
 					EndIf
 				EndIf
-				jsonstyle[aNames[i]]	:= aRegraStyle[2][aNames[i]]["style"]:GetID()
+				jsonstyle[aNames[i]]	:= otmpStype:GetID()
 			Else
 				jCampos["style"]:SetParent(aRegraStyle[2][aNames[i]]["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
+				otmpStype	:= jCampos["style"]
 				If Empty(jCampos["style"]:GetnumFmt())
 					If jCampos["tipo"]=="D"
-						jCampos["style"]:SetnumFmt(14)
+						otmpStype	:= oExcel:NewStyle(jCampos["style"]):SetnumFmt(14)
 					ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]
-						jCampos["style"]:SetnumFmt(oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
+						otmpStype	:= oExcel:NewStyle(jCampos["style"]):SetnumFmt(oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
 					EndIf
 				EndIf
-				jsonstyle[aNames[i]]	:= jCampos["style"]:GetID()
+				jsonstyle[aNames[i]]	:= otmpStype:GetID()
 			EndIf
 			If lString
 				jsonstyle[aNames[i]]	:= cValToChar(jsonstyle[aNames[i]])
