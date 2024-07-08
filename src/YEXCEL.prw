@@ -79,6 +79,7 @@ Class YExcel
 	Data cCampo				//Nome do campo quando preenchimento em bulk
 	Data cSubTotalTp		//Tipo de linha sendo impressa quando subtotal(L=Linha,S=SubTotal,T=TotalGeral) quando Alias2Tab
 	Data jSubTotal			//SubTotal no Alias2Tab
+	Data odefinedNa
 	Data xValor
 	Data nLinha
 	Data nColuna
@@ -369,8 +370,10 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		::lMemoria		:= .F.
 		::lBD			:= .T.
 	EndIf
+	::odefinedNa	:= jSonObject():New()
 	AADD(::aCleanObj,::oString)
 	AADD(::aCleanObj,::oChaves)
+	AADD(::aCleanObj,::odefinedNa)
 
 	//CRIAR ESTRUTURA DO BANCO
 	If ::lBD .AND. Empty(cFileOpen)
@@ -1319,7 +1322,6 @@ METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha,cEscopo) 
 	PARAMTYPE 5	VAR cRefPar			AS CHARACTER		OPTIONAL
 	PARAMTYPE 6	VAR cPlanilha		AS CHARACTER		OPTIONAL DEFAULT ::cPlanilhaAt
 	PARAMTYPE 7	VAR cEscopo			AS CHARACTER		OPTIONAL
-
 	If ValType(cRefPar)=="U"
 		If !Empty(cPlanilha)
 			cRef	:= "'"+cPlanilha+"'!"
@@ -1338,6 +1340,15 @@ METHOD AddNome(cNome,nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha,cEscopo) 
 	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "name"				, cNome)
 	If nPos>0
 		::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "localSheetId"		, cValToChar(nPos-1))
+		If ::odefinedNa:HasProperty(cValToChar(nPos-1)+"_"+cNome)		//Nome na sheet
+			UserException("YExcel - Este nome já existe. Os nomes devem ser exclusivos!")
+		Endif
+		::odefinedNa[cValToChar(nPos-1)+"_"+cNome]	:= nil
+	Else
+		If ::odefinedNa:HasProperty("G_"+cNome)		//Nome Global
+			UserException("YExcel - Este nome já existe. Os nomes devem ser exclusivos!")
+		Endif
+		::odefinedNa["G_"+cNome]	:= nil
 	Endif
 Return
 
@@ -5681,12 +5692,17 @@ METHOD AddTabela(cNome,nLinha,nColuna) Class YExcel
 	Local nPos
 	Local oTable
 	Local cID
+	Local nVez	:= 0
 	PARAMTYPE 0	VAR cNome  AS CHARACTER			OPTIONAL DEFAULT lower(CriaTrab(,.F.))
 	PARAMTYPE 1	VAR nLinha  AS NUMERIC			OPTIONAL DEFAULT ::nLinha
 	PARAMTYPE 2	VAR nColuna  AS NUMERIC			OPTIONAL DEFAULT ::nColuna
 	::nIdRelat++
 	nPos	:= ::nIdRelat
-
+	While ::odefinedNa:HasProperty("G_"+cNome)
+		nVez++
+		cNome	+= "_"+cValToChar(nVez)
+	EndDo
+	::odefinedNa["G_"+cNome]	:= nil
 	oTable	:= yExcel_Table():New(self,nLinha,nColuna,cNome)
 	oTable:nIdRelat	:= nPos
 	oTable:SetAtributo("xmlns","http://schemas.openxmlformats.org/spreadsheetml/2006/main")
