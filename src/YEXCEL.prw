@@ -1570,7 +1570,7 @@ METHOD Img(nID,nLinha,nColuna,nX,nY,cUnidade,nRot) Class YExcel
 		::aPlanilhas[::nPlanilhaAt][4]	:= nPos
 		//Adiciona um nova drawing no content_types
 		::ocontent_types:XPathAddNode( "/xmlns:Types", "Override", "" )
-		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/drawings/drawing"+cValToChar(Len(::aworkdrawing))+".xml" )
+		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "PartName"	, "/xl/drawings/drawing"+cValToChar(nPos)+".xml" )
 		::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Override[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.drawing+xml" )
 	EndIf
 	nPos	:= ::aPlanilhas[::nPlanilhaAt][3]
