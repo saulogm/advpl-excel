@@ -80,6 +80,8 @@ Class YExcel
 	Data cSubTotalTp		//Tipo de linha sendo impressa quando subtotal(L=Linha,S=SubTotal,T=TotalGeral) quando Alias2Tab
 	Data jSubTotal			//SubTotal no Alias2Tab
 	Data odefinedNa
+	Data oRegex1
+	Data oRegex2
 	Data xValor
 	Data nLinha
 	Data nColuna
@@ -362,6 +364,8 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	::lBD			:= .F.
 	::lCanUseBulk	:= .F.
 	::aBulkDB		:= {}
+	::oRegex1 		:= tlpp.regex.Regex():New('[^A-Za-z0-9\s_]')	//Aceita Alfa,Num,Espaco,underline
+	::oRegex2		:= tlpp.regex.Regex():New('[A-Za-z]{1,3}[0-9]{1,7}')	//Se é uma referencia de celula
 	If cTipo=="M"
 		::lArquivo		:= .F.
 		::lMemoria		:= .T.
@@ -374,6 +378,8 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 	AADD(::aCleanObj,::oString)
 	AADD(::aCleanObj,::oChaves)
 	AADD(::aCleanObj,::odefinedNa)
+	AADD(::aCleanObj,::oRegex1)
+	AADD(::aCleanObj,::oRegex2)
 
 	//CRIAR ESTRUTURA DO BANCO
 	If ::lBD .AND. Empty(cFileOpen)
@@ -5698,6 +5704,16 @@ METHOD AddTabela(cNome,nLinha,nColuna) Class YExcel
 	PARAMTYPE 2	VAR nColuna  AS NUMERIC			OPTIONAL DEFAULT ::nColuna
 	::nIdRelat++
 	nPos	:= ::nIdRelat
+	cNome	:= Replace(AllTrim(cNome)," ","_")
+	::oRegex1:RemoveAll(@cNome)
+	If !IsAlpha(cNome)
+		cNome	:= "_"+cNome
+	Else
+		//Verificar se o nome é referencia de celula
+		If ::oRegex2:fullMatch(cNome)
+			cNome	:= cNome+"_"
+		EndIf
+	EndIf
 	While ::odefinedNa:HasProperty("G_"+cNome)
 		nVez++
 		cNome	+= "_"+cValToChar(nVez)
