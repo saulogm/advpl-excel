@@ -811,6 +811,9 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					// nQtdPlanilhas++
 					cName			:= ::oworkbook:XPathGetAtt("/xmlns:workbook/xmlns:sheets/xmlns:sheet["+cValToChar(nCont2)+"]","name")
 					cID				:= ::oworkbook:XPathGetAtt("/xmlns:workbook/xmlns:sheets/xmlns:sheet["+cValToChar(nCont2)+"]","id")
+					If Empty(cID)
+						Loop
+					EndIf
 					cCamSheet		:= Replace(Replace(::Get_rels(cCaminho+"\_rels\workbook.xml.rels",cID,"Target"),"/","\"),"\xl\","")
 					cArqSheet		:= SubStr(cCamSheet,Rat("\",cCamSheet)+1)
 					::xls_sheet(cCaminho+"\"+cCamSheet,cArqSheet)
