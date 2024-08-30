@@ -6201,7 +6201,7 @@ Method Save(cLocal) Class YExcel
 		If c7Zip=="S"
 			WaitRunSrv('"'+cAr7Zip+'" a -tzip "'+cRootPath+cArquivo+'" "'+cRootPath+'\tmpxls\'+::cTmpFile+'\'+::cNomeFile+'\*"',.T.,"C:\")
 		Else
-			StartJob("FZip",GetEnvServer(),.T.,cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			StartJob("FZip",GetEnvServer(),.T.,cArquivo,::aFiles,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',,.F./*lChangeCase*/)
 		EndIf
 	Endif
 
@@ -7823,7 +7823,7 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 				nRet	:= 0
 			Endif
 		Else
-			nRet	:= StartJob("FUnZip",GetEnvServer(),.T.,cCamLocal,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\')
+			nRet	:= StartJob("FUnZip",GetEnvServer(),.T.,cCamLocal,"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',,.F./*lChangeCase*/)
 		Endif
 		If nRet!=0
 			WarnLogMsg(Ferror())
