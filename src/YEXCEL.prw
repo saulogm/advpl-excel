@@ -5372,7 +5372,7 @@ Adicionar comentário
 @return object, self
 @obs pag 4682
 /*/
-METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
+METHOD AddComment(cText,cAutor,nleft,ntop,nWidth,nHeight) Class YExcel
 	Local aChildren
 	Local nPos
 	Local cPos
@@ -5387,6 +5387,8 @@ METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
 	Local cRef	:= ::Ref(::nLinha,::nColuna)
 	PARAMTYPE 0	VAR cText		AS CHARACTER		OPTIONAL Default ""
 	PARAMTYPE 1	VAR cAutor		AS CHARACTER		OPTIONAL Default ""
+	Default nWidth	:= 96
+	Default nHeight	:= 64.5
 	
 	If Empty(::asheet[::nPlanilhaAt][3])
 		::asheet[::nPlanilhaAt][3]	:= ::new_comment()
@@ -5489,7 +5491,7 @@ METHOD AddComment(cText,cAutor,nleft,ntop) Class YExcel
 			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml',"v:shape","")
 			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"id","_x0000_r"+cValToChar(::nLinha-1)+"c"+cValToChar(::nColuna-1))
 			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"type","#_x0000_t202")
-			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"style","position:absolute;margin-left:"+cValToChar(nleft)+"pt;margin-top:"+cValToChar(ntop)+"pt;width:96pt;height:64.5pt;z-index:1;visibility:hidden")
+			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"style","position:absolute;margin-left:"+cValToChar(nleft)+"pt;margin-top:"+cValToChar(ntop)+"pt;width:"+cValToChar(nWidth)+"pt;height:"+cValToChar(nHeight)+"pt;z-index:1;visibility:hidden")
 			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"fillcolor","#ffffc0")
 			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"o:insetmode","auto")
 			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml/*[last()]',"v:fill","")
