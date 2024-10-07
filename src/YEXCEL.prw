@@ -5903,7 +5903,7 @@ Method Save(cLocal) Class YExcel
 	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl")
 
 	If ::lMemoria
-		If ::osharedStrings:XPathGetAtt("\xmlns:sst","count")=="0"
+		If ValType(::osharedStrings)=="U" .OR. ::osharedStrings:XPathGetAtt("\xmlns:sst","count")=="0"
 		Else
 			::osharedStrings:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
 			If aScan(::aFiles,{|x| "SHAREDSTRINGS.XML" $ UPPER(x)})==0
