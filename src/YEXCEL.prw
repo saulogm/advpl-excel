@@ -2655,7 +2655,7 @@ Method GetValue(nLinha,nColuna,xDefault,lAchou) Class YExcel
 	EndIf
 	lAchou	:= .F.
 	If ::lMemoria
-		If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna) .AND. self:asheet[self:nPlanilhaAt][1]:xPathHasNode(cPathColuna+"/xmlns:v")
+		If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna) .AND. (self:asheet[self:nPlanilhaAt][1]:xPathHasNode(cPathColuna+"/xmlns:v").OR.self:asheet[self:nPlanilhaAt][1]:xPathHasNode(cPathColuna+"/xmlns:is/xmlns:t"))
 			lAchou	:= .T.
 			cTipo	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"t")
 			If Empty(cTipo)
