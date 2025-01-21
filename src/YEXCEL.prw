@@ -172,6 +172,7 @@ Class YExcel
 	METHOD Ref()			//Passa a localização numerica e transforma em referencia da celula
 	METHOD LocRef()			//Retorna linha  e coluna de acordo com referencia enviada
 	METHOD AddTamCol()		//Defini o tamanho de uma coluna ou varias colunas
+	METHOD ColHidden()		//Ocultar coluna
 	METHOD AutoFilter()		//Cria os Filtros na planilha
 	METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
 	METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
@@ -6547,6 +6548,33 @@ Method AddTamCol(nMin,nMax,nWidth,lbestFit,lcustomWidth) Class YExcel
 			::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPath, "customWidth")
 		Endif
 	Next
+Return
+/*/{Protheus.doc} YExcel::ColHidden
+Ocultar coluna
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 21/01/2025
+@param nColuna, numeric, Numero da coluna
+@param lHidden, logical, Ocultar/DesOcultar
+/*/
+Method ColHidden(nColuna,lHidden) Class YExcel
+	Local cPath	:= ColNew(self,nColuna)
+	Default lHidden	:= .T.
+	If !Empty(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "hidden"))
+		If lHidden
+			::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "hidden"	, "1" )
+		Else
+			::asheet[::nPlanilhaAt][1]:XPathDelAtt(cPath, "hidden" )
+			If !Empty(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "width"))
+				::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "width", cValToChar(8.43+0.7109375))
+			Else
+				::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPath, "width", cValToChar(8.43+0.7109375))
+			EndIf
+		EndIf
+	ElseIf lHidden
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPath, "hidden"	, "1" )
+	EndIf
 Return
 
 /*/{Protheus.doc} AjtColConf
