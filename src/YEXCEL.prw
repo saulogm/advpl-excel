@@ -8638,7 +8638,7 @@ Finaliza a tabela criada
 METHOD Finish() Class YExcel_Table
 	Local nPosCol
 	Local cRef
-	If ::aRef[2][1]<::aRef[1][1]
+	If ::aRef[2][1]<=::aRef[1][1]
 		::AddLine()	//Linha em branco
 	Endif
 	cRef		:= ::oyExcel:Ref(::aRef[1][1],::aRef[1][2])+":"+::oyExcel:Ref(::aRef[2][1],::aRef[2][2])
