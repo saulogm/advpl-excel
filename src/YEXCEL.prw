@@ -6855,7 +6855,7 @@ Method DefBulkLine(aCampos,aRegraStyle,lMontarLin) Class YExcel
 				If lCombo
 					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+(if(jCombo:HasProperty(xValor),jCombo[xValor],xValor))+'"+']]></t></is>')	//TODO colocar opções de combo em string compartilhada
 				Else
-					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(xValor)+'"+']]></t></is>')
+					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(cValToChar(xValor))+'"+']]></t></is>')
 				EndIf
 			ElseIf aCampos[nCont]["tipo"]=="L"
 				oC:SetAtributo("t","b")
