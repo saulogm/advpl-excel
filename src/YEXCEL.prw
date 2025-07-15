@@ -41,6 +41,7 @@ RECURSOS DISPONIVEIS
 * Definir orientação da pagina na impressão
 * Cabeçalho e Ropadé
 * Leitura de dados já gravados
+* Proteção de planilha
 * Preenchimento de dados em massa(bulk)
 * Preenchimento de dados de Alias, com definição dos SXs
 
