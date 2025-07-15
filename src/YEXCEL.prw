@@ -151,6 +151,7 @@ Class YExcel
 	METHOD SetPlanAt()		//Informa qual planilha está em edição
 	METHOD GetPlanAt()		//Retorna qual planilha está em edição
 	METHOD LenPlanAt()		//Quantidade de planilha
+	METHOD SetsheetProtection()	//Proteção da planilha
 	//Controle de Células
 	METHOD Cell()			//Grava as células
 	METHOD Pos()			//posiciona na celula
@@ -243,6 +244,7 @@ Class YExcel
 	METHOD SetStyle()		//Informa o estilo em uma ou várias célula
 	METHOD GetStyle()		//Retorna o estilo em uma célula
 	METHOD Alinhamento()	//Adiciona alinhamento
+	METHOD Cellprotection()		//Adiciona proteção a um estilo
 	METHOD Borda()			//Adiciona borda(auxiliar)
 	METHOD Border()			//Cria Borda com todas opções
 	Method AddFmt()			//Cria formato
@@ -1103,13 +1105,22 @@ Static Function LerChvStys(oSelf)
 				Next
 				cChave	+= "/>"
 				cChave	+= "}"
+			ElseIf oSelf:oStyle:XPathHasNode( cLocal+"/xmlns:cellXfs/xmlns:xf["+cValToChar(nCont)+"]/xmlns:protection")
+				cChave	+= "{"
+				cChave	+= '<protection'
+				aChildren	:= oSelf:oStyle:XPathGetAttArray(cLocal+"/xmlns:cellXfs/xmlns:xf["+cValToChar(nCont)+"]/xmlns:protection")
+				For nCont3:=1 to Len(aChildren)
+					cChave	+= " "+aChildren[nCont3][1]+'="'+aChildren[nCont3][2]+'"'
+				Next
+				cChave	+= "/>"
+				cChave	+= "}"
 			Endif
 		Next
 		cChave	+= "}|"
 		cChave	+= "{"
 		aChildren	:= oSelf:oStyle:XPathGetAttArray(cLocal+"/xmlns:cellXfs/xmlns:xf["+cValToChar(nCont)+"]")
 		For nCont2:=1 to Len(aChildren)
-			If !("|"+aChildren[nCont2][1]+"|"	$ "|numFmtId|fontId|fillId|borderId|xfId|applyFont|applyFill|applyBorder|applyAlignment|applyNumberFormat|" )
+			If !("|"+aChildren[nCont2][1]+"|"	$ "|numFmtId|fontId|fillId|borderId|xfId|applyFont|applyFill|applyBorder|applyAlignment|applyProtection|applyNumberFormat|" )
 				If Right(cChave,1)=="}"
 					cChave	+= ","
 				Endif
@@ -1307,6 +1318,74 @@ Quantidade de planilha
 METHOD LenPlanAt(xPlan) Class YExcel
 Return Len(::aPlanilhas)
 
+/*/{Protheus.doc} YExcel::SetsheetProtection
+Proteger a Planilha
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 12/07/2025
+@param cSenha, character, Senha para desproteger a planilha(opcional)
+@param lsheet, logical, Proteger a planilha e o conteúdo de células bloqueadas
+@param lselectLockedCells, logical, Permitir Selecionar células bloqueadas
+@param lselectUnlockedCells, logical, Permitir Selecionar células desbloqueadas
+@param lformatCells, logical, Permitir Formatar células
+@param lformatColumns, logical, Permitir Formatar colunas
+@param lformatRows, logical, Permitir Formatar linhas
+@param linsertColumns, logical, Permitir Inserir colunas
+@param linsertRows, logical, Permitir Inserir linhas
+@param linsertHyperlinks, logical, Permitir Inserir hiperlinks
+@param ldeleteColumns, logical, Permitir Excluir colunas
+@param ldeleteRows, logical, Permitir Excluir linhas
+@param lsort, logical, Permitir Classificar
+@param lautoFilter, logical, Permitir Usar Filtro automático
+@param lpivotTables, logical, Permitir Utilizar Tabela Dinâmica e Gráfico Dinâmico
+@param lobjects, logical, Permitir Editar Objetos
+@param lscenarios, logical, Permitir Editar cenários
+@return object, self
+@see https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/1357ea58-646e-4483-92ef-95d718079d6f
+/*/
+METHOD SetsheetProtection(cSenha,lsheet,lselectLockedCells,lselectUnlockedCells,lformatCells,lformatColumns,lformatRows,linsertColumns,linsertRows,linsertHyperlinks,ldeleteColumns,ldeleteRows,lsort,lautoFilter,lpivotTables,lobjects,lscenarios) Class YExcel
+	Default lsheet				:= .T.
+	Default lselectLockedCells	:= .T.
+	Default lselectUnlockedCells:= .T.
+	Default lformatCells		:= .F.
+	Default lformatColumns		:= .F.
+	Default lformatRows			:= .F.
+	Default linsertColumns		:= .F.
+	Default linsertRows			:= .F.
+	Default linsertHyperlinks	:= .F.
+	Default ldeleteColumns		:= .F.
+	Default ldeleteRows			:= .F.
+	Default lsort				:= .F.
+	Default lautoFilter			:= .F.
+	Default lpivotTables		:= .F.
+	Default lobjects			:= .F.
+	Default lscenarios			:= .F.
+	If !Empty(cSenha)
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","algorithmName"		,"SHA-512")
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","hashValue"			,Encode64(SHA512( EncodeUTF16(cSenha,2) , 1 )))
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","saltValue"			,"")
+		SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","spinCount"			,"0")
+	EndIf
+
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","sheet"				,If(lsheet					,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","objects"			,If(!lobjects				,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","scenarios"			,If(!lscenarios				,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","formatCells"		,If(!lformatCells			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","formatColumns"		,If(!lformatColumns			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","formatRows"		,If(!lformatRows			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","insertColumns"		,If(!linsertColumns			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","insertRows"		,If(!linsertRows			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","insertHyperlinks"	,If(!linsertHyperlinks		,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","deleteColumns"		,If(!ldeleteColumns			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","deleteRows"		,If(!ldeleteRows			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","selectLockedCells"	,If(!lselectLockedCells		,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","sort"				,If(!lsort					,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","autoFilter"		,If(!lautoFilter			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","pivotTables"		,If(!lpivotTables			,"1","0"))
+	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetProtection","selectUnlockedCells",If(!lselectUnlockedCells	,"1","0"))
+
+Return self
 /*/{Protheus.doc} AddNome
 Cria nome para refencia de célula ou intervalo
 @author Saulo Gomes Martins
@@ -4082,7 +4161,7 @@ Method New(oPai,oExcel) Class YExcel_Style
 		aAtributos	:= oExcel:oStyle:XPathGetAttArray(cXPath)
 		aOutrosAtributos	:= {}
 		For nCont:=1 to Len(aAtributos)
-			If !("|"+aAtributos[nCont][1]+"|" $ "|numFmtId|fontId|fillId|borderId|xfId|applyFont|applyFill|applyBorder|applyAlignment|applyNumberFormat|") .AND. aScan(aOutrosAtributos,{|x| x[1]==aAtributos[nCont][1] })==0
+			If !("|"+aAtributos[nCont][1]+"|" $ "|numFmtId|fontId|fillId|borderId|xfId|applyFont|applyFill|applyBorder|applyAlignment|applyProtection|applyNumberFormat|") .AND. aScan(aOutrosAtributos,{|x| x[1]==aAtributos[nCont][1] })==0
 				AADD(aOutrosAtributos,aClone(aAtributos[nCont]))
 			Endif
 		Next
@@ -4568,6 +4647,10 @@ Method SetStyaValores(nStyle,aValores) Class YExcel
 		While ::oStyle:XPathHasNode(cXPath+"/xmlns:alignment[1]")
 			::oStyle:XPathDelNode(cXPath+"/xmlns:alignment[1]")
 		EndDo
+		While ::oStyle:XPathHasNode(cXPath+"/xmlns:protection[1]")
+			::oStyle:XPathDelNode(cXPath+"/xmlns:protection[1]")
+		EndDo
+		aSort(aValores,,,{|x,y| OrdCT_XF(x:GetNome())<OrdCT_XF(y:GetNome()) })
 		For nCont:=1 to Len(aValores)
 			::oStyle:XPathAddNode( cXPath, aValores[nCont]:GetNome(), "" )
 			If aValores[nCont]:GetNome()=="alignment"
@@ -4575,6 +4658,12 @@ Method SetStyaValores(nStyle,aValores) Class YExcel
 					::oStyle:XPathSetAtt( cXPath, "applyAlignment"		, "1" )
 				Else
 					::oStyle:XPathAddAtt( cXPath, "applyAlignment"		, "1" )
+				Endif
+			ElseIf aValores[nCont]:GetNome()=="protection"
+				If aScan(self:oStyle:XPathGetAttArray(cXPath),{|x| x[1]=="applyProtection"})>0
+					::oStyle:XPathSetAtt( cXPath, "applyProtection"		, "1" )
+				Else
+					::oStyle:XPathAddAtt( cXPath, "applyProtection"		, "1" )
 				Endif
 			Endif
 			aValores[nCont]:oAtributos:List(@aListAtt)
@@ -4597,6 +4686,16 @@ Method SetStyaValores(nStyle,aValores) Class YExcel
 		::oChaves["STYLE     "+cChave]				:= nStyle
 	Endif
 Return self
+
+Static Function OrdCT_XF(cNome)
+	If cNome=="alignment"
+		Return 1
+	ElseIf cNome=="protection"
+		Return 2
+	ElseIf cNome=="extLst"
+		Return 3
+	EndIf
+Return 999
 
 /*/{Protheus.doc} YExcel::SetStyaOutrosAtributos
 Alterar aOutrosAtributos estilo já criado
@@ -4735,7 +4834,7 @@ Method CreateStyle(nStyle,numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosA
 	aAtributos	:= ::oStyle:XPathGetAttArray(cXPath)
 
 	For nCont:=1 to Len(aAtributos)
-		If !("|"+aAtributos[nCont][1]+"|" $ "|numFmtId|fontId|fillId|borderId|xfId|applyFont|applyFill|applyBorder|applyAlignment|applyNumberFormat|") .AND. aScan(aOutrosAtributos,{|x| x[1]==aAtributos[nCont][1] })==0
+		If !("|"+aAtributos[nCont][1]+"|" $ "|numFmtId|fontId|fillId|borderId|xfId|applyFont|applyFill|applyBorder|applyAlignment|applyProtection|applyNumberFormat|") .AND. aScan(aOutrosAtributos,{|x| x[1]==aAtributos[nCont][1] })==0
 			AADD(aOutrosAtributos,aClone(aAtributos[nCont]))
 		Endif
 	Next
@@ -5270,6 +5369,26 @@ METHOD Alinhamento(cHorizontal,cVertical,lReduzCaber,lQuebraTexto,ntextRotation,
 		oAlinhamento:SetAtributo("indent",nRecuo)
 	EndIf
 Return oAlinhamento
+
+/*/{Protheus.doc} YExcel::Cellprotection
+Proteção de célula
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 15/07/2025
+@param llocked, logical, Bloquear/Desbloquear célula
+@param lhidden, logical, Oculta formula da célula
+@return object, Objeto da tag protection
+/*/
+METHOD Cellprotection(llocked,lhidden) Class YExcel
+	Local oprotection	:= yExcelTag():New("protection",,,self)
+	If ValType(llocked)=="L"
+		oprotection:SetAtributo("locked",If(llocked,"1","0"))
+	EndIf
+	If ValType(lhidden)=="L"
+		oprotection:SetAtributo("hidden",If(lhidden,"1","0"))
+	EndIf
+Return oprotection
 
 /*/{Protheus.doc} AddPane
 Congelar Painéis
@@ -5809,8 +5928,6 @@ Grava o excel processado
 @since 03/05/2017
 @version p11
 @param cLocal, characters, Local para gerar o arquivo no client
-@param lAbrir, logical, Abrir a planilha gerada
-@param lDelSrv, logical, Deleta a planilha após copiar para o client
 @return characters, cArquivo local do arquivo gerado
 @type method
 /*/
