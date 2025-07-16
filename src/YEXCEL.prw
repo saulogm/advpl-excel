@@ -5844,6 +5844,7 @@ METHOD AddTabela(cNome,nLinha,nColuna) Class YExcel
 		nVez++
 		cNome	+= "_"+cValToChar(nVez)
 	EndDo
+	cNome	:= EncodeUTF8(cNome)
 	::odefinedNa["G_"+cNome]	:= nil
 	oTable	:= yExcel_Table():New(self,nLinha,nColuna,cNome)
 	oTable:nIdRelat	:= nPos
