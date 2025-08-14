@@ -3098,7 +3098,7 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 
 			For nLin:=aRefe[1] to aRefe[3]
 				For nCol:=aRefe[2] to aRefe[4]
-					::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol))
+					::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol),"")
 				Next
 			Next
 
@@ -3112,7 +3112,7 @@ Method mergeCells(nLinha,nColuna,nLinha2,nColuna2) Class YExcel
 			If ::oMergeCell:Get("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol),@cRet)
 				UserException("YExcel - metodo mergeCells. Célula "+cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2)+" não pode ser mesclada, essa célula já foi mesclada!")
 			Else
-				::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol))
+				::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol),"")
 			Endif
 		Next
 	Next
