@@ -6344,7 +6344,7 @@ Method Save(cLocal) Class YExcel
 		DelPasta("\tmpxls\"+::cTmpFile)
 	Endif
 	If !Empty(::cLocalFile)
-		If GetRemoteType() == REMOTE_HTML
+		If GetRemoteType() == 5
 			CpyS2TW(cArquivo2, .T.)
 		Else
 			FWMakeDir(::cLocalFile,.F.)
