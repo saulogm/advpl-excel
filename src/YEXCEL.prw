@@ -211,7 +211,8 @@ Class YExcel
 	METHOD SetPagOrientation()	//Configurar orientação da pagina na impressão
 	Method SetHeader()		//Configurar Cabeçalho
 	Method SetFooter()		//Configurar Rodapé
-	Method SetdefaultRowHeight()
+	Method SetdefaultRowHeight()	//Tamanho padrão das linhas
+	Method SetPrintArea()		//Configurar área de impressão
 
 	METHOD GetDateTime()		//Cria dado para incluir celula data time
 
@@ -829,12 +830,12 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetPr", "codeName"	, cName)
 
 					//Preenche o HashMap das linhas e colunas
-					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData")	//Linhas
+					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData[xmlns:row/xmlns:c/xmlns:v]")	//Linhas
 					::aPlanilhas[::nPlanilhaAt][8]	:= Len(aChildren)	//Quantidade de linhas
 					For nContChild:=1 to Len(aChildren)
 						nRefLinha	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nContChild][2],"r"))
 						::aPlanilhas[::nPlanilhaAt][7]:Set(nRefLinha,aChildren[nContChild][2])
-						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2])			//Colunas
+						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2]+"[xmlns:c/xmlns:v]")			//Colunas
 						::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(nRefLinha),Len(aChildren2))	//Quantidade de coluna da linha
 						For nContChil2:=1 to Len(aChildren2)
 							::aPlanilhas[::nPlanilhaAt][7]:Set(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren2[nContChil2][2],"r"),aChildren2[nContChil2][2])
@@ -1179,7 +1180,7 @@ Static Function LerChvStys(oSelf)
 		Endif
 	Next
 	For nCont:=1 to oSelf:oStyle:XPathChildCount("/xmlns:styleSheet/xmlns:numFmts")
-		oSelf:nNumFmtId	:= Max(oSelf:nNumFmtId,Val(oSelf:oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt["+cValToChar(nCont)+"]","numFmtId")))
+		oSelf:nNumFmtId	:= Max(oSelf:nNumFmtId,Val(oSelf:oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt["+cValToChar(nCont)+"]","numFmtId"))+1)
 	Next
 	For nCont:=1 to oSelf:oStyle:XPathChildCount(cLocal+"/xmlns:fonts")
 		cChave	:= ""
@@ -1457,6 +1458,24 @@ Repetir linhas na impressão
 METHOD SetPrintTitles(nLinha,nLinha2,cRefPar,cPlanilha) Class YExcel
 	Default nLinha2	:= nLinha
 	::AddNome("_xlnm.Print_Titles",nLinha,,nLinha2,,cRefPar,cPlanilha,::cPlanilhaAt)
+Return
+
+/*/{Protheus.doc} YExcel::SetPrintArea
+Definir a área de impressão
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 19/08/2025
+@param nLinha, numeric, Linha inicial
+@param nColuna, numeric, Coluna inicial
+@param nLinha2, numeric, Linha final
+@param nColuna2, numeric, Coluna final
+@param cRefPar, character, Referencia
+@param cPlanilha, character, Planilha
+/*/
+METHOD SetPrintArea(nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha) Class YExcel
+	Default nLinha2	:= nLinha
+	::AddNome("_xlnm.Print_Area",nLinha,nColuna,nLinha2,nColuna2,cRefPar,cPlanilha,::cPlanilhaAt)
 Return
 
 /*/{Protheus.doc} SetPagOrientation
@@ -2754,9 +2773,17 @@ Method GetValue(nLinha,nColuna,xDefault,lAchou) Class YExcel
 						Endif
 					ElseIf cStyleTp=="T" .OR. cStyleTp=="DT"
 						xRet	:= yExcel_DateTime():New(,,xRet)
+					ElseIf "E-" $ xRet
+						xRet	:= Val(SubStr(xRet,1,At("E-",xRet)-1))/(10^Val(SubStr(xRet,At("E-",xRet)+2)))
+					ElseIf "E+" $ xRet
+						xRet	:= Val(SubStr(xRet,1,At("E+",xRet)-1))*(10^Val(SubStr(xRet,At("E+",xRet)+2)))
 					Else
 						xRet	:= Val(xRet)
 					EndIf
+				ElseIf "E-" $ xRet
+					xRet	:= Val(SubStr(xRet,1,At("E-",xRet)-1))/(10^Val(SubStr(xRet,At("E-",xRet)+2)))
+				ElseIf "E+" $ xRet
+					xRet	:= Val(SubStr(xRet,1,At("E+",xRet)-1))*(10^Val(SubStr(xRet,At("E+",xRet)+2)))
 				Else
 					xRet	:= Val(xRet)
 				EndIf
