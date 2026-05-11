@@ -834,12 +834,12 @@ Method LerPasta(cCaminho,cCamIni,cSufFiltro) Class YExcel
 					SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetPr", "codeName"	, cName)
 
 					//Preenche o HashMap das linhas e colunas
-					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData[xmlns:row/xmlns:c/xmlns:v]")	//Linhas
+					aChildren	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet/xmlns:sheetData[xmlns:row[xmlns:c/xmlns:v or xmlns:c/xmlns:is]]")	//Linhas
 					::aPlanilhas[::nPlanilhaAt][8]	:= Len(aChildren)	//Quantidade de linhas
 					For nContChild:=1 to Len(aChildren)
 						nRefLinha	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren[nContChild][2],"r"))
 						::aPlanilhas[::nPlanilhaAt][7]:Set(nRefLinha,aChildren[nContChild][2])
-						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2]+"[xmlns:c/xmlns:v]")			//Colunas
+						aChildren2	:=  ::asheet[::nPlanilhaAt][1]:XPathGetChildArray(aChildren[nContChild][2]+"[xmlns:c/xmlns:v or xmlns:c/xmlns:is]")			//Colunas
 						::aPlanilhas[::nPlanilhaAt][7]:Set("C|"+cValToChar(nRefLinha),Len(aChildren2))	//Quantidade de coluna da linha
 						For nContChil2:=1 to Len(aChildren2)
 							::aPlanilhas[::nPlanilhaAt][7]:Set(::asheet[::nPlanilhaAt][1]:XPathGetAtt(aChildren2[nContChil2][2],"r"),aChildren2[nContChil2][2])
