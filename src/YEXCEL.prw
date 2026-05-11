@@ -473,7 +473,11 @@ METHOD New(cNomeFile,cFileOpen,cTipo) Class YExcel
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
 		
-		cNome	:= SubStr(cFileOpen,Rat("\",cFileOpen)+1)
+		If Rat("\",cFileOpen)>0
+			cNome	:= SubStr(cFileOpen,Rat("\",cFileOpen)+1)
+		else
+			cNome	:= SubStr(cFileOpen,Rat("/",cFileOpen)+1)
+		EndIf
 
 		__COPYFILE(cFileOpen,"\tmpxls\"+::cTmpFile+'\'+cNome,,,.F.)
 		If ValType(cRootPath)=="U"
@@ -6336,7 +6340,11 @@ Method Save(cLocal) Class YExcel
 		cArquivo2	:= '\tmpxls\'+::cTmpFile+'\'+::cNomeFile2+'.xlsx'
 	Endif
 	SplitPath(cArquivo,@cDrive,@cPath,@cNome,@cExtensao)
-	cNome	:= SubStr(cArquivo,Rat("\",cArquivo)+1)	//Split não está respeitando o case original
+	If Rat("\",cArquivo)>0
+		cNome	:= SubStr(cArquivo,Rat("\",cArquivo)+1)	//Split não está respeitando o case original
+	Else
+		cNome	:= SubStr(cArquivo,Rat("/",cArquivo)+1)	//Split não está respeitando o case original
+	EndIf
 	If !Empty(cPath)
 		FWMakeDir(cPath,.F.)	//Cria a estrutura de pastas
 	Endif
@@ -7978,7 +7986,11 @@ METHOD OpenRead(cFile,nPlanilha) Class YExcel
 	Endif
 	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml",,.F.)
 		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
-		cNome	:= SubStr(cFile,Rat("\",cFile)+1)	//Split não está respeitando o case original
+		If Rat("\",cFile)>0
+			cNome	:= SubStr(cFile,Rat("\",cFile)+1)	//Split não está respeitando o case original
+		else
+			cNome	:= SubStr(cFile,Rat("/",cFile)+1)	//Split não está respeitando o case original
+		EndIf
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
 		If ":" $ UPPER(cFile)
