@@ -22,39 +22,39 @@ Gerar Excel formato xlsx
 @type function
 @OBS
 RECURSOS DISPONIVEIS
-* Definir cï¿½lulas String,Numï¿½rica,data,DateTime,Logica,formula
+* Definir células String,Numérica,data,DateTime,Logica,formula
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
-* Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotaï¿½ï¿½o,Recuo)
-* Formato da cï¿½lula
-* Mesclar cï¿½lulas
+* Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação,Recuo)
+* Formato da célula
+* Mesclar células
 * Auto Filtro
 * hyperlink dentro da planilha
-* Comentï¿½rio
-* Congelar painï¿½is(colunas e linhas)
+* Comentário
+* Congelar painéis(colunas e linhas)
 * Definir tamanho da linha / largura da coluna
 * Formatar numeros(casas decimais)
 * Letra: Fonte,Tamanho,Cor,Negrito,Italico,Sublinhado,Tachado
 * Bordas: (Left,Right,Top,Bottom),Cor,Estilo
-* Formataï¿½ï¿½o condicional:(operador,formula)(font,fundo,bordas)
+* Formatação condicional:(operador,formula)(font,fundo,bordas)
 * Formatar como tabela(Estilos Predefinidos,Filtros,Totalizadores)
-* Cria nome para referï¿½ncia de cï¿½lula ou intervalo
+* Cria nome para referência de célula ou intervalo
 * Agrupamento de linha e colunas
 * Imagens
 * Exibir/Oculta linhas de Grade
-* Definir linha para repetir na impressï¿½o
-* Definir orientaï¿½ï¿½o da pagina na impressï¿½o
-* Cabeï¿½alho e Ropadï¿½
-* Leitura de dados jï¿½ gravados
-* Proteï¿½ï¿½o de planilha
+* Definir linha para repetir na impressão
+* Definir orientação da pagina na impressão
+* Cabeçalho e Ropadé
+* Leitura de dados já gravados
+* Proteção de planilha
 * Preenchimento de dados em massa(bulk)
-* Preenchimento de dados de Alias, com definiï¿½ï¿½o dos SXs
+* Preenchimento de dados de Alias, com definição dos SXs
 
 * Leitura simples dos dados
 @type class
 @see https://github.com/saulogm/advpl-excel
 @obs Office Open XML File Formats, sumario 1533
-@obs para suporte ao libreOffice em servidor windows, instalar o 7Zip e apontar local da instalaï¿½ï¿½o no INI do appserver (General/LOCAL7ZIP)
+@obs para suporte ao libreOffice em servidor windows, instalar o 7Zip e apontar local da instalação no INI do appserver (General/LOCAL7ZIP)
 /*/
 //Dummy Function
 
@@ -63,7 +63,7 @@ Class Xlsx
 	Public Data oXmlStyle    As Object
 	Public Data cNomeNS2    As Character
 	Public Data nQtdString			As Numeric //Quantidade de string conmpartilhadas
-	Public Data adimension			As Array //Dimensï¿½o da planilha
+	Public Data adimension			As Array //Dimensão da planilha
 	Public Data cClassName			As Character //Nome da Classe
 	Public Data cName				As Character //Nome da Classe
 	Public Data cTmpFile			As Character //Arquivo temporario criado no servidor
@@ -78,7 +78,7 @@ Class Xlsx
 	Public Data nColunaAtual		As Numeric //Ultima Coluna
 	Public Data nQtdStyle			As Numeric //Quantidade de styles
 	Public Data oMergeCell			As Object //HashMap com celulas mescladas
-	Public Data aDadosBulk			As Array //Bloco de cï¿½digo para preenchimento de linha em massa
+	Public Data aDadosBulk			As Array //Bloco de código para preenchimento de linha em massa
 	Public Data aBulkValor			As Array //Valores para adicionar ao Bulk
 	Public Data cCampo				As Character //Nome do campo quando preenchimento em bulk
 	Public Data cSubTotalTp		As Character //Tipo de linha sendo impressa quando subtotal(L=Linha,S=SubTotal,T=TotalGeral) quando Alias2Tab
@@ -152,14 +152,14 @@ Class Xlsx
 	Public METHOD Save()			//Salva xlsx
 	Public METHOD Close()			//fecha arquivo aberto e limpa temporario
 	Public METHOD SetPlanName()	//Altera o nome da planilha
-	Public METHOD SetPlanAt()		//Informa qual planilha estï¿½ em ediï¿½ï¿½o
-	Public METHOD GetPlanAt()		//Retorna qual planilha estï¿½ em ediï¿½ï¿½o
+	Public METHOD SetPlanAt()		//Informa qual planilha está em edição
+	Public METHOD GetPlanAt()		//Retorna qual planilha está em edição
 	Public METHOD LenPlanAt()		//Quantidade de planilha
-	Public METHOD SetsheetProtection()	//Proteï¿½ï¿½o da planilha
-	//Controle de Cï¿½lulas
-	Public METHOD Cell()			//Grava as cï¿½lulas
+	Public METHOD SetsheetProtection()	//Proteção da planilha
+	//Controle de Células
+	Public METHOD Cell()			//Grava as células
 	Public METHOD Pos()			//posiciona na celula
-	Public METHOD PosR()			//posiciona na celula de acordo com referï¿½ncia
+	Public METHOD PosR()			//posiciona na celula de acordo com referência
 	Public METHOD GetValue()		//Retorna conteudo da celulas posicionada
 	Public METHOD GetString()
 	Public METHOD GetNumber()
@@ -169,36 +169,36 @@ Class Xlsx
 	Public METHOD SetValue()		//Grava conteudo da celulas posicionada
 	Public METHOD SetDateTime()	//Grava conteudo com data e hora
 	Public METHOD GetFormula()		//Retorna a formula da celula posicionada
-	Public METHOD ColTam()			//Coluna Mï¿½nima e Mï¿½xima
-	Public METHOD LinTam()			//Linha Mï¿½nima e Mï¿½xima
-	Public METHOD mergeCells()		//Mescla cï¿½lulas
+	Public METHOD ColTam()			//Coluna Mínima e Máxima
+	Public METHOD LinTam()			//Linha Mínima e Máxima
+	Public METHOD mergeCells()		//Mescla células
 	Public METHOD NumToString()	//Algoritimo para converte numero em string A=1,B=2
 	Public METHOD StringToNum()	//Algoritimo para converte string em numero 1=A,2=B
-	Public METHOD Ref()			//Passa a localizaï¿½ï¿½o numerica e transforma em referencia da celula
+	Public METHOD Ref()			//Passa a localização numerica e transforma em referencia da celula
 	Public METHOD LocRef()			//Retorna linha  e coluna de acordo com referencia enviada
 	Public METHOD AddTamCol()		//Defini o tamanho de uma coluna ou varias colunas
 	Public METHOD ColHidden()		//Ocultar coluna
 	Public METHOD AutoFilter()		//Cria os Filtros na planilha
-	Public METHOD AddNome()		//Cria nome para refencia de cï¿½lula ou intervalo
-	Public METHOD Addhyperlink()	//Cria um hyperlink para uma referï¿½ncia da planilha
-	Public METHOD AddComment()		//Cria um comentï¿½rio para a celula posicionada
+	Public METHOD AddNome()		//Cria nome para refencia de célula ou intervalo
+	Public METHOD Addhyperlink()	//Cria um hyperlink para uma referência da planilha
+	Public METHOD AddComment()		//Cria um comentário para a celula posicionada
 	//Bulk
 	Public Method BulkNewField()	//Cria um campo para criar Bulk
-	Public METHOD DefBulkLine()	//Cria definiï¿½ï¿½o de linha para preenchimento em massa
+	Public METHOD DefBulkLine()	//Cria definição de linha para preenchimento em massa
 	Public METHOD SetBulkLine()	//Preencher linha em massa
 	Public METHOD SetValueBulk()	//Incluir valor para preenchimento em massa
 	Public METHOD CloseBulk()		//Finaliza Bulk quando banco de dados
 	Public METHOD FlushBulk()
-	Public METHOD NewRuleLine()	//Cria regra para formataï¿½ï¿½o de linha no bulk
+	Public METHOD NewRuleLine()	//Cria regra para formatação de linha no bulk
 	Public METHOD LenColBulk()		//Quantidade de colunas criada no ultimo bulk definido
 	//Alias2Tab
 	Public METHOD Alias2Tab()		//Preencher com alias informado
-	Public METHOD NewFldTab()		//Cria definiï¿½ï¿½o de campo para Alias2Tab
-	Public METHOD DefSubTotal()	//Cria definiï¿½ï¿½o de subtotal
-	Public METHOD AddSubTotal()	//Cria nova definiï¿½ï¿½o de subtotal para alias2tab
+	Public METHOD NewFldTab()		//Cria definição de campo para Alias2Tab
+	Public METHOD DefSubTotal()	//Cria definição de subtotal
+	Public METHOD AddSubTotal()	//Cria nova definição de subtotal para alias2tab
 	
 	Public METHOD InsertRowEmpty()	//Cria linhas vazia
-	Public METHOD InsertCellEmpty()//Cria cï¿½lulas vazias
+	Public METHOD InsertCellEmpty()//Cria células vazias
 	Public METHOD NivelLinha()
 	Public METHOD SetsumBelow()	//Configurar linha resumo de agrupamento de linhas abaixo
 	Public METHOD SetsumRight()	//Configurar coluna resumo a direita
@@ -207,15 +207,15 @@ Class Xlsx
 	Public METHOD SetColLevel()	//Configurar as linhas para agrupamento 
 	Public METHOD AddRow()			//Adiciona linhas acima e move as demais para baixo
 	Public METHOD AddCol()			//Adiciona Colunas a direita e move as demais para esquerda
-	//Controle de layout, impressï¿½o e pagina
-	Public METHOD AddPane()		//Congelar Painï¿½is
+	//Controle de layout, impressão e pagina
+	Public METHOD AddPane()		//Congelar Painéis
 	Public METHOD showGridLines()	//Exibir ou ocultar linhas de grade
-	Public METHOD SetPrintTitles()	//Configurar linha para repetir na impressï¿½o
-	Public METHOD SetPagOrientation()	//Configurar orientaï¿½ï¿½o da pagina na impressï¿½o
-	Public Method SetHeader()		//Configurar Cabeï¿½alho
-	Public Method SetFooter()		//Configurar Rodapï¿½
-	Public Method SetdefaultRowHeight()	//Tamanho padrï¿½o das linhas
-	Public Method SetPrintArea()		//Configurar ï¿½rea de impressï¿½o
+	Public METHOD SetPrintTitles()	//Configurar linha para repetir na impressão
+	Public METHOD SetPagOrientation()	//Configurar orientação da pagina na impressão
+	Public Method SetHeader()		//Configurar Cabeçalho
+	Public Method SetFooter()		//Configurar Rodapé
+	Public Method SetdefaultRowHeight()	//Tamanho padrão das linhas
+	Public Method SetPrintArea()		//Configurar área de impressão
 
 	Public METHOD GetDateTime()		//Cria dado para incluir celula data time
 
@@ -233,26 +233,26 @@ Class Xlsx
 	//Interno
 	Public METHOD CriarFile()		//Cria arquivos temporarios
 	Public METHOD GravaFile()		//Grava em arquivos temporarios
-	Public METHOD AddFormatCond()	//Formataï¿½ï¿½o condicional(todos rercusos)
-	Public METHOD Pane()			//Congelar Painï¿½is
+	Public METHOD AddFormatCond()	//Formatação condicional(todos rercusos)
+	Public METHOD Pane()			//Congelar Painéis
 	Public METHOD CriaDB()			//Cria base de dados interna
 	Public METHOD ExecSql()		//Executa comandos sql
-	Public Method NewLinhaM()		//Busca caminho da linha se nï¿½o existe cria
-	Public Method NewColunaM()		//Busca caminho da celula se nï¿½o existe cria
+	Public Method NewLinhaM()		//Busca caminho da linha se não existe cria
+	Public Method NewColunaM()		//Busca caminho da celula se não existe cria
 
 	//Estilo
 	Public METHOD CorPreenc()		//Cria um nova cor para ser usada
 	Public METHOD EfeitoPreenc()	//Cria um novo efeito de preenchimento
 	Public METHOD AddFont()		//Cria objeto de font
-	Public METHOD CreateStyle()	//Cria estilos com heranï¿½a
+	Public METHOD CreateStyle()	//Cria estilos com herança
 	Public METHOD NewStyle()		//Cria estilos orientado a objeto
 	Public METHOD AddStyles()		//Adiciona Estilos
-	Public METHOD SetStyle()		//Informa o estilo em uma ou vï¿½rias cï¿½lula
-	Public METHOD GetStyle()		//Retorna o estilo em uma cï¿½lula
+	Public METHOD SetStyle()		//Informa o estilo em uma ou várias célula
+	Public METHOD GetStyle()		//Retorna o estilo em uma célula
 	Public METHOD Alinhamento()	//Adiciona alinhamento
-	Public METHOD Cellprotection()		//Adiciona proteï¿½ï¿½o a um estilo
+	Public METHOD Cellprotection()		//Adiciona proteção a um estilo
 	Public METHOD Borda()			//Adiciona borda(auxiliar)
-	Public METHOD Border()			//Cria Borda com todas opï¿½ï¿½es
+	Public METHOD Border()			//Cria Borda com todas opções
 	Public Method AddFmt()			//Cria formato
 	Public Method AddFmtNum()		//Cria formato para numeros
 	Public Method AddFmtNumCode()
@@ -269,13 +269,13 @@ Class Xlsx
 	Public Method GetStyleAtt()	//Pegar atributo do xml de estilo
 
 
-	//Formataï¿½ï¿½o condicional
-	Public METHOD FormatCond()		//Definir formataï¿½ï¿½o condicional(auxiliar)
+	//Formatação condicional
+	Public METHOD FormatCond()		//Definir formatação condicional(auxiliar)
 	Public METHOD Font()			//Cria objeto de font
 	Public METHOD Preenc()			//Cria objeto de Preenchimento
 	Public METHOD ObjBorda()		//Cria objeto de borda
 	Public METHOD gradientFill()	//Cria objeto de efeito de preenchimento
-	Public METHOD ADDdxf()			//Cria o estilo para formataï¿½ï¿½o condicional
+	Public METHOD ADDdxf()			//Cria o estilo para formatação condicional
 
 	//Imagem
 	Public METHOD ADDImg()			//Adiciona uma Imagem
@@ -304,7 +304,7 @@ Class Xlsx
 	Public METHOD AddTabela()
 
 	//deprecated
-	Public METHOD SetDefRow()		//[deprecated]Defini as colunas da linha. Habilita a gravaï¿½ï¿½o automatica de cada coluna. Importante para prover performace na gravaï¿½ï¿½o de varias linhas
+	Public METHOD SetDefRow()		//[deprecated]Defini as colunas da linha. Habilita a gravação automatica de cada coluna. Importante para prover performace na gravação de varias linhas
 ENDCLASS
 
 METHOD ClassName() Class Xlsx
@@ -375,7 +375,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::lCanUseBulk	:= .F.
 	::aBulkDB		:= {}
 	::oRegex1 		:= tlpp.regex.Regex():New('[^A-Za-z0-9\s_]')	//Aceita Alfa,Num,Espaco,underline
-	::oRegex2		:= tlpp.regex.Regex():New('[A-Za-z]{1,3}[0-9]{1,7}')	//Se ï¿½ uma referencia de celula
+	::oRegex2		:= tlpp.regex.Regex():New('[A-Za-z]{1,3}[0-9]{1,7}')	//Se é uma referencia de celula
 	If cTipo=="M"
 		::lArquivo		:= .F.
 		::lMemoria		:= .T.
@@ -419,7 +419,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 		// AADD(aStruct,{"VLRDEC"	,	"N", 15		, 00})	//Decimal maior que oito decimais
 		AADD(aIndex,{"PLA","LIN","COL"})
 		::cAliasCol	:= ::CriaDB(aStruct,aIndex,"COL",@::cTabCol,@oTabTmp)
-		::lCanUseBulk := FwBulk():CanBulk() // Este mï¿½todo nï¿½o depende da classe FWBulk ser inicializada por NEW
+		::lCanUseBulk := FwBulk():CanBulk() // Este método não depende da classe FWBulk ser inicializada por NEW
 		if ::lCanUseBulk
 			If ::cDriver!="TMPDB"
 				::lCanUseBulk	:= .F.
@@ -514,7 +514,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 			UserException("Xlsx, erro ao descompactar arquivo no servidor!")
 		EndIf
 
-		//Problema de nï¿½o descompactar direto no servidor linux
+		//Problema de não descompactar direto no servidor linux
 		If nRet==0 .and. !File("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels",,.F.)
 			If ValType(cRootPath)=="U"
 				cRootPath	:= GetSrvProfString( "RootPath", "" )
@@ -535,7 +535,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 			Endif
 		Endif
 
-		nPos	:= ::new_rels("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels","\_rels\.rels")	//Arquivo nï¿½o ï¿½ carregado pela funï¿½ï¿½o Directory
+		nPos	:= ::new_rels("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels","\_rels\.rels")	//Arquivo não é carregado pela função Directory
 		fErase("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+"\_rels\.rels")
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,".rels")	//Ler todos rels
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,"sharedstrings.rels")	//Ler todos sharedstrings
@@ -572,21 +572,21 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme","theme/theme1.xml")
 		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles","styles.xml")
 		//::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
-		//Defini formato Moeda padrï¿½o brasileiro
+		//Defini formato Moeda padrão brasileiro
 		::AddFmt('_-"R$"\ * #,##0.00_-;\-"R$"\ * #,##0.00_-;_-"R$"\ * "-"??_-;_-@_-',44)
 	Endif
 
-	//Cria conteudo padrï¿½o
+	//Cria conteudo padrão
 	::AddFont(11,"FF000000","Calibri","2")
 	::Borda()	//Sem borda
 	::CorPreenc(,,"none")
 	::CorPreenc(,,"gray125")
-	AADD(::aPadraoSty,::AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Sem Formataï¿½ï¿½o
-	AADD(::aPadraoSty,::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data padrï¿½o
-	AADD(::aPadraoSty,::AddStyles(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data time padrï¿½o
+	AADD(::aPadraoSty,::AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Sem Formatação
+	AADD(::aPadraoSty,::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data padrão
+	AADD(::aPadraoSty,::AddStyles(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data time padrão
 Return self
 
-//Nï¿½o Documentear
+//Não Documentear
 Method CriaDB(aStruct As Array, aIndex As Array, cPrefixo As Character, cRealName As Character, oTabTmp As Object) Class Xlsx
 	Local oTabTmp As Object
 	Local cAliasRet As Character
@@ -685,7 +685,7 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 	cNome	:= AjusEncode(cNome)
 	nPos	:= aScan(::aPlanilhas,{|x| x[2]==cNome })
 	If nPos>0
-		UserException("Esse nome de planilha jï¿½ foi usado!")
+		UserException("Esse nome de planilha já foi usado!")
 	Endif
 
 	AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValToChar(nQtdPlanilhas+1)+".xml")
@@ -748,7 +748,7 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 
 	AADD(::aPlanilhas,{cID,cNome,/*3-id draw*/,/*4-drawsID*/,{}/*5-atable*/,Tag():New("tableParts",{},,self)/*6-tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/})
 	::nPlanilhaAt	:= nQtdPlanilhas
-	::SetFooter("TOTVS","","Pï¿½gina &P/&N")
+	::SetFooter("TOTVS","","Página &P/&N")
 
 	::oworkbook:XPathAddNode( "/xmlns:workbook/xmlns:sheets", "sheet", "" )
 	::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:sheets/xmlns:sheet[last()]", "name"		, cNome)
@@ -1274,7 +1274,7 @@ METHOD SetPlanName(cNome As Character) Class Xlsx
 	cNome	:= AjusEncode(cNome)
 	nPos	:= aScan(::aPlanilhas,{|x| x[2]==cNome })
 	If nPos>0
-		UserException("Esse nome de planilha jï¿½ foi usado!")
+		UserException("Esse nome de planilha já foi usado!")
 	Endif
 	cOldName						:= ::aPlanilhas[::nPlanilhaAt][2]
 	::aPlanilhas[::nPlanilhaAt][2]	:= cNome
@@ -1283,7 +1283,7 @@ METHOD SetPlanName(cNome As Character) Class Xlsx
 Return
 
 /*/{Protheus.doc} SetPlanAt
-Infoma a planilha de alteraï¿½ï¿½o
+Infoma a planilha de alteração
 @author Saulo Gomes Martins
 @since 13/06/2020
 @param xPlan, variadic, (characters|numeric) Indice da planilha ou nome da planilha
@@ -1343,10 +1343,10 @@ Proteger a Planilha
 @author Saulo Gomes Martins
 @since 12/07/2025
 @param cSenha, character, Senha para desproteger a planilha(opcional)
-@param lsheet, logical, Proteger a planilha e o conteï¿½do de cï¿½lulas bloqueadas
-@param lselectLockedCells, logical, Permitir Selecionar cï¿½lulas bloqueadas
-@param lselectUnlockedCells, logical, Permitir Selecionar cï¿½lulas desbloqueadas
-@param lformatCells, logical, Permitir Formatar cï¿½lulas
+@param lsheet, logical, Proteger a planilha e o conteúdo de células bloqueadas
+@param lselectLockedCells, logical, Permitir Selecionar células bloqueadas
+@param lselectUnlockedCells, logical, Permitir Selecionar células desbloqueadas
+@param lformatCells, logical, Permitir Formatar células
 @param lformatColumns, logical, Permitir Formatar colunas
 @param lformatRows, logical, Permitir Formatar linhas
 @param linsertColumns, logical, Permitir Inserir colunas
@@ -1355,10 +1355,10 @@ Proteger a Planilha
 @param ldeleteColumns, logical, Permitir Excluir colunas
 @param ldeleteRows, logical, Permitir Excluir linhas
 @param lsort, logical, Permitir Classificar
-@param lautoFilter, logical, Permitir Usar Filtro automï¿½tico
-@param lpivotTables, logical, Permitir Utilizar Tabela Dinï¿½mica e Grï¿½fico Dinï¿½mico
+@param lautoFilter, logical, Permitir Usar Filtro automático
+@param lpivotTables, logical, Permitir Utilizar Tabela Dinâmica e Gráfico Dinâmico
 @param lobjects, logical, Permitir Editar Objetos
-@param lscenarios, logical, Permitir Editar cenï¿½rios
+@param lscenarios, logical, Permitir Editar cenários
 @return object, self
 @see https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/1357ea58-646e-4483-92ef-95d718079d6f
 /*/
@@ -1405,7 +1405,7 @@ METHOD SetsheetProtection(cSenha As Character, lsheet As Logical, lselectLockedC
 
 Return self
 /*/{Protheus.doc} AddNome
-Cria nome para refencia de cï¿½lula ou intervalo
+Cria nome para refencia de célula ou intervalo
 @author Saulo Gomes Martins
 @since 09/05/2017
 @param cNome, characters, Nome
@@ -1448,19 +1448,19 @@ METHOD AddNome(cNome As Character, nLinha As Numeric, nColuna As Numeric, nLinha
 	If nPos>0
 		::oworkbook:XPathAddAtt( "/xmlns:workbook/xmlns:definedNames/xmlns:definedName[last()]", "localSheetId"		, cValToChar(nPos-1))
 		If ::odefinedNa:HasProperty(cValToChar(nPos-1)+"_"+cNome)		//Nome na sheet
-			UserException("Xlsx - Este nome jï¿½ existe. Os nomes devem ser exclusivos!")
+			UserException("Xlsx - Este nome já existe. Os nomes devem ser exclusivos!")
 		Endif
 		::odefinedNa[cValToChar(nPos-1)+"_"+cNome]	:= nil
 	Else
 		If ::odefinedNa:HasProperty("G_"+cNome)		//Nome Global
-			UserException("Xlsx - Este nome jï¿½ existe. Os nomes devem ser exclusivos!")
+			UserException("Xlsx - Este nome já existe. Os nomes devem ser exclusivos!")
 		Endif
 		::odefinedNa["G_"+cNome]	:= nil
 	Endif
 Return
 
 /*/{Protheus.doc} SetPrintTitles
-Repetir linhas na impressï¿½o
+Repetir linhas na impressão
 @author Saulo Gomes Martins
 @since 12/12/2019
 @version 1.0
@@ -1477,7 +1477,7 @@ METHOD SetPrintTitles(nLinha As Numeric, nLinha2 As Numeric, cRefPar As Characte
 Return
 
 /*/{Protheus.doc} Xlsx::SetPrintArea
-Definir a ï¿½rea de impressï¿½o
+Definir a área de impressão
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -1495,7 +1495,7 @@ METHOD SetPrintArea(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, n
 Return
 
 /*/{Protheus.doc} SetPagOrientation
-Informa a orientaï¿½ï¿½o do papel na impressï¿½o
+Informa a orientação do papel na impressão
 @author Saulo Gomes Martins
 @since 12/12/2019
 @version 1.0
@@ -1506,7 +1506,7 @@ Informa a orientaï¿½ï¿½o do papel na impressï¿½o
 METHOD SetPagOrientation(cOrientation As Character) Class Xlsx
 	Default cOrientation := "default"
 	If lower(cOrientation)+"|" $ "default|landscape|portrait|"
-		::cPagOrientation	:= cOrientation	//Proximas planilhas segue mesma orientaï¿½ï¿½o
+		::cPagOrientation	:= cOrientation	//Proximas planilhas segue mesma orientação
 	Endif
 	If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:pageSetup")
 		::asheet[::nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet","pageSetup","")
@@ -1514,14 +1514,14 @@ METHOD SetPagOrientation(cOrientation As Character) Class Xlsx
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:pageSetup","orientation",::cPagOrientation)
 Return ::cPagOrientation
 /*/{Protheus.doc} Xlsx::SetHeader
-Configurar o Cabeï¿½alho
+Configurar o Cabeçalho
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 17/03/2021
-@param cLeft, character, Texto seï¿½ï¿½o da esquerda
-@param cCenter, character, Texto seï¿½ï¿½o central
-@param cRight, character, Texto seï¿½ï¿½o direita 
+@param cLeft, character, Texto seção da esquerda
+@param cCenter, character, Texto seção central
+@param cRight, character, Texto seção direita 
 /*/
 METHOD SetHeader(cLeft As Character, cCenter As Character, cRight As Character) Class Xlsx
 	Local cValor := "" As Character
@@ -1547,14 +1547,14 @@ METHOD SetHeader(cLeft As Character, cCenter As Character, cRight As Character) 
 	EndIf
 Return
 /*/{Protheus.doc} Xlsx::SetFooter
-Configurar o Rodapï¿½
+Configurar o Rodapé
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 17/03/2021
-@param cLeft, character, Texto seï¿½ï¿½o da esquerda
-@param cCenter, character, Texto seï¿½ï¿½o central
-@param cRight, character, Texto seï¿½ï¿½o direita 
+@param cLeft, character, Texto seção da esquerda
+@param cCenter, character, Texto seção central
+@param cRight, character, Texto seção direita 
 /*/
 METHOD SetFooter(cLeft As Character, cCenter As Character, cRight As Character) Class Xlsx
 	Local cValor := "" As Character
@@ -1580,12 +1580,12 @@ METHOD SetFooter(cLeft As Character, cCenter As Character, cRight As Character) 
 	EndIf
 Return
 /*/{Protheus.doc} Xlsx::SetdefaultRowHeight
-Definir tamanho padrï¿½o da linha
+Definir tamanho padrão da linha
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 14/09/2021
-@param nHeight, numeric, tamanho da linha padrï¿½o
+@param nHeight, numeric, tamanho da linha padrão
 /*/
 Method SetdefaultRowHeight(nHeight As Numeric) Class Xlsx
 	If ValType(nHeight)=="N"
@@ -1601,7 +1601,7 @@ Adiciona imagem para ser usado
 @since 06/01/2019
 @version 1.0
 @return numeric, ID da imagem
-@param cImg, characters, Localizaï¿½ï¿½o da imagem
+@param cImg, characters, Localização da imagem
 @type method
 /*/
 METHOD ADDImg(cImg As Character) Class Xlsx
@@ -1613,7 +1613,7 @@ METHOD ADDImg(cImg As Character) Class Xlsx
 	PARAMTYPE 0	VAR cImg		AS CHARACTER
 
 	If !File(cImg,,.F.)
-		UserException("Xlsx - Imagem nï¿½o encontrada ("+cImg+")")
+		UserException("Xlsx - Imagem não encontrada ("+cImg+")")
 	Endif
 
 	::nIDMedia++
@@ -1649,8 +1649,8 @@ Usa imagem
 @param nColuna, numeric, Coluna para adicionar a imagem
 @param nX, numeric, Largura da imagem
 @param nY, numeric, Altura da imagem
-@param cUnidade, characters, (opcional) Unidade da dimensï¿½o da imagem. padrï¿½o em pixel
-@param nRot, numeric, rotaï¿½ï¿½o da imagem
+@param cUnidade, characters, (opcional) Unidade da dimensão da imagem. padrão em pixel
+@param nRot, numeric, rotação da imagem
 @type method
 @OBS pag 3166
 /*/
@@ -1668,7 +1668,7 @@ METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric,
 	PARAMTYPE 6	VAR nRot		AS NUMERIC		OPTIONAL DEFAULT 0
 
 	If aScan(::aImagens,{|x| x[1]==nID })==0
-		UserException("Xlsx - Imagem nï¿½o cadastrada, usar metodo ADDImg. ID("+cValToChar(nID)+")")
+		UserException("Xlsx - Imagem não cadastrada, usar metodo ADDImg. ID("+cValToChar(nID)+")")
 	Endif
 
 	cUnidade	:= lower(cUnidade)
@@ -1681,9 +1681,9 @@ METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric,
 		nY	:= nY*36000
 	Endif
 	Default cCellType	:= "oneCellAnchor"
-	//absolute	- Nï¿½o mover ou redimensionar com linhas / colunas subjacentes
-	//oneCell	- Mova-se com cï¿½lulas, mas nï¿½o redimensione
-	//twoCell	- Mover e redimensionar com cï¿½lulas ï¿½ncoras
+	//absolute	- Não mover ou redimensionar com linhas / colunas subjacentes
+	//oneCell	- Mova-se com células, mas não redimensione
+	//twoCell	- Mover e redimensionar com células âncoras
 
 	If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing").or.Empty(self:asheet[self:nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:drawing","r:id"))
 		If !::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing")
@@ -1763,15 +1763,15 @@ METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric,
 Return
 
 /*/{Protheus.doc} Cell
-Grava o conteudo de uma cï¿½lula
+Grava o conteudo de uma célula
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
 @param nLinha, numeric, Linha a ser gravada
 @param nColuna, numeric, Coluna a ser gravada
 @param xValor, variadic, Valor a ser gravado(texto,numero,data,logico)
-@param cFormula, characters, Formula da cï¿½lula
-@param nStyle, numeric, posiï¿½ï¿½o do estilo criado pelo metodo :AddStyles()
+@param cFormula, characters, Formula da célula
+@param nStyle, numeric, posição do estilo criado pelo metodo :AddStyles()
 @type method
 /*/
 METHOD Cell(nLinha As Numeric, nColuna As Numeric, xValor As Variant, cFormula As Character, xStyle As Variant) Class Xlsx
@@ -1786,7 +1786,7 @@ METHOD Cell(nLinha As Numeric, nColuna As Numeric, xValor As Variant, cFormula A
 		nColuna	:= StringToNum(UPPER(nColuna))
 	Endif
 	If nColuna==0
-		UserException("Xlsx - O ï¿½ndice da coluna nï¿½o pode iniciar no 0")
+		UserException("Xlsx - O índice da coluna não pode iniciar no 0")
 	Endif
 
 	::nColunaAtual	:= nColuna
@@ -1802,7 +1802,7 @@ METHOD Cell(nLinha As Numeric, nColuna As Numeric, xValor As Variant, cFormula A
 	::Pos(nLinha,nColuna)
 	::SetValue(xValor,cFormula)
 	If cTpStyle=="U".AND.cTipo=="D"
-	ElseIf cTpStyle=="U" .AND. cTipo=="O".AND.GetClassName(xValor)=="DateTime" 	//Data e Date time, deixa formato padrï¿½o, nï¿½o limpa formato
+	ElseIf cTpStyle=="U" .AND. cTipo=="O".AND.GetClassName(xValor)=="DateTime" 	//Data e Date time, deixa formato padrão, não limpa formato
 	ElseIf cTpStyle!="U"
 		::SetStyle(xStyle,nLinha,nColuna)
 	EndIf
@@ -1828,9 +1828,9 @@ Method AddCol(nQtd As Numeric, nColunaIni As Numeric, nLinhaIni As Numeric, nLin
 	PARAMTYPE 0	VAR nQtd			AS NUMERIC			OPTIONAL DEFAULT 1
 	PARAMTYPE 1	VAR nColunaIni		AS NUMERIC			OPTIONAL DEFAULT ::nColuna
 	If ::lArquivo
-		UserException("Xlsx - Nï¿½o ï¿½ possï¿½vel adicionar colunas na criaï¿½ï¿½o direta com arquivo")
+		UserException("Xlsx - Não é possível adicionar colunas na criação direta com arquivo")
 	ElseIf ::lMemoria
-		UserException("Xlsx - Method nï¿½o implementado. Nï¿½o ï¿½ possï¿½vel adicionar colunas na criaï¿½ï¿½o em memoria")
+		UserException("Xlsx - Method não implementado. Não é possível adicionar colunas na criação em memoria")
 	Else
 		cUpdate	:= "UPDATE "+::cTabCol+" SET COL=COL+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND COL>="+cValToChar(nColunaIni)
 		If ValType(nLinhaIni)=="N"
@@ -1853,11 +1853,11 @@ Method AddRow(nQtd As Numeric, nLinhaIni As Numeric, nColunaIni As Numeric, nCol
 	// If ValType(nColunaFim)=="N" .AND. ValType(nColunaIni)!="N"
 	// 	nColunaIni	:= 1
 	// Endif
-	//Atualiza as cï¿½lulas para nova posiï¿½ï¿½o
+	//Atualiza as células para nova posição
 	If ::lArquivo
-		UserException("Xlsx - Nï¿½o ï¿½ possï¿½vel adicionar linhas na criaï¿½ï¿½o direta com arquivo")
+		UserException("Xlsx - Não é possível adicionar linhas na criação direta com arquivo")
 	ElseIf ::lMemoria
-		UserException("Xlsx - Method nï¿½o implementado. Nï¿½o ï¿½ possï¿½vel adicionar linhas na criaï¿½ï¿½o em memoria")
+		UserException("Xlsx - Method não implementado. Não é possível adicionar linhas na criação em memoria")
 	Else
 		cUpdate	:= "UPDATE "+::cTabCol+" SET LIN=LIN+"+cValToChar(nQtd)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinhaIni)
 		If ValType(nColunaIni)=="N"
@@ -1870,10 +1870,10 @@ Method AddRow(nQtd As Numeric, nLinhaIni As Numeric, nColunaIni As Numeric, nCol
 			UserException("Xlsx - Erro ao incluir linhas. "+TCSqlError())
 		Endif
 
-		//Atualiza as linhas para nova posiï¿½ï¿½o
+		//Atualiza as linhas para nova posição
 		If ValType(nColunaFim)=="N" .OR. (ValType(nColunaIni)=="N" .AND. nColunaIni>1)
 			//Movendo apenas as celulas para baixo
-			//Cria linhas as cï¿½lulas que foram movidas para baixo
+			//Cria linhas as células que foram movidas para baixo
 			If !::ExecSql("","INSERT INTO "+::cTabLin+" (PLA,LIN) SELECT DISTINCT C.PLA,C.LIN FROM "+::cTabCol+" C LEFT JOIN "+::cTabLin+" L ON C.PLA=L.PLA AND C.LIN=L.LIN WHERE L.LIN IS NULL",::cDriver)
 				UserException("Xlsx - Erro ao incluir linhas. "+TCSqlError())
 			Endif
@@ -1888,14 +1888,14 @@ Method AddRow(nQtd As Numeric, nLinhaIni As Numeric, nColunaIni As Numeric, nCol
 Return
 
 /*/{Protheus.doc} Xlsx::SetRowH
-Definir altura das llinhas. Se nï¿½o enviado linha de/ate, considerar as prï¿½ximas linhas a ser criadas
+Definir altura das llinhas. Se não enviado linha de/ate, considerar as próximas linhas a ser criadas
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 06/07/2020
 @param nHeight, numeric, Altura da linha
 @param nLinha, numeric, Opcional se vai alterar linha inicial
-@param nLinha2, numeric, Opcional linha final para alteraï¿½ï¿½o
+@param nLinha2, numeric, Opcional linha final para alteração
 /*/
 Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class Xlsx
 	Local cCHeight := "1" As Character
@@ -1925,7 +1925,7 @@ Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class 
 				EndIf
 			Next 
 		Else
-			//Inserir linhas que nï¿½o existe para definir o tamanho
+			//Inserir linhas que não existe para definir o tamanho
 			::InsertRowEmpty(nLinha,nLinha2)
 			If !::ExecSql("","UPDATE "+::cTabLin+" SET CHEIGHT='"+cCHeight+"',HT="+cValToChar(nHeight)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" ",::cDriver)
 				UserException("Xlsx - 2 Erro ao atualiza tamanho das linhas. "+TCSqlError())
@@ -1949,7 +1949,7 @@ Method InsertRowEmpty(nLinha As Numeric, nLinha2 As Numeric) Class Xlsx
 	Local cAliasTmp As Character
 	Default nLinha	:= nLinha2
 	If ::lArquivo
-		UserException("Xlsx - Nï¿½o ï¿½ possï¿½vel adicionar linhas na criaï¿½ï¿½o direta com arquivo")
+		UserException("Xlsx - Não é possível adicionar linhas na criação direta com arquivo")
 	ElseIf ::lMemoria
 		For nCont:=nLinha to nLinha2
 			::NewLinhaM(nCont)
@@ -2001,7 +2001,7 @@ Method InsertRowEmpty(nLinha As Numeric, nLinha2 As Numeric) Class Xlsx
 Return
 
 /*/{Protheus.doc} Xlsx::InsertCellEmpty
-Inserir cï¿½lulas vazias
+Inserir células vazias
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -2021,7 +2021,7 @@ Method InsertCellEmpty(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric
 	Default nLinha2		:= nLinha
 	Default nColuna2	:= nColuna
 	If ::lArquivo
-		UserException("Xlsx - Nï¿½o ï¿½ possï¿½vel adicionar linhas na criaï¿½ï¿½o direta com arquivo")
+		UserException("Xlsx - Não é possível adicionar linhas na criação direta com arquivo")
 	Else
 		If ::lMemoria
 			For nCont:=nLinha to nLinha2
@@ -2094,7 +2094,7 @@ Method InsertCellEmpty(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric
 Return
 
 /*/{Protheus.doc} Xlsx::SetValue
-Alteraï¿½ï¿½o de valores da cï¿½lula posicionada
+Alteração de valores da célula posicionada
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -2143,7 +2143,7 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 		ElseIf cTipo=="N"
 			::oC:AddArr('<v>'+cValToChar(xValor)+'</v>')
 		ElseIf cTipo=="D"
-			//::SetAtributo("t","d")	//Adiciona o estilo padrï¿½o de data
+			//::SetAtributo("t","d")	//Adiciona o estilo padrão de data
 			//::SetV(SUBSTR(DTOS(v),1,4)+"-"+SUBSTR(DTOS(v),5,2)+"-"+SUBSTR(DTOS(v),7,2))
 			If !Empty(xValor)
 				::oC:AddArr('<v>'+cValToChar(xValor-STOD("19000101")+2)+'</v>')
@@ -2152,19 +2152,19 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 			EndIf
 			nStyAtu 	:= ::oC:GetAtributo("s")
 			If ValType(nStyAtu)!="U" .AND. !::GetStyleAtt(nStyAtu,"applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
-				//Se tem estilo e ele nï¿½o tem NumFmtId aplicado
+				//Se tem estilo e ele não tem NumFmtId aplicado
 				::oC:SetAtributo("s", ::CreateStyle(nStyAtu,14) )	//Cria um estilo com Numfmt data
-			ElseIf ValType(nStyAtu)=="U"	//Nï¿½o tem estilo
-				::oC:SetAtributo("s",::aPadraoSty[2])	//Estilo padrï¿½o de data
+			ElseIf ValType(nStyAtu)=="U"	//Não tem estilo
+				::oC:SetAtributo("s",::aPadraoSty[2])	//Estilo padrão de data
 			Endif
 		ElseIf cTipo=="O" .and. GetClassName(xValor)=="DateTime"
 			::oC:AddArr('<v>'+cValToChar(xValor:GetStrNumber())+'</v>')
 			nStyAtu 	:= ::oC:GetAtributo("s")
 			If ValType(nStyAtu)!="U" .AND. !::GetStyleAtt(nStyAtu,"applyNumberFormat")=="1"//!("D" $ ::StyleType((::cAliasCol)->STY))
-				//Se tem estilo e ele nï¿½o tem NumFmtId aplicado
+				//Se tem estilo e ele não tem NumFmtId aplicado
 				::oC:SetAtributo("s", ::CreateStyle(nStyAtu,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")) )	//Cria um estilo com Numfmt datetime
-			ElseIf ValType(nStyAtu)=="U"	//Nï¿½o tem estilo
-				::oC:SetAtributo("s",::aPadraoSty[3])	//Estilo padrï¿½o de datetime
+			ElseIf ValType(nStyAtu)=="U"	//Não tem estilo
+				::oC:SetAtributo("s",::aPadraoSty[3])	//Estilo padrão de datetime
 			Endif
 		Else
 			oTmpObj	:= Tag():New("v",xValor)
@@ -2198,7 +2198,7 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 			EndIf
 			::asheet[::nPlanilhaAt][1]:XPathAddAttArray(cPathLinha,aAtt)
 		EndIf
-		//a variavel ::cRef ï¿½ preenchida no ::Pos()
+		//a variavel ::cRef é preenchida no ::Pos()
 		//Criar Coluna
 		aAtt	:= {}
 		If !::aPlanilhas[::nPlanilhaAt][7]:Get(::cRef,@cPathColuna)
@@ -2304,21 +2304,21 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 		ElseIf cTipo=="D"
 			(::cAliasCol)->TIPO		:= "d"
 			If (::cAliasCol)->STY>=0 .AND. !::GetStyleAtt((::cAliasCol)->STY,"applyNumberFormat")=="1"
-				//Se tem estilo e ele nï¿½o tem NumFmtId aplicado
+				//Se tem estilo e ele não tem NumFmtId aplicado
 				(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,14)	//Cria um estilo com Numfmt data
 				(::cAliasCol)->TPSTY	:= "D"
-			ElseIf (::cAliasCol)->STY<0	//Nï¿½o tem estilo
-				(::cAliasCol)->STY		:= ::aPadraoSty[2]	//Estilo padrï¿½o de data
+			ElseIf (::cAliasCol)->STY<0	//Não tem estilo
+				(::cAliasCol)->STY		:= ::aPadraoSty[2]	//Estilo padrão de data
 				(::cAliasCol)->TPSTY	:= "D"
 			Endif
 		ElseIf cTipo=="O" .and. GetClassName(xValor)=="DateTime"
 			(::cAliasCol)->TIPO		:= "d"
 			If (::cAliasCol)->STY>=0 .AND. ::GetStyleAtt((::cAliasCol)->STY,"applyNumberFormat")!="1"
-				//Se tem estilo e ele nï¿½o tem NumFmtId aplicado
+				//Se tem estilo e ele não tem NumFmtId aplicado
 				(::cAliasCol)->STY		:= ::CreateStyle((::cAliasCol)->STY,::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))	//Cria estilo com Numfmt datetime
 				(::cAliasCol)->TPSTY	:= "T"
-			ElseIf (::cAliasCol)->STY<0	//Nï¿½o tem estilo
-				(::cAliasCol)->STY		:= ::aPadraoSty[3]	//Estilo padrï¿½o de datetime
+			ElseIf (::cAliasCol)->STY<0	//Não tem estilo
+				(::cAliasCol)->STY		:= ::aPadraoSty[3]	//Estilo padrão de datetime
 				(::cAliasCol)->TPSTY	:= "T"
 			Endif
 		Endif
@@ -2367,7 +2367,7 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 	EndIf
 Return self
 /*/{Protheus.doc} Xlsx::SetDateTime
-Alteraï¿½ï¿½o de data e hora da cï¿½lula posicionada
+Alteração de data e hora da célula posicionada
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -2385,7 +2385,7 @@ Method SetDateTime(dDate As Date, cTime As Character) Class Xlsx
 	FreeObj(oDateTime)
 Return self
 
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 Method GetStrComp(xTexto As Variant, lAchou As Logical) Class Xlsx
 	Local xRet As Variant
 	Local cTxtMd5 As Character
@@ -2406,7 +2406,7 @@ Method GetStrComp(xTexto As Variant, lAchou As Logical) Class Xlsx
 	Endif
 Return xRet
 
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 //Caminho da linha ou nova linha
 Method NewLinhaM(nLinha As Numeric) Class Xlsx
 	Local cPathLinha As Character
@@ -2442,7 +2442,7 @@ Method NewColunaM(cRef As Character, nLinha As Numeric) Class Xlsx
 		::asheet[::nPlanilhaAt][1]:XPathAddAtt(cPathColuna,"r",cRef)
 	EndIf
 Return cPathColuna
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 Static cStrtmp := GetNextAlias() As Character
 Method SetStrComp(xTexto As Variant) Class Xlsx
 	Local nPos As Numeric
@@ -2462,7 +2462,7 @@ Method SetStrComp(xTexto As Variant) Class Xlsx
 	::nQtdString	:= nPos+1
 Return nPos
 
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 Method SetStrComp2(xTexto As Variant) Class Xlsx
 	Local nPos As Numeric
 	Local lAchou As Logical
@@ -2504,10 +2504,10 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 	If ::lArquivo .AND. nLinha>0
 		If ValType(::oC)=="O" .AND. (::nLinha<>nLinha .OR. ::nColuna<>nColuna)
 			If nLinha<::nLinha
-				UserException("Xlsx - gravaï¿½ï¿½o em arquivo deve ser sequencial. Linha Atual "+cValToChar(::nLinha)+" Linha enviada "+cValToChar(nLinha))
+				UserException("Xlsx - gravação em arquivo deve ser sequencial. Linha Atual "+cValToChar(::nLinha)+" Linha enviada "+cValToChar(nLinha))
 			ElseIf nLinha==::nLinha
 				If nColuna<::nColuna
-					UserException("Xlsx - gravaï¿½ï¿½o em arquivo deve ser sequencial. Coluna Atual "+cValToChar(::nColuna)+" Coluna enviada "+cValToChar(nColuna))
+					UserException("Xlsx - gravação em arquivo deve ser sequencial. Coluna Atual "+cValToChar(::nColuna)+" Coluna enviada "+cValToChar(nColuna))
 				EndIf
 			EndIf
 			::oC:GetTag(::oFile,.T.)
@@ -2547,7 +2547,7 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 Return self
 
 /*/{Protheus.doc} Xlsx::PosR
-Posiciona pela referï¿½ncia
+Posiciona pela referência
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -2594,7 +2594,7 @@ Method Getformula() Class Xlsx
 	EndIf
 Return ""
 /*/{Protheus.doc} Xlsx::ColTam
-Retorna a coluna mï¿½nima e mï¿½xima de um intervalo de linhas
+Retorna a coluna mínima e máxima de um intervalo de linhas
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -2749,13 +2749,13 @@ Method GetDtTime(nLinha As Numeric, nColuna As Numeric) Class Xlsx
 Return xRet
 
 /*/{Protheus.doc} GetValue
-Retorna o conteudo de uma cï¿½lula
+Retorna o conteudo de uma célula
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
 @param nLinha, numeric, Linha a ser lida
 @param nColuna, numeric, Coluna a ser lida
-@param xDefault, variadic, Valor padrï¿½o
+@param xDefault, variadic, Valor padrão
 @param lAchou, logical, se achou o conteudo
 @type method
 @obs apenas se modo sql ativo
@@ -2771,7 +2771,7 @@ Method GetValue(nLinha As Numeric, nColuna As Numeric, xDefault As Variant, lAch
 	Default nLinha	:= ::nLinha
 	Default nColuna	:= ::nColuna
 	If ::lArquivo
-		UserException("Xlsx - Nï¿½o ï¿½ possï¿½vel usar o GetValue quando gravaï¿½ï¿½o em arquivos. ")
+		UserException("Xlsx - Não é possível usar o GetValue quando gravação em arquivos. ")
 	EndIf
 	lAchou	:= .F.
 	If ::lMemoria
@@ -2861,11 +2861,11 @@ Return xRet
 
 
 /*/{Protheus.doc} SetDefRow
-Defini as colunas da linha. Habilita a gravaï¿½ï¿½o automatica de cada coluna. Importante para prover performace na gravaï¿½ï¿½o de varias linhas
+Defini as colunas da linha. Habilita a gravação automatica de cada coluna. Importante para prover performace na gravação de varias linhas
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
-@param lHabilitar, logical, Habilita a definiï¿½ï¿½o
+@param lHabilitar, logical, Habilita a definição
 @param aSpanRow, array, 1-Coluna inicial|2-Coluna Final
 @type method
 /*/
@@ -2875,13 +2875,13 @@ METHOD SetDefRow(lHabilitar As Logical, aSpanRow As Array) Class Xlsx
 	WarnLogMsg("[Warning] Method deprecated")
 Return
 /*/{Protheus.doc} Xlsx::NivelLinha
-Controla nï¿½vel da estrutura de tï¿½picos das prï¿½ximas linhas criadas
+Controla nível da estrutura de tópicos das próximas linhas criadas
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 06/07/2020
-@param nNivel, numeric, Nï¿½vel da linha
-@param lFechado, logical, Se tem nï¿½vel
+@param nNivel, numeric, Nível da linha
+@param lFechado, logical, Se tem nível
 @param lOculto, logical, se vai ficar aculta a linha
 /*/
 METHOD NivelLinha(nNivel As Numeric, lFechado As Logical, lOculto As Logical) Class Xlsx
@@ -2945,15 +2945,15 @@ Method SetsumRight(lsummaryRight As Logical) Class Xlsx
 	Endif
 Return
 /*/{Protheus.doc} Xlsx::SetRowLevel
-Defini o nï¿½vel das linhas informadas (agrupamento de linhas)
+Defini o nível das linhas informadas (agrupamento de linhas)
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 16/03/2021
 @param nLinha, numeric, Linha inicial
 @param nLinha2, numeric, Linha final
-@param nNivel, numeric, Nï¿½vel
-@param lFechado, logical, Se esse nï¿½vel estï¿½ fechado
+@param nNivel, numeric, Nível
+@param lFechado, logical, Se esse nível está fechado
 /*/
 Method SetRowLevel(nLinha As Numeric, nLinha2 As Numeric, nNivel As Numeric, lFechado As Logical) Class Xlsx
 	Local cPathLinha As Character
@@ -2963,7 +2963,7 @@ Method SetRowLevel(nLinha As Numeric, nLinha2 As Numeric, nNivel As Numeric, lFe
 	PARAMTYPE 0	VAR nNivel		AS NUMERIC	OPTIONAL
 	PARAMTYPE 1	VAR lFechado	AS LOGICAL	OPTIONAL	DEFAULT	.F.
 	If ::lArquivo
-		UserException("Xlsx - Nï¿½o ï¿½ possï¿½vel usar o SetRowLevel quando gravaï¿½ï¿½o em arquivos. ")
+		UserException("Xlsx - Não é possível usar o SetRowLevel quando gravação em arquivos. ")
 	EndIf
 	If !Empty(csummaryBelow) .AND. csummaryBelow=="0"
 		lsummaryBelow	:= .F.
@@ -3109,7 +3109,7 @@ Method AutoFilter(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 Return
 
 /*/{Protheus.doc} mergeCells
-Mescla cï¿½lulas
+Mescla células
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -3132,10 +3132,10 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 	Local cRet As Character
 	Local cPathColuna As Character
 	If nLinha2<nLinha
-		UserException("Xlsx - metodo mergeCells. Linha final nï¿½o pode ser menor que linha inicial.")
+		UserException("Xlsx - metodo mergeCells. Linha final não pode ser menor que linha inicial.")
 	Endif
 	If nColuna2<nColuna
-		UserException("Xlsx - metodo mergeCells. Coluna final nï¿½o pode ser menor que Coluna inicial.")
+		UserException("Xlsx - metodo mergeCells. Coluna final não pode ser menor que Coluna inicial.")
 	Endif
 	cColuna		:= NumToString(nColuna)
 	cColuna2	:= NumToString(nColuna2)
@@ -3161,7 +3161,7 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 	For nLin:=nLinha to nLinha2
 		For nCol:=nColuna to nColuna2
 			If ::oMergeCell:Get("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol),@cRet)
-				UserException("Xlsx - metodo mergeCells. Cï¿½lula "+cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2)+" nï¿½o pode ser mesclada, essa cï¿½lula jï¿½ foi mesclada!")
+				UserException("Xlsx - metodo mergeCells. Célula "+cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2)+" não pode ser mesclada, essa célula já foi mesclada!")
 			Else
 				::oMergeCell:Set("'"+::cPlanilhaAt+"'!"+cValToChar(nLin)+"|"+cValTochar(nCol),"")
 			Endif
@@ -3183,7 +3183,7 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 			EndIf
 		Else
 			If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLinha,10)+Str(nColuna,10)))
-				If (::cAliasCol)->STY>=0	//Replicar estilo da primeira cï¿½lula
+				If (::cAliasCol)->STY>=0	//Replicar estilo da primeira célula
 					::SetStyle((::cAliasCol)->STY,nLinha,nColuna,nLinha2,nColuna2)
 				Endif
 			Endif
@@ -3194,13 +3194,13 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 	//	For nCont:=nColuna+1 to nColuna2
 	//		::Pos(nLinha,nCont):SetValue(""):SetStyle(nStyle)
 	//	Next
-	//	//Nï¿½o copia para outras linhas, pois ainda pode existir informaï¿½ï¿½o na mesma linha 
+	//	//Não copia para outras linhas, pois ainda pode existir informação na mesma linha 
 	EndIf
 
 Return
 
 /*/{Protheus.doc} Font
-Cria objeto de fonte para ser usado na criaï¿½ï¿½o de estilos para formataï¿½ï¿½o condicional
+Cria objeto de fonte para ser usado na criação de estilos para formatação condicional
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -3220,13 +3220,13 @@ METHOD Font(nTamanho As Numeric, cCorRGB As Character, cNome As Character, cfami
 Return {nTamanho,cCorRGB,cNome,cfamily,cScheme,lNegrito,lItalico,lSublinhado,lTachado}
 
 /*/{Protheus.doc} Preenc
-Cria objeto de preenchimento para ser usado na criaï¿½ï¿½o de estilos para formataï¿½ï¿½o condicional
+Cria objeto de preenchimento para ser usado na criação de estilos para formatação condicional
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
 @param cBgCor, characters, (Opcional) Cor em Alpha+RGB do preenchimento
 @param cFgCor, characters, (Opcional) Cor em Aplha+RGB do fundo
-@param cType, characters, (Opcional) tipo de preenchimento(padrï¿½o solid)
+@param cType, characters, (Opcional) tipo de preenchimento(padrão solid)
 @type method
 /*/
 METHOD Preenc(cBgCor As Character, cFgCor As Character, cType As Character) Class Xlsx
@@ -3234,7 +3234,7 @@ Default cType	:= "solid"
 Return {cFgCor,cBgCor,cType}
 
 /*/{Protheus.doc} ObjBorda
-Cria objeto de bordas para ser usado na criaï¿½ï¿½o de estilos para formataï¿½ï¿½o condicional
+Cria objeto de bordas para ser usado na criação de estilos para formatação condicional
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -3248,14 +3248,14 @@ METHOD ObjBorda(cTipo As Character, cCor As Character, cModelo As Character) Cla
 Return {cTipo,cCor,cModelo}
 
 /*/{Protheus.doc} ADDdxf
-Cria estilo para formataï¿½ï¿½o condicional
+Cria estilo para formatação condicional
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
 @param aFont, array, (opcional) objeto criado pelo metodo :Font() com fonte
 @param aCorPreenc, array, (opcional) objeto com cor criado pelo metodo :Preench() de preenchimento
 @param aBorda, object, (opcional) objeto criado pelo metodo :ObjBorda() com borda
-@return numeric, posiï¿½ï¿½o do estilo
+@return numeric, posição do estilo
 @type method
 /*/
 METHOD ADDdxf(aFont As Array, aCorPreenc As Array, aBorda As Array) Class Xlsx
@@ -3280,14 +3280,14 @@ METHOD ADDdxf(aFont As Array, aCorPreenc As Array, aBorda As Array) Class Xlsx
 Return nTamdxfs-1
 
 /*/{Protheus.doc} FormatCond
-Cria uma regra para formataï¿½ï¿½o condicional
+Cria uma regra para formatação condicional
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
 @param cRefDe, characters, Rerefencia inicial (Exemplo "A1")
 @param cRefAte, characters, Referencia final (Exemplo "A10")
-@param nEstilo, numeric, posiï¿½ï¿½o do estilo criado pelo metodo :ADDdxf()
-@param operator, object, Operado da regra. veja observaï¿½ï¿½es
+@param nEstilo, numeric, posição do estilo criado pelo metodo :ADDdxf()
+@param operator, object, Operado da regra. veja observações
 @param xFormula, variadic, (characters ou array) formula para uso
 @type method
 @obs operadores
@@ -3298,8 +3298,8 @@ Cria uma regra para formataï¿½ï¿½o condicional
 	<		Menor que
 	<=		Menor ou igual
 	$		contem texto
-	!$		nï¿½o contem
-	between	esta contido(enviar no parametro xformula um array com duas posiï¿½ï¿½es)
+	!$		não contem
+	between	esta contido(enviar no parametro xformula um array com duas posições)
 	FORMULA	enviar no parametro xformula a regra
 /*/
 METHOD FormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numeric, operator As Object, xFormula As Variant) Class Xlsx
@@ -3336,7 +3336,7 @@ METHOD FormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numeric,
 		operator	:= "notContains"
 	Endif
 	If operator=="between"	.and. (ValType(xFormula)<>"A" .or. Len(xFormula)<2)
-		UserException("Xlsx - operador between ï¿½ necessario informar valor de, ate. Enviar parametro 5 xformula como array(2).")
+		UserException("Xlsx - operador between é necessario informar valor de, ate. Enviar parametro 5 xformula como array(2).")
 	Endif
 	If operator=="FORMULA"
 		::AddFormatCond(cRefDe,cRefAte,nEstilo,"expression",xFormula,,)
@@ -3345,7 +3345,7 @@ METHOD FormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numeric,
 	Endif
 	::nPriodFormCond++
 Return
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 METHOD AddFormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numeric, cType As Character, xFormula As Variant, operator As Object, nPrioridade As Numeric) Class Xlsx
 	Local cRef := cRefDe+If(!Empty(cRefAte),":"+cRefAte,"") As Character
 	Local nCont As Numeric
@@ -3362,7 +3362,7 @@ METHOD AddFormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numer
 	/*	TYPES	(pag 2452)
 	aboveAverage	-	abaixo da media
 	beginsWith		-	inicia com
-	cellIs			-	celula ï¿½(usar operador)
+	cellIs			-	celula é(usar operador)
 	colorScale		-	Estala de cor
 	expression		-	Usar Formula
 	top10			-
@@ -3404,11 +3404,11 @@ METHOD AddFormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numer
 			::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:conditionalFormatting["+cPos+"]/xmlns:cfRule[last()]", "formula", AjusEncode(cValToChar(xFormula)) )
 		Endif
 	Endif
-	::aPlanilhas[::nPlanilhaAt][9]	:= .T.	//Quando enviado formataï¿½ï¿½o condicional ï¿½ obrigatorio reorganizar o xml
+	::aPlanilhas[::nPlanilhaAt][9]	:= .T.	//Quando enviado formatação condicional é obrigatorio reorganizar o xml
 Return
 
 /*/{Protheus.doc} AddFont
-Adiciona fonte para ser usado no estilo das cï¿½lulas
+Adiciona fonte para ser usado no estilo das células
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -3421,7 +3421,7 @@ Adiciona fonte para ser usado no estilo das cï¿½lulas
 @param lItalico, logical, (Opcional) Italico
 @param lSublinhado, logical, (Opcional) Soblinhado
 @param lTachado, logical, (Opcional) Tachado
-@return numeric, posiï¿½ï¿½o da fonte
+@return numeric, posição da fonte
 @type method
 /*/
 METHOD AddFont(nTamanho As Numeric, cCorRGB As Character, cNome As Character, cfamily As Character, cScheme As Character, lNegrito As Logical, lItalico As Logical, lSublinhado As Logical, lTachado As Logical, cLocal As Character) Class Xlsx
@@ -3441,7 +3441,7 @@ METHOD AddFont(nTamanho As Numeric, cCorRGB As Character, cNome As Character, cf
 	If ValType(cCorRGB)=="C" .and. Len(cCorRGB)==6
 		cCorRGB	:= "FF"+cCorRGB
 	Endif
-	//Busca se jï¿½ existe chave
+	//Busca se já existe chave
 	cChave	:= cValToChar(nTamanho)+"|"+cValToChar(cCorRGB)+"|"+cValToChar(cNome)+"|"+cValToChar(cfamily)+"|"+cValToChar(cScheme)+"|"+cValToChar(lNegrito)+"|"+cValToChar(lItalico)+"|"+cValToChar(lSublinhado)+"|"+cValToChar(lTachado)+"|"+cValToChar(cLocal)
 	nTamFonts	:= ::oChaves["FONTE     "+cChave]
 	If ValType(nTamFonts)=="N"
@@ -3503,13 +3503,13 @@ METHOD AddFont(nTamanho As Numeric, cCorRGB As Character, cNome As Character, cf
 return nTamFonts-1
 
 /*/{Protheus.doc} CorPreenc
-Adiciona cor de preenchimento para ser usado no estilo das cï¿½lulas
+Adiciona cor de preenchimento para ser usado no estilo das células
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
 @param cBgCor, characters, (Opcional) Cor em Alpha+RGB do preenchimento
 @param cFgCor, characters, (Opcional) Cor em Aplha+RGB do fundo
-@param cType, characters, (Opcional) tipo de preenchimento(padrï¿½o solid)
+@param cType, characters, (Opcional) tipo de preenchimento(padrão solid)
 @type method
 
 @see http://www.datypic.com/sc/ooxml/a-patternType-1.html
@@ -3558,7 +3558,7 @@ METHOD CorPreenc(cFgCor As Character, cBgCor As Character, cType As Character, c
 			cBgCor	:= 65	//indexed="65" System Background n/a	pag:1775
 		Endif
 	EndIf
-	//Busca se jï¿½ existe chave
+	//Busca se já existe chave
 	cChave	:= cValToChar(cFgCor)+"|"+cValToChar(cBgCor)+"|"+cValToChar(cType)+"|"+cValToChar(cLocal)
 	nPos	:= ::oChaves["CORPREENC "+cChave]
 	If ValType(nPos)=="N"
@@ -3603,11 +3603,11 @@ Adiciona cor com efeito de preenchimento
 @param nAngulo, numeric, Angulo para efeito de preenchimento
 @param aCores, array, Cores de preenchimento {{CorRGB,nPerc},{"FF0000",0.5}}
 @param ctype, characters, (Opcional) Tipo de efeito (linear ou path)
-@param nleft, numeric, (Opcional) para efeito path posiï¿½ï¿½o esquerda
-@param nright, numeric, (Opcional) para efeito path posiï¿½ï¿½o direita
-@param ntop, numeric, (Opcional) para efeito path posiï¿½ï¿½o topo
-@param nbottom, numeric, (Opcional) para efeito path posiï¿½ï¿½o inferior
-@return numeric, Posiï¿½ï¿½o para criaï¿½ï¿½o de estilo
+@param nleft, numeric, (Opcional) para efeito path posição esquerda
+@param nright, numeric, (Opcional) para efeito path posição direita
+@param ntop, numeric, (Opcional) para efeito path posição topo
+@param nbottom, numeric, (Opcional) para efeito path posição inferior
+@return numeric, Posição para criação de estilo
 @type method
 /*/
 METHOD EfeitoPreenc(nAngulo As Numeric, aCores As Array, ctype As Character, nleft As Numeric, nright As Numeric, ntop As Numeric, nbottom As Numeric, cLocal As Character) Class Xlsx
@@ -3623,7 +3623,7 @@ METHOD EfeitoPreenc(nAngulo As Numeric, aCores As Array, ctype As Character, nle
 		ntop	:= nil
 		nbottom	:= nil
 	Endif
-	//Busca se jï¿½ existe chave
+	//Busca se já existe chave
 	cChave	:= cValToChar(nAngulo)+"|"+Var2Chr(aCores)+"|"+cValToChar(ctype)+"|"+cValToChar(nleft)+"|"+cValToChar(nright)+"|"+cValToChar(ntop)+"|"+cValToChar(nbottom)+"|"+cValToChar(cLocal)
 	nPos	:= ::oChaves["EFEITOPREE"+cChave]
 	If ValType(nPos)=="N"
@@ -3663,16 +3663,16 @@ METHOD gradientFill(nAngulo As Numeric, aCores As Array, ctype As Character, nle
 		Default ntop	:= 0.5
 		Default nbottom	:= 0.5
 		If ValType(nleft)!="N" .OR. !(nleft>=0 .and. nleft<=1)
-			UserException("Xlsx - definir posiï¿½ï¿½o left em 0 a 1. Valor informado:"+cValToChar(nleft))
+			UserException("Xlsx - definir posição left em 0 a 1. Valor informado:"+cValToChar(nleft))
 		Endif
 		If ValType(nright)!="N" .OR. !(nright>=0 .and. nright<=1)
-			UserException("Xlsx - definir posiï¿½ï¿½o right em 0 a 1. Valor informado:"+cValToChar(nright))
+			UserException("Xlsx - definir posição right em 0 a 1. Valor informado:"+cValToChar(nright))
 		Endif
 		If ValType(ntop)!="N" .OR. !(ntop>=0 .and. ntop<=1)
-			UserException("Xlsx - definir posiï¿½ï¿½o top em 0 a 1. Valor informado:"+cValToChar(ntop))
+			UserException("Xlsx - definir posição top em 0 a 1. Valor informado:"+cValToChar(ntop))
 		Endif
 		If ValType(nbottom)!="N" .OR. !(nbottom>=0 .and. nbottom<=1)
-			UserException("Xlsx - definir posiï¿½ï¿½o bottom em 0 a 1. Valor informado:"+cValToChar(nbottom))
+			UserException("Xlsx - definir posição bottom em 0 a 1. Valor informado:"+cValToChar(nbottom))
 		Endif
 		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "left"		, cValToChar(nleft) )
 		::oStyle:XPathAddAtt( cLocal+"/xmlns:gradientFill[last()]", "right"		, cValToChar(nright) )
@@ -3684,7 +3684,7 @@ METHOD gradientFill(nAngulo As Numeric, aCores As Array, ctype As Character, nle
 	Endif
 	For nCont:=1 to Len(aCores)
 		If !(aCores[nCont][2]>=0 .and. aCores[nCont][2]<=1)
-			UserException("Xlsx - Definiï¿½ï¿½o de cor varia de 0 a 1. Valor informado:"+cValToChar(aCores[nCont][2]))
+			UserException("Xlsx - Definição de cor varia de 0 a 1. Valor informado:"+cValToChar(aCores[nCont][2]))
 		Endif
 		If Len(aCores[nCont][1])==6
 			aCores[nCont][1]	:= "FF"+aCores[nCont][1]
@@ -3697,7 +3697,7 @@ METHOD gradientFill(nAngulo As Numeric, aCores As Array, ctype As Character, nle
 Return
 
 /*/{Protheus.doc} Borda
-Cria borda para ser usado no estilo das cï¿½lulas
+Cria borda para ser usado no estilo das células
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -3706,7 +3706,7 @@ Cria borda para ser usado no estilo das cï¿½lulas
 @param cModelo, characters, Modelo da borda
 
 @param oBorder, object, Retorna o objeto criado de borda
-@param lAdd, logical, deve criar o objeto como estilo de cï¿½lula. Padrï¿½o .T.
+@param lAdd, logical, deve criar o objeto como estilo de célula. Padrão .T.
 
 @type method
 @Obs pode juntar os tipo. Exemplo "ED"-Esquerda e direita
@@ -3765,7 +3765,7 @@ METHOD Border(cleft As Character, cright As Character, ctop As Character, cbotto
 	If ValType(cdiagonal)=="U"
 		cCordiagonal	:= ""
 	EndIf
-	//Busca se jï¿½ existe chave
+	//Busca se já existe chave
 	cChave	:= cValToChar(cleft)+"|"+cValToChar(cright)+"|"+cValToChar(ctop)+"|"+cValToChar(cbottom)+"|"+cValToChar(cdiagonal)+"|"+cValToChar(cCorleft)+"|"+cValToChar(cCorright)+"|"+cValToChar(cCortop)+"|"+cValToChar(cCorbottom)+"|"+cValToChar(cCordiagonal)+"|"+cValToChar(cLocal)
 	nPos	:= ::oChaves["BORDER    "+cChave]
 	If ValType(nPos)=="N"
@@ -3846,7 +3846,7 @@ METHOD Border(cleft As Character, cright As Character, ctop As Character, cbotto
 Return nPos-1
 
 /*/{Protheus.doc} AddFmtNum
-Formataï¿½ï¿½o para numeros
+Formatação para numeros
 @author Saulo Gomes Martins
 @since 04/03/2018
 @version 1.0
@@ -3860,7 +3860,7 @@ Formataï¿½ï¿½o para numeros
 @param cValorZero, characters, conteudo para sustituir valores zeros
 @param cCor, characters, Cor para numero positivo
 @param cCorNeg, characters, Cor para numero negativo
-@param nNumFmtId, numeric, numFmtId para alteraï¿½ï¿½o
+@param nNumFmtId, numeric, numFmtId para alteração
 @type method
 @example |
 :AddFmtNum(3,.T.)							//1234	1.234,000		| -1234	-1.234,000
@@ -3893,13 +3893,13 @@ Method AddFmtNum(nDecimal As Numeric, lMilhar As Logical, cPrefixo As Character,
 		If ValType(cCor)=="C"
 			nPosCor	:= aScan(aCores,{|x| UPPER(x)==UPPER(cCor) })
 			If nPosCor==0
-				UserException("Xlsx - Cor da formataï¿½ï¿½o invalida ("+cCor+")")
+				UserException("Xlsx - Cor da formatação invalida ("+cCor+")")
 			Else
 				cCor	:= aCores[nPosCor]
 			Endif
 		ElseIf ValType(cCor)=="N"
 			If !(cCor>=1 .AND. cCor<=56)
-				UserException("Xlsx - Cor da formataï¿½ï¿½o invalida ("+cValToChar(cCor)+"), Cores indexado valido de 1-56.")
+				UserException("Xlsx - Cor da formatação invalida ("+cValToChar(cCor)+"), Cores indexado valido de 1-56.")
 			Endif
 			cCor	:= "Color"+cValToChar(cCor)
 		Endif
@@ -3908,13 +3908,13 @@ Method AddFmtNum(nDecimal As Numeric, lMilhar As Logical, cPrefixo As Character,
 		If ValType(cCorNeg)=="C"
 			nPosCor	:= aScan(aCores,{|x| UPPER(x)==UPPER(cCorNeg) })
 			If nPosCor==0
-				UserException("Xlsx - Cor da formataï¿½ï¿½o invalida ("+cCorNeg+")")
+				UserException("Xlsx - Cor da formatação invalida ("+cCorNeg+")")
 			Else
 				cCorNeg	:= aCores[nPosCor]
 			Endif
 		ElseIf ValType(cCorNeg)=="N"
 			If !(cCorNeg>=1 .AND. cCorNeg<=56)
-				UserException("Xlsx - Cor da formataï¿½ï¿½o invalida ("+cValToChar(cCorNeg)+"), Cores indexado valido de 1-56.")
+				UserException("Xlsx - Cor da formatação invalida ("+cValToChar(cCorNeg)+"), Cores indexado valido de 1-56.")
 			Endif
 			cCorNeg	:= "Color"+cValToChar(cCorNeg)
 		Endif
@@ -3959,7 +3959,7 @@ Method AddFmtNum(nDecimal As Numeric, lMilhar As Logical, cPrefixo As Character,
 
 	nNumFmtId	:= ::AddFmt(cformatCode,nNumFmtId)
 
-Return nNumFmtId	//Nï¿½o retorna a posiï¿½ï¿½o, mas o atributo numFmtId
+Return nNumFmtId	//Não retorna a posição, mas o atributo numFmtId
 
 /*/{Protheus.doc} AddFmt
 Cria um formatos personalizado ou altera um existente
@@ -3967,7 +3967,7 @@ Cria um formatos personalizado ou altera um existente
 @since 20/06/2020
 @version 2.0
 @param cformatCode, characters, formato personalizado
-@param nNumFmtId, numeric, numFmtId para alteraï¿½ï¿½o
+@param nNumFmtId, numeric, numFmtId para alteração
 @type method
 /*/
 Method AddFmt(cformatCode As Character, nNumFmtId As Numeric) Class Xlsx
@@ -3976,7 +3976,7 @@ Method AddFmt(cformatCode As Character, nNumFmtId As Numeric) Class Xlsx
 	PARAMTYPE 1	VAR nNumFmtId			AS NUMERIC					OPTIONAL
 
 	If Empty(nNumFmtId)
-		//Busca se jï¿½ existe chave
+		//Busca se já existe chave
 		nPos	:= ::oChaves["FMTNUM    "+cformatCode]
 		If ValType(nPos)=="N"
 			Return nPos
@@ -3987,7 +3987,7 @@ Method AddFmt(cformatCode As Character, nNumFmtId As Numeric) Class Xlsx
 		nNumFmtId	:= ::nNumFmtId++
 		::oChaves["FMTNUM    "+cformatCode]	:= nNumFmtId
 	Endif
-	If !::oStyle:XPathHasNode( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@numFmtId='"+cValToChar(nNumFmtId)+"']")	//Se nï¿½o existe o ID
+	If !::oStyle:XPathHasNode( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[@numFmtId='"+cValToChar(nNumFmtId)+"']")	//Se não existe o ID
 		::oStyle:XPathAddNode( "/xmlns:styleSheet/xmlns:numFmts", "numFmt", "" )
 		::oStyle:XPathAddAtt( "/xmlns:styleSheet/xmlns:numFmts/xmlns:numFmt[last()]", "numFmtId"	, cValToChar(nNumFmtId) )
 		::oStyle:XPathSetAtt("/xmlns:styleSheet/xmlns:numFmts","count",cValToChar(Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:numFmts","count"))+1))
@@ -4000,15 +4000,15 @@ Method AddFmtNumCode(cformatCode As Character, nNumFmtId As Numeric) Class Xlsx
 Return ::AddFmt(cformatCode,nNumFmtId)
 
 /*/{Protheus.doc} AddStyles
-Cria um estilo para ser usado nas cï¿½lulas
+Cria um estilo para ser usado nas células
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
-@param numFmtId, numeric, numero com formato da cï¿½lula. ver em observaï¿½ï¿½es
-@param fontId,numeric, posiï¿½ï¿½o da fonte criado pelo metodo :AddFont()
-@param fillId, numeric, posiï¿½ï¿½o do preenchimento criado pelo metodo :CorPreenc()
-@param borderId, numeric, posiï¿½ï¿½o da borda criado pelo metodo :Borda()
-@param xfId, numeric, posiï¿½ï¿½o dos estilos padrï¿½es. nï¿½o usado(uso futuro)
+@param numFmtId, numeric, numero com formato da célula. ver em observações
+@param fontId,numeric, posição da fonte criado pelo metodo :AddFont()
+@param fillId, numeric, posição do preenchimento criado pelo metodo :CorPreenc()
+@param borderId, numeric, posição da borda criado pelo metodo :Borda()
+@param xfId, numeric, posição dos estilos padrões. não usado(uso futuro)
 @param aValores, array, outros valores(alinhamento criado pelo metodo :Alinhamento())
 @param aOutrosAtributos, array, Outros atributos do estilo
 @type method
@@ -4061,14 +4061,14 @@ METHOD AddStyles(numFmtId As Numeric, fontId As Variant, fillId As Variant, bord
 	PARAMTYPE 5	VAR aValores			AS ARRAY		OPTIONAL DEFAULT {}
 	PARAMTYPE 6	VAR aOutrosAtributos	AS ARRAY		OPTIONAL DEFAULT {}
 	If ValType(fontId)=="N" .AND. (fontId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fonts","count"))
-		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") nï¿½o definido. Utilize o indice informado pelo metodo :AddFont()")
+		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") não definido. Utilize o indice informado pelo metodo :AddFont()")
 	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fills","count"))
-		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") nï¿½o definido. Utilize o indice informado pelo metodo :CorPreenc()")
+		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") não definido. Utilize o indice informado pelo metodo :CorPreenc()")
 	ElseIf ValType(borderId)=="N" .AND. (borderId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
-		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") nï¿½o definido. Utilize o indice informado pelo metodo :Borda()")
+		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
 	Endif
 
-	// Busca se jï¿½ existe chave
+	// Busca se já existe chave
 	//cChave	:= If(ValType(numFmtId)=="U","0",cValToChar(numFmtId))+"|"+If(ValType(fontId)=="U","0",cValToChar(fontId))+"|"+If(ValType(fillId)=="U","0",cValToChar(fillId))+"|"+If(ValType(borderId)=="U","0",cValToChar(borderId))+"|"+If(ValType(xfId)=="U","0",cValToChar(xfId))+"|"+If(ValType(numFmtId)=="U","0","1")+"|"+If(ValType(fontId)=="U","0","1")+"|"+If(ValType(fillId)=="U","0","1")+"|"+If(ValType(borderId)=="U","0","1")+"|"+Var2Chr(aValores)+"|"
 	cChave	:= cValToChar(numFmtId)+"|"+cValToChar(fontId)+"|"+cValToChar(fillId)+"|"+cValToChar(borderId)+"|"+cValToChar(xfId)+"|"+If(ValType(numFmtId)=="U","0","1")+"|"+If(ValType(fontId)=="U","0","1")+"|"+If(ValType(fillId)=="U","0","1")+"|"+If(ValType(borderId)=="U","0","1")+"|"+Var2Chr(aValores)+"|"
 	aChave	:= Separa(Alltrim(cChave),"|")
@@ -4180,7 +4180,7 @@ Method New(oPai As Object, oExcel As Object) as Object Class Style
 	If ValType(oPai)=="N"	//Se enviado numero do estilo, cria novo Style a partir do enviado
 		nStyle	:= oPai
 		If nStyle+1>oExcel:nQtdStyle
-			UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+			UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 		Endif
 		oPai	:= Style():New(,oExcel)
 		cXPath	:= cLocal+"/xmlns:xf["+cValToChar(nStyle+1)+"]"
@@ -4242,7 +4242,7 @@ Method addchild(oStyleFilho As Object) Class Style
 Return
 
 Method SetParent(oPai As Object) Class Style
-	If ValType(oPai)=="U"	//Retirar PAI, pegar as informaï¿½ï¿½es de heranï¿½a e trata como sua
+	If ValType(oPai)=="U"	//Retirar PAI, pegar as informações de herança e trata como sua
 		::SetnumFmt(::GetnumFmt())
 		::Setfont(::Getfont())
 		::Setfill(::Getfill())
@@ -4257,22 +4257,22 @@ Method SetParent(oPai As Object) Class Style
 	Else
 		::oPai	:= oPai
 	EndIf
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
 Return
 
 Method SetnumFmt(numFmtId As Numeric, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::numFmtId	:= numFmtId
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:numFmtId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:numFmtId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:SetnumFmt(numFmtId,.F.)
 		Endif
 	Next
@@ -4280,15 +4280,15 @@ Return self
 
 Method Setfont(fontId As Variant, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::fontId	:= fontId
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:fontId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:fontId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:Setfont(fontId,.F.)
 		Endif
 	Next
@@ -4296,15 +4296,15 @@ Return self
 
 Method Setfill(fillId As Variant, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::fillId	:= fillId
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:fillId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:fillId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:Setfill(fillId,.F.)
 		Endif
 	Next
@@ -4312,15 +4312,15 @@ Return self
 
 Method Setborder(borderId As Object, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::borderId	:= borderId
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:borderId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:borderId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:Setborder(borderId,.F.)
 		Endif
 	Next
@@ -4328,15 +4328,15 @@ Return self
 
 Method SetxfId(xfId As Variant, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::xfId	:= xfId
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:xfId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:xfId)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:SetxfId(xfId,.F.)
 		Endif
 	Next
@@ -4344,15 +4344,15 @@ Return self
 
 Method SetaValores(aValores As Array, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::aValores	:= aValores
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:aValores)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:aValores)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:SetaValores(aValores,.F.)
 		Endif
 	Next
@@ -4360,15 +4360,15 @@ Return self
 
 Method SetAtt(aOutrosAtributos As Array, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. ï¿½ um estilo proprio, se nï¿½o ï¿½ do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
 	If lProprio
 		::aOutrosAtributos	:= aOutrosAtributos
 	Endif
-	If ValType(::nStyle)!="U"	//Se jï¿½ criou o estilo, modifica
+	If ValType(::nStyle)!="U"	//Se já criou o estilo, modifica
 		::nStyle	:= nil
 	Endif
-	For nCont:=1 to Len(::aFilhos)	//Passa a heranï¿½a para frente se foi herdada
-		If ValType(::aFilhos[nCont]:aOutrosAtributos)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho nï¿½o tem formato proprio(herdou do pai)
+	For nCont:=1 to Len(::aFilhos)	//Passa a herança para frente se foi herdada
+		If ValType(::aFilhos[nCont]:aOutrosAtributos)=="U" .AND.ValType(::aFilhos[nCont]:nStyle)!="U"	//Se o filho não tem formato proprio(herdou do pai)
 			::aFilhos[nCont]:SetAtt(aOutrosAtributos,.F.)
 		Endif
 	Next
@@ -4423,13 +4423,13 @@ Method GetId() Class Style
 Return  ::nStyle
 
 /*/{Protheus.doc} Xlsx::NewStyle
-Adiciona estilo com heranï¿½a de outro estilo
+Adiciona estilo com herança de outro estilo
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 26/06/2020
-@param nStyle, numeric, Estilo para ser usado como heranï¿½a
-@return numeric, nPos posiï¿½ï¿½o do estilo criado
+@param nStyle, numeric, Estilo para ser usado como herança
+@return numeric, nPos posição do estilo criado
 /*/
 Method NewStyle(oStyleClone As Object) Class Xlsx
 	Local oObj := YExcel_Style():New(oStyleClone,self) As Object
@@ -4446,7 +4446,7 @@ Return oObj
 // Return ""
 
 /*/{Protheus.doc} Xlsx::SetStyFmt
-Alterar Fmt do estilo jï¿½ criado
+Alterar Fmt do estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4464,7 +4464,7 @@ Method SetStyFmt(nStyle As Numeric, numFmtId As Numeric) Class Xlsx
 	PARAMTYPE 1	VAR numFmtId			AS NUMERIC		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 
 	::oStyle:XPathDelAtt(cXPath,"applyNumberFormat")
@@ -4494,7 +4494,7 @@ Method SetStyFmt(nStyle As Numeric, numFmtId As Numeric) Class Xlsx
 Return self
 
 /*/{Protheus.doc} Xlsx::SetStyFont
-Alterar a fonte do estilo jï¿½ criado
+Alterar a fonte do estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4512,9 +4512,9 @@ Method SetStyFont(nStyle As Numeric, fontId As Variant) Class Xlsx
 	PARAMTYPE 1	VAR fontId			AS NUMERIC		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(fontId)=="N" .AND. (fontId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fonts","count"))
-		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") nï¿½o definido. Utilize o indice informado pelo metodo :AddFont()")
+		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") não definido. Utilize o indice informado pelo metodo :AddFont()")
 	Endif
 
 	::oStyle:XPathDelAtt(cXPath,"applyFont")
@@ -4543,7 +4543,7 @@ Method SetStyFont(nStyle As Numeric, fontId As Variant) Class Xlsx
 Return self
 
 /*/{Protheus.doc} Xlsx::SetStyFill
-Alterar preenchimento de fundo do estilo jï¿½ criado
+Alterar preenchimento de fundo do estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4561,9 +4561,9 @@ Method SetStyFill(nStyle As Numeric, fillId As Variant) Class Xlsx
 	PARAMTYPE 1	VAR fillId			AS NUMERIC		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fills","count"))
-		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") nï¿½o definido. Utilize o indice informado pelo metodo :CorPreenc()")
+		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") não definido. Utilize o indice informado pelo metodo :CorPreenc()")
 	Endif
 
 	::oStyle:XPathDelAtt(cXPath,"applyFill")
@@ -4592,7 +4592,7 @@ Method SetStyFill(nStyle As Numeric, fillId As Variant) Class Xlsx
 Return self
 
 /*/{Protheus.doc} Xlsx::SetStyborder
-Alterar a borda do estilo jï¿½ criado
+Alterar a borda do estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4610,9 +4610,9 @@ Method SetStyborder(nStyle As Numeric, borderId As Object) Class Xlsx
 	PARAMTYPE 1	VAR borderId		AS NUMERIC		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(borderId)=="N" .AND. (borderId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
-		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") nï¿½o definido. Utilize o indice informado pelo metodo :Borda()")
+		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
 	Endif
 
 	::oStyle:XPathDelAtt(cXPath,"applyBorder")
@@ -4641,7 +4641,7 @@ Method SetStyborder(nStyle As Numeric, borderId As Object) Class Xlsx
 Return self
 
 /*/{Protheus.doc} Xlsx::SetStyxf
-Alterar xf do estilo jï¿½ criado
+Alterar xf do estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4659,7 +4659,7 @@ Method SetStyxf(nStyle As Numeric, xfId As Variant) Class Xlsx
 	PARAMTYPE 1	VAR xfId		AS NUMERIC		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 
 	::oStyle:XPathDelAtt(cXPath,"xfId")
@@ -4680,7 +4680,7 @@ Method SetStyxf(nStyle As Numeric, xfId As Variant) Class Xlsx
 Return self
 
 /*/{Protheus.doc} Xlsx::SetStyaValores
-Alterar aValores estilo jï¿½ criado
+Alterar aValores estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4701,7 +4701,7 @@ Method SetStyaValores(nStyle As Numeric, aValores As Array) Class Xlsx
 	PARAMTYPE 1	VAR aValores		AS ARRAY		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 
 	If ValType(aValores)=="U"
@@ -4761,7 +4761,7 @@ Static Function OrdCT_XF(cNome As Character)
 Return 999
 
 /*/{Protheus.doc} Xlsx::SetStyaOutrosAtributos
-Alterar aOutrosAtributos estilo jï¿½ criado
+Alterar aOutrosAtributos estilo já criado
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -4781,7 +4781,7 @@ Method SetStyaOutrosAtributos(nStyle As Numeric, aOutrosAtributos As Array) Clas
 	PARAMTYPE 1	VAR aOutrosAtributos		AS ARRAY		OPTIONAL
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 	// Altera chave
 	cChave	:= ::oChaves["STYLEID   "+cValToChar(nStyle)]
@@ -4823,13 +4823,13 @@ Method SetStyaOutrosAtributos(nStyle As Numeric, aOutrosAtributos As Array) Clas
 Return self
 
 /*/{Protheus.doc} Xlsx::CreateStyle
-Adiciona novo estilo. Mescla informaï¿½ï¿½es do estilo enviado com o novo estilo
+Adiciona novo estilo. Mescla informações do estilo enviado com o novo estilo
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 26/06/2020
-@param nStyle, numeric, Estilo para ser usado como heranï¿½a
-@return numeric, nPos posiï¿½ï¿½o do estilo criado
+@param nStyle, numeric, Estilo para ser usado como herança
+@return numeric, nPos posição do estilo criado
 /*/
 Method CreateStyle(nStyle As Numeric, numFmtId As Numeric, fontId As Variant, fillId As Variant, borderId As Object, xfId As Variant, aValores As Array, aOutrosAtributos As Array) Class Xlsx
 	Local cLocal := "/xmlns:styleSheet/xmlns:cellXfs" As Character
@@ -4837,7 +4837,7 @@ Method CreateStyle(nStyle As Numeric, numFmtId As Numeric, fontId As Variant, fi
 	Local aChildren As Array
 	Local nCont As Numeric
 	Local aAtributos As Array
-	If ValType(nStyle)=="U"	//Cria estilo sem heranï¿½a
+	If ValType(nStyle)=="U"	//Cria estilo sem herança
 		Return ::AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
 	Endif
 	PARAMTYPE 0	VAR nStyle				AS NUMERIC
@@ -4850,17 +4850,17 @@ Method CreateStyle(nStyle As Numeric, numFmtId As Numeric, fontId As Variant, fi
 	PARAMTYPE 7	VAR aOutrosAtributos	AS ARRAY		OPTIONAL DEFAULT {}
 	
 	If nStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 
 	cXPath	:= cLocal+"/xmlns:xf["+cValToChar(nStyle+1)+"]"
 
 	If ValType(fontId)=="N" .AND. (fontId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fonts","count"))
-		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") nï¿½o definido. Utilize o indice informado pelo metodo :AddFont()")
+		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") não definido. Utilize o indice informado pelo metodo :AddFont()")
 	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fills","count"))
-		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") nï¿½o definido. Utilize o indice informado pelo metodo :CorPreenc()")
+		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") não definido. Utilize o indice informado pelo metodo :CorPreenc()")
 	ElseIf ValType(borderId)=="N" .AND. (borderId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
-		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") nï¿½o definido. Utilize o indice informado pelo metodo :Borda()")
+		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
 	Endif
 	
 	If ValType(numFmtId)=="U" .AND. ::oStyle:XPathGetAtt(cXPath,"applyNumberFormat")=="1"
@@ -4906,12 +4906,12 @@ Method CreateStyle(nStyle As Numeric, numFmtId As Numeric, fontId As Variant, fi
 Return ::AddStyles(numFmtId,fontId,fillId,borderId,xfId,aValores,aOutrosAtributos)
 
 /*/{Protheus.doc} Xlsx::NewStyRules
-Cria regras de estilo e formataï¿½ï¿½o
+Cria regras de estilo e formatação
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 04/07/2020
-@return object, Objeto para criar regras de formataï¿½ï¿½o
+@return object, Objeto para criar regras de formatação
 /*/
 Method NewStyRules() Class Xlsx
 	Local oStyRules := YExcel_StyleRules():New(self) As Object
@@ -4919,7 +4919,7 @@ Method NewStyRules() Class Xlsx
 Return oStyRules
 
 /*/{Protheus.doc} StyleRules
-Regras de estilo e formataï¿½ï¿½o
+Regras de estilo e formatação
 @type class
 @version 1.0
 @author Saulo Gomes Martins
@@ -4970,7 +4970,7 @@ Method GetStyle(nLinha As Numeric, nColuna As Numeric) Class StyleRules
 			Exit
 		Endif
 	Next
-	oStyle	:= Style():New(oStyle,::oExcel)	//Cria um estilo novo com heranï¿½a para evitar modificaï¿½ï¿½o do principal
+	oStyle	:= Style():New(oStyle,::oExcel)	//Cria um estilo novo com herança para evitar modificação do principal
 	For nCont:=1 to Len(::aFmtNum)
 		If Eval(::aFmtNum[nCont][1],nLinha,nColuna,::oExcel)
 			oStyle:SetnumFmt(::aFmtNum[nCont][2])
@@ -5006,7 +5006,7 @@ Return oStyle
 Method GetId(nLinha As Numeric, nColuna As Numeric) Class StyleRules
 	Local oStyTmp := ::GetStyle(nLinha,nColuna) As Object
 	Local cId := oStyTmp:GetId() As Character
-	//Apï¿½s pegar o ID libera objeto criado da memoria
+	//Após pegar o ID libera objeto criado da memoria
 	FreeObj(oStyTmp)	//Limpa obj da memoria
 Return cId
 
@@ -5014,7 +5014,7 @@ Method AddStyle(bRule As Object, xStyle As Variant) Class StyleRules
 	PARAMTYPE 0	VAR bRule			AS BLOCK
 	PARAMTYPE 1	VAR xStyle			AS NUMERIC,OBJECT
 	If ValType(xStyle)=="N" .and. xStyle>=0 .AND. xStyle+1>::oExcel:nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(xStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(xStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(xStyle)=="O" .AND. xStyle:ClassName()!="YEXCEL_STYLE"
 		UserException("Xlsx - Objeto de estilo deve ser inicializado pelo metodo NewStyle")
 	Endif
@@ -5031,7 +5031,7 @@ Method AddFont(bRule As Object, fontId As Variant) Class StyleRules
 	PARAMTYPE 0	VAR bRule			AS BLOCK
 	PARAMTYPE 1	VAR fontId			AS NUMERIC
 	If (fontId+1)>Val(::oExcel:oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fonts","count"))
-		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") nï¿½o definido. Utilize o indice informado pelo metodo :AddFont()")
+		UserException("Xlsx - Fonte informada("+cValToChar(fontId)+") não definido. Utilize o indice informado pelo metodo :AddFont()")
 	Endif
 	AADD(::afont,{bRule,fontId})
 Return
@@ -5040,7 +5040,7 @@ Method Addfill(bRule As Object, fillId As Variant) Class StyleRules
 	PARAMTYPE 0	VAR bRule			AS BLOCK
 	PARAMTYPE 1	VAR fillId			AS NUMERIC
 	If (fillId+1)>Val(::oExcel:oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fills","count"))
-		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") nï¿½o definido. Utilize o indice informado pelo metodo :CorPreenc()")
+		UserException("Xlsx - Cor Preenchimento informado("+cValToChar(fillId)+") não definido. Utilize o indice informado pelo metodo :CorPreenc()")
 	Endif
 	AADD(::afill,{bRule,fillId})
 Return
@@ -5049,7 +5049,7 @@ Method Addborder(bRule As Object, borderId As Object) Class StyleRules
 	PARAMTYPE 0	VAR bRule			AS BLOCK
 	PARAMTYPE 1	VAR borderId		AS NUMERIC
 	If ValType(borderId)=="N" .AND. (borderId+1)>Val(::oExcel:oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
-		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") nï¿½o definido. Utilize o indice informado pelo metodo :Borda()")
+		UserException("Xlsx - Borda informada("+cValToChar(borderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
 	Endif
 	AADD(::aborder,{bRule,borderId})
 Return
@@ -5060,7 +5060,7 @@ Method AddValores(bRule As Object, aValores As Array) Class StyleRules
 	AADD(::aRValores,{bRule,aClone(aValores)})
 Return
 
-//Se estilo ï¿½ data
+//Se estilo é data
 //pag
 Method StyleType(nStyle As Numeric) Class Xlsx
 	Local cLocal := "/xmlns:styleSheet/xmlns:cellXfs" As Character
@@ -5105,11 +5105,11 @@ Method StyleType(nStyle As Numeric) Class Xlsx
 Return "X"
 
 /*/{Protheus.doc} SetStyle
-Altera o estilo de uma ou vï¿½rias cï¿½lulas
+Altera o estilo de uma ou várias células
 @author Saulo Gomes Martins
 @since 18/06/2020
 @version 2.0
-@param xStyle, variadic, (numeric/Array) posiï¿½ï¿½o do estilo criado pelo metodo :AddStyles()
+@param xStyle, variadic, (numeric/Array) posição do estilo criado pelo metodo :AddStyles()
 @param nLinha, numeric, Linha inicial a ser alterada
 @param nColuna, numeric, Coluna inicial a ser a ser alterada
 @param nLinha2, numeric, (Opcional) Linha final a ser alterada
@@ -5145,10 +5145,10 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 	cTpAlte		:= ValType(xStyle)
 	If ::lArquivo
 		If nLinha<>nLinha2 .OR. nColuna<>nColuna2
-			UserException("Xlsx - Nï¿½o permitido alteraï¿½ï¿½o de estilos de varias linhas quando criaï¿½ï¿½o em arquivo!")
+			UserException("Xlsx - Não permitido alteração de estilos de varias linhas quando criação em arquivo!")
 		EndIf
 		If nLinha<>::nLinha .OR. nColuna<>::nColuna
-			UserException("Xlsx - Nï¿½o permitido alteraï¿½ï¿½o de fora do posicionamento quando criaï¿½ï¿½o em arquivo!")
+			UserException("Xlsx - Não permitido alteração de fora do posicionamento quando criação em arquivo!")
 		EndIf
 	EndIf
 	If ValType(xStyle)=="O" .AND. xStyle:ClassName()=="YEXCEL_STYLE"
@@ -5157,13 +5157,13 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 	Endif
 	
 	If cTpAlte=="N" .AND. xStyle>=0 .AND. xStyle+1>::nQtdStyle
-		UserException("Xlsx - Estilo informado("+cValToChar(xStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+		UserException("Xlsx - Estilo informado("+cValToChar(xStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
 	If cTpAlte!="U" .AND. !::lArquivo
-		::InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2)	//Inserir as celulas vazias que nï¿½o tem dados para preencher o estilo
+		::InsertCellEmpty(nLinha,nColuna,nLinha2,nColuna2)	//Inserir as celulas vazias que não tem dados para preencher o estilo
 	EndIf
-	If cTpAlte=="N"	//Alteraï¿½ï¿½o direta de estilo
-		lNumFmtId := ::GetStyleAtt(xStyle,"applyNumberFormat")=="1"	//Tem formataï¿½ï¿½o definida
+	If cTpAlte=="N"	//Alteração direta de estilo
+		lNumFmtId := ::GetStyleAtt(xStyle,"applyNumberFormat")=="1"	//Tem formatação definida
 		If lNumFmtId
 			//Altera todas a celulas com o mesmo estilo
 			If ::lArquivo
@@ -5204,7 +5204,7 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 					If lnumFmtId	//Tem fmtid
 						nNumFmtId	:= Val(::GetStyleAtt(nStyAtu,"numFmtId"))
 						nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
-					Else	//Para os que nï¿½o tem fmtid definido, aplica o estilo enviado
+					Else	//Para os que não tem fmtid definido, aplica o estilo enviado
 						nStyletmp	:= xStyle
 					EndIf
 				EndIf
@@ -5262,7 +5262,7 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 					If lnumFmtId	//Tem fmtid
 						nNumFmtId	:= Val(::GetStyleAtt((cAliasQry)->STY,"numFmtId"))
 						nStyletmp	:= ::CreateStyle(xStyle,nNumFmtId)	//Cria outro com base no atual com mesmo fmtid
-					Else	//Para os que nï¿½o tem fmtid definido, aplica o estilo enviado
+					Else	//Para os que não tem fmtid definido, aplica o estilo enviado
 						nStyletmp	:= xStyle
 					EndIf
 					If !::ExecSql("", "UPDATE "+::cTabCol+" SET STY="+cValToChar(nStyletmp)+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" AND STY='"+cValToChar((cAliasQry)->STY)+"' AND D_E_L_E_T_=' '", ::cDriver)
@@ -5330,7 +5330,7 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 				For nCol:=nColuna to nColuna2		//Ler as colunas
 					nStyle		:= xStyle:GetId(nLin,nCol)
 					If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLin,10)+Str(nCol,10)))
-						//Se nï¿½o tem fmrid no estilo da regra e tem no estilo atual 
+						//Se não tem fmrid no estilo da regra e tem no estilo atual 
 						If ::GetStyleAtt(nStyle,"applyNumberFormat")!="1" .AND. ::GetStyleAtt((::cAliasCol)->STY,"applyNumberFormat")=="1" 
 							nNumFmtId	:= Val(::GetStyleAtt((::cAliasCol)->STY,"numFmtId"))
 							nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
@@ -5348,7 +5348,7 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 Return self
 
 /*/{Protheus.doc} GetStyle
-Retorna o estilo de uma cï¿½lulas
+Retorna o estilo de uma células
 @author Saulo Gomes Martins
 @since 18/06/2020
 @version 2.0
@@ -5385,7 +5385,7 @@ METHOD GetStyle(nLinha As Numeric, nColuna As Numeric) Class Xlsx
 Return nStyle
 
 /*/{Protheus.doc} Alinhamento
-Cria objeto de alinhamento da cï¿½lula para ser usado na criaï¿½ï¿½o de estilo
+Cria objeto de alinhamento da célula para ser usado na criação de estilo
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -5393,8 +5393,8 @@ Cria objeto de alinhamento da cï¿½lula para ser usado na criaï¿½ï¿½o de estilo
 @param cVertical, characters, Alinhamento Vertical
 @param lReduzCaber, logical, Reduz texto para caber
 @param lQuebraTexto, logical, Quebra texto
-@param ntextRotation, numeric, Graus para rotaï¿½ï¿½o
-@param nRecuo, numeric, Quantidade de recuo do alinhamento(1 recuo ï¿½ igual a 3 espaï¿½os)
+@param ntextRotation, numeric, Graus para rotação
+@param nRecuo, numeric, Quantidade de recuo do alinhamento(1 recuo é igual a 3 espaços)
 @type method
 @obs	HORIZONTAL
 	center
@@ -5426,10 +5426,10 @@ METHOD Alinhamento(cHorizontal As Character, cVertical As Character, lReduzCaber
 		oAlinhamento:SetAtributo("textRotation",ntextRotation)
 	Endif
 	If lReduzCaber .and. !lQuebraTexto
-		oAlinhamento:SetAtributo("shrinkToFit","1")	//Um valor booleano que indica se o texto exibido na cï¿½lula deve ser encolhido para se ajustar ï¿½ cï¿½lula
+		oAlinhamento:SetAtributo("shrinkToFit","1")	//Um valor booleano que indica se o texto exibido na célula deve ser encolhido para se ajustar é célula
 	Endif
 	If lQuebraTexto
-		oAlinhamento:SetAtributo("wrapText","1")	//Um valor booleano indicando se o texto em uma cï¿½lula deve ser envolvido na linha dentro da cï¿½lula.
+		oAlinhamento:SetAtributo("wrapText","1")	//Um valor booleano indicando se o texto em uma célula deve ser envolvido na linha dentro da célula.
 	Endif
 	If nRecuo>0 .AND. (cHorizontal=="left".OR.cHorizontal=="right".or.cHorizontal=="distributed")
 		oAlinhamento:SetAtributo("indent",nRecuo)
@@ -5437,13 +5437,13 @@ METHOD Alinhamento(cHorizontal As Character, cVertical As Character, lReduzCaber
 Return oAlinhamento
 
 /*/{Protheus.doc} Xlsx::Cellprotection
-Proteï¿½ï¿½o de cï¿½lula
+Proteção de célula
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 15/07/2025
-@param llocked, logical, Bloquear/Desbloquear cï¿½lula
-@param lhidden, logical, Oculta formula da cï¿½lula
+@param llocked, logical, Bloquear/Desbloquear célula
+@param lhidden, logical, Oculta formula da célula
 @return object, Objeto da tag protection
 /*/
 METHOD Cellprotection(llocked As Logical, lhidden As Logical) Class Xlsx
@@ -5457,7 +5457,7 @@ METHOD Cellprotection(llocked As Logical, lhidden As Logical) Class Xlsx
 Return oprotection
 
 /*/{Protheus.doc} AddPane
-Congelar Painï¿½is
+Congelar Painéis
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -5480,7 +5480,7 @@ METHOD AddPane(nySplit As Numeric, nxSplit As Numeric) Class Xlsx
 	Endif
 
 Return nPos
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 METHOD Pane(cActivePane As Character, cState As Character, cRef As Character, nySplit As Numeric, nxSplit As Numeric) Class Xlsx
 	Local nPos As Numeric
 	Default cActivePane	:= "bottomLeft"
@@ -5493,35 +5493,35 @@ METHOD Pane(cActivePane As Character, cState As Character, cRef As Character, ny
 		::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView", "pane", "" )
 	EndIf
 	/*
-	bottomLeft	- Painel inferior esquerdo, quando ambos verticais e horizontais sï¿½o aplicadas. Esse valor tambï¿½m ï¿½ usado quando apenas uma divisï¿½o horizontal foi aplicada, dividindo o painel em superior e inferior. Nesse caso, esse valor especifica painel inferior
-	bottomRight - Painel inferior direito, quando as divisï¿½es verticais e horizontais sï¿½o aplicadas.
-	topLeft		- Painel superior esquerdo, quando as divisï¿½es verticais e horizontais sï¿½o aplicadas.
-	topRight	- Painel superior direito, quando as divisï¿½es verticais e horizontais sï¿½o aplicadas
+	bottomLeft	- Painel inferior esquerdo, quando ambos verticais e horizontais são aplicadas. Esse valor também é usado quando apenas uma divisão horizontal foi aplicada, dividindo o painel em superior e inferior. Nesse caso, esse valor especifica painel inferior
+	bottomRight - Painel inferior direito, quando as divisões verticais e horizontais são aplicadas.
+	topLeft		- Painel superior esquerdo, quando as divisões verticais e horizontais são aplicadas.
+	topRight	- Painel superior direito, quando as divisões verticais e horizontais são aplicadas
 	*/
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView/xmlns:pane[last()]", "activePane"	, cActivePane )
 	/*
-	frozen		- Panes sï¿½o congelados, mas nï¿½o foram divididos sendo congelados. Nesse estado, quando os painï¿½is sï¿½o desbloqueados novamente, um ï¿½nico painel resulta, sem divisï¿½o. Nesse estado, as barras de divisï¿½o nï¿½o sï¿½o ajustï¿½veis.
-	frozenSplit	- Os painï¿½is sï¿½o congelados e foram divididos antes de serem congelados. Neste estado, quando os painï¿½is sï¿½o desbloqueados novamente, a divisï¿½o permanece, mas ï¿½ ajustï¿½vel.
-	split		- Os painï¿½is sï¿½o divididos, mas nï¿½o congelados. Nesse estado, as barras de divisï¿½o sï¿½o ajustï¿½veis pelo usuï¿½rio.
+	frozen		- Panes são congelados, mas não foram divididos sendo congelados. Nesse estado, quando os painéis são desbloqueados novamente, um único painel resulta, sem divisão. Nesse estado, as barras de divisão não são ajustáveis.
+	frozenSplit	- Os painéis são congelados e foram divididos antes de serem congelados. Neste estado, quando os painéis são desbloqueados novamente, a divisão permanece, mas é ajustável.
+	split		- Os painéis são divididos, mas não congelados. Nesse estado, as barras de divisão são ajustáveis pelo usuário.
 	*/
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView/xmlns:pane[last()]", "state"	, cState )
-	//Localizaï¿½ï¿½o da cï¿½lula visï¿½vel superior esquerda no painel inferior direito (quando no modo Esquerdo para Direito).
+	//Localização da célula visível superior esquerda no painel inferior direito (quando no modo Esquerdo para Direito).
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView/xmlns:pane[last()]", "topLeftCell"	, cRef )
-	//Posiï¿½ï¿½o horizontal da divisï¿½o, em 1/20ï¿½ de um ponto; 0 (zero) se nenhum. Se o painel estiver congelado, este valor indica o nï¿½mero de colunas visï¿½veis no painel superior
+	//Posição horizontal da divisão, em 1/20º de um ponto; 0 (zero) se nenhum. Se o painel estiver congelado, este valor indica o número de colunas visíveis no painel superior
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView/xmlns:pane[last()]", "xSplit"	, cValToChar(nxSplit) )
-	//Posiï¿½ï¿½o vertical da divisï¿½o, em 1/20ï¿½ de um ponto; 0 (zero) se nenhum. Se o painel estiver congelado, este valor indica o nï¿½mero de linhas visï¿½veis no painel esquerdo.
+	//Posição vertical da divisão, em 1/20º de um ponto; 0 (zero) se nenhum. Se o painel estiver congelado, este valor indica o número de linhas visíveis no painel esquerdo.
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView/xmlns:pane[last()]", "ySplit"	, cValToChar(nySplit) )
 Return nPos
 
 /*/{Protheus.doc} Xlsx::Addhyperlink
-Cria um hyperlink para uma referï¿½ncia da planilha
+Cria um hyperlink para uma referência da planilha
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 18/03/2021
-@param cLocation, character, Referï¿½ncia, pode ser simple (A1) ou intervalo (A1:C3)
+@param cLocation, character, Referência, pode ser simple (A1) ou intervalo (A1:C3)
 @param ctooltip, character, Texto de dica ao passar mouse por cima
-@param cDisplay, character, Texto de exibiï¿½ï¿½o na celula
+@param cDisplay, character, Texto de exibição na celula
 @return object, self
 /*/
 METHOD Addhyperlink(cLocation As Character, ctooltip As Character, cDisplay As Character, cRef As Character) Class Xlsx
@@ -5548,13 +5548,13 @@ METHOD Addhyperlink(cLocation As Character, ctooltip As Character, cDisplay As C
 	EndIf
 Return self
 /*/{Protheus.doc} Xlsx::AddComment
-Adicionar comentï¿½rio
+Adicionar comentário
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 18/03/2021
-@param cText, character, Texto do comentï¿½rio
-@param cAutor, character, Autor do comentï¿½rio
+@param cText, character, Texto do comentário
+@param cAutor, character, Autor do comentário
 @return object, self
 @obs pag 4682
 /*/
@@ -5604,7 +5604,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 		If ::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
 			::asheet[::nPlanilhaAt][5]:XPathDelNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
 		Endif
-		//Deleta comentï¿½rio
+		//Deleta comentário
 		If ::asheet[::nPlanilhaAt][3]:XPathHasNode('/xmlns:comments/xmlns:commentList/xmlns:comment[@ref="'+cRef+'"]')
 			cAuthorId	:= ::asheet[::nPlanilhaAt][3]:XPathGetAtt('/xmlns:comments/xmlns:commentList/xmlns:comment[@ref="'+cRef+'"]',"authorId")
 			::asheet[::nPlanilhaAt][3]:XPathDelNode('/xmlns:comments/xmlns:commentList/xmlns:comment[@ref="'+cRef+'"]')
@@ -5613,7 +5613,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 			EndIf
 		Endif
 	Else
-		//Cria a forma do comentï¿½rio se nï¿½o existe
+		//Cria a forma do comentário se não existe
 		If !::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/o:shapelayout')
 			::asheet[::nPlanilhaAt][5]:XPathAddNode('/xml',"o:shapelayout","")
 			::asheet[::nPlanilhaAt][5]:XPathAddAtt('/xml/*[last()]',"v:ext","edit")
@@ -5635,7 +5635,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 		Endif
 
 		If !::asheet[::nPlanilhaAt][5]:XPathHasNode('/xml/v:shape[x:ClientData/x:Row="'+cValToChar(::nLinha-1)+'" and x:ClientData/x:Column="'+cValToChar(::nColuna-1)+'"]')
-			//posiï¿½ï¿½o da forma de acordo com posiï¿½ï¿½o da cï¿½lula
+			//posição da forma de acordo com posição da célula
 			nRowHeight	:= Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:sheetFormatPr","defaultRowHeight"))
 			If ValType(ntop)=="U"
 				If ::lArquivo .or. ::lMemoria
@@ -5653,7 +5653,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 						nQtdLinhas	:= (cAliasQry)->QTD		//Quantidade de linhas que tem conteudo
 						ntop		:= (cAliasQry)->VALOR
 						If (::nLinha-1)>nQtdLinhas
-							//Adiciona as linhas que nï¿½o tem conteudo o tamanho padrï¿½o
+							//Adiciona as linhas que não tem conteudo o tamanho padrão
 							ntop	+= (::nLinha-1-nQtdLinhas)*1.000005*nRowHeight
 						EndIf
 						ntop		:= Round(ntop,0)
@@ -5777,7 +5777,7 @@ Return self
 
 
 /*/{Protheus.doc} Ref
-Retorna a referencia do excel de acordo com posiï¿½ï¿½o da linha e coluna em formato numerico
+Retorna a referencia do excel de acordo com posição da linha e coluna em formato numerico
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -5813,11 +5813,11 @@ Return cRet
 
 
 /*/{Protheus.doc} LocRef
-Retorna linha e coluna de acordo com informaï¿½ï¿½o da referencia
+Retorna linha e coluna de acordo com informação da referencia
 @author Saulo Gomes Martins
 @since 03/03/2018
 @version 1.0
-@return array, aLinhaCol Array com duas dimenï¿½ï¿½es 1=Linha|2=Coluna
+@return array, aLinhaCol Array com duas dimenções 1=Linha|2=Coluna
 @param cRef, characters, Refencia da celula (exemplo A1)
 @type method
 
@@ -5855,7 +5855,7 @@ Return aRet//{Val(cLinha),If(!Empty(cColuna),::StringToNum(cColuna),0)}
 
 
 /*/{Protheus.doc} NumToString
-Retorna a letra da coluna de acordo com a posiï¿½ï¿½o numerica
+Retorna a letra da coluna de acordo com a posição numerica
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -5866,7 +5866,7 @@ METHOD NumToString(nNum As Numeric) Class Xlsx
 Return NumToString(nNum)
 
 /*/{Protheus.doc} StringToNum
-Retorna a posiï¿½ï¿½o da coluna de acordo com a letra da coluna
+Retorna a posição da coluna de acordo com a letra da coluna
 @author Saulo Gomes Martins
 @since 03/05/2017
 @version p11
@@ -5877,7 +5877,7 @@ METHOD StringToNum(cString As Character) Class Xlsx
 Return StringToNum(cString)
 
 /*/{Protheus.doc} AddTabela
-Adiciona tabela com formataï¿½ï¿½o
+Adiciona tabela com formatação
 @author Saulo Gomes Martins
 @since 08/05/2017
 @param cNome, characters, Nome da tabel
@@ -5900,7 +5900,7 @@ METHOD AddTabela(cNome As Character, nLinha As Numeric, nColuna As Numeric) Clas
 	If !IsAlpha(cNome)
 		cNome	:= "_"+cNome
 	Else
-		//Verificar se o nome ï¿½ referencia de celula
+		//Verificar se o nome é referencia de celula
 		If ::oRegex2:fullMatch(cNome)
 			cNome	:= cNome+"_"
 		EndIf
@@ -6085,7 +6085,7 @@ Method Save(cLocal As Character) Class Xlsx
 	Endif
 	Private oSelf := Self As Object
 
-	//Limpeza de colunas nï¿½o usadas
+	//Limpeza de colunas não usadas
 	If !::lArquivo .and. !::lMemoria
 		cQuery	:= "DELETE FROM "+::cTabCol+" WHERE STY=-1 AND TPVLR='U'"
 		If !::ExecSql("",cQuery,::cDriver)
@@ -6244,7 +6244,7 @@ Method Save(cLocal As Character) Class Xlsx
 			Endif
 			nTamArquivo := Fseek(nHOrigem,0,2)	//Determina o tamanho do arquivo de origem
 			Fseek(nHOrigem,0)					//Move o ponteiro do arquivo de origem para o inicio do arquivo
-			nBytesFalta := nTamArquivo			//Define que a quantidade que falta copiar ï¿½ o prï¿½prio tamanho do Arquivo
+			nBytesFalta := nTamArquivo			//Define que a quantidade que falta copiar é o próprio tamanho do Arquivo
 
 			cBuffer := SPACE(1024)
 			lSheetDataOk	:= .F.
@@ -6306,7 +6306,7 @@ Method Save(cLocal As Character) Class Xlsx
 								Endif
 								If (cAliasQry)->TIPO=="i"
 									cBuffer2	+= ' t="inlineStr"'
-								ElseIf !Empty((cAliasQry)->TIPO) .AND. (cAliasQry)->TPVLR!="U" .AND. !( ((cAliasQry)->TIPO =="d".AND.(cAliasQry)->TPVLR=="N") .OR. (cAliasQry)->TIPO =="n" )	//nï¿½o incluir atributo "t" quando data serializada e numero
+								ElseIf !Empty((cAliasQry)->TIPO) .AND. (cAliasQry)->TPVLR!="U" .AND. !( ((cAliasQry)->TIPO =="d".AND.(cAliasQry)->TPVLR=="N") .OR. (cAliasQry)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
 									cBuffer2	+= ' t="'+Alltrim((cAliasQry)->TIPO)+'"'
 								Endif
 								cBuffer2	+= '>'
@@ -6386,15 +6386,15 @@ Method Save(cLocal As Character) Class Xlsx
 	Endif
 	SplitPath(cArquivo,@cDrive,@cPath,@cNome,@cExtensao)
 	If Rat("\",cArquivo)>0
-		cNome	:= SubStr(cArquivo,Rat("\",cArquivo)+1)	//Split nï¿½o estï¿½ respeitando o case original
+		cNome	:= SubStr(cArquivo,Rat("\",cArquivo)+1)	//Split não está respeitando o case original
 	Else
-		cNome	:= SubStr(cArquivo,Rat("/",cArquivo)+1)	//Split nï¿½o estï¿½ respeitando o case original
+		cNome	:= SubStr(cArquivo,Rat("/",cArquivo)+1)	//Split não está respeitando o case original
 	EndIf
 	If !Empty(cPath)
 		FWMakeDir(cPath,.F.)	//Cria a estrutura de pastas
 	Endif
 
-	If IsSrvUnix()	//Soluï¿½ï¿½o para servidor linux zipar arquivos com inicio "."
+	If IsSrvUnix()	//Solução para servidor linux zipar arquivos com inicio "."
 		WaitRunSrv('zip -r "'+cRootPath+replace(cArquivo,"\","/")+'" *',.T.,cRootPath+'/tmpxls/'+self:cTmpFile+'/'+self:cNomeFile+'/')
 	Else
 		If c7Zip=="Z"
@@ -6474,7 +6474,7 @@ Static Function CopyFile(cOrigem As Character, cDestino As Character) As Logical
 	EndIf
 
 	nTamanho    := FSeek(nHandle, 0, 2)	//Tamanho do arquivo em bytes
-	FSeek(nHandle, 0)						//Volta ao inÃ­cio
+	FSeek(nHandle, 0)						//Volta ao início
 	nBytesFalta := nTamanho
 
 	While nBytesFalta > 0 .And. lOk
@@ -6542,7 +6542,7 @@ Static Function CpyPasta(cCaminho As Character, cCaminho2 As Character)
 					Endif
 					nBytesSalvo := FWRITE(nHDestino, cBuffer)
 					If nBytesSalvo < nBytesLer
-						UserException("Erro de gravaï¿½ï¿½o do Destino. " + Str(nBytesLer,8,2) +;
+						UserException("Erro de gravação do Destino. " + Str(nBytesLer,8,2) +;
 						" bytes a SALVAR." + Str(nBytesSalvo,8,2) + " bytes gravados." + "Ferror = " + str(ferror(),4))
 						EXIT
 					Endif
@@ -6583,7 +6583,7 @@ Static Function DelPasta(cCaminho As Character)
 		WarnLogMsg("Ferror:"+cValToChar(ferror()))
 	Endif
 Return
-//Nï¿½O DOCUMENTAR
+//NÃO DOCUMENTAR
 METHOD CriarFile(cLocal As Character, cNome As Character, cString As Character, lAjustEnc As Logical) Class Xlsx
 	Local cDirServ := "\tmpxls\"+::cTmpFile As Character
 	Local lOk := .T. As Logical
@@ -6609,7 +6609,7 @@ METHOD CriarFile(cLocal As Character, cNome As Character, cString As Character, 
 	Endif
 	fClose(nFile)
 Return lOk
-//Nï¿½O DOCUMENTAR, USADO NA GRAVAï¿½ï¿½O DO SHEET
+//NÃO DOCUMENTAR, USADO NA GRAVAÇÃO DO SHEET
 METHOD GravaFile(nFile As Numeric, cString As Character, cLocal As Character, cArquivo As Character) Class Xlsx
 Return GravaFile(nFile,cString,cLocal,cArquivo)
 
@@ -6629,7 +6629,7 @@ Static Function GravaFile(nFile As Numeric, cString As Character, cLocal As Char
 Return lOk
 
 /*/{Protheus.doc} Xlsx::SetColLevel
-Defini o nï¿½vel das colunas informadas (agrupamento de colunas)
+Defini o nível das colunas informadas (agrupamento de colunas)
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -6637,7 +6637,7 @@ Defini o nï¿½vel das colunas informadas (agrupamento de colunas)
 @param nMin, numeric, Coluna Inicial
 @param nMax, numeric, Coluna Final
 @param nNivel, numeric, Nivel
-@param lFechado, logical, Se esse nï¿½vel estï¿½ fechado
+@param lFechado, logical, Se esse nível está fechado
 /*/
 Method SetColLevel(nMin As Numeric, nMax As Numeric, nNivel As Numeric, lFechado As Logical) Class Xlsx
 	Local nCont := nMin-1 As Numeric
@@ -6719,7 +6719,7 @@ Method SetColLevel(nMin As Numeric, nMax As Numeric, nNivel As Numeric, lFechado
 	Endif
 Return
 /*/{Protheus.doc} ColNew
-Cria uma nova definiï¿½ï¿½o de coluna ou usa a jï¿½ existente
+Cria uma nova definição de coluna ou usa a já existente
 @type function
 @version 1.0
 @author Saulo Gomes Martins
@@ -6773,7 +6773,7 @@ Method AddTamCol(nMin As Numeric, nMax As Numeric, nWidth As Numeric, lbestFit A
 	nWidth := nWidth+0.7109375	//Microsoft excel soma esse valor na coluna
 	
 	If ValType(::nPlanilhaAt)=="U"
-		UserException("Xlsx - Planilha nï¿½o inicializada. Utilize o metodo ADDPlan")
+		UserException("Xlsx - Planilha não inicializada. Utilize o metodo ADDPlan")
 	EndIf
 	AjtColConf(self,nMin,nMax)
 
@@ -6835,7 +6835,7 @@ Method ColHidden(nColuna As Numeric, lHidden As Logical) Class Xlsx
 Return
 
 /*/{Protheus.doc} AjtColConf
-Ajusta conflito de coluna entre min e max antes de incluir definiï¿½ï¿½o
+Ajusta conflito de coluna entre min e max antes de incluir definição
 @type function
 @version 1.0
 @author Saulo Gomes Martins
@@ -6932,21 +6932,21 @@ METHOD Masc2Style(cMascara As Character, oStyle As Object) Class Xlsx
 	EndIf
 Return oNewStyle
 /*/{Protheus.doc} Xlsx::BulkNewField
-Definiï¿½ï¿½o de novas colunas do bulk
+Definição de novas colunas do bulk
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 24/05/2023
-@param nColuna, numeric, posiï¿½ï¿½o da coluna
+@param nColuna, numeric, posição da coluna
 @param cTipo, character, Tipo de dado da coluna(C=character;N=numeric;L=logical;D=Date)
-@param nTamanho, numeric, Tamanho do conteudo de dados, para otimizaï¿½ï¿½o na gravaï¿½ï¿½o de string
-@param cCombo, character, String com opï¿½ï¿½es de combo
-@param oStyle, object, Objeto de formataï¿½ï¿½o da coluna
+@param nTamanho, numeric, Tamanho do conteudo de dados, para otimização na gravação de string
+@param cCombo, character, String com opções de combo
+@param oStyle, object, Objeto de formatação da coluna
 @param lFormula, logical, Se o campo vai receber formula
-@param lDatetime, logical, Se o campo do ï¿½ do tipo datetime
+@param lDatetime, logical, Se o campo do é do tipo datetime
 @param cCampo, character, Nome do campo no alias(Alias2Tab)
 @param cDados, character, Conteudo do campo no alias(Alias2Tab)
-@return json, definiï¿½ï¿½o do campo no formato json
+@return json, definição do campo no formato json
 /*/
 Method BulkNewField(nColuna As Numeric, cTipo As Character, nTamanho As Numeric, cCombo As Character, oStyle As Object, lFormula As Logical, lDatetime As Logical, cCampo As Character, cDados As Character) Class Xlsx
 	Local jCampo := jSonObject():New() As Object
@@ -7007,19 +7007,19 @@ Method GetArray() Class RegraLinha
 Return ::aRegraStyle
 
 /*/{Protheus.doc} Xlsx::DefBulkLine
-Criar definiï¿½ï¿½o de campos para preenchimento em massa
+Criar definição de campos para preenchimento em massa
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 09/05/2023
 @param aCampos, array, Campos das colunas, ver obs
-@param aRegraStyle, array, Array com regra para formataï¿½ï¿½o dinamica de linhas
+@param aRegraStyle, array, Array com regra para formatação dinamica de linhas
 @param lMontarLin, logical, Se vai avaliar montagem de linnha a linha
 @obs aCampos
 		[coluna]-Numero da coluna
 		[tipo]-Tipo de conteudo(C,N,L,D)
 		[lformula]-Logico se vai ter Formula
-		[ldatetime]-Logico se ï¿½ datetime
+		[ldatetime]-Logico se é datetime
 		[combo]-cCombo
 		[style]-Objeto Estilo
 		[campo]-nome do campo
@@ -7049,7 +7049,7 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 	PARAMTYPE 1	VAR aRegraStyle	AS ARRAY,OBJECT		OPTIONAL
 	PARAMTYPE 2	VAR lMontarLin	AS LOGICAL			OPTIONAL Default .F.
 	If Len(aCampos)>16385
-		UserException("Xlsx - Quantidade informadas de colunas("+cValToChar(Len(aCampos))+") ï¿½ superior ao limite do excel")
+		UserException("Xlsx - Quantidade informadas de colunas("+cValToChar(Len(aCampos))+") é superior ao limite do excel")
 	EndIf
 	If ValType(aRegraStyle)=="O"
 		aRegraStyle	:= aRegraStyle:GetArray()
@@ -7062,7 +7062,7 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 			If cTpRegra!="O"		//Numerico ou nulo
 				aRegraStyle[2][aNames[i]]["style"]	:= ::NewStyle(aRegraStyle[2][aNames[i]]["style"])	//Cria Style
 			EndIf
-			If cTpRegra=="U"	//Nï¿½o tem estilo definido
+			If cTpRegra=="U"	//Não tem estilo definido
 				aRegraStyle[2][aNames[i]]["principal"]	:= .F.
 			EndIf
 			If aRegraStyle[2][aNames[i]]["principal"] .AND. ValType(aRegraStyle[2][aNames[i]]["style"]:oPai)!="U"	//Tem pai
@@ -7088,7 +7088,7 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 		bRow	:= &(cBloco)
 	EndIf
 	
-	AADD(aDadosBulk,bRow)	//Primeiro dado ï¿½ a definiï¿½ï¿½o da linha
+	AADD(aDadosBulk,bRow)	//Primeiro dado é a definição da linha
 	If ::lArquivo
 		For nCont:=1 to Len(aCampos)
 			::cCampo	:= aCampos[nCont]["campo"]
@@ -7096,7 +7096,7 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 			cBloco		:= ""
 			cCombo		:= aCampos[nCont]["combo"]
 			jsonstyle	:= nil
-			If !Empty(cCombo)			//Guarda cache de combo de opï¿½ï¿½es
+			If !Empty(cCombo)			//Guarda cache de combo de opções
 				jCombo	:= jCombo(cCombo)
 				AADD(::aCleanObj,jCombo)
 				lCombo	:= .T.
@@ -7112,7 +7112,7 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 			If aCampos[nCont]["tipo"]=="C"
 				oC:SetAtributo("t","inlineStr")
 				If lCombo
-					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+(if(jCombo:HasProperty(xValor),jCombo[xValor],xValor))+'"+']]></t></is>')	//TODO colocar opï¿½ï¿½es de combo em string compartilhada
+					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+(if(jCombo:HasProperty(xValor),jCombo[xValor],xValor))+'"+']]></t></is>')	//TODO colocar opções de combo em string compartilhada
 				Else
 					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(cValToChar(xValor))+'"+']]></t></is>')
 				EndIf
@@ -7156,10 +7156,10 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 			nStyle	:= -1
 			cRef		:= aCampos[nCont]["alfa_coluna"]
 			If nStyle>=0 .AND. nStyle+1>::nQtdStyle
-				UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") nï¿½o definido. Utilize o indice informado pelo metodo AddStyles")
+				UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 			Endif
 			cCombo		:= aCampos[nCont]["combo"]
-			If !Empty(cCombo)			//Guarda cache de combo de opï¿½ï¿½es
+			If !Empty(cCombo)			//Guarda cache de combo de opções
 				jCombo	:= jCombo(cCombo,.T.,self)
 				AADD(::aCleanObj,jCombo)
 				lCombo	:= .T.
@@ -7209,7 +7209,7 @@ Method DefBulkLine(aCampos As Array, aRegraStyle As Array, lMontarLin As Logical
 	EndIf
 	::aDadosBulk	:= aDadosBulk
 	If ::lArquivo
-		If ValType(::oC)=="O"		//Se tem uma celula criada, finaliza a criaï¿½ï¿½o da celula
+		If ValType(::oC)=="O"		//Se tem uma celula criada, finaliza a criação da celula
 			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
 			::oC	:= nil
@@ -7243,11 +7243,11 @@ Static Function StyDinamico(jCampos As Object, jsonstyle As Object, aRegraStyle 
 	Default lString		:= .T.
 	jCampos["style"]	:= oExcel:NewStyle(jCampos["style"])
 	jCampos["style"]:SetParent()			//Retirar o pai
-	xStyle		:=	oExcel:CreateStyle(jCampos["style"]:GetID())	//Estilo padrï¿½o se nï¿½o tem regra
-	If Empty(jCampos["style"]:GetnumFmt())	//Nï¿½o tem formato aplicado
-		If jCampos["tipo"]=="D"				//ï¿½ data
+	xStyle		:=	oExcel:CreateStyle(jCampos["style"]:GetID())	//Estilo padrão se não tem regra
+	If Empty(jCampos["style"]:GetnumFmt())	//Não tem formato aplicado
+		If jCampos["tipo"]=="D"				//É data
 			xStyle		:=	oExcel:CreateStyle(xStyle,14)
-		ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]	//ï¿½ datetime
+		ElseIf jCampos["tipo"]=="O" .and. jCampos["ldatetime"]	//É datetime
 			xStyle		:=	oExcel:CreateStyle(xStyle,oExcel:AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@"))
 		EndIf
 	EndIf
@@ -7259,7 +7259,7 @@ Static Function StyDinamico(jCampos As Object, jsonstyle As Object, aRegraStyle 
 		jsonstyle	:= jSonObject():New()
 		For i := 1 to len(aNames)
 			If aRegraStyle[2][aNames[i]]["principal"]
-				aRegraStyle[2][aNames[i]]["style"]:SetParent(jCampos["style"])	//Adiciona a regra pai, se nï¿½o existi na principal ele herda informaï¿½ï¿½es do pai
+				aRegraStyle[2][aNames[i]]["style"]:SetParent(jCampos["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
 				otmpStype	:= aRegraStyle[2][aNames[i]]["style"]
 				If Empty(aRegraStyle[2][aNames[i]]["style"]:GetnumFmt())
 					If jCampos["tipo"]=="D"
@@ -7270,7 +7270,7 @@ Static Function StyDinamico(jCampos As Object, jsonstyle As Object, aRegraStyle 
 				EndIf
 				jsonstyle[aNames[i]]	:= otmpStype:GetID()
 			Else
-				jCampos["style"]:SetParent(aRegraStyle[2][aNames[i]]["style"])	//Adiciona a regra pai, se nï¿½o existi na principal ele herda informaï¿½ï¿½es do pai
+				jCampos["style"]:SetParent(aRegraStyle[2][aNames[i]]["style"])	//Adiciona a regra pai, se não existi na principal ele herda informações do pai
 				otmpStype	:= jCampos["style"]
 				If Empty(jCampos["style"]:GetnumFmt())
 					If jCampos["tipo"]=="D"
@@ -7289,12 +7289,12 @@ Static Function StyDinamico(jCampos As Object, jsonstyle As Object, aRegraStyle 
 Return
 
 /*/{Protheus.doc} Xlsx::SetValueBulk
-Definir valor para preenchimeno de bulk, informar na sequï¿½ncia de colunas
+Definir valor para preenchimeno de bulk, informar na sequência de colunas
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 29/05/2023
-@param xValor, variant, Valor a ser preenchido no mesmo formato da definiï¿½ï¿½o de colunas
+@param xValor, variant, Valor a ser preenchido no mesmo formato da definição de colunas
 @param cFormula, character, Formula a ser preenchida
 /*/
 Method SetValueBulk(xValor As Variant, cFormula As Character) Class Xlsx
@@ -7302,7 +7302,7 @@ Method SetValueBulk(xValor As Variant, cFormula As Character) Class Xlsx
 Return
 
 Method LenColBulk() Class Xlsx
-Return Len(::aDadosBulk)-1	//Menos 1, pois o primeiro ï¿½ definiï¿½ï¿½o da linha
+Return Len(::aDadosBulk)-1	//Menos 1, pois o primeiro é definição da linha
 
 /*/{Protheus.doc} Xlsx::SetBulkLine
 Preenche a linha em bulk do excel
@@ -7326,7 +7326,7 @@ Method SetBulkLine() Class Xlsx
 	Local nStyle As Numeric
 	Local cTpVlr As Character
 	If ::lArquivo
-		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criaï¿½ï¿½o da linha
+		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
 		::oFile:Write(cTexto)
 		For nCont:=1 to Len(aValores)
 			nCont2		:= nCont+1
@@ -7455,7 +7455,7 @@ Method FlushBulk() Class Xlsx
 	::cRef			:= ::Ref(::nLinha,::nColuna)
 Return
 /*/{Protheus.doc} Xlsx::CloseBulk
-Finaliza gravaï¿½ï¿½o de bulk de banco de dados
+Finaliza gravação de bulk de banco de dados
 @type method
 @version 1.0
 @author Saulo Gomes Martins
@@ -7472,22 +7472,22 @@ Method CloseBulk() Class Xlsx
 Return
 
 /*/{Protheus.doc} Xlsx::NewFldTab
-Inicializa campo para ser usado na definiï¿½ï¿½o do Alias2Tab
+Inicializa campo para ser usado na definição do Alias2Tab
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 13/05/2023
 @param cCampo, character, Nome do campo no alias
-@param cDescricao, character, Descriï¿½ï¿½o a ser alterada, enviar nil para nï¿½o alterar
-@param nTamanho, numeric, Tamanho da coluna(no excel), enviar nil para nï¿½o alterar
-@param cCombo, character, Combo de opï¿½ï¿½es, enviar nil para nï¿½o alterar
+@param cDescricao, character, Descrição a ser alterada, enviar nil para não alterar
+@param nTamanho, numeric, Tamanho da coluna(no excel), enviar nil para não alterar
+@param cCombo, character, Combo de opções, enviar nil para não alterar
 @param nOrdem, numeric, Definir a ordem da coluna
 @param cTipo, character, altera o tipo de dado
 @param cDados, character, altera o dado de leitura
 @param lNewCampo, logical, Cria novo campo
 @param lHidden, logical, Oculta campo
 @param nTamDados, numeric, Tamanho dos dados
-@return json, definiï¿½ï¿½o de campos
+@return json, definição de campos
 /*/
 Method NewFldTab(jCab As Object, cCampo As Character, cDescricao As Character, nTamanho As Numeric, cPicture As Character, cCombo As Character, xStyle As Variant, nOrdem As Numeric, cTipo As Character, cDados As Character, lNewCampo As Logical, lHidden As Logical, nTamDados As Numeric) Class Xlsx
 	Default lNewCampo			:= .F.
@@ -7514,14 +7514,14 @@ Preeencher excel com conteudo de alias
 @author Saulo Gomes Martins
 @since 09/05/2023
 @param cAlias, character, Alias com dados
-@param oStyle, object, Estilo a ser aplicado no cabeï¿½ario
-@param lSx3, logical, Se vai buscar os SXs para definiï¿½ï¿½o de campos
-@param jCab, json, json Modifica Cabeï¿½ario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem)
-@param lExibirCab, logical, Se vai exibir o cabeï¿½ario
+@param oStyle, object, Estilo a ser aplicado no cabeçario
+@param lSx3, logical, Se vai buscar os SXs para definição de campos
+@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem)
+@param lExibirCab, logical, Se vai exibir o cabeçario
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
 @param aOnlyFieds, array, Se enviado somente os campos enviado vai ser exibido
-@param aRegraStyle, array, Array com regra para formataï¿½ï¿½o dinamica de linhas 
-@param oStyleLinha, object, Estilo padrï¿½o para as linhas
+@param aRegraStyle, array, Array com regra para formatação dinamica de linhas 
+@param oStyleLinha, object, Estilo padrão para as linhas
 @param lFiltro, logical, Habilitar filtro automatico
 @param lRTrim, logical, Habilitar rtrim para campos caractere
 @param oTabela, object, Objeto do formato tabela do excel
@@ -7599,7 +7599,7 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 			Loop
 		EndIf
 		lDefCampo	:= lDefCampos .AND. jCab:HasProperty(cCampo)
-		If lDefCampo .AND. jCab[cCampo]["hidden"]				//Nï¿½o exibir campo
+		If lDefCampo .AND. jCab[cCampo]["hidden"]				//Não exibir campo
 			Loop
 		EndIf
 		cTipo		:= (cAlias)->(DBFIELDINFO(DBS_TYPE,nCont))
@@ -7744,9 +7744,9 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 		If !Empty(cMascara) .AND. cTipo=="N"
 			cTpStyle2	:=  ValType(oStyTmp)
 			If cTpStyle2=="N".AND. ::GetStyleAtt(oStyTmp,"applyNumberFormat")=="1"
-				//Jï¿½ tem formato numerico aplicado
+				//Já tem formato numerico aplicado
 			ElseIf cTpStyle2=="O".AND.!Empty(oStyTmp:GetnumFmt())
-				//Jï¿½ tem formato numerico aplicado
+				//Já tem formato numerico aplicado
 			Else
 				oStyTmp	:= ::Masc2Style(cMascara,oStyTmp)		//Criar Estilo baseado na picture numerica
 			EndIf
@@ -7763,7 +7763,7 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 				::SetStyle(oStyle)
 			EndIf
 		Endif
-		//DEFINIï¿½ï¿½O DE SUBTOTAL E TOTAL
+		//DEFINIÇÃO DE SUBTOTAL E TOTAL
 		If lDefSubTotal .AND. (::jSubTotal["subtotal"] .OR. ::jSubTotal["totalgeral"])
 			nPos	:= aScan(::jSubTotal["campos"],{|x| x["campo"]==cCampo })
 			If nPos>0
@@ -7834,7 +7834,7 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 	Next
 	nQtdCol	:= Len(aCampos)
 
-	::DefBulkLine(aCampos,aRegraStyle,lDefSubTotal)	//Inicializa definiï¿½ï¿½es para bulk
+	::DefBulkLine(aCampos,aRegraStyle,lDefSubTotal)	//Inicializa definições para bulk
 	lCab	:= .F.
 	::cSubTotalTp	:= "L"
 	If lDefSubTotal
@@ -7950,7 +7950,7 @@ Static Function FormuADVPL(cFuncao As Character, cTipo As Character, lExibir As 
 	Local cReturn := "{|aValAtu,xValor| " As Character
 	Default lExibir	:= .F.
 	If lExibir
-		If cFuncao=="101".OR.cFuncao=="1"	//Mï¿½DIA
+		If cFuncao=="101".OR.cFuncao=="1"	//MÉDIA
 			cReturn += "aValAtu[1]/aValAtu[2]"
 		ElseIf cFuncao+"|" $ "102|2|103|3|".AND.cTipo=="C"
 			cReturn += "cValToChar(aValAtu[1])"
@@ -7960,7 +7960,7 @@ Static Function FormuADVPL(cFuncao As Character, cTipo As Character, lExibir As 
 	Else
 		If cFuncao=="109".OR.cFuncao=="9"		//SOMA
 			cReturn += "aValAtu[1]+=xValor"
-		ElseIf cFuncao=="101".OR.cFuncao=="1"	//Mï¿½DIA
+		ElseIf cFuncao=="101".OR.cFuncao=="1"	//MÉDIA
 			cReturn += "aValAtu[1]+=xValor,aValAtu[2]+=1"
 		ElseIf cFuncao=="last"					//Exibir ultimo valor do campo
 			cReturn += "aValAtu[1]:=xValor"
@@ -8006,13 +8006,13 @@ Static Function VlrZeroTp(cTipo As Character, lNulo As Logical)
 Return {xRet,0}	//{Valor atual,No total Dividir por}
 
 /*/{Protheus.doc} Xlsx::DefSubTotal
-Cria nova definiï¿½ï¿½o de subtotal para alias2tab
+Cria nova definição de subtotal para alias2tab
 @type method
 @version 1.0
 @author Saulo Gomes Martins
 @since 24/05/2023
 @param cChave, character, Chave do subtotal
-@param lSubTotal, logical, Se vai cria subtotal a cada modificaï¿½ï¿½o da chave
+@param lSubTotal, logical, Se vai cria subtotal a cada modificação da chave
 @param lTotalGeral, logical, Se vai criar total geral
 @param lAgrupar, logical, Se vai agrupar as linhas
 @param nNivel, numeric, Nivel para exibir(1=Total Geral,2=SubTotal,3=Linhas)
@@ -8035,10 +8035,10 @@ Adiciona nova coluna ao subtotal
 @author Saulo Gomes Martins
 @since 24/05/2023
 @param cCampo, character, Nome do campo
-@param cFuncao, character, Funï¿½ï¿½o a ser totalizada
-@param bFormula, codeblock, Block de cï¿½digo com retorno da formula, enviar quando funcao=formula
-@param bAdvpl, codeblock, Block de cï¿½digo com funï¿½ï¿½o advpl para acumular subtotal da coluna
-@param bAdvplExib, codeblock, Bloco de cï¿½digo para exibiï¿½ï¿½o da linha de subtotal
+@param cFuncao, character, Função a ser totalizada
+@param bFormula, codeblock, Block de código com retorno da formula, enviar quando funcao=formula
+@param bAdvpl, codeblock, Block de código com função advpl para acumular subtotal da coluna
+@param bAdvplExib, codeblock, Bloco de código para exibição da linha de subtotal
 @param xValorIni, variant, Valor inicial do subtotal
 /*/
 Method AddSubTotal(cCampo As Character, cFuncao As Character, bFormula As Object, bAdvpl As Object, bAdvplExib As Object, xValorIni As Variant) Class Xlsx
@@ -8065,7 +8065,7 @@ Abrir planilha e armazena conteudo para leitura
 @since 03/03/2018
 @version 1.0
 @return logical, lRet Se conseguiu ler a planilha
-@param cFile, characters, arquivo que serï¿½ aberto
+@param cFile, characters, arquivo que será aberto
 @param nPlanilha, numeric, numero(indexado em 1,2,3) da planilha a ser lida
 @type method
 /*/
@@ -8096,9 +8096,9 @@ METHOD OpenRead(cFile As Character, nPlanilha As Numeric) Class Xlsx
 	If !File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\sheet"+cValTochar(nPlanilha)+".xml",,.F.)
 		SplitPath( cFile, @cDrive, @cDir, @cNome, @cExt)
 		If Rat("\",cFile)>0
-			cNome	:= SubStr(cFile,Rat("\",cFile)+1)	//Split nï¿½o estï¿½ respeitando o case original
+			cNome	:= SubStr(cFile,Rat("\",cFile)+1)	//Split não está respeitando o case original
 		else
-			cNome	:= SubStr(cFile,Rat("/",cFile)+1)	//Split nï¿½o estï¿½ respeitando o case original
+			cNome	:= SubStr(cFile,Rat("/",cFile)+1)	//Split não está respeitando o case original
 		EndIf
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
@@ -8162,15 +8162,15 @@ METHOD OpenRead(cFile As Character, nPlanilha As Numeric) Class Xlsx
 Return nRet==0
 
 /*/{Protheus.doc} CellRead
-Retorna o valor de uma celula, apï¿½s o uso do mï¿½todo OpenRead()
+Retorna o valor de uma celula, após o uso do método OpenRead()
 @author Saulo Gomes Martins
 @since 03/03/2018
 @version 1.0
-@return variadic, xValor Conteï¿½do da celula
-@param nLinha, numeric, Linha da informaï¿½ï¿½o
-@param nColuna, numeric, Coluna da informaï¿½ï¿½o
-@param xDefault, variadic , Valor padrï¿½o caso nï¿½o tenha a informaï¿½ï¿½o
-@param lAchou, logical, passa por referencia se achou a informaï¿½ï¿½o da celula
+@return variadic, xValor Conteúdo da celula
+@param nLinha, numeric, Linha da informação
+@param nColuna, numeric, Coluna da informação
+@param xDefault, variadic , Valor padrão caso não tenha a informação
+@param lAchou, logical, passa por referencia se achou a informação da celula
 @type method
 /*/
 Method CellRead(nLinha As Numeric, nColuna As Numeric, xDefault As Variant, lAchou As Logical, cOutro As Character) Class Xlsx
@@ -8308,7 +8308,7 @@ Return nRet
 //CLASSE DE TAGS
 //----------------------------------------------------------------------
 /*/{Protheus.doc} Tag
-Criaï¿½ï¿½o de Tag
+Criação de Tag
 @author Saulo Gomes Martins
 @since 22/04/2017
 @version p11.8
@@ -8441,7 +8441,7 @@ Method GetTag(oFile As Object, lFechaTag As Logical, lSoValor As Logical) Class 
 	Local aListAtt As Array
 	Default lFechaTag	:= .T.
 	Default lSoValor	:= .F.
-	If ValType(oFile)<>"U"	//Gravaï¿½ï¿½o direto no arquivo
+	If ValType(oFile)<>"U"	//Gravação direto no arquivo
 		If lSoValor
 			cRet	+= VarTipo(::xValor)
 			oFile:Write(cRet)
@@ -8617,7 +8617,7 @@ Return cRet
 //CLASSE DE TABELAS
 //----------------------------------------------------------------------
 /*/{Protheus.doc} yExcel_Table
-CLASSE PARA CRIAï¿½ï¿½O DE TABELAS PARA A CLASSE YEXCEL
+CLASSE PARA CRIAÇÃO DE TABELAS PARA A CLASSE YEXCEL
 @author Saulo Gomes Martins
 @since 08/05/2017
 
@@ -8687,14 +8687,14 @@ METHOD AddFilter(lFiltro As Logical) Class Table
 Return
 
 /*/{Protheus.doc} Cell
-Preenche informaï¿½ï¿½o da cï¿½lula
+Preenche informação da célula
 @author Saulo Gomes Martins
 @since 08/05/2017
 @version undefined
 @param cColuna, characters, Nome da coluna
-@param xValor, variadic, conteudo da cï¿½lula
+@param xValor, variadic, conteudo da célula
 @param cFormula, characters, (Opcional) Formula
-@param nStyle, numeric, (Opcional) posiï¿½ï¿½o da formataï¿½ï¿½o
+@param nStyle, numeric, (Opcional) posição da formatação
 @type method
 /*/
 METHOD Cell(cColuna As Character, xValor As Variant, cFormula As Character, nStyle As Numeric) Class Table
@@ -8702,7 +8702,7 @@ METHOD Cell(cColuna As Character, xValor As Variant, cFormula As Character, nSty
 	Local nColuna As Numeric
 	If ValType(cColuna)=="C"
 		If !::oColunas:Get(cColuna,@aColuna)
-			UserException("Xlsx - Coluna informada nï¿½o encontrado. Utilize o metodo AddColumn para adicionar a coluna:"+cValToChar(cColuna))
+			UserException("Xlsx - Coluna informada não encontrado. Utilize o metodo AddColumn para adicionar a coluna:"+cValToChar(cColuna))
 		Endif
 		nColuna	:= aColuna[2]
 		If Empty(nStyle)
@@ -8718,7 +8718,7 @@ Return
 Adiciona uma nova linha
 @author Saulo Gomes Martins
 @since 08/05/2017
-@param nQtd, numeric, Quantidade de linhas para avanï¿½ar
+@param nQtd, numeric, Quantidade de linhas para avançar
 @type method
 /*/
 METHOD AddLine(nQtd As Numeric) Class Table
@@ -8777,7 +8777,7 @@ Adiciona um totalizador na coluna
 @obs PAG 2392
 function-number				function-number					Function
 (includes hidden values)	(excludes hidden values)
-1							101							AVERAGE	Mï¿½DIA
+1							101							AVERAGE	MÉDIA
 2							102							COUNT	CONTAR NUMERO
 3							103							COUNTA	CONT.VALORES
 4							104							MAX		MAX
@@ -8983,12 +8983,12 @@ METHOD AddStyle(cNome As Character, lLinhaTiras As Logical, lColTiras As Logical
 Return
 
 /*/{Protheus.doc} GetDateTime
-Retorna objeto para manipulaï¿½ï¿½o de DateTime
+Retorna objeto para manipulação de DateTime
 @author Saulo Gomes Martins
 @since 09/12/2019
 @version 1.0
-@param dData, date, Data para formataï¿½ï¿½o
-@param cTime, characters, Hora para formataï¿½ï¿½o
+@param dData, date, Data para formatação
+@param cTime, characters, Hora para formatação
 @param nData, numeric, DataTime em formato numerico
 @type method
 /*/
@@ -8998,7 +8998,7 @@ METHOD GetDateTime(dData As Date, cTime As Character, nData As Numeric) Class Xl
 Return oDateTime
 
 /*/{Protheus.doc} DateTime
-Classe DateTime para manipulaï¿½ï¿½o de DateTime
+Classe DateTime para manipulação de DateTime
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
@@ -9010,7 +9010,7 @@ Class DateTime
 	Public Data cTime    As Character
 	Public Data cNumero    As Variant
 	Public Data nNumero			As Numeric //Numero com limite de 8 decimais
-	Public Data nDecimal			As Numeric //Numero com limite decimal acima de 8 posiï¿½ï¿½es
+	Public Data nDecimal			As Numeric //Numero com limite decimal acima de 8 posições
 	Public Data cClassName			As Character //Nome da Classe
 	Public Data cName				As Character //Nome da Classe
 	Public Method New()     As Object
@@ -9063,7 +9063,7 @@ Converte numero do excel em data e hora
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
-@param nData, numeric, numero da hora, aceita tambï¿½m string
+@param nData, numeric, numero da hora, aceita também string
 @type method
 /*/
 Method NumToDateTime(nData As Numeric, nDec8 As Numeric) Class DateTime
@@ -9340,7 +9340,7 @@ Retorna Hora,Minuto,Segundo,Milesimo.
 @author Saulo Gomes Martins
 @since 09/12/2019
 @version 1.0
-@return Array, aHora 1-Hora|2-Munuto|3-Segundo|4-Milï¿½simo de segundo
+@return Array, aHora 1-Hora|2-Munuto|3-Segundo|4-Milésimo de segundo
 @param cHora, characters, Hora no Formato HH:MM:SS.MMMM
 @type function
 /*/
@@ -9403,11 +9403,11 @@ Static Function GetNumDtTm(oValor As Object)
 Return cNumero
 
 /*/{Protheus.doc} new_content_types
-Criaï¿½ï¿½o do arquivo \[content_types].xml
+Criação do arquivo \[content_types].xml
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
-@param cXml, characters, xml para criaï¿½ï¿½o
+@param cXml, characters, xml para criação
 @type method
 /*/
 Method new_content_types(cFile As Character) Class Xlsx
@@ -9447,8 +9447,8 @@ Cria arquivo de relacionamento Relationship(rels)
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
-@return numeric, nPos Posiï¿½ï¿½o no array
-@param cXml, characters, xml para criaï¿½ï¿½o
+@return numeric, nPos Posição no array
+@param cXml, characters, xml para criação
 @param cCaminho, characters, caminho do arquivo
 @type method
 /*/
@@ -9500,7 +9500,7 @@ Method add_rels(cCaminho As Character, cType As Character, cTarget As Character)
 	If nPos==0
 		nPos	:= ::new_rels(,cCaminho)
 	Endif
-	//Nï¿½o deixa repetir Relationship
+	//Não deixa repetir Relationship
 	If self:aRels[nPos][1]:XPathHasNode("/xmlns:Relationships/xmlns:Relationship[@Type='"+cType+"' and @Target='"+cTarget+"']")
 		cId	:= self:aRels[nPos][1]:XPathGetAtt("/xmlns:Relationships/xmlns:Relationship[@Type='"+cType+"' and @Target='"+cTarget+"']","Id")
 	Else
@@ -9720,7 +9720,7 @@ Cria arquivo \xl\drawings\drawingX.xml
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
-@return numeric, nPos posiï¿½ï¿½o do draw no array
+@return numeric, nPos posição do draw no array
 @param cXml, characters, xml para leitura
 @param cCaminho, characters, caminho para gravar
 @type method
@@ -9787,7 +9787,7 @@ Ajuste para criar node com namespace diferente
 @version 1.0
 @param oXml, object, Objeto TXMLManager
 @param cText1, characters, texto com node errado
-@param cText2, characters, texto com node para correï¿½ï¿½o
+@param cText2, characters, texto com node para correção
 @type function
 /*/
 Static Function ajustNS(oXml As Object, cText1 As Character, cText2 As Character)
@@ -9871,7 +9871,7 @@ Cria arquivo \xl\worksheets\sheetX.xml
 @version 1.0
 
 @type method
-@OBS Linha 3926 definiï¿½ï¿½o CT_Worksheet
+@OBS Linha 3926 definição CT_Worksheet
 /*/
 Method xls_sheet(cFile As Character, cCaminho As Character) Class Xlsx
 	Local nCont As Numeric
@@ -10012,7 +10012,7 @@ Organiza de acordo com ordem enviada no array
 @since 17/03/2021
 @param aArray, array, Array com ordens {"primeiro","segundo"}
 @param cValor, character, valor para analisar ordem
-@return numeric, Posiï¿½ï¿½o da ordem
+@return numeric, Posição da ordem
 /*/
 Static Function aScanOrdem(aArray As Array, cValor As Character, cPosXml As Character, obj As Object)
 	Local nPos := aScan(aArray,cValor) As Numeric
@@ -10032,10 +10032,10 @@ Analisa dois objetos de XML para replicar os dados
 @since 17/03/2021
 @param oXml, object, xml para receber os dados
 @param oXml2, object, xml para enviar os dados
-@param cPath, character, Caminho do nï¿½ que serï¿½ enviado
+@param cPath, character, Caminho do nó que será enviado
 @param cFiltro, character, Envia apenas tags do filtro
-@param cNaoFazer, character, Nï¿½o envia determinada Tag
-@param lAdd, logical, Incluir direto a tag ou analisa se jï¿½ existe
+@param cNaoFazer, character, Não envia determinada Tag
+@param lAdd, logical, Incluir direto a tag ou analisa se já existe
 @param cPath2, character, caminho relativo ao xml2
 @param aOrdem, array, Ordem para organizar as tags
 /*/
@@ -10111,7 +10111,7 @@ Cria arquivo /xl/sharedStrings.xml
 @author Saulo Gomes Martins
 @since 10/12/2019
 @version 1.0
-@param oFile, object, objeto para gravaï¿½ï¿½o de dados
+@param oFile, object, objeto para gravação de dados
 @type method
 /*/
 Method xls_sharedStrings(oFile As Object) Class Xlsx
@@ -10178,13 +10178,13 @@ Method Read_sharedStrings(cFile As Character) Class Xlsx
 	FreeObj(oTmp)
 Return
 /*/{Protheus.doc} FWMakeDir
-Cria o caminho completo, a funï¿½ï¿½o padrï¿½o nï¿½o mantem o case
+Cria o caminho completo, a função padrão não mantem o case
 @type function
 @version 1.0
 @author Saulo Gomes Martins
 @since 17/03/2021
 @param cCaminho, character, Caminho
-@param lShowMsg, logical, nï¿½o usado
+@param lShowMsg, logical, não usado
 /*/
 Static Function FWMakeDir(cCaminho As Character, lShowMsg As Logical)
 	Local aPastas As Array
@@ -10625,9 +10625,9 @@ expression=
  name ;
 */
 Class Varariavel
-	Public Data cTipo				As Character //T=TEXTO;N=NUMERO;L=LOGICO;R=REFERENCIA;F=FUNï¿½ï¿½O;E=EXPRESSï¿½O
+	Public Data cTipo				As Character //T=TEXTO;N=NUMERO;L=LOGICO;R=REFERENCIA;F=FUNÇÃO;E=EXPRESSÃO
 	Public Data xValor				As Variant //VALOR
-	Public Data cFuncao			As Character //Nome da funï¿½ï¿½o
+	Public Data cFuncao			As Character //Nome da função
 	Public Data cPrefixOper		As Character //Operador inicio
 	Public Data cPosfixOper		As Character //Operador final
 	Public Data cFormula    As Character
@@ -10762,7 +10762,7 @@ Method Parse(cFormula As Character, nQtdLido As Numeric) Class Formula
 			oTmp:SetFuncao("("):SetType("E"):SetPre(@cPre):SetPos(@cPos)
 			oRet:ADDValue(oTmp)
 			nCont	+= nQtdSoma+2			
-		ElseIf cTexto==")"	//Sair da funï¿½ï¿½o
+		ElseIf cTexto==")"	//Sair da função
 			Exit
 		ElseIf cTexto==","
 			Loop
