@@ -9,7 +9,7 @@ Teste da classe YExcel
 @type function
 @obs para LEITURA/EDIÇÃO ver função YTstRW no fim do fonte
 /*/
-User Function tstyexcel()
+User Function tstXlsx()
 	Local oExcel As Object
 	Local oAlinhamento As Object
 	Local oQuebraTxt As Object
@@ -76,13 +76,11 @@ User Function tstyexcel()
 	Local cAlias As Character
 	Local nStart As Numeric
 
-	// RpcSetEnv("T1","M SP 01")
 	//RpcSetEnv("01","010101")
 	RpcSetEnv("99","01")
 	nStart := Seconds()
-	oExcel	:= YExcel():New(cNomeFile = "TstYExcel", cTipo = "A")
-	// oExcel	:= YExcel():New(cFileOpen = "C:\temp\novo.xlsx")
-	// oExcel	:= YExcel():New(,)
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstYExcel", cTipo = "A")
+	// oExcel	:= custom.excel.Xlsx():New(cFileOpen = "C:\temp\novo.xlsx")
 
 	//Definição de Cor Transparecia+RGB
 	nPosCor			:= oExcel:CorPreenc("FF0000FF")	//Cor de Fundo Azul
@@ -97,7 +95,7 @@ User Function tstyexcel()
 	o45Graus		:= oExcel:Alinhamento(ntextRotation = 45)
 	oAliRecuoE		:= oExcel:Alinhamento(cHorizontal = "left", nRecuo = 2)			//Recuo esquerdo
 	oAliRecuoD		:= oExcel:Alinhamento(cHorizontal = "right", nRecuo = 2)		//Recuo direito
-	oSemBloq		:= oExcel:Cellprotection(.F.)		//Célula não Bloqueada
+	oSemBloq		:= oExcel:Cellprotection(llocked = .F.)		//Célula não Bloqueada
 	oOculForm		:= oExcel:Cellprotection(lhidden = .T.)		//Célula Oculta formulas
 	nPosBorda		:= oExcel:Borda(cTipo = "ALL", cCor = "FFFF0000", cModelo = "thick")
 	nBordaAll		:= oExcel:Borda("ALL")
@@ -429,7 +427,7 @@ Testa leitura simples do xlsx
 /*/
 User Function YxlsRead()
 	//DEPRECATED, ver função U_YTstRW
-	Local oExcel := YExcel():New("TesteXlsx") As Object	//Cria teste
+	Local oExcel := custom.excel.Xlsx():New("TesteXlsx") As Object	//Cria teste
 	Local cTexto := "Texto teste" As Character
 	Local nNumero := 123.09 As Numeric
 	Local lLogico := .T. As Logical
@@ -448,7 +446,7 @@ User Function YxlsRead()
 	oExcel:Cell(nLinha = 1, nColuna = 1, xValor = "OK")
 	cArquivo	:= oExcel:Gravar(cLocal = GetTempPath(), lAbrir = .F.)	//Não abrir arquivo
 	ConOut(cArquivo)
-	oExcel	:= YExcel():New()
+	oExcel	:= custom.excel.Xlsx():New()
 	oExcel:OpenRead(cArquivo)
 	For nLinha	:= 1 to oExcel:adimension[1][1]
 		For nColuna	:= 1 to oExcel:adimension[1][2]
@@ -489,7 +487,7 @@ User Function YTstRW()
 	Local nCont As Numeric
 	Local nCont2 As Numeric
 	Local xValor As Variant
-	Local oExcel := YExcel():New(cFileOpen = GetTempPath()+"TstYExcel.xlsx") As Object
+	Local oExcel := custom.excel.Xlsx():New(cFileOpen = GetTempPath()+"TstYExcel.xlsx") As Object
 	Local nStart := Seconds() As Numeric
 	Local nElapsed As Numeric
 	ConOut(TIME())
@@ -540,7 +538,7 @@ Teste minimo de gravação de planilha (Ola Mundo)
 @since 04/07/2026
 /*/
 User Function ytstOlaMundo()
-	Local oExcel := YExcel():New() As Object
+	Local oExcel := custom.excel.Xlsx():New() As Object
 	oExcel:ADDPlan() //Cria Planinha
 	oExcel:Pos(1,1):SetValue("Olá Mundo") //Escreve
 	oExcel:Save()    //Salvar
@@ -562,7 +560,7 @@ User Function yTst2xl4()
 	Local nContL As Numeric
 	Local nContC As Numeric
 	Local xValor As Variant
-	Local oExcel := YExcel():New(cFileOpen = "D:\temp\Saulo.xlsx") As Object
+	Local oExcel := custom.excel.Xlsx():New(cFileOpen = "D:\temp\Saulo.xlsx") As Object
 
 	For nContP:=1 to oExcel:LenPlanAt()	//Ler as Planilhas
 		oExcel:SetPlanAt(nContP)		//Informa qual a planilha atual
@@ -602,7 +600,7 @@ User Function tst2Excel()
 	conout( "YExcel")
 	nStart := Seconds()
 	//tstFwXlsx()
-	//TesteyExcel()
+	//TesteXlsx()
 	//tstBulk()
 	YTstLeitura()
 	//tstBulk2()
@@ -624,11 +622,11 @@ Teste de geração de planilha célula a célula, sem uso de bulk
 @author Saulo Gomes Martins
 @since 04/07/2026
 /*/
-Static Function TesteyExcel()
+Static Function TesteXlsx()
 	Local nCont As Numeric
 	Local nCont2 As Numeric
 	Local cSubTotais As Character
-	Local oExcel := YExcel():New(cNomeFile = "Pasta1", cTipo = "A") As Object
+	Local oExcel := custom.excel.Xlsx():New(cNomeFile = "Pasta1", cTipo = "A") As Object
 	Local nPosBorda2 := oExcel:Borda("ALL") As Numeric
 	Local nPosBordas := oExcel:AddStyles(nborderId = nPosBorda2) As Numeric
 	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
@@ -659,7 +657,7 @@ Static Function tstBulk()
 	Local nCont As Numeric
 	Local nCont2 As Numeric
 	Local cSubTotais As Character
-	Local oExcel := YExcel():New(cNomeFile = "Pasta1", cTipo = "B") As Object
+	Local oExcel := custom.excel.Xlsx():New(cNomeFile = "Pasta1", cTipo = "B") As Object
 	Local nPosBorda2 := oExcel:Borda("ALL") As Numeric
 	//Local nPosCorI		:= oExcel:CorPreenc("FFB8CCE4")	//Cor de Fundo Azul impa
 	Local nPosBordas := oExcel:NewStyle():Setborder(nPosBorda2) As Object
@@ -730,7 +728,7 @@ Static Function tstBulk2()
 	Local nCont As Numeric
 	Local nCont2 As Numeric
 	Local cSubTotais As Character
-	Local oExcel := YExcel():New(cNomeFile = "Pasta1", cTipo = "A") As Object
+	Local oExcel := custom.excel.Xlsx():New(cNomeFile = "Pasta1", cTipo = "A") As Object
 	Local aCampos := {} As Array
 	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
 	// oExcel:SetDefRow(.F.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
@@ -806,7 +804,7 @@ Static Function YTstLeitura()
 	Local nStart := Seconds() As Numeric
 	Local nElapsed As Numeric
 
-	oExcel	:= YExcel():New(cFileOpen = "c:\temp\Pasta1.xlsx")
+	oExcel	:= custom.excel.Xlsx():New(cFileOpen = "c:\temp\Pasta1.xlsx")
 	nElapsed	:= Seconds() - nStart
 	conout( "Carregar xlsx: " + LTrim( Str( nElapsed ) ) + " segundos" )
 
@@ -840,7 +838,7 @@ Teste de performance de mesclagem/formatação condicional em planilha pequena
 @since 04/07/2026
 /*/
 User Function TstMerge()
-	Local oExcel := YExcel():New("Pasta1") As Object
+	Local oExcel := custom.excel.Xlsx():New("Pasta1") As Object
 	Local nPosBorda2 := oExcel:Borda("ALL") As Numeric
 	Local nPosBordas := oExcel:AddStyles(nborderId = nPosBorda2) As Numeric
 	Local nCont As Numeric
@@ -898,7 +896,7 @@ Teste de edição de uma planilha ja existente
 @since 04/07/2026
 /*/
 User Function TstEdit()
-	Local oExcel := YExcel():New(cFileOpen = "C:\Temp\TESTE.xlsx") As Object
+	Local oExcel := custom.excel.Xlsx():New(cFileOpen = "C:\Temp\TESTE.xlsx") As Object
 	oExcel:Pos(10,3):SetValue("TESTE")
 	oExcel:Pos(11,3):SetValue("12/08/2022")
 	oExcel:Save(GetTempPath())
@@ -914,7 +912,7 @@ Teste de geração de planilha inteiramente em memoria
 @since 04/07/2026
 /*/
 User Function tstMemoria()
-	Local oExcel := YExcel():New(cTipo = "M") As Object  //Inicia em memoria
+	Local oExcel := custom.excel.Xlsx():New(cTipo = "M") As Object  //Inicia em memoria
 	Local nCont As Numeric
 	oExcel:ADDPlan() //Cria Planinha
 	oExcel:AddTamCol(nMin = 1, nMax = 2, nWidth = 15.00)
@@ -939,7 +937,7 @@ Teste de ocultação de coluna
 @since 04/07/2026
 /*/
 User Function tst3Excel()
-	Local oExcel := YExcel():New("NomeArquivo") As Object
+	Local oExcel := custom.excel.Xlsx():New("NomeArquivo") As Object
 	oExcel:ADDPlan()
 	oExcel:Pos(1,1):SetValue("Olá Mundo")
 	oExcel:ColHidden(3)	//Ocultar a coluna C
