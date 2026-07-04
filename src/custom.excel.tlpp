@@ -150,6 +150,7 @@ Class Xlsx
 	Public METHOD OpenApp()			//Abre arquivo gravado
 	Public METHOD Save()			//Salva xlsx
 	Public METHOD Close()			//fecha arquivo aberto e limpa temporario
+	Public METHOD Destroy()			//fecha arquivo aberto e limpa temporario
 	Public METHOD SetPlanName()		//Altera o nome da planilha
 	Public METHOD SetPlanAt()		//Informa qual planilha está em edição
 	Public METHOD GetPlanAt()		//Retorna qual planilha está em edição
@@ -276,9 +277,10 @@ Class Xlsx
 	Public METHOD gradientFill()	//Cria objeto de efeito de preenchimento
 	Public METHOD ADDdxf()			//Cria o estilo para formatação condicional
 
-	//Imagem
+	//Imagem/Gráfico
 	Public METHOD ADDImg()			//Adiciona uma Imagem
 	Public METHOD Img()			//Usa imagem
+	Public Method NewChart()	//Cria objeto de gráfico (classes no fonte custom.excel.chart.tlpp)
 
 	//Inicializar TXmlManager
 	Public METHOD new_content_types()
@@ -1760,6 +1762,34 @@ METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric,
 	AADD(::aImgdraw,Len(::aImgdraw)+1)
 
 Return
+
+/*/{Protheus.doc} NewChart
+Cria um objeto de gráfico vinculado a este Excel (classes do fonte custom.excel.chart.tlpp)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cTipo, characters, Tipo do gráfico: col=colunas, bar=barras, line=linhas, pie=pizza, scatter=dispersão
+@return object, Instância do gráfico (custom.excel.chart)
+@type method
+@see custom.excel.chart.Chart
+/*/
+METHOD NewChart(cTipo As Character) Class Xlsx
+	Local oChart As Object
+	PARAMTYPE 0	VAR cTipo		AS CHARACTER	OPTIONAL DEFAULT "col"
+	cTipo	:= AllTrim(cTipo)
+	If cTipo=="col" .or. cTipo=="bar"
+		oChart	:= custom.excel.chart.ChartBar():New(self)
+		oChart:SetDirecao(cTipo)
+	ElseIf cTipo=="line"
+		oChart	:= custom.excel.chart.ChartLine():New(self)
+	ElseIf cTipo=="pie"
+		oChart	:= custom.excel.chart.ChartPie():New(self)
+	ElseIf cTipo=="scatter"
+		oChart	:= custom.excel.chart.ChartScatter():New(self)
+	Else
+		UserException("Xlsx - Tipo de gráfico inválido ("+cTipo+"). Usar: col,bar,line,pie,scatter")
+	Endif
+Return oChart
 
 /*/{Protheus.doc} Cell
 Grava o conteudo de uma célula
@@ -6176,6 +6206,17 @@ Method Close() Class Xlsx
 	FwFreeArray(::aDadosBulk)
 	FwFreeArray(::aBulkValor)
 Return
+
+/*/{Protheus.doc} Xlsx::Destroy
+Fecha o processamento, libera os objetos internos e remove os arquivos e tabelas temporarias criadas no servidor
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+Method Destroy() Class Xlsx
+	
+Return ::Close()
 
 /*/{Protheus.doc} Save
 Grava o excel processado

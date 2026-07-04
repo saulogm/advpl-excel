@@ -1,0 +1,118 @@
+#include "tlpp-core.th"
+#include "protheus.ch"
+Namespace custom.excel.teste
+/*/{Protheus.doc} tstGrafico
+Teste dos gráficos da classe custom.excel.chart
+Gera uma planilha com dados de exemplo e os 4 tipos principais de gráfico:
+Barras/Colunas, Linhas, Pizza e Dispersão
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type function
+@see custom.excel.chart.Chart
+/*/
+User Function tstGrafico()
+	Local oExcel As Object
+	Local oGraf As Object
+	Local oSerie As Object
+	Local nCont As Numeric
+	Local aMeses As Array
+	Local aSudeste As Array
+	Local aSul As Array
+	Local aNordeste As Array
+	Local aTemp As Array
+	Local aSorvete As Array
+
+	RpcSetEnv("99","01")	//Ajustar empresa/filial do ambiente
+
+	//Dados de exemplo - vendas por região
+	aMeses		:= {"Jan","Fev","Mar","Abr","Mai","Jun"}
+	aSudeste	:= {100,120,90,140,160,150}
+	aSul		:= {80,70,95,85,110,105}
+	aNordeste	:= {60,75,70,90,95,120}
+	//Dados de exemplo - dispersão (temperatura x venda de sorvete)
+	aTemp		:= {18,20,22,24,26,28,30,32,34,36}
+	aSorvete	:= {12,15,20,26,30,38,45,50,58,65}
+
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGrafico", cTipo = "A")
+	oExcel:ADDPlan(cNome = "Dados")
+
+	//Preenchimento com Pos():SetValue(), linhas e colunas sempre em ordem sequencial
+	//Linha 1 - cabeçalhos das duas tabelas (A1:D1 e F1:G1)
+	oExcel:Pos(1,1):SetValue("Mês")
+	oExcel:Pos(1,2):SetValue("Sudeste")
+	oExcel:Pos(1,3):SetValue("Sul")
+	oExcel:Pos(1,4):SetValue("Nordeste")
+	oExcel:Pos(1,6):SetValue("Temperatura")
+	oExcel:Pos(1,7):SetValue("Sorvetes")
+	//Linhas 2 a 11 - vendas por região (A2:D7) e dispersão (F2:G11)
+	For nCont:=1 to Len(aTemp)
+		If nCont<=Len(aMeses)
+			oExcel:Pos(nCont+1,1):SetValue(aMeses[nCont])
+			oExcel:Pos(nCont+1,2):SetValue(aSudeste[nCont])
+			oExcel:Pos(nCont+1,3):SetValue(aSul[nCont])
+			oExcel:Pos(nCont+1,4):SetValue(aNordeste[nCont])
+		Endif
+		oExcel:Pos(nCont+1,6):SetValue(aTemp[nCont])
+		oExcel:Pos(nCont+1,7):SetValue(aSorvete[nCont])
+	Next
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE COLUNAS AGRUPADAS
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("col")
+	oGraf:SetTitulo("Vendas por Região - Colunas")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste	, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSul		, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7", aVal = aNordeste, aCat = aMeses)
+	oGraf:Insert(nLinha = 1, nColuna = 9, nLinha2 = 16, nColuna2 = 17)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE BARRAS HORIZONTAIS EMPILHADAS
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("bar")
+	oGraf:SetAgrupamento("stacked")
+	oGraf:SetTitulo("Vendas por Região - Empilhado")
+	oGraf:SetLegenda(lExibir = .T., cPosicao = "b")	//Legenda no rodapé
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", cCor = "FF4F81BD")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", cCor = "FFC0504D")
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7", cCor = "FF9BBB59")
+	oGraf:Insert(nLinha = 18, nColuna = 9, nLinha2 = 33, nColuna2 = 17)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE LINHAS COM MARCADORES
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("line")
+	oGraf:SetTitulo("Evolução Mensal - Linhas")
+	oGraf:SetMarcador(.T.)
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
+	oSerie	:= oGraf:AddSerie(cNome = "Nordeste", cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7")
+	oSerie:SetSuavizar(.T.)	//Apenas esta série com linha suavizada
+	oGraf:Insert(nLinha = 1, nColuna = 19, nLinha2 = 16, nColuna2 = 27)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE PIZZA COM RÓTULOS
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("pie")
+	oGraf:SetTitulo("Participação Mensal - Sudeste")
+	oGraf:SetRotulos(lExibir = .T., lPercentual = .T., lCategoria = .F.)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:Insert(nLinha = 18, nColuna = 19, nLinha2 = 33, nColuna2 = 27)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE DISPERSÃO (instância direta da classe)
+	//----------------------------------------------------------------------
+	oGraf	:= custom.excel.chart.ChartScatter():New(oExcel)
+	oGraf:SetEstilo("marker")	//Somente pontos
+	oGraf:SetTitulo("Temperatura x Venda de Sorvetes")
+	oGraf:SetLegenda(lExibir = .F.)
+	oSerie	:= oGraf:AddSerie(cNome = "Sorvetes")
+	oSerie:SetXY(cRefX = "Dados!$F$2:$F$11", cRefY = "Dados!$G$2:$G$11", aX = aTemp, aY = aSorvete)
+	oGraf:Insert(nLinha = 35, nColuna = 9, nLinha2 = 50, nColuna2 = 17)
+
+	//Gera o arquivo, abre no aplicativo e libera os objetos
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp()
+	oExcel:Destroy()
+Return
