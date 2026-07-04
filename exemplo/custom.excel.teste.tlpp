@@ -1,0 +1,962 @@
+#include "tlpp-core.th"
+#include "protheus.ch"
+Namespace custom.excel.teste
+/*/{Protheus.doc} tstyexcel
+Teste da classe YExcel
+@author Saulo Gomes Martins
+@since 08/05/2017
+@version 2.0
+@type function
+@obs para LEITURA/EDIÇÃO ver função YTstRW no fim do fonte
+/*/
+User Function tstyexcel()
+	Local oExcel As Object
+	Local oAlinhamento As Object
+	Local oQuebraTxt As Object
+	Local o45Graus As Object
+	Local oAliRecuoE As Object
+	Local oAliRecuoD As Object
+	Local oSemBloq As Object
+	Local oOculForm As Object
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local nStyle1 As Numeric
+	Local nPosCor As Numeric
+	Local nPosCorI As Numeric
+	Local nPosCorP As Numeric
+	Local nPosCor3 As Numeric
+	Local nPosCorEfe As Numeric
+	Local nPosCorEf2 As Numeric
+	Local nPosBorda As Numeric
+	Local nBordaAll As Numeric
+	Local nPosFont1 As Numeric
+	Local nPosFont2 As Numeric
+	Local nPosFont3 As Numeric
+	Local nPosFont4 As Numeric
+	Local nPosFont5 As Numeric
+	Local nFmtNum3 As Numeric
+	Local oPosStyle As Object
+	Local oPos3Dec As Object
+	Local oPosMoeda As Object
+	Local oPosM45G As Object
+	Local oPosMoeda2 As Object
+	Local oPosQuebra As Object
+	Local oPosBorVerm As Object
+	Local oPosFonts As Object
+	Local oPosCAB As Object
+	Local oPosEfe As Object
+	Local oPosEfe2 As Object
+	Local oEstilo1 As Object
+	Local oRegEst1 As Object
+	Local oSubTotal As Object
+	Local oProtecao1 As Object
+	Local oProtecao2 As Object
+	Local nIdImg As Numeric
+	Local oFont As Object
+	Local oCorPre As Object
+	Local oCorPre2 As Object
+	Local oCorPre3 As Object
+	Local oBorda As Object
+	Local nPosVerm As Numeric
+	Local nPosVerd As Numeric
+	Local nPosAmar As Numeric
+	Local oTabela As Object
+	Local nTotalVenda As Numeric
+	Local nVenda As Numeric
+	Local lSubTotal := .F. As Logical
+	Local oStyleLink As Object
+	Local oRecuoE As Object
+	Local oRecuoD As Object
+	Local oRegraLinha As Object
+	Local jCab As Json
+	Local aOnlyFieds As Array
+	Local lSx3 As Logical
+	Local lExibirCab As Logical
+	Local lCombo As Logical
+	Local cAlias As Character
+	Local nStart As Numeric
+
+	// RpcSetEnv("T1","M SP 01")
+	//RpcSetEnv("01","010101")
+	RpcSetEnv("99","01")
+	nStart := Seconds()
+	oExcel	:= YExcel():New(cNomeFile = "TstYExcel", cTipo = "A")
+	// oExcel	:= YExcel():New(cFileOpen = "C:\temp\novo.xlsx")
+	// oExcel	:= YExcel():New(,)
+
+	//Definição de Cor Transparecia+RGB
+	nPosCor			:= oExcel:CorPreenc("FF0000FF")	//Cor de Fundo Azul
+	nPosCorI		:= oExcel:CorPreenc("FFB8CCE4")	//Cor de Fundo Azul impa
+	nPosCorP		:= oExcel:CorPreenc("FFDCE6F1")	//Cor de Fundo Azul par
+	nPosCor3		:= oExcel:CorPreenc("FF4F81BD")	//Cor de Fundo Azul Escuro
+	nPosCorEfe		:= oExcel:EfeitoPreenc(nAngulo = 90, aCores = {{"FFFFFF",0},{"0072C4",1}})	//Efeito linear
+	nPosCorEf2		:= oExcel:EfeitoPreenc(aCores = {{"FFFFFF",0},{"0072C4",1}}, ctype = "path", nleft = 0.2, nright = 0.8, ntop = 0.2, nbottom = 0.8)	//Efeito do centro
+
+	oAlinhamento	:= oExcel:Alinhamento(cHorizontal = "center", cVertical = "center")
+	oQuebraTxt		:= oExcel:Alinhamento(cHorizontal = "center", cVertical = "center", lQuebraTexto = .T.)
+	o45Graus		:= oExcel:Alinhamento(ntextRotation = 45)
+	oAliRecuoE		:= oExcel:Alinhamento(cHorizontal = "left", nRecuo = 2)			//Recuo esquerdo
+	oAliRecuoD		:= oExcel:Alinhamento(cHorizontal = "right", nRecuo = 2)		//Recuo direito
+	oSemBloq		:= oExcel:Cellprotection(.F.)		//Célula não Bloqueada
+	oOculForm		:= oExcel:Cellprotection(lhidden = .T.)		//Célula Oculta formulas
+	nPosBorda		:= oExcel:Borda(cTipo = "ALL", cCor = "FFFF0000", cModelo = "thick")
+	nBordaAll		:= oExcel:Borda("ALL")
+
+	nPosFont1		:= oExcel:AddFont(nTamanho = 20, xCorRGB = "FFFFFFFF", cNome = "Arial", cfamily = "2")
+	nPosFont2		:= oExcel:AddFont(nTamanho = 20, xCorRGB = 56, cNome = "Calibri", cfamily = "2", lNegrito = .T., lItalico = .T., lSublinhado = .T., lTachado = .T.)
+	nPosFont3		:= oExcel:AddFont(nTamanho = 11, xCorRGB = "FFFFFFFF", cNome = "Calibri", cfamily = "2")
+	nPosFont4		:= oExcel:AddFont(nTamanho = 11, xCorRGB = "FFFF0000", cNome = "Calibri", cfamily = "2")
+	nPosFont5		:= oExcel:AddFont(nTamanho = 11, xCorRGB = "FF0000FF", cNome = "Calibri", cfamily = "2", lSublinhado = .T.)
+
+	nFmtNum3		:= oExcel:AddFmtNum(nDecimal = 3, lMilhar = .T., cNegINI = "(", cNegFim = ")", cCorNeg = "Red")
+
+	//oExcel:NewStyle(id Estilo para herdar):SetnumFmt(id FmtNum):Setfont(id da fonte):Setfill(id fundo):Setborder(id borda):SetaValores(Array alinhamentos)
+	oPosStyle	:= oExcel:NewStyle():Setfont(nPosFont1):Setfill(nPosCor):Setborder():SetaValores({oAlinhamento})
+	oPos3Dec	:= oExcel:NewStyle():SetnumFmt(nFmtNum3)
+	oPosMoeda	:= oExcel:NewStyle():SetnumFmt(44)
+	oPosM45G	:= oExcel:NewStyle(oPosMoeda):SetaValores({o45Graus})
+	oPosMoeda2	:= oExcel:NewStyle(oPosMoeda):Setborder(nBordaAll)
+	oPosQuebra	:= oExcel:NewStyle():SetaValores({oQuebraTxt})
+	oPosBorVerm	:= oExcel:NewStyle():SetaValores({oQuebraTxt}):Setborder(nPosBorda)
+	oPosFonts	:= oExcel:NewStyle():Setfont(nPosFont2)
+	oStyleLink	:= oExcel:NewStyle():Setfont(nPosFont5)
+
+	oPosCAB		:= oExcel:NewStyle():SetFont(nPosFont3):Setfill(nPosCor3)
+
+	oPosEfe		:= oExcel:NewStyle():Setfill(nPosCorEfe)
+	oPosEfe2	:= oExcel:NewStyle():Setfill(nPosCorEf2)
+
+	oEstilo1	:= oExcel:NewStyle():Setborder(nBordaAll)	//Estilo com bordas
+
+	oRecuoE		:= oExcel:NewStyle():SetaValores({oAliRecuoE})
+	oRecuoD		:= oExcel:NewStyle():SetaValores({oAliRecuoD})
+
+	oSubTotal	:= oExcel:NewStyle(oEstilo1):Setfill(nPosCor3):SetFont(nPosFont3)
+
+	oProtecao1	:= oExcel:NewStyle():SetaValores({oSemBloq})
+	oProtecao2	:= oExcel:NewStyle():SetaValores({oOculForm})
+
+	//REGRAS DE ESTILO - EXEMPLOS DE REGRAS POSSIVEIS
+	// oStyRule := oExcel:NewStyRules()
+	// bBloco	:= {|nLinha,nColuna,oExcel| Logico }
+	// oStyRule:AddStyle(bRule = bBloco, xStyle = Estilo)		//Cria regra para definir o estilo
+	// oStyRule:AddnumFmt(bRule = bBloco, nFmtNum = idFmtNum)	//Cria regra para definir formato
+	// oStyRule:AddFont(bRule = bBloco, fontId = idFont)		//Cria regra para definir a fonte
+	// oStyRule:Addfill(bBloco,idFill)		//Cria regra para definir o preenchimento de fundo
+	// oStyRule:Addborder(bBloco,idBorder)	//Cria regra para definir a borda
+	// oStyRule:AddValores(bBloco,aValores)	//Cria regra para alinamentos
+
+	//Criar Agrupamento de estilo
+	oRegEst1 := oExcel:NewStyRules()
+	oRegEst1:AddStyle(bRule = {|nLin,nCol,oObjExcel| lSubTotal    }, xStyle = oExcel:NewStyle(oEstilo1):Setfill(nPosCor3):SetFont(nPosFont3) )	//Linhas SubTotais
+	oRegEst1:AddStyle(bRule = {|nLin,nCol,oObjExcel| nLin % 2 ==1 }, xStyle = oExcel:NewStyle(oEstilo1):Setfill(nPosCorI) )	//Linhas ímpar aplica estilo herdados com borda e fundo azul
+	oRegEst1:AddStyle(bRule = {|nLin,nCol,oObjExcel| nLin % 2 ==0 }, xStyle = oExcel:NewStyle(oEstilo1):Setfill(nPosCorP) )	//Linhas pares aplica estilo herdados com borda e fundo azul2
+	oRegEst1:AddnumFmt(bRule = {|nLin,nCol,oObjExcel| nCol==3	  }, nFmtNum = 44 )											//Se coluna B irá definir formato da célula moeda
+	oRegEst1:AddnumFmt(bRule = {|nLin,nCol,oObjExcel| nCol==4	  }, nFmtNum = nFmtNum3 )										//Se coluna C irá definir formato da célula numero com 3 casas decimais
+	oRegEst1:AddFont(bRule = {|nLin,nCol,oObjExcel| nCol==4	 	 }, fontId = nPosFont4 )										//Se coluna C irá definir fonte vermelha
+
+
+	//===================PRIMEIRA PLANILHA====================================
+	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
+	oExcel:SetdefaultRowHeight(12.75)	//Defini altura padrão das linhas não informadas
+	// //Defini o tamanho das colunas
+	//Primeira_coluna,Ultima_coluna,Largura,AjusteNumero,customWidth
+	oExcel:AddTamCol(nMin = 1, nMax = 1, nWidth = 15.00)
+	oExcel:AddTamCol(nMin = 2, nMax = 2, nWidth = 20.00)
+	oExcel:AddTamCol(nMin = 3, nMax = 5, nWidth = 15.00)
+	oExcel:AddTamCol(nMin = 5, nMax = 6, nWidth = 20.00)
+	oExcel:ColHidden(6)
+
+	//Cadastra imagem
+	If File("\Star_Wars_Logo.png")
+		nIDImg		:= oExcel:ADDImg("\Star_Wars_Logo.png")	//Imagem no Protheus_data
+		oExcel:Img(nID = nIDImg, nLinha = 7, nColuna = 7, nX = 200, nY = 121)	//Usa imagem cadastrada
+	EndIf
+	//Para alterações deve primeiro posicionar na Celula pelo Pos(linha,coluna) ou PosR(referencia)
+	//For nCont:=1 to 2	//Até linha 2
+	//	For nCont2:=1 to 6	//Até Coluna 6
+	//		oExcel:Pos(nCont,nCont2):SetValue("TESTE EXCEL"):SetStyle(oPosStyle)
+	//	Next
+	//Next
+	oExcel:Pos(1,1):SetValue("TESTE EXCEL"):SetStyle(oPosStyle)
+	oExcel:mergeCells(nLinha = 1, nColuna = 1, nLinha2 = 2, nColuna2 = 6)											//Mescla as células A1:F2
+	//Textos
+	oExcel:Pos(3,1):SetValue("Olá Mundo!"):SetStyle(oPosBorVerm)						//Texto simples
+	oExcel:Pos(3,2):SetValue("Texto grande para quebra em linhas"):SetStyle(oPosQuebra)	//Texto grande
+	oExcel:Pos(3,3):SetValue("Negrito,Italico,Sublinhado,Tachado"):SetStyle(oPosFonts)	//Formatando letra
+	oExcel:Pos(3,4):SetValue("Texto 45º"):SetStyle(oPosM45G)				//Texto com rotação de 45 graus
+	oExcel:SetRowH(nHeight = 30.75, nLinha = 3)	//Defini o tamanho da linha 3
+	//Numeros
+	oExcel:Pos(5,1):SetValue(100):SetStyle(oPos3Dec)				//Numero
+	oExcel:Pos(5,2):SetValue(-100.2):SetStyle(oPos3Dec)				//Numero negativo
+	oExcel:Pos(5,3):SetValue(1000):SetStyle(oPosMoeda)				//Campo Numerico formato moeda
+	oExcel:AddNome(cNome = "VALOR1", nLinha = 5, nColuna = 1)									//Defini nome da referencia de célula
+	oExcel:AddNome(cNome = "VALORES", nLinha = 5, nColuna = 1, nLinha2 = 5, nColuna2 = 3)								//Defini o nome do intervalo
+	oExcel:Pos(6,1):SetValue(xValor = 2, cFormula = "1+1")								//Formula simples
+	oExcel:Pos(6,2):SetValue(xValor = 102, cFormula = "VALOR1+A6")						//Formula com células
+	oExcel:Pos(6,3):SetValue(xValor = 999.8, cFormula = "SUM(VALORES)")					//Formula com funções
+	oExcel:Pos(6,4):SetValue(xValor = 1099.8, cFormula = oExcel:Ref(5,1)+"+"+oExcel:Ref(6,3))	//Usando metodo Ref para localizar posição da celula
+	//Datas
+	oExcel:Pos(8,1):SetValue(date())								//Data
+	oExcel:Pos(8,2):SetDateTime(dDate = date(), cTime = time())						//Date time
+	oExcel:Pos(8,3):SetValue(date()):SetStyle(oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("[$-pt-BR]mmm-aaa;@")))	//Data formato mes-ano
+	oExcel:Pos(8,4):SetDateTime(dDate = CTOD(""), cTime = "00:00:01"):SetStyle(oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("hh:mm:ss;@")))								//Date time
+	oExcel:Pos(8,5):SetValue(oExcel:GetDateTime(dData = date(), cTime = time())+10)	//DateTime + 10 dias
+
+	//Logicos
+	oExcel:Pos(10,1):SetValue(.T.):SetStyle(oPosEfe)				//C5	Campo Logico
+	oExcel:Pos(10,2):SetValue(.F.):SetStyle(oPosEfe2)				//C6	Campo Logico falso
+
+	oExcel:Pos(12,1):SetValue("FORMATAÇÃO CONDICIONAL")
+	oExcel:mergeCells(nLinha = 12, nColuna = 1, nLinha2 = 12, nColuna2 = 3)
+	oExcel:SetRowH(nHeight = 20, nLinha = 13, nLinha2 = 18)	//Altera a linha 13-18
+	oExcel:Pos(13,1):SetValue(-10)
+	oExcel:Pos(14,1):SetValue(0)
+	oExcel:Pos(15,1):SetValue(5)
+	oExcel:Pos(16,1):SetValue(10)
+	oExcel:Pos(17,1):SetValue(20)
+	oExcel:Pos(18,1):SetValue(25)
+
+	//Adiciona Link
+	oExcel:PosR("A20"):SetValue("Link Planilha Teste"):Addhyperlink(cLocation = "Teste!A1", ctooltip = "Ir para teste"):SetStyle(oStyleLink)
+
+	oExcel:PosR("B21"):AddComment(cText = "se não tem nada de bom a dizer não diga nada", cAutor = "Desconhecido")
+	oExcel:PosR("B21"):AddComment()	//Deleta o comentario
+	oExcel:PosR("B22"):AddComment(cText = "Que a Força esteja com você!", cAutor = "Mestre Jedi")
+
+	oExcel:Pos(24,1):SetValue("Texto com recuo esquerdo"):SetStyle(oRecuoE)
+	oExcel:Pos(24,5):SetValue("Texto com recuo direito"):SetStyle(oRecuoD)
+	oExcel:mergeCells(nLinha = 24, nColuna = 5, nLinha2 = 24, nColuna2 = 6)
+
+	//Proteção em planilha
+	oExcel:Pos(25,1):SetValue("Senha 123"):SetStyle(oProtecao1)	//Permitir editar essa célula
+	oExcel:Pos(25,2):SetValue(xValor = 30, cFormula = "15+15"):SetStyle(oProtecao2)	//Ocultar formula
+	oExcel:SetsheetProtection("123")
+
+	nStyle1	:= oExcel:GetStyle(nLinha = 5, nColuna = 3)		//Pega estilo da primeira celula
+
+	//FORMATAÇÃO CONDICIONAL
+	//Cria objetos para ser usado na formatação
+	oFont	:= oExcel:Font(nTamanho = 12, cCorRGB = "FFFFFF", cNome = "Calibri", cfamily = "2", lNegrito = .T., lItalico = .F., lSublinhado = .F., lTachado = .F.)	//Cor Branca Negrito
+	oCorPre	:= oExcel:Preenc("FF0000")									//Fundo Vermelho
+	oCorPre2:= oExcel:Preenc("00FF00")									//Fundo Verde
+	oCorPre3:= oExcel:Preenc("FFFF00")									//Fundo Amarelo
+	oBorda	:= oExcel:ObjBorda(cTipo = "ALL", cCor = "000000")							//Borda Preta
+	//Cria o Estilo			oFont,oCorPreenc,oBorda
+	nPosVerm	:= oExcel:ADDdxf(aFont = oFont, aCorPreenc = oCorPre, aBorda = oBorda)
+	nPosVerd	:= oExcel:ADDdxf(aFont = oFont, aCorPreenc = oCorPre2, aBorda = oBorda)
+	nPosAmar	:= oExcel:ADDdxf(aCorPreenc = oCorPre3, aBorda = oBorda)
+	//OBS: Os estilos são criados para worksheet do arquivo, podendo ser usado em outras planilhas(abas)
+
+	//Cria as regras	cRefDe,cRefAte,nEstilo,operator,xFormula
+	oExcel:FormatCond(cRefDe = oExcel:Ref(13,1), cRefAte = oExcel:Ref(18,1), nEstilo = nPosVerm, cOperator = "<", xFormula = 0)				//Numero negativo em vermelho
+	oExcel:FormatCond(cRefDe = oExcel:Ref(13,1), cRefAte = oExcel:Ref(18,1), nEstilo = nPosVerd, cOperator = "between", xFormula = {10,20})	//Entre 10 e 20
+	oExcel:FormatCond(cRefDe = oExcel:Ref(13,1), cRefAte = oExcel:Ref(18,1), nEstilo = nPosAmar, cOperator = "=", xFormula = "0")			//igual a zero
+
+
+	oExcel:SetHeader(cLeft = "&A", cCenter = "A&KFF0000B&K0070C0C&K01+000D&K07+037E", cRight = "&D"+CHR(10)+"&T")		//Configura Cabeçalho
+	oExcel:SetFooter(cLeft = "&18A&36B", cCenter = "&BTeste Excel", cRight = "Pág &P/&N")		//Configura Rodapé
+
+	//===================SEGUNDA PLANILHA====================================
+	oExcel:ADDPlan(cNome = "Teste", cCor = "00AA00")		//Adiciona nova planilha
+	oExcel:SetPlanAt(2)			//Apenas teste o metodo
+	oExcel:SetPlanAt("Teste")	//Apenas teste o metodo
+	oExcel:SetPagOrientation("portrait")	//default|landscape|portrait
+	//oExcel:SetPrintArea(nLinha = 1, nColuna = 1, nLinha2 = 5, nColuna2 = 20)	//Define área de impressão
+	oExcel:AddTamCol(nMin = 1, nMax = 2, nWidth = 12.00)
+	oExcel:AddTamCol(nMin = 3, nMax = 3, nWidth = 20.00)
+	oExcel:AddTamCol(nMin = 4, nMax = 4, nWidth = 12.00)
+	oExcel:AddTamCol(nMin = 5, nMax = 6, nWidth = 18.00)
+	oExcel:SetsumRight(.F.)				//Defini que o agrupamento vai ser na esquerda
+	oExcel:SetColLevel(nMin = 4, nMax = 5, nNivel = 1, lFechado = .T.)		//Agrupa coluna 4 e 5 fechado
+	If File("\Star_Wars_Logo.png")
+		oExcel:Img(nID = nIDImg, nLinha = 2, nColuna = 6, nX = 121, nY = 200, nRot = 270)	//Usa imagem com rotação de 270
+	EndIf
+
+	oExcel:Pos(1,1):SetValue("Linha"):SetStyle(oPosCAB)
+	oExcel:Pos(1,2):SetValue("Filial"):SetStyle(oPosCAB)
+	oExcel:Pos(1,3):SetValue("Venda"):SetStyle(oPosCAB)
+	oExcel:Pos(1,4):SetValue("Numero"):SetStyle(oPosCAB)
+	oExcel:Pos(1,5):SetValue("Data Venda"):SetStyle(oPosCAB)
+	nCont2	:= 1
+	For nCont:=2 to 110
+		oExcel:NivelLinha(nNivel = 2, lOculto = If(nCont2==1,.F.,.T.))	//NivelLinha(nNivel,lFechado,lOculto)	PROXIMAS LINHAS A SER CRIADO COM NÍVEL 2
+		oExcel:Pos(nCont,1):SetValue(nCont):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,2):SetValue("Filial "+cValToChar(nCont2)):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,3):SetValue(Randomize(1,100)):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,4):SetValue(Randomize(1,100)*(1+(Randomize(0,200)/100))):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,5):SetValue(date()+nCont):SetStyle(oRegEst1)
+		If nCont % 10 ==0
+			lSubTotal	:= .T.
+			oExcel:AddNome(cNome = "VENDA"+cValToChar(nCont2), nLinha = nCont-8, nColuna = 3, nLinha2 = nCont, nColuna2 = 3)
+			nCont++
+			oExcel:NivelLinha(nNivel = nil, lFechado = If(nCont2==1,.F.,.T.))
+			oExcel:Pos(nCont,1):SetValue("Sub Total Filial"):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,2):SetValue(cValToChar(nCont2)):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,3):SetValue(xValor = 0, cFormula = "SUBTOTAL(9,VENDA"+cValToChar(nCont2)+")"):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,4):SetValue(""):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,5):SetValue(""):SetStyle(oRegEst1)
+			nCont2++
+		EndIf
+		lSubTotal	:= .F.
+	Next
+	oExcel:NivelLinha()
+	lSubTotal	:= .T.
+	oExcel:Pos(nCont,1):SetValue("Total Geral"):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,2):SetValue(""):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,3):SetValue(xValor = 0, cFormula = 'SUMIF(A2:'+oExcel:Ref(nCont-1,1)+',"Sub Total Filial",C2:'+oExcel:Ref(nCont-1,3)+')'):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,4):SetValue(""):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,5):SetValue(""):SetStyle(oRegEst1)
+
+	oExcel:AutoFilter(nLinha = 1, nColuna = 1, nLinha2 = nCont, nColuna2 = 4)	//Auto filtro
+	oExcel:AddPane(nySplit = 1, nxSplit = 1)	//Congela primeira linha e primeira coluna
+
+
+	//===================TERCEIRA PLANILHA====================================
+	//TESTE COM FORMATAR COMO TABELA
+	oExcel:ADDPlan(cNome = "Tabela", cCor = "0000FF")		//Adiciona nova planilha
+
+	oExcel:AddTamCol(nMin = 1, nMax = 2, nWidth = 12.00)
+	oExcel:AddTamCol(nMin = 3, nMax = 3, nWidth = 20.00)
+	oExcel:AddTamCol(nMin = 4, nMax = 4, nWidth = 12.00)
+	oExcel:AddTamCol(nMin = 5, nMax = 6, nWidth = 18.00)
+	oExcel:SetPrintTitles(nLinha = 1, nLinha2 = 1)				//Linha de/ate que irá repetir na impressão de paginas
+	oExcel:showGridLines(.F.)				//Oculta linhas de grade
+	//oExcel:Cell(nLinha = 1, nColuna = 1, xValor = "teste")
+	oTabela	:= oExcel:AddTabela(cNome = "Tabela1", nLinha = 1, nColuna = 1)	//Cria uma tabela de estilos
+	oTabela:AddStyle(cNome = "TableStyleMedium15", lLinhaTiras = .T.)	//Cria os estilos,Cab:Preto|Linha:Cinza,Branco
+	oTabela:AddFilter()				//Adiciona filtros a tabela
+	oTabela:AddColumn("Linha")		//Adiciona coluna Linha
+	oTabela:AddColumn("Filial")		//Adiciona coluna Filial
+	oTabela:AddColumn("Venda")		//Adiciona coluna Venda
+	oTabela:AddColumn("Data Venda")	//Adiciona coluna Data Venda
+
+	nTotalVenda	:= 0	//Valor Total da venda
+	nCont2		:= 1	//Variavel de controle
+	For nCont:=2 to 100
+		oTabela:AddLine()				//Adiciona nova linha
+		//Preenche as células
+		oTabela:Cell(xColuna = "Linha", xValor = nCont)
+		oTabela:Cell(xColuna = "Filial", xValor = "Filial "+cValToChar(nCont2))
+		nVenda		:= Randomize(1,100)
+		nTotalVenda	+= nVenda
+		oTabela:Cell(xColuna = "Venda", xValor = nVenda)
+		oTabela:Cell(xColuna = 4, xValor = date()+nCont)
+		If nCont % 10 ==0
+			nCont2++
+		EndIf
+	Next
+	oTabela:AddTotal(xColuna = "Linha", xValor = "TOTAL", cFunction = "")							//Preenche texto TOTAL na linha totalizadora da coluna Linha
+	oTabela:AddTotal(xColuna = "Filial", xValor = 99, cFunction = "SUBTOTAL(103,Tabela1[Filial])")	//Usa função COUNTA(Contar Valores)
+	oTabela:AddTotal(xColuna = "Venda", xValor = nTotalVenda, cFunction = "SUM")		//Usa função SUM(Somar) para totalizar a coluna venda
+	oTabela:AddTotais()	//Adiciona linha de totais
+	oTabela:Finish()	//Fecha a edição da tabela
+
+	// EXEMPLO PREENCHER COM ALIAS
+	oExcel:ADDPlan(cNome = "SB1", cCor = "E26B0A")		//Adiciona nova planilha
+	SB1->(DBSetOrder(4))	//B1_FILIAL, B1_GRUPO, B1_COD
+	//SB1->(DBSetFilter({|| B1_GRUPO<>'    '},"B1_GRUPO<>'    '"))
+	SB1->(DBSetFilter({|| B1_TIPO='KT'},"B1_TIPO='KT'"))
+	SB1->(DbGoTop())
+	oExcel:Pos(1,1):SetValue("Cadastro de produtos")
+
+	//Definir detalhe dos campos manualmente
+	jCab	:= jSonObject():New()
+		//NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo,lHidden,nTamDados)
+	oExcel:NewFldTab(jCab = jCab, cCampo = "B1_PRV1")
+	jCab["B1_PRV1"]["style"]	:= oPosMoeda	//informar campo moeda
+	oExcel:NewFldTab(jCab = jCab, cCampo = "B1_GRUPO")
+	jCab["B1_GRUPO"]["ordem"]	:= 1			//Alterar ordem para 1
+	oExcel:NewFldTab(jCab = jCab, cCampo = "NEWCAMPO", cDescricao = "Registro", nTamanho = 10, cPicture = "9", cTipo = "N", cDados = "Recno()", lNewCampo = .T.)
+
+	lSx3		:= .T.	//Buscar definições de campo da SX3
+	lExibirCab	:= .T.	//Exibir Cabeçalho da tabela
+	lCombo		:= .T.	//Traduzir campos combobox para a descrição
+	aOnlyFieds	:= {"B1_COD","B1_DESC","B1_TIPO","B1_GRUPO","B1_UM","B1_LOCPAD","B1_PICM","B1_PRV1","B1_RASTRO","B1_UREV"}	//Campos para exibir
+	//Criar SubTotal
+		//DefSubTotal(cChave,lSubTotal,lTotalGeral,lAgrupar,nNivel)
+	oExcel:DefSubTotal(cChave = "B1_GRUPO", lSubTotal = .T., lTotalGeral = .T., lAgrupar = .T., nNivel = 2)
+		//AddSubTotal(cCampo,cFuncao,bFormula,bAdvpl,bAdvplExib,xValorIni)
+	oExcel:AddSubTotal(cCampo = "B1_GRUPO", cFuncao = "last")	//Ultimo conteudo
+	oExcel:AddSubTotal(cCampo = "B1_PRV1", cFuncao = "9")	//Somar
+	oExcel:AddSubTotal(cCampo = "B1_PICM", cFuncao = "1")	//Média
+	oExcel:AddSubTotal(cCampo = "B1_LOCPAD", cFuncao = "formula", bFormula = {|cLinIni,cLinFim,cColuna,cChave,lTotalGeral| "SUBTOTAL(3,"+cColuna+cLinIni+":"+cColuna+cLinFim+")" }, bAdvpl = {|aValAtu,xValor| aValAtu[1]+=1 }, bAdvplExib = {|aValAtu,xValor| cValToChar(aValAtu[1]) }, xValorIni = 0)	//Formula
+	oExcel:AddSubTotal(cCampo = "B1_COD", cFuncao = "formula", bAdvpl = {|aValAtu,xValor,cChave| aValAtu[1]:=cChave }, bAdvplExib = {|aValAtu| If(oExcel:cSubTotalTp=="T","Total Geral","Total do Grupo: "+aValAtu[1]) }, xValorIni = "")	//Exibir texto nos totalizadores
+
+	//Regra para formatação de linha
+	oRegraLinha	:= oExcel:NewRuleLine({|| oExcel:cSubTotalTp })	//Tipo de linha a ser impressa
+	oRegraLinha:AddRegra(cRegra = "S", oStyle = oSubTotal, lPrincipal = .F.)						//Igual a S-SubTotal
+	oRegraLinha:AddRegra(cRegra = "T", oStyle = oSubTotal, lPrincipal = .F.)						//Igual a T-TotalGeral
+	//		Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha,lFiltro)
+	oExcel:Alias2Tab(cAlias = "SB1", oStyle = oPosCAB, lSx3 = lSx3, jCab = jCab, lExibirCab = lExibirCab, aOnlyFieds = aOnlyFieds, xRegraStyle = oRegraLinha, oStyleLinha = oEstilo1)
+
+
+	// EXEMPLO PREENCHER COM QUERY E FORMATO TABELA DO EXCEL
+	cAlias := MpSysOpenQuery("SELECT A1_CGC,A1_COD,A1_LOJA,A1_PESSOA,A1_NOME,A1_DESC,A1_LC,A1_MSALDO,A1_MCOMPRA,A1_ULTCOM,A1_RECCOFI FROM "+RetSqlName("SA1")+" WHERE A1_COD<='000100' AND D_E_L_E_T_=' '")
+	oExcel:ADDPlan(cNome = "SA1", cCor = "1F497D")			//Adiciona nova planilha
+	oTabela	:= oExcel:AddTabela("Tabela2")	//Cria uma tabela de estilos
+	oTabela:AddStyle(cNome = "TableStyleMedium9", lLinhaTiras = .T.)
+	jCab	:= jSonObject():New()	//Definir do cabeçalho
+		//NewFldTab(jCab,cCampo,cDescricao,nTamanho,cPicture,cCombo,xStyle,nOrdem,cTipo,cDados,lNewCampo)
+	oExcel:NewFldTab(jCab = jCab, cCampo = "A1_COD", cDescricao = "Código do Cliente", nTamanho = 10)
+	oExcel:NewFldTab(jCab = jCab, cCampo = "A1_PESSOA", cCombo = "F=Física;J=Jurídica")
+	oExcel:NewFldTab(jCab = jCab, cCampo = "A1_DESC", cPicture = "@E 999,999,999.99")
+	oExcel:NewFldTab(jCab = jCab, cCampo = "A1_MSALDO", xStyle = oPosMoeda)
+
+	//Regra para formatação de linha
+	oRegraLinha	:= oExcel:NewRuleLine({|| oExcel:cCampo+"|"+(cAlias)->A1_RECCOFI })	//Formata apenas 1 coluna da linha
+				//AddRegra(cRegra,oStyle,lPrincipal)
+	oRegraLinha:AddRegra(cRegra = "A1_RECCOFI|S", oStyle = oPosEfe, lPrincipal = .F.)
+	//		Alias2Tab(cAlias,oStyle,lSx3,jCab,lExibirCab,lCombo,aOnlyFieds,aRegraStyle,oStyleLinha)
+	oTabela:Alias2Tab(cAlias = cAlias, lSx3 = .T., jCab = jCab, xRegraStyle = oRegraLinha)
+	oTabela:AddTotal(xColuna = 1, xValor = 0, cFunction = "COUNTA")	//Usa função COUNTA(Contar Valores)
+	oTabela:AddTotais()	//Adiciona linha de totais
+	oTabela:Finish()	//Fecha a edição da tabela
+	(cAlias)->(DbCloseArea())
+
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp()
+	oExcel:Close()
+	conout( "Tempo: " + LTrim( Str( Seconds()-nStart ) ) + " segundos" )
+Return
+
+/*/{Protheus.doc} YxlsRead
+Testa leitura simples do xlsx
+@author Saulo Gomes Martins
+@since 03/03/2018
+@version 1.0
+@type function
+/*/
+User Function YxlsRead()
+	//DEPRECATED, ver função U_YTstRW
+	Local oExcel := YExcel():New("TesteXlsx") As Object	//Cria teste
+	Local cTexto := "Texto teste" As Character
+	Local nNumero := 123.09 As Numeric
+	Local lLogico := .T. As Logical
+	Local dData := date() As Date
+	Local oDateTime := oExcel:GetDateTime(dData = date(), cTime = time()) As Object	//Formatando DateTime
+	Local nColuna As Numeric
+	Local nLinha As Numeric
+	Local cArquivo As Character
+	oExcel:ADDPlan()
+	oExcel:Cell(nLinha = 1, nColuna = 1, xValor = cTexto)
+	oExcel:Cell(nLinha = 2, nColuna = 1, xValor = nNumero)
+	oExcel:Cell(nLinha = 3, nColuna = 1, xValor = lLogico)
+	oExcel:Cell(nLinha = 4, nColuna = 1, xValor = dData)
+	oExcel:Cell(nLinha = 5, nColuna = 1, xValor = oDateTime)
+	oExcel:ADDPlan()
+	oExcel:Cell(nLinha = 1, nColuna = 1, xValor = "OK")
+	cArquivo	:= oExcel:Gravar(cLocal = GetTempPath(), lAbrir = .F.)	//Não abrir arquivo
+	ConOut(cArquivo)
+	oExcel	:= YExcel():New()
+	oExcel:OpenRead(cArquivo)
+	For nLinha	:= 1 to oExcel:adimension[1][1]
+		For nColuna	:= 1 to oExcel:adimension[1][2]
+			ConOut("Tipo:"+ValType(oExcel:CellRead(nLinha = nLinha, nColuna = nColuna)))
+			ConOut(oExcel:CellRead(nLinha = nLinha, nColuna = nColuna))
+		Next
+		If nLinha==5
+			oDateTime	:= oExcel:GetDateTime(nData = oExcel:CellRead(nLinha = nLinha, nColuna = 1))
+			ConOut("Formato data")
+			ConOut(oDateTime:GetDate())
+			ConOut(oDateTime:GetTime())
+			ConOut(oDateTime:GetStrNumber())
+		EndIf
+	Next
+	ConOut("Ler planilha 2")
+	oExcel:OpenRead(cFile = cArquivo, nPlanilha = 2)
+	For nLinha	:= 1 to oExcel:adimension[1][1]
+		For nColuna	:= 1 to oExcel:adimension[1][2]
+			ConOut("Tipo:"+ValType(oExcel:CellRead(nLinha = nLinha, nColuna = nColuna)))
+			ConOut(oExcel:CellRead(nLinha = nLinha, nColuna = nColuna))
+		Next
+	Next
+	oExcel:CloseRead()
+	FreeObj(oDateTime)
+	//DEPRECATED
+Return
+
+/*/{Protheus.doc} YTstRW
+Teste leitura e escrita
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 30/03/2021
+/*/
+User Function YTstRW()
+	Local aTamLin As Array
+	Local aTamCol As Array
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local xValor As Variant
+	Local oExcel := YExcel():New(cFileOpen = GetTempPath()+"TstYExcel.xlsx") As Object
+	Local nStart := Seconds() As Numeric
+	Local nElapsed As Numeric
+	ConOut(TIME())
+	oExcel:Pos(1,1):SetValue(oExcel:GetValue(1,1)+" - editado")
+	aTamLin	:= oExcel:LinTam()
+	For nCont:=aTamLin[1] to 100//aTamLin[2]
+		ConOut("Linha:"+cValToChar(nCont))
+		/*If nCont==1
+			ConOut(oExcel:GetString(nCont,1,"inlineStr"))
+			ConOut(oExcel:GetString(nCont,2,"inlineStr"))
+			ConOut(oExcel:GetString(nCont,3,"inlineStr"))
+			ConOut(oExcel:GetString(nCont,4,"inlineStr"))
+		Else
+			ConOut(oExcel:GetNumber(nCont,1))
+			ConOut(oExcel:GetString(nCont,2,"inlineStr"))
+			ConOut(oExcel:GetNumber(nCont,3))
+			//aData	:= oExcel:GetDtTime(nCont,4)
+			//ConOut(aData[1])
+			//ConOut(aData[2])
+			ConOut(oExcel:GetDate(nCont,4))
+		Endif*/
+		aTamCol	:= oExcel:ColTam(nCont)
+		If aTamCol[1]>0
+			For nCont2:=aTamCol[1] to aTamCol[2]
+				xValor	:= oExcel:GetValue(nCont,nCont2)
+				If ValType(xValor)=="O"
+					VarInfo(oExcel:Ref(nCont,nCont2),xValor,,.F.)
+				Else
+					ConOut(oExcel:Ref(nCont,nCont2)+"["+cValToChar(xValor)+"]")
+				EndIf
+			Next
+		EndIf
+		oExcel:Pos(nCont,5):SetValue("Editado")
+	Next
+	ConOut(TIME())
+	nElapsed	:= Seconds() - nStart
+	conout( "Tempo: " + LTrim( Str( nElapsed ) ) + " segundos" )
+	oExcel:Save("c:\temp")
+	oExcel:OpenApp()
+	oExcel:Close()
+Return
+
+/*/{Protheus.doc} ytstOlaMundo
+Teste minimo de gravação de planilha (Ola Mundo)
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+User Function ytstOlaMundo()
+	Local oExcel := YExcel():New() As Object
+	oExcel:ADDPlan() //Cria Planinha
+	oExcel:Pos(1,1):SetValue("Olá Mundo") //Escreve
+	oExcel:Save()    //Salvar
+	oExcel:OpenApp() //Abrir Excel
+	oExcel:Close()   //Fechar e limpar objeto
+Return
+
+/*/{Protheus.doc} yTst2xl4
+Teste leitura
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 30/03/2021
+/*/
+User Function yTst2xl4()
+	Local aTamLin As Array
+	Local aTamCol As Array
+	Local nContP As Numeric
+	Local nContL As Numeric
+	Local nContC As Numeric
+	Local xValor As Variant
+	Local oExcel := YExcel():New(cFileOpen = "D:\temp\Saulo.xlsx") As Object
+
+	For nContP:=1 to oExcel:LenPlanAt()	//Ler as Planilhas
+		oExcel:SetPlanAt(nContP)		//Informa qual a planilha atual
+		ConOut("Planilha:"+oExcel:GetPlanAt("2"))	//Nome da Planilha
+		aTamLin	:= oExcel:LinTam() 		//Linha inicio e fim da linha
+		For nContL:=aTamLin[1] to aTamLin[2]
+			aTamCol	:= oExcel:ColTam(nContL) //Coluna inicio e fim
+			If aTamCol[1]>0	//Se a linha tem algum valor
+				For nContC:=aTamCol[1] to aTamCol[2]
+					xValor	:= oExcel:GetValue(nContL,nContC)	//Conteúdo
+					If ValType(xValor)=="O"
+						ConOut(oExcel:Ref(nContL,nContC)+"["+cValToChar(xValor:GetDate())+"]["+cValToChar(xValor:GetTime())+"]")
+						//VarInfo(oExcel:Ref(nContL,nContC),xValor,,.F.)
+					Else
+						ConOut(oExcel:Ref(nContL,nContC)+"["+cValToChar(xValor)+"]")
+					EndIf
+				Next
+			EndIf
+		Next
+	Next
+	oExcel:Close()
+Return
+
+
+/*/{Protheus.doc} tst2Excel
+Teste de comparação de performance entre as diversas formas de geração e leitura da planilha
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+User Function tst2Excel()
+	Local nStart As Numeric
+	Local nElapsed As Numeric
+	Local nTam As Numeric
+	RpcSetEnv("99","01")
+	conout( "YExcel")
+	nStart := Seconds()
+	//tstFwXlsx()
+	//TesteyExcel()
+	//tstBulk()
+	YTstLeitura()
+	//tstBulk2()
+	//U_ytst6()
+	nElapsed	:= Seconds() - nStart
+	nTam		:= Directory("c:\temp\Pasta1.xlsx","HSD")[1][2]
+	conout( "Tempo: " + LTrim( Str( nElapsed ) ) + " segundos" )
+	conout( "Tamanho Arquivo: " + LTrim( Str( Round(nTam/1024/1024,3) ) ) + " MB" )
+
+Return
+
+Static Function fazernada(cValor As Variant)
+Return
+
+/*/{Protheus.doc} TesteyExcel
+Teste de geração de planilha célula a célula, sem uso de bulk
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+Static Function TesteyExcel()
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local cSubTotais As Character
+	Local oExcel := YExcel():New(cNomeFile = "Pasta1", cTipo = "A") As Object
+	Local nPosBorda2 := oExcel:Borda("ALL") As Numeric
+	Local nPosBordas := oExcel:AddStyles(nborderId = nPosBorda2) As Numeric
+	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
+	// oExcel:SetDefRow(.F.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
+	oExcel:Cell(nLinha = 1, nColuna = 1, xValor = "Linha", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 2, xValor = "Filial", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 3, xValor = "Venda", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 4, xValor = "Data Venda", xStyle = nPosBordas)
+	nCont2	:= 1
+	cSubTotais	:= ""
+	For nCont:=2 to 10000
+		oExcel:Pos(nCont,1):SetValue(nCont)
+		oExcel:Pos(nCont,2):SetValue("Filial"+cValtoChar(nCont))
+		oExcel:Pos(nCont,3):SetValue(Randomize(1,100))
+		oExcel:Pos(nCont,4):SetValue(date()+nCont)
+	Next
+	oExcel:Gravar(cLocal = "c:\temp", lAbrir = .F., lDelSrv = .T.)
+Return
+
+/*/{Protheus.doc} tstBulk
+Teste de geração de planilha em massa (bulk) gravando em arquivo temporario de banco
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+Static Function tstBulk()
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local cSubTotais As Character
+	Local oExcel := YExcel():New(cNomeFile = "Pasta1", cTipo = "B") As Object
+	Local nPosBorda2 := oExcel:Borda("ALL") As Numeric
+	//Local nPosCorI		:= oExcel:CorPreenc("FFB8CCE4")	//Cor de Fundo Azul impa
+	Local nPosBordas := oExcel:NewStyle():Setborder(nPosBorda2) As Object
+	//Local oRegEst1 		:= oExcel:NewStyRules()
+	//oRegEst1:AddStyle({|nLin,nCol,oObjExcel| nLin % 2 ==1 }, oExcel:NewStyle(nPosBordas):Setfill(nPosCorI) )	//Linhas ímpar aplica estilo herdados com borda e fundo azul
+	//Local oPosFill		:= oExcel:NewStyle():Setfill(oExcel:CorPreenc("FF0000"))
+	Local aCampos := {} As Array
+	Local aRegraStyle As Variant
+	Local nElapsed As Numeric
+	Local nStart As Numeric
+	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
+	// oExcel:SetDefRow(.F.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
+	oExcel:Cell(nLinha = 1, nColuna = 1, xValor = "Linha", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 2, xValor = "Filial", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 3, xValor = "Venda", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 4, xValor = "Data Venda", xStyle = nPosBordas)
+	//BulkNewField(nColuna,cTipo,nTamanho,cCombo,oStyle,lFormula,lDatetime,cCampo,cDados)
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 1, cTipo = "N"))
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 2, cTipo = "C", nTamanho = 12))
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 3, cTipo = "N"))
+	//AADD(aCampos,oExcel:BulkNewField(3,"C","1=Sim;2=Não"))
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 4, cTipo = "D"))
+
+	//aRegraStyle	:= oExcel:NewRuleLine({|| If(nCont%10==0,"vermelho","") },{"vermelho",oPosFill,.F.}):GetArray()
+	//oExcel:SetsumBelow(.T.)				//Defini que o agrupamento de linhas vai ser em baixo
+	//oExcel:SetsumRight(.F.)				//Defini que o agrupamento vai ser na esquerda
+	//oExcel:SetColLevel(4,5,1,.T.)		//Agrupa coluna 4 e 5 fechado
+
+	oExcel:DefBulkLine(aCampos = aCampos, xRegraStyle = aRegraStyle, lMontarLin = .F.)
+	cSubTotais	:= ""
+	oExcel:nLinha	:= 2
+	nStart	:= Seconds()
+	nCont2	:= 1
+	For nCont:=2 to 100000
+		//If nCont2==1
+		//	oExcel:NivelLinha(nil,.T.,.F.)
+		//ElseIf nCont2==2
+		//	oExcel:NivelLinha(1,.T.,.T.)
+		//ElseIf nCont2>11
+		//	nCont2 := 0
+		//EndIf
+		//nCont2++
+		oExcel:SetValueBulk(nCont)
+		oExcel:SetValueBulk("Filial"+cValtoChar(nCont))
+		oExcel:SetValueBulk(Randomize(1,100))
+		//oExcel:SetValueBulk(cValToChar(Randomize(1,3)))
+		oExcel:SetValueBulk(date()+nCont)
+		oExcel:SetBulkLine()
+	Next
+	oExcel:NivelLinha()
+	oExcel:FlushBulk()
+	nElapsed	:= Seconds() - nStart
+	conout( "Linhas Tempo: " + LTrim( Str( nElapsed ) ) + " segundos" )
+	nStart	:= Seconds()
+	oExcel:Gravar(cLocal = "c:\temp", lAbrir = .F., lDelSrv = .T.)
+	nElapsed	:= Seconds() - nStart
+	conout( "Gravar: " + LTrim( Str( nElapsed ) ) + " segundos" )
+Return
+
+/*/{Protheus.doc} tstBulk2
+Teste de limite de colunas do excel usando preenchimento em massa (bulk)
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+Static Function tstBulk2()
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local cSubTotais As Character
+	Local oExcel := YExcel():New(cNomeFile = "Pasta1", cTipo = "A") As Object
+	Local aCampos := {} As Array
+	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
+	// oExcel:SetDefRow(.F.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
+	//1-Numero da coluna,2-Tipo de conteudo(C,N,L,D),3-Logico se vai ter Formula,4-Logico se é datetime,5-Objeto Estilo
+	For nCont:=1 to 16385	//Limite maximo de colunas do excel
+		AADD(aCampos,oExcel:BulkNewField(nColuna = nCont, cTipo = "C"))
+	Next
+
+	oExcel:DefBulkLine(aCampos)
+	nCont2	:= 1
+	cSubTotais	:= ""
+	For nCont:=2 to 16385
+		oExcel:SetValueBulk("abcdefghijklmnopqrstuvxz abcdefghijklmnopqrstuvxz abcdefghijklmnopqrstuvxz "+cValtoChar(nCont))
+	Next
+	oExcel:SetBulkLine()
+	oExcel:FlushBulk()
+	oExcel:Gravar(cLocal = "c:\temp", lAbrir = .F., lDelSrv = .T.)
+Return
+
+
+/*/{Protheus.doc} tstFwXlsx
+Teste de performance usando a classe do framework FwMsExcelXlsx como comparativo
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+Static Function tstFwXlsx()
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local oExcel := FwMsExcelXlsx():New() As Object
+	Local nElapsed As Numeric
+	Local nStart As Numeric
+	oExcel:SetWriteinFile(.T.)
+	////Habilita dados de processamento no BD e com Bulk ocorrendo com até 200 mil registros.
+	//lWriteDb := oExcel:SetWriteinDb(.T., 200000)
+	//If !lWriteDb
+	//	conout("Não foi possível habilitar o recurso de dados em disco, o processamento consumirá a memória do servidor.")
+	//EndIf
+	oExcel:AddworkSheet("WorkSheet1")
+	oExcel:AddTable ("WorkSheet1","Table1")
+	oExcel:AddColumn("WorkSheet1","Table1","Linha",1,2,.F., )
+	oExcel:AddColumn("WorkSheet1","Table1","Filial",1,1,.F., )
+	oExcel:AddColumn("WorkSheet1","Table1","Venda",1,3,.F., )
+	oExcel:AddColumn("WorkSheet1","Table1","Data Venda",1,4,.F., )
+
+	nStart	:= Seconds()
+	nCont2	:= 1
+	For nCont:=2 to 100000
+		oExcel:AddRow("WorkSheet1","Table1",{nCont,"Filial"+cValtoChar(nCont),Randomize(1,100),date()+nCont})
+	Next
+	nElapsed	:= Seconds() - nStart
+	conout( "Linhas Tempo: " + LTrim( Str( nElapsed ) ) + " segundos" )
+	nStart	:= Seconds()
+	oExcel:Activate()
+	oExcel:GetXMLFile("c:\temp\fwTESTE.xlsx")
+	oExcel:DeActivate()
+	nElapsed	:= Seconds() - nStart
+	conout( "Gravar: " + LTrim( Str( nElapsed ) ) + " segundos" )
+Return
+
+/*/{Protheus.doc} YTstLeitura
+Teste de performance de leitura de uma planilha já gravada
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+Static Function YTstLeitura()
+	Local aTamLin As Array
+	Local nCont As Numeric
+	Local oExcel As Object
+	Local nStart := Seconds() As Numeric
+	Local nElapsed As Numeric
+
+	oExcel	:= YExcel():New(cFileOpen = "c:\temp\Pasta1.xlsx")
+	nElapsed	:= Seconds() - nStart
+	conout( "Carregar xlsx: " + LTrim( Str( nElapsed ) ) + " segundos" )
+
+	nStart := Seconds()
+	aTamLin	:= oExcel:LinTam()
+	For nCont:=aTamLin[1] to aTamLin[2]
+		//fazernada(oExcel:Pos(nCont,1):GetValue())
+		//fazernada(oExcel:Pos(nCont,2):GetValue())
+		//fazernada(oExcel:Pos(nCont,3):GetValue())
+		//fazernada(oExcel:Pos(nCont,4):GetValue())
+
+		ConOut(oExcel:Pos(nCont,1):GetNumber())
+		ConOut(oExcel:Pos(nCont,2):GetString())
+		ConOut(oExcel:Pos(nCont,3):GetNumber())
+		ConOut(oExcel:Pos(nCont,4):GetDate())
+		//If nCont>2
+		//Exit
+		//EndIf
+	Next
+	ConOut(TIME())
+	nElapsed	:= Seconds() - nStart
+	conout( "Leitura: " + LTrim( Str( nElapsed ) ) + " segundos" )
+	oExcel:Close()
+Return
+
+/*/{Protheus.doc} TstMerge
+Teste de performance de mesclagem/formatação condicional em planilha pequena
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+User Function TstMerge()
+	Local oExcel := YExcel():New("Pasta1") As Object
+	Local nPosBorda2 := oExcel:Borda("ALL") As Numeric
+	Local nPosBordas := oExcel:AddStyles(nborderId = nPosBorda2) As Numeric
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local cSubTotais As Character
+	Local oFont As Object
+	Local oCorPre As Object
+	Local oCorPre2 As Object
+	Local oCorPre3 As Object
+	Local oBorda As Object
+	Local nPosVerm As Numeric
+	Local nPosVerd As Numeric
+	Local nPosAmar As Numeric
+	Local nStart := Seconds() As Numeric
+	ConOut("=================="+TIME())
+	oExcel:ADDPlan(/*cNome*/)		//Adiciona uma planilha em branco
+	// oExcel:SetDefRow(.F.,{1,4})	//Definir a coluna inicial e final da linha, importante para performace da classe
+	oExcel:Cell(nLinha = 1, nColuna = 1, xValor = "Linha", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 2, xValor = "Filial", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 3, xValor = "Venda", xStyle = nPosBordas)
+	oExcel:Cell(nLinha = 1, nColuna = 4, xValor = "Data Venda", xStyle = nPosBordas)
+	nCont2	:= 1
+	cSubTotais	:= ""
+	For nCont:=2 to 10
+		oExcel:Pos(nCont,1):SetValue(nCont)
+		oExcel:Pos(nCont,2):SetValue("Filial"+cValtoChar(nCont))
+		oExcel:Pos(nCont,3):SetValue(Randomize(1,100))
+		oExcel:Pos(nCont,4):SetValue(date()+nCont)
+		//oExcel:mergeCells(nCont,4,nCont,6)
+	Next
+
+	//Cria objetos para ser usado na formatação
+	oFont	:= oExcel:Font(nTamanho = 12, cCorRGB = "FFFFFF", cNome = "Calibri", cfamily = "2", lNegrito = .T., lItalico = .F., lSublinhado = .F., lTachado = .F.)	//Cor Branca Negrito
+	oCorPre	:= oExcel:Preenc("FF0000")									//Fundo Vermelho
+	oCorPre2:= oExcel:Preenc("00FF00")									//Fundo Verde
+	oCorPre3:= oExcel:Preenc("FFFF00")									//Fundo Amarelo
+	oBorda	:= oExcel:ObjBorda(cTipo = "ALL", cCor = "000000")							//Borda Preta
+	//Cria o Estilo			oFont,oCorPreenc,oBorda
+	nPosVerm	:= oExcel:ADDdxf(aFont = oFont, aCorPreenc = oCorPre, aBorda = oBorda)
+	nPosVerd	:= oExcel:ADDdxf(aFont = oFont, aCorPreenc = oCorPre2, aBorda = oBorda)
+	nPosAmar	:= oExcel:ADDdxf(aCorPreenc = oCorPre3, aBorda = oBorda)
+
+	oExcel:FormatCond(cRefDe = oExcel:Ref(2,3), cRefAte = oExcel:Ref(nCont-1,3), nEstilo = nPosAmar, cOperator = "=", xFormula = "0")			//igual a zero
+
+	oExcel:Gravar(cLocal = "c:\temp", lAbrir = .T., lDelSrv = .T.)
+	ConOut("=================="+TIME()+"|FIM")
+	ConOut(Seconds() - nStart)
+Return
+
+/*/{Protheus.doc} TstEdit
+Teste de edição de uma planilha ja existente
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+User Function TstEdit()
+	Local oExcel := YExcel():New(cFileOpen = "C:\Temp\TESTE.xlsx") As Object
+	oExcel:Pos(10,3):SetValue("TESTE")
+	oExcel:Pos(11,3):SetValue("12/08/2022")
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp() //Abrir Excel
+	oExcel:Close() //Fechar e limpar objeto
+Return
+
+/*/{Protheus.doc} tstMemoria
+Teste de geração de planilha inteiramente em memoria
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+User Function tstMemoria()
+	Local oExcel := YExcel():New(cTipo = "M") As Object  //Inicia em memoria
+	Local nCont As Numeric
+	oExcel:ADDPlan() //Cria Planinha
+	oExcel:AddTamCol(nMin = 1, nMax = 2, nWidth = 15.00)
+	oExcel:Pos(1,1):SetValue("Olá Mundo") //Altera linha 1 coluna 1
+	oExcel:Pos(2,1):SetValue("Segunda linha") //Altera linha 2 coluna 1
+	oExcel:AddTamCol(nMin = 2, nMax = 2, nWidth = 25.00)
+	oExcel:AddTamCol(nMin = 2, nMax = 3, nWidth = 35.00)
+	For nCont:=1 to 30
+		oExcel:Pos(Randomize(1,30),Randomize(1,30)):SetValue(nCont) //Volta para linha 1 coluna 1
+	Next
+	oExcel:AddPane(nySplit = 2, nxSplit = 3)
+	oExcel:Save()    //Salvar
+	oExcel:OpenApp() //Abrir Excel
+	oExcel:Close()   //Fechar e limpar objeto
+Return
+
+/*/{Protheus.doc} tst3Excel
+Teste de ocultação de coluna
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 04/07/2026
+/*/
+User Function tst3Excel()
+	Local oExcel := YExcel():New("NomeArquivo") As Object
+	oExcel:ADDPlan()
+	oExcel:Pos(1,1):SetValue("Olá Mundo")
+	oExcel:ColHidden(3)	//Ocultar a coluna C
+	oExcel:Save()    //Salvar
+	oExcel:OpenApp() //Abrir Excel
+	oExcel:Close()   //Fechar e limpar objeto
+Return
+
+	//Nota historica preservada do fonte original (trecho de estudo sobre gravação em memoria sequencial):
+	//ElseIf ::lMemoria
+	//	If nLinha<::nLinha .And. ;//Linha para posicionamento é menor que atual
+	//		!::aPlanilhas[nPlanilha][7]:Get(nLinha,@cPathLinha)	//E linha não existe
+	//			UserException("YExcel - gravação em arquivo deve ser sequencial. Linha Atual "+cValToChar(::nLinha)+" Linha enviada "+cValToChar(nLinha))
+	//	ElseIf nLinha<>::nLinha
+	//		If ::aPlanilhas[nPlanilha][7]:Get("C|"+cValToChar(nLinha),@nCQtd)
+	//			//cRefUlt	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathLinha,"c","")
+	//			//If ::aPlanilhas[nPlanilha][7]:Get(::cRef,@cPathColuna)
+	//			//If nColuna <
+	//		EndIf
+	//	Endif
