@@ -1,12 +1,4 @@
 #include "Totvs.ch"
-#include "Fileio.ch"
-#Include "ParmType.ch"
-#INCLUDE "DBSTRUCT.CH"
-#INCLUDE "DBINFO.CH"
-
-Static cAr7Zip	:= GetSrvProfString("7zip","")
-Static cRootPath
-Static c7Zip	:= "Z"
 
 /*/{Protheus.doc} YExcel
 Gera planilha excel
@@ -22,110 +14,74 @@ Gera planilha excel
 User Function YExcel()
 Return .T.
 
-Class YExcel
+Class YExcel From custom.excel.Xlsx
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(cNomeFile, cFileOpen, cTipo) Class YExcel
-	Local oObj := custom.tools.excel.Xlsx():New(cNomeFile, cFileOpen, cTipo)
-Return oObj
+	_Super:New(cNomeFile, cFileOpen, cTipo)
+Return self
 
-Method ClassName() Class YExcel
-Return "YEXCEL"
-
-Class YExcel_Style
+Class YExcel_Style From custom.excel.Style
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(oPai, oExcel) Class YExcel_Style
-	Local oObj := custom.tools.excel.Style():New(oPai, oExcel)
-Return oObj
+	_Super:New(oPai, oExcel)
+Return self
 
-Method ClassName() Class YExcel_Style
-Return "YEXCEL_STYLE"
-
-Class YExcel_StyleRules
+Class YExcel_StyleRules From custom.excel.StyleRules
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(oExcel) Class YExcel_StyleRules
-	Local oObj := custom.tools.excel.StyleRules():New(oExcel)
-Return oObj
+	_Super:New(oExcel)
+Return self
 
-Method ClassName() Class YExcel_StyleRules
-Return "YEXCEL_STYLERULES"
-
-Class YExcel_RegraLinha
+Class YExcel_RegraLinha From custom.excel.RegraLinha
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(bBloco, aRegra, oExcel) Class YExcel_RegraLinha
-	Local oObj := custom.tools.excel.RegraLinha():New(bBloco, aRegra, oExcel)
-Return oObj
+	_Super:New(bBloco, aRegra, oExcel)
+Return self
 
-Method ClassName() Class YExcel_RegraLinha
-Return "YEXCEL_REGRALINHA"
-
-Class YExcelTag
+Class YExcelTag From custom.excel.Tag
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(cNome, xValor, oAtributo, oExcel) Class YExcelTag
-	Local oObj := custom.tools.excel.Tag():New(cNome, xValor, oAtributo, oExcel)
-Return oObj
+	_Super:New(cNome, xValor, oAtributo, oExcel)
+Return self
 
-Method ClassName() Class YExcelTag
-Return "YEXCELTAG"
-
-Class YExcel_Table
+Class YExcel_Table From custom.excel.Table
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(oyExcel, nLinha, nColuna, cNome) Class YExcel_Table
-	Local oObj := custom.tools.excel.Table():New(oyExcel, nLinha, nColuna, cNome)
-Return oObj
+	_Super:New(oyExcel, nLinha, nColuna, cNome)
+Return self
 
-Method ClassName() Class YExcel_Table
-Return "YEXCEL_TABLE"
-
-Class YExcel_DateTime
+Class YExcel_DateTime From custom.excel.DateTime
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(dData, cTime, nData, nDec8, cDataUTC) Class YExcel_DateTime
-	Local oObj := custom.tools.excel.DateTime():New(dData, cTime, nData, nDec8, cDataUTC)
-Return oObj
+	_Super:New(dData, cTime, nData, nDec8, cDataUTC)
+Return self
 
-Method ClassName() Class YExcel_DateTime
-Return "YEXCEL_DATETIME"
-
-Class YExcelVar
+Class YExcelVar From custom.excel.Var
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New(cTipo) Class YExcelVar
-	Local oObj := custom.tools.excel.Var():New(cTipo)
-Return oObj
+	_Super:Var():New(cTipo)
+Return self
 
-Method ClassName() Class YExcelVar
-Return "YEXCELVAR"
-
-Class YExcelfunction
+Class YExcelfunction From custom.excel.Formula
 	Method New()
-	Method ClassName()
 EndClass
 
 Method New() Class YExcelfunction
-	Local oObj := custom.tools.excel.Formula():New()
-Return oObj
-
-Method ClassName() Class YExcelfunction
-Return "YEXCELFUNCTION"
+	_Super:Formula():New()
+Return self
