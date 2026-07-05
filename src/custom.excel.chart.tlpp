@@ -1,14 +1,14 @@
-// Fonte de gr√°ficos (DrawingML Charts) para a classe custom.excel.Xlsx
-// Baseado no ECMA-376 Part 1 - Office Open XML - ¬ß21.2 DrawingML Charts
-// Tipos suportados (CT_PlotArea completo): Barras/Colunas, Linhas, Pizza, Dispers√£o,
-// √Årea, A√ß√µes, Radar, Rosca, Bolhas, Pizza de Pizza, Superf√≠cie, variantes 3D e Combina√ß√£o
+// Fonte de gr·ficos (DrawingML Charts) para a classe custom.excel.Xlsx
+// Baseado no ECMA-376 Part 1 - Office Open XML - ß21.2 DrawingML Charts
+// Tipos suportados (CT_PlotArea completo): Barras/Colunas, Linhas, Pizza, Dispers„o,
+// ¡rea, AÁıes, Radar, Rosca, Bolhas, Pizza de Pizza, SuperfÌcie, variantes 3D e CombinaÁ„o
 #include "tlpp-core.th"
 #include "totvs.ch"
 #include "parmtype.ch"
 
 Namespace custom.excel.chart
 
-//Namespaces do Open XML utilizados pelos gr√°ficos
+//Namespaces do Open XML utilizados pelos gr·ficos
 #define NS_CHART	"http://schemas.openxmlformats.org/drawingml/2006/chart"
 #define NS_DRAWML	"http://schemas.openxmlformats.org/drawingml/2006/main"
 #define NS_REL		"http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -18,11 +18,11 @@ Namespace custom.excel.chart
 #define CT_DRAW		"application/vnd.openxmlformats-officedocument.drawing+xml"
 
 //----------------------------------------------------------------------
-//CLASSE DE S√âRIE DO GR√ÅFICO
+//CLASSE DE S…RIE DO GR¡FICO
 //----------------------------------------------------------------------
 /*/{Protheus.doc} Serie
-Representa uma s√©rie de dados de um gr√°fico (c:ser do ECMA-376).
-Os dados podem ser informados por refer√™ncia de c√©lulas (ex: "Dados!$B$2:$B$7")
+Representa uma sÈrie de dados de um gr·fico (c:ser do ECMA-376).
+Os dados podem ser informados por referÍncia de cÈlulas (ex: "Dados!$B$2:$B$7")
 e/ou por valores literais (arrays), que geram o cache (c:numCache/c:strCache).
 @author Saulo Gomes Martins
 @since 04/07/2026
@@ -30,21 +30,21 @@ e/ou por valores literais (arrays), que geram o cache (c:numCache/c:strCache).
 @type class
 /*/
 Class Serie
-	Public Data cNome			As Character	//Nome da s√©rie (texto ou refer√™ncia ex: "Dados!$B$1")
-	Public Data cRefCat			As Character	//Refer√™ncia das categorias (ex: "Dados!$A$2:$A$7")
-	Public Data cRefVal			As Character	//Refer√™ncia dos valores (ex: "Dados!$B$2:$B$7")
+	Public Data cNome			As Character	//Nome da sÈrie (texto ou referÍncia ex: "Dados!$B$1")
+	Public Data cRefCat			As Character	//ReferÍncia das categorias (ex: "Dados!$A$2:$A$7")
+	Public Data cRefVal			As Character	//ReferÍncia dos valores (ex: "Dados!$B$2:$B$7")
 	Public Data aCat			As Array		//Categorias literais (opcional, gera cache)
 	Public Data aVal			As Array		//Valores literais (opcional, gera cache)
-	Public Data cRefX			As Character	//Refer√™ncia dos valores X (dispers√£o/bolhas)
-	Public Data cRefY			As Character	//Refer√™ncia dos valores Y (dispers√£o/bolhas)
-	Public Data aX				As Array		//Valores X literais (dispers√£o/bolhas)
-	Public Data aY				As Array		//Valores Y literais (dispers√£o/bolhas)
-	Public Data cRefTam			As Character	//Refer√™ncia do tamanho das bolhas (bolhas)
+	Public Data cRefX			As Character	//ReferÍncia dos valores X (dispers„o/bolhas)
+	Public Data cRefY			As Character	//ReferÍncia dos valores Y (dispers„o/bolhas)
+	Public Data aX				As Array		//Valores X literais (dispers„o/bolhas)
+	Public Data aY				As Array		//Valores Y literais (dispers„o/bolhas)
+	Public Data cRefTam			As Character	//ReferÍncia do tamanho das bolhas (bolhas)
 	Public Data aTam			As Array		//Tamanhos literais das bolhas (bolhas)
-	Public Data cCor			As Character	//Cor da s√©rie RGB ou ARGB (ex: "FF0000" ou "FFFF0000")
-	Public Data xMarcador		As Variant		//Exibir marcador (Nil=herda do gr√°fico)
-	Public Data xSuavizar		As Variant		//Suavizar linha (Nil=herda do gr√°fico)
-	Public Data nExplosao		As Numeric		//Explos√£o da fatia em % (pizza)
+	Public Data cCor			As Character	//Cor da sÈrie RGB ou ARGB (ex: "FF0000" ou "FFFF0000")
+	Public Data xMarcador		As Variant		//Exibir marcador (Nil=herda do gr·fico)
+	Public Data xSuavizar		As Variant		//Suavizar linha (Nil=herda do gr·fico)
+	Public Data nExplosao		As Numeric		//Explos„o da fatia em % (pizza)
 
 	Public Method New()			As Object
 	Public Method ClassName()
@@ -57,16 +57,16 @@ Class Serie
 EndClass
 
 /*/{Protheus.doc} Serie::New
-Construtor da s√©rie
+Construtor da sÈrie
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cNome, characters, Nome da s√©rie (texto ou refer√™ncia de c√©lula)
-@param cRefVal, characters, Refer√™ncia dos valores
-@param cRefCat, characters, Refer√™ncia das categorias
+@param cNome, characters, Nome da sÈrie (texto ou referÍncia de cÈlula)
+@param cRefVal, characters, ReferÍncia dos valores
+@param cRefCat, characters, ReferÍncia das categorias
 @param aVal, array, Valores literais (opcional)
 @param aCat, array, Categorias literais (opcional)
-@param cCor, characters, Cor RGB/ARGB da s√©rie (opcional)
+@param cCor, characters, Cor RGB/ARGB da sÈrie (opcional)
 @return object, self
 @type method
 /*/
@@ -98,7 +98,7 @@ Method ClassName() Class Serie
 Return "CUSTOM.EXCEL.CHART.SERIE"
 
 /*/{Protheus.doc} Serie::SetCor
-Define a cor da s√©rie
+Define a cor da sÈrie
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -112,12 +112,12 @@ Method SetCor(cCor As Character) as Object Class Serie
 Return self
 
 /*/{Protheus.doc} Serie::SetXY
-Define as refer√™ncias/valores dos eixos X e Y (dispers√£o e bolhas)
+Define as referÍncias/valores dos eixos X e Y (dispers„o e bolhas)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cRefX, characters, Refer√™ncia dos valores X
-@param cRefY, characters, Refer√™ncia dos valores Y
+@param cRefX, characters, ReferÍncia dos valores X
+@param cRefY, characters, ReferÍncia dos valores Y
 @param aX, array, Valores X literais (opcional)
 @param aY, array, Valores Y literais (opcional)
 @return object, self
@@ -135,11 +135,11 @@ Method SetXY(cRefX As Character, cRefY As Character, aX As Array, aY As Array) a
 Return self
 
 /*/{Protheus.doc} Serie::SetTamanho
-Define a refer√™ncia/valores do tamanho das bolhas (gr√°fico de bolhas)
+Define a referÍncia/valores do tamanho das bolhas (gr·fico de bolhas)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cRefTam, characters, Refer√™ncia dos tamanhos
+@param cRefTam, characters, ReferÍncia dos tamanhos
 @param aTam, array, Tamanhos literais (opcional)
 @return object, self
 @type method
@@ -152,7 +152,7 @@ Method SetTamanho(cRefTam As Character, aTam As Array) as Object Class Serie
 Return self
 
 /*/{Protheus.doc} Serie::SetMarcador
-Define se a s√©rie exibe marcador nos pontos (linhas/dispers√£o)
+Define se a sÈrie exibe marcador nos pontos (linhas/dispers„o)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -166,7 +166,7 @@ Method SetMarcador(lMarcador As Logical) as Object Class Serie
 Return self
 
 /*/{Protheus.doc} Serie::SetSuavizar
-Define se a linha da s√©rie √© suavizada (linhas/dispers√£o)
+Define se a linha da sÈrie È suavizada (linhas/dispers„o)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -180,7 +180,7 @@ Method SetSuavizar(lSuavizar As Logical) as Object Class Serie
 Return self
 
 /*/{Protheus.doc} Serie::SetExplosao
-Define a explos√£o (afastamento) da fatia no gr√°fico de pizza
+Define a explos„o (afastamento) da fatia no gr·fico de pizza
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -194,16 +194,16 @@ Method SetExplosao(nExplosao As Numeric) as Object Class Serie
 Return self
 
 //----------------------------------------------------------------------
-//CLASSE BASE DE GR√ÅFICO
+//CLASSE BASE DE GR¡FICO
 //----------------------------------------------------------------------
 /*/{Protheus.doc} Chart
-Classe base para cria√ß√£o de gr√°ficos no formato DrawingML (ECMA-376 ¬ß21.2).
-N√£o deve ser instanciada diretamente, usar as classes filhas:
-ChartBar (barras/colunas), ChartLine (linhas), ChartPie (pizza), ChartScatter (dispers√£o),
-ChartArea (√°rea), ChartStock (a√ß√µes), ChartRadar (radar), ChartDoughnut (rosca),
-ChartBubble (bolhas), ChartOfPie (pizza de pizza), ChartSurface (superf√≠cie) e
-ChartCombo (combina√ß√£o de gr√°ficos).
-O gr√°fico √© gravado como parte /xl/charts/chartN.xml e ancorado no drawing da
+Classe base para criaÁ„o de gr·ficos no formato DrawingML (ECMA-376 ß21.2).
+N„o deve ser instanciada diretamente, usar as classes filhas:
+ChartBar (barras/colunas), ChartLine (linhas), ChartPie (pizza), ChartScatter (dispers„o),
+ChartArea (·rea), ChartStock (aÁıes), ChartRadar (radar), ChartDoughnut (rosca),
+ChartBubble (bolhas), ChartOfPie (pizza de pizza), ChartSurface (superfÌcie) e
+ChartCombo (combinaÁ„o de gr·ficos).
+O gr·fico È gravado como parte /xl/charts/chartN.xml e ancorado no drawing da
 planilha atual via xdr:twoCellAnchor/xdr:graphicFrame.
 @author Saulo Gomes Martins
 @since 04/07/2026
@@ -212,21 +212,21 @@ planilha atual via xdr:twoCellAnchor/xdr:graphicFrame.
 @see custom.excel.Xlsx
 /*/
 Class Chart
-	Public Data oExcel			As Object		//Inst√¢ncia da classe custom.excel.Xlsx
+	Public Data oExcel			As Object		//Inst‚ncia da classe custom.excel.Xlsx
 	Public Data cClassName		As Character	//Nome da classe
-	Public Data cTitulo			As Character	//T√≠tulo do gr√°fico
+	Public Data cTitulo			As Character	//TÌtulo do gr·fico
 	Public Data lLegenda		As Logical		//Exibir legenda
-	Public Data cPosLegenda		As Character	//Posi√ß√£o da legenda (r,l,t,b)
+	Public Data cPosLegenda		As Character	//PosiÁ„o da legenda (r,l,t,b)
 	Public Data lGrade			As Logical		//Exibir linhas de grade principais
-	Public Data aSeries			As Array		//S√©ries do gr√°fico (objetos Serie)
+	Public Data aSeries			As Array		//SÈries do gr·fico (objetos Serie)
 	Public Data nIdEixo1		As Numeric		//Id do eixo de categoria/X (c:axId)
 	Public Data nIdEixo2		As Numeric		//Id do eixo de valores/Y (c:axId)
-	Public Data nIdEixo3		As Numeric		//Id do eixo de s√©ries 3D (c:serAx)
-	Public Data cIdioma			As Character	//Idioma do gr√°fico (c:lang)
-	Public Data nChart			As Numeric		//N√∫mero sequencial do chart no pacote
-	Public Data l3D				As Logical		//Gr√°fico em 3D (c:view3D + variantes 3D)
-	Public Data nRotX			As Numeric		//Rota√ß√£o X do 3D em graus (c:rotX)
-	Public Data nRotY			As Numeric		//Rota√ß√£o Y do 3D em graus (c:rotY)
+	Public Data nIdEixo3		As Numeric		//Id do eixo de sÈries 3D (c:serAx)
+	Public Data cIdioma			As Character	//Idioma do gr·fico (c:lang)
+	Public Data nChart			As Numeric		//N˙mero sequencial do chart no pacote
+	Public Data l3D				As Logical		//Gr·fico em 3D (c:view3D + variantes 3D)
+	Public Data nRotX			As Numeric		//RotaÁ„o X do 3D em graus (c:rotX)
+	Public Data nRotY			As Numeric		//RotaÁ„o Y do 3D em graus (c:rotY)
 	Public Data nPerspectiva	As Numeric		//Perspectiva do 3D (c:perspective)
 
 	Public Method New()			As Object
@@ -251,7 +251,7 @@ Construtor da classe base
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -282,16 +282,16 @@ Method ClassName() Class Chart
 Return ::cClassName
 
 /*/{Protheus.doc} Chart::AddSerie
-Adiciona uma s√©rie de dados ao gr√°fico
+Adiciona uma sÈrie de dados ao gr·fico
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cNome, characters, Nome da s√©rie (texto ou refer√™ncia ex: "Dados!$B$1")
-@param cRefVal, characters, Refer√™ncia dos valores (ex: "Dados!$B$2:$B$7")
-@param cRefCat, characters, Refer√™ncia das categorias (ex: "Dados!$A$2:$A$7")
+@param cNome, characters, Nome da sÈrie (texto ou referÍncia ex: "Dados!$B$1")
+@param cRefVal, characters, ReferÍncia dos valores (ex: "Dados!$B$2:$B$7")
+@param cRefCat, characters, ReferÍncia das categorias (ex: "Dados!$A$2:$A$7")
 @param aVal, array, Valores literais (opcional, gera cache no XML)
 @param aCat, array, Categorias literais (opcional, gera cache no XML)
-@param cCor, characters, Cor RGB/ARGB da s√©rie (opcional)
+@param cCor, characters, Cor RGB/ARGB da sÈrie (opcional)
 @return object, Objeto Serie criado (permite ajustes encadeados)
 @type method
 /*/
@@ -305,11 +305,11 @@ Method AddSerie(cNome As Character, cRefVal As Character, cRefCat As Character, 
 Return oSerie
 
 /*/{Protheus.doc} Chart::SetTitulo
-Define o t√≠tulo do gr√°fico
+Define o tÌtulo do gr·fico
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cTitulo, characters, T√≠tulo do gr√°fico
+@param cTitulo, characters, TÌtulo do gr·fico
 @return object, self
 @type method
 /*/
@@ -319,12 +319,12 @@ Method SetTitulo(cTitulo As Character) as Object Class Chart
 Return self
 
 /*/{Protheus.doc} Chart::SetLegenda
-Define a exibi√ß√£o e posi√ß√£o da legenda
+Define a exibiÁ„o e posiÁ„o da legenda
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param lExibir, logical, .T. exibe a legenda
-@param cPosicao, characters, Posi√ß√£o: r=direita, l=esquerda, t=topo, b=rodap√©
+@param cPosicao, characters, PosiÁ„o: r=direita, l=esquerda, t=topo, b=rodapÈ
 @return object, self
 @type method
 /*/
@@ -332,14 +332,14 @@ Method SetLegenda(lExibir As Logical, cPosicao As Character) as Object Class Cha
 	PARAMTYPE 0	VAR lExibir		AS LOGICAL		OPTIONAL DEFAULT .T.
 	PARAMTYPE 1	VAR cPosicao	AS CHARACTER	OPTIONAL DEFAULT ::cPosLegenda
 	If !(cPosicao=="r" .or. cPosicao=="l" .or. cPosicao=="t" .or. cPosicao=="b")
-		UserException("Chart - Posi√ß√£o de legenda inv√°lida ("+cPosicao+"). Usar: r,l,t,b")
+		UserException("Chart - PosiÁ„o de legenda inv·lida ("+cPosicao+"). Usar: r,l,t,b")
 	Endif
 	::lLegenda		:= lExibir
 	::cPosLegenda	:= cPosicao
 Return self
 
 /*/{Protheus.doc} Chart::SetGrade
-Define a exibi√ß√£o das linhas de grade principais do eixo de valores
+Define a exibiÁ„o das linhas de grade principais do eixo de valores
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -353,17 +353,17 @@ Method SetGrade(lExibir As Logical) as Object Class Chart
 Return self
 
 /*/{Protheus.doc} Chart::Set3D
-Ativa a visualiza√ß√£o 3D do gr√°fico (c:view3D e variantes bar3DChart/line3DChart/pie3DChart/area3DChart).
+Ativa a visualizaÁ„o 3D do gr·fico (c:view3D e variantes bar3DChart/line3DChart/pie3DChart/area3DChart).
 Suportado em: ChartBar, ChartLine, ChartPie, ChartArea e ChartSurface.
-As classes sem vers√£o 3D (ChartScatter, ChartRadar, ChartStock, ChartDoughnut,
-ChartOfPie, ChartBubble e ChartCombo) sobrescrevem este m√©todo com exce√ß√£o.
+As classes sem vers„o 3D (ChartScatter, ChartRadar, ChartStock, ChartDoughnut,
+ChartOfPie, ChartBubble e ChartCombo) sobrescrevem este mÈtodo com exceÁ„o.
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param lAtivo, logical, .T. ativa o 3D
-@param nRotX, numeric, Rota√ß√£o X em graus (padr√£o 15)
-@param nRotY, numeric, Rota√ß√£o Y em graus (padr√£o 20)
-@param nPerspectiva, numeric, Perspectiva (padr√£o 30)
+@param nRotX, numeric, RotaÁ„o X em graus (padr„o 15)
+@param nRotY, numeric, RotaÁ„o Y em graus (padr„o 20)
+@param nPerspectiva, numeric, Perspectiva (padr„o 30)
 @return object, self
 @type method
 /*/
@@ -379,7 +379,7 @@ Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva
 Return self
 
 /*/{Protheus.doc} Chart::ChecarSeries
-Valida as s√©ries antes da inser√ß√£o. O ChartCombo sobrescreve para validar os membros.
+Valida as sÈries antes da inserÁ„o. O ChartCombo sobrescreve para validar os membros.
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -387,23 +387,23 @@ Valida as s√©ries antes da inser√ß√£o. O ChartCombo sobrescreve para validar os 
 /*/
 Method ChecarSeries() Class Chart
 	If Empty(::aSeries)
-		UserException("Chart - Nenhuma s√©rie adicionada, usar o m√©todo :AddSerie()")
+		UserException("Chart - Nenhuma sÈrie adicionada, usar o mÈtodo :AddSerie()")
 	Endif
 Return
 
 /*/{Protheus.doc} Chart::Insert
-Insere o gr√°fico na planilha atual, ancorado da c√©lula inicial √† final (xdr:twoCellAnchor).
+Insere o gr·fico na planilha atual, ancorado da cÈlula inicial ‡ final (xdr:twoCellAnchor).
 Gera a parte /xl/charts/chartN.xml, o Override no [Content_Types].xml, o relationship
 do drawing para o chart e o graphicFrame no drawing da planilha.
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param nLinha, numeric, Linha inicial da √¢ncora
-@param nColuna, numeric, Coluna inicial da √¢ncora
-@param nLinha2, numeric, Linha final da √¢ncora
-@param nColuna2, numeric, Coluna final da √¢ncora
+@param nLinha, numeric, Linha inicial da ‚ncora
+@param nColuna, numeric, Coluna inicial da ‚ncora
+@param nLinha2, numeric, Linha final da ‚ncora
+@param nColuna2, numeric, Coluna final da ‚ncora
 @type method
-@obs Deve ser chamado ap√≥s configurar t√≠tulo/s√©ries e antes do m√©todo Save/Gravar do Excel
+@obs Deve ser chamado apÛs configurar tÌtulo/sÈries e antes do mÈtodo Save/Gravar do Excel
 /*/
 Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna2 As Numeric) Class Chart
 	Local oExcel As Object
@@ -424,17 +424,17 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 
 	oExcel	:= ::oExcel
 	If ValType(oExcel)!="O"
-		UserException("Chart - Excel n√£o informado, criar o gr√°fico com :New(oExcel)")
+		UserException("Chart - Excel n„o informado, criar o gr·fico com :New(oExcel)")
 	Endif
 	::ChecarSeries()
 	If Empty(oExcel:aPlanilhas)
-		UserException("Chart - Nenhuma planilha criada, usar o m√©todo :ADDPlan()")
+		UserException("Chart - Nenhuma planilha criada, usar o mÈtodo :ADDPlan()")
 	Endif
 	If nLinha2<=nLinha .or. nColuna2<=nColuna
-		UserException("Chart - C√©lula final da √¢ncora deve ser maior que a inicial")
+		UserException("Chart - CÈlula final da ‚ncora deve ser maior que a inicial")
 	Endif
 
-	//Garante o drawing da planilha atual (mesma l√≥gica do m√©todo Img da classe Xlsx)
+	//Garante o drawing da planilha atual (mesma lÛgica do mÈtodo Img da classe Xlsx)
 	If !oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing") .or. Empty(oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:drawing","r:id"))
 		If !oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:drawing")
 			oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathAddNode("/xmlns:worksheet","drawing","")
@@ -453,14 +453,14 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	EndIf
 	nPos	:= oExcel:aPlanilhas[oExcel:nPlanilhaAt][3]
 
-	//N√∫mero sequencial do chart no pacote (conta os charts j√° gravados)
+	//N˙mero sequencial do chart no pacote (conta os charts j· gravados)
 	::nChart	:= 1
 	For nCont:=1 to Len(oExcel:aFiles)
 		If "\xl\charts\chart" $ oExcel:aFiles[nCont]
 			::nChart++
 		Endif
 	Next
-	//Ids √∫nicos dos eixos deste gr√°fico
+	//Ids ˙nicos dos eixos deste gr·fico
 	::nIdEixo1	:= 100000001+(::nChart*10)
 	::nIdEixo2	:= 100000002+(::nChart*10)
 	::nIdEixo3	:= 100000003+(::nChart*10)
@@ -473,14 +473,14 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	//Relationship do drawing para o chart
 	cIdChart	:= oExcel:add_rels("\xl\drawings\_rels\drawing"+cValToChar(oExcel:aPlanilhas[oExcel:nPlanilhaAt][4])+".xml.rels",NS_RELCHART,"../charts/chart"+cValToChar(::nChart)+".xml")
 
-	//Monta o XML do chartSpace (ECMA-376 ¬ß21.2.2.29)
+	//Monta o XML do chartSpace (ECMA-376 ß21.2.2.29)
 	cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	cXml	+= '<c:chartSpace xmlns:c="'+NS_CHART+'" xmlns:a="'+NS_DRAWML+'" xmlns:r="'+NS_REL+'">'
 	cXml	+= '<c:lang val="'+::cIdioma+'"/>'
 	cXml	+= '<c:chart>'
 	cXml	+= ::XmlTitulo()
 	cXml	+= '<c:autoTitleDeleted val="0"/>'
-	cXml	+= ::XmlView3D()	//Visualiza√ß√£o 3D quando ativada
+	cXml	+= ::XmlView3D()	//VisualizaÁ„o 3D quando ativada
 	cXml	+= '<c:plotArea>'
 	cXml	+= '<c:layout/>'
 	cXml	+= ::XmlPlot()	//Miolo do plotArea gerado pela classe filha
@@ -491,10 +491,10 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	cXml	+= '</c:chart>'
 	cXml	+= '</c:chartSpace>'
 
-	//Grava a parte do gr√°fico e adiciona ao pacote
+	//Grava a parte do gr·fico e adiciona ao pacote
 	oXmlChart	:= TXmlManager():New()
 	If !oXmlChart:Parse(cXml)
-		UserException("Chart - Erro ao montar o XML do gr√°fico: "+oXmlChart:Error())
+		UserException("Chart - Erro ao montar o XML do gr·fico: "+oXmlChart:Error())
 	Endif
 	cDirChart	:= "\tmpxls\"+oExcel:cTmpFile+"\"+oExcel:cNomeFile+"\xl\charts\"
 	FWMakeDir(cDirChart,.F.)
@@ -504,18 +504,18 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	oXmlChart	:= Nil
 	AADD(oExcel:aFiles,cCaminho)
 
-	//√Çncora do gr√°fico no drawing da planilha (xdr:twoCellAnchor/xdr:graphicFrame)
-	oExcel:nIDMedia++	//Id √∫nico do cNvPr (compartilhado com imagens)
+	//¬ncora do gr·fico no drawing da planilha (xdr:twoCellAnchor/xdr:graphicFrame)
+	oExcel:nIDMedia++	//Id ˙nico do cNvPr (compartilhado com imagens)
 	oDraw	:= oExcel:aDraw[nPos][1]
 	oDraw:XPathAddNode( "/xdr:wsDr", "twoCellAnchor", "" )
 	cPath	:= "/xdr:wsDr/xdr:twoCellAnchor[last()]"
-	//C√©lula inicial (from) - √≠ndices baseados em zero
+	//CÈlula inicial (from) - Ìndices baseados em zero
 	oDraw:XPathAddNode( cPath, "from", "" )
 	oDraw:XPathAddNode( cPath+"/xdr:from", "col"	, cValToChar(nColuna-1) )
 	oDraw:XPathAddNode( cPath+"/xdr:from", "colOff"	, "0" )
 	oDraw:XPathAddNode( cPath+"/xdr:from", "row"	, cValToChar(nLinha-1) )
 	oDraw:XPathAddNode( cPath+"/xdr:from", "rowOff"	, "0" )
-	//C√©lula final (to) - borda exclusiva, cobre at√© a linha/coluna informada
+	//CÈlula final (to) - borda exclusiva, cobre atÈ a linha/coluna informada
 	oDraw:XPathAddNode( cPath, "to", "" )
 	oDraw:XPathAddNode( cPath+"/xdr:to", "col"		, cValToChar(nColuna2) )
 	oDraw:XPathAddNode( cPath+"/xdr:to", "colOff"	, "0" )
@@ -529,7 +529,7 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	oDraw:XPathAddAtt( cPath+"/xdr:graphicFrame/xdr:nvGraphicFramePr/xdr:cNvPr", "id"	, cValToChar(oExcel:nIDMedia) )
 	oDraw:XPathAddAtt( cPath+"/xdr:graphicFrame/xdr:nvGraphicFramePr/xdr:cNvPr", "name"	, "Grafico "+cValToChar(::nChart) )
 	oDraw:XPathAddNode( cPath+"/xdr:graphicFrame/xdr:nvGraphicFramePr", "cNvGraphicFramePr", "" )
-	//xfrm (posi√ß√£o/tamanho controlados pela √¢ncora)
+	//xfrm (posiÁ„o/tamanho controlados pela ‚ncora)
 	oDraw:XPathAddNode( cPath+"/xdr:graphicFrame", "xfrm", "" )
 	oDraw:XPathAddNode( cPath+"/xdr:graphicFrame/xdr:xfrm", "a:off", "" )
 	AjustNs(oDraw,"<xdr:a:","<a:")
@@ -539,7 +539,7 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	AjustNs(oDraw,"<xdr:a:","<a:")
 	oDraw:XPathAddAtt( cPath+"/xdr:graphicFrame/xdr:xfrm/a:ext", "cx", "0" )
 	oDraw:XPathAddAtt( cPath+"/xdr:graphicFrame/xdr:xfrm/a:ext", "cy", "0" )
-	//a:graphic/a:graphicData com refer√™ncia ao chart
+	//a:graphic/a:graphicData com referÍncia ao chart
 	oDraw:XPathAddNode( cPath+"/xdr:graphicFrame", "a:graphic", "" )
 	AjustNs(oDraw,"<xdr:a:","<a:")
 	oDraw:XPathAddNode( cPath+"/xdr:graphicFrame/a:graphic", "graphicData", "" )	//Herda o namespace "a" do pai
@@ -562,7 +562,7 @@ Gera o miolo do c:plotArea. Implementado nas classes filhas (template method).
 @type method
 /*/
 Method XmlPlot() Class Chart
-	UserException("Chart - Classe base n√£o pode ser usada, usar as classes filhas (ChartBar, ChartLine, ChartPie, ...)")
+	UserException("Chart - Classe base n„o pode ser usada, usar as classes filhas (ChartBar, ChartLine, ChartPie, ...)")
 Return ""
 
 /*/{Protheus.doc} Chart::XmlEixos
@@ -570,8 +570,8 @@ Gera o par de eixos categoria/valores (c:catAx/c:valAx) com os ids cruzados
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cPosCat, characters, Posi√ß√£o do eixo de categorias (b=baixo, l=esquerda)
-@param cPosVal, characters, Posi√ß√£o do eixo de valores (l=esquerda, b=baixo)
+@param cPosCat, characters, PosiÁ„o do eixo de categorias (b=baixo, l=esquerda)
+@param cPosVal, characters, PosiÁ„o do eixo de valores (l=esquerda, b=baixo)
 @return characters, XML dos eixos
 @type method
 /*/
@@ -611,11 +611,11 @@ Method XmlEixos(cPosCat As Character, cPosVal As Character) Class Chart
 Return cXml
 
 /*/{Protheus.doc} Chart::XmlEixoSer
-Gera o eixo de s√©ries (c:serAx) usado nos gr√°ficos 3D e de superf√≠cie
+Gera o eixo de sÈries (c:serAx) usado nos gr·ficos 3D e de superfÌcie
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@return characters, XML do eixo de s√©ries
+@return characters, XML do eixo de sÈries
 @type method
 /*/
 Method XmlEixoSer() Class Chart
@@ -631,7 +631,7 @@ Method XmlEixoSer() Class Chart
 Return cXml
 
 /*/{Protheus.doc} Chart::XmlView3D
-Gera a visualiza√ß√£o 3D (c:view3D) quando ativada pelo Set3D
+Gera a visualizaÁ„o 3D (c:view3D) quando ativada pelo Set3D
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -652,11 +652,11 @@ Method XmlView3D() Class Chart
 Return cXml
 
 /*/{Protheus.doc} Chart::XmlTitulo
-Gera o t√≠tulo do gr√°fico (c:title)
+Gera o tÌtulo do gr·fico (c:title)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@return characters, XML do t√≠tulo (vazio se n√£o informado)
+@return characters, XML do tÌtulo (vazio se n„o informado)
 @type method
 /*/
 Method XmlTitulo() Class Chart
@@ -673,7 +673,7 @@ Method XmlTitulo() Class Chart
 Return cXml
 
 /*/{Protheus.doc} Chart::XmlLegenda
-Gera a legenda do gr√°fico (c:legend)
+Gera a legenda do gr·fico (c:legend)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -691,10 +691,10 @@ Method XmlLegenda() Class Chart
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE BARRAS/COLUNAS
+//GR¡FICO DE BARRAS/COLUNAS
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartBar
-Gr√°fico de barras/colunas (c:barChart / c:bar3DChart - ECMA-376 ¬ß21.2.2.16)
+Gr·fico de barras/colunas (c:barChart / c:bar3DChart - ECMA-376 ß21.2.2.16)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -702,9 +702,9 @@ Gr√°fico de barras/colunas (c:barChart / c:bar3DChart - ECMA-376 ¬ß21.2.2.16)
 @see custom.excel.chart.Chart
 /*/
 Class ChartBar from Chart
-	Public Data cDirecao		As Character	//Dire√ß√£o: col=colunas verticais, bar=barras horizontais
+	Public Data cDirecao		As Character	//DireÁ„o: col=colunas verticais, bar=barras horizontais
 	Public Data cAgrupamento	As Character	//Agrupamento: clustered, stacked, percentStacked
-	Public Data nGapWidth		As Numeric		//Espa√ßo entre grupos de barras (%)
+	Public Data nGapWidth		As Numeric		//EspaÁo entre grupos de barras (%)
 
 	Public Method New()				As Object
 	Public Method SetDirecao()		As Object
@@ -716,11 +716,11 @@ Class ChartBar from Chart
 EndClass
 
 /*/{Protheus.doc} ChartBar::New
-Construtor do gr√°fico de barras/colunas
+Construtor do gr·fico de barras/colunas
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -733,7 +733,7 @@ Method New(oExcel As Object) as Object Class ChartBar
 Return self
 
 /*/{Protheus.doc} ChartBar::SetDirecao
-Define a dire√ß√£o das barras
+Define a direÁ„o das barras
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -745,13 +745,13 @@ Method SetDirecao(cDirecao As Character) as Object Class ChartBar
 	PARAMTYPE 0	VAR cDirecao	AS CHARACTER
 	cDirecao	:= lower(AllTrim(cDirecao))
 	If !(cDirecao=="col" .or. cDirecao=="bar")
-		UserException("ChartBar - Dire√ß√£o inv√°lida ("+cDirecao+"). Usar: col,bar")
+		UserException("ChartBar - DireÁ„o inv·lida ("+cDirecao+"). Usar: col,bar")
 	Endif
 	::cDirecao	:= cDirecao
 Return self
 
 /*/{Protheus.doc} ChartBar::SetAgrupamento
-Define o agrupamento das s√©ries
+Define o agrupamento das sÈries
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -762,17 +762,17 @@ Define o agrupamento das s√©ries
 Method SetAgrupamento(cAgrupamento As Character) as Object Class ChartBar
 	PARAMTYPE 0	VAR cAgrupamento	AS CHARACTER
 	If !(cAgrupamento=="clustered" .or. cAgrupamento=="stacked" .or. cAgrupamento=="percentStacked")
-		UserException("ChartBar - Agrupamento inv√°lido ("+cAgrupamento+"). Usar: clustered,stacked,percentStacked")
+		UserException("ChartBar - Agrupamento inv·lido ("+cAgrupamento+"). Usar: clustered,stacked,percentStacked")
 	Endif
 	::cAgrupamento	:= cAgrupamento
 Return self
 
 /*/{Protheus.doc} ChartBar::SetGapWidth
-Define o espa√ßo entre os grupos de barras
+Define o espaÁo entre os grupos de barras
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param nGapWidth, numeric, Percentual do espa√ßo (0 a 500)
+@param nGapWidth, numeric, Percentual do espaÁo (0 a 500)
 @return object, self
 @type method
 /*/
@@ -791,7 +791,7 @@ Gera o c:barChart/c:bar3DChart e os eixos
 /*/
 Method XmlPlot() Class ChartBar
 	Local cXml := ::XmlGrupo(0) As Character
-	//Barras horizontais invertem a posi√ß√£o dos eixos
+	//Barras horizontais invertem a posiÁ„o dos eixos
 	If ::cDirecao=="bar"
 		cXml	+= ::XmlEixos("l","b")
 	Else
@@ -803,12 +803,12 @@ Method XmlPlot() Class ChartBar
 Return cXml
 
 /*/{Protheus.doc} ChartBar::XmlGrupo
-Gera somente o grupo do gr√°fico (c:barChart/c:bar3DChart), sem os eixos.
-Usado pelo XmlPlot e pela combina√ß√£o de gr√°ficos (ChartCombo).
+Gera somente o grupo do gr·fico (c:barChart/c:bar3DChart), sem os eixos.
+Usado pelo XmlPlot e pela combinaÁ„o de gr·ficos (ChartCombo).
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param nIdxIni, numeric, √çndice inicial das s√©ries (para combina√ß√£o)
+@param nIdxIni, numeric, Õndice inicial das sÈries (para combinaÁ„o)
 @return characters, XML do grupo
 @type method
 /*/
@@ -841,13 +841,13 @@ Method XmlGrupo(nIdxIni As Numeric) Class ChartBar
 Return cXml
 
 /*/{Protheus.doc} ChartBar::XmlSer
-Gera uma s√©rie do gr√°fico de barras (c:ser)
+Gera uma sÈrie do gr·fico de barras (c:ser)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartBar
@@ -862,10 +862,10 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartBar
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE LINHAS
+//GR¡FICO DE LINHAS
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartLine
-Gr√°fico de linhas (c:lineChart / c:line3DChart - ECMA-376 ¬ß21.2.2.97)
+Gr·fico de linhas (c:lineChart / c:line3DChart - ECMA-376 ß21.2.2.97)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -874,8 +874,8 @@ Gr√°fico de linhas (c:lineChart / c:line3DChart - ECMA-376 ¬ß21.2.2.97)
 /*/
 Class ChartLine from Chart
 	Public Data cAgrupamento	As Character	//Agrupamento: standard, stacked, percentStacked
-	Public Data lMarcador		As Logical		//Exibir marcadores nos pontos (padr√£o das s√©ries)
-	Public Data lSuavizar		As Logical		//Suavizar as linhas (padr√£o das s√©ries)
+	Public Data lMarcador		As Logical		//Exibir marcadores nos pontos (padr„o das sÈries)
+	Public Data lSuavizar		As Logical		//Suavizar as linhas (padr„o das sÈries)
 
 	Public Method New()				As Object
 	Public Method SetAgrupamento()	As Object
@@ -887,11 +887,11 @@ Class ChartLine from Chart
 EndClass
 
 /*/{Protheus.doc} ChartLine::New
-Construtor do gr√°fico de linhas
+Construtor do gr·fico de linhas
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -904,7 +904,7 @@ Method New(oExcel As Object) as Object Class ChartLine
 Return self
 
 /*/{Protheus.doc} ChartLine::SetAgrupamento
-Define o agrupamento das s√©ries
+Define o agrupamento das sÈries
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -915,13 +915,13 @@ Define o agrupamento das s√©ries
 Method SetAgrupamento(cAgrupamento As Character) as Object Class ChartLine
 	PARAMTYPE 0	VAR cAgrupamento	AS CHARACTER
 	If !(cAgrupamento=="standard" .or. cAgrupamento=="stacked" .or. cAgrupamento=="percentStacked")
-		UserException("ChartLine - Agrupamento inv√°lido ("+cAgrupamento+"). Usar: standard,stacked,percentStacked")
+		UserException("ChartLine - Agrupamento inv·lido ("+cAgrupamento+"). Usar: standard,stacked,percentStacked")
 	Endif
 	::cAgrupamento	:= cAgrupamento
 Return self
 
 /*/{Protheus.doc} ChartLine::SetMarcador
-Define a exibi√ß√£o de marcadores nos pontos (padr√£o para todas as s√©ries)
+Define a exibiÁ„o de marcadores nos pontos (padr„o para todas as sÈries)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -935,7 +935,7 @@ Method SetMarcador(lMarcador As Logical) as Object Class ChartLine
 Return self
 
 /*/{Protheus.doc} ChartLine::SetSuavizar
-Define a suaviza√ß√£o das linhas (padr√£o para todas as s√©ries)
+Define a suavizaÁ„o das linhas (padr„o para todas as sÈries)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -965,12 +965,12 @@ Method XmlPlot() Class ChartLine
 Return cXml
 
 /*/{Protheus.doc} ChartLine::XmlGrupo
-Gera somente o grupo do gr√°fico (c:lineChart/c:line3DChart), sem os eixos.
-Usado pelo XmlPlot e pela combina√ß√£o de gr√°ficos (ChartCombo).
+Gera somente o grupo do gr·fico (c:lineChart/c:line3DChart), sem os eixos.
+Usado pelo XmlPlot e pela combinaÁ„o de gr·ficos (ChartCombo).
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param nIdxIni, numeric, √çndice inicial das s√©ries (para combina√ß√£o)
+@param nIdxIni, numeric, Õndice inicial das sÈries (para combinaÁ„o)
 @return characters, XML do grupo
 @type method
 /*/
@@ -1000,20 +1000,20 @@ Method XmlGrupo(nIdxIni As Numeric) Class ChartLine
 Return cXml
 
 /*/{Protheus.doc} ChartLine::XmlSer
-Gera uma s√©rie do gr√°fico de linhas (c:ser)
+Gera uma sÈrie do gr·fico de linhas (c:ser)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartLine
 	Local cXml := "" As Character
 	Local lMarcador As Logical
 	Local lSuavizar As Logical
-	//S√©rie pode sobrescrever o padr√£o do gr√°fico; em 3D marcador/suaviza√ß√£o n√£o se aplicam
+	//SÈrie pode sobrescrever o padr„o do gr·fico; em 3D marcador/suavizaÁ„o n„o se aplicam
 	lMarcador	:= If(ValType(oSerie:xMarcador)=="L",oSerie:xMarcador,::lMarcador) .and. !::l3D
 	lSuavizar	:= If(ValType(oSerie:xSuavizar)=="L",oSerie:xSuavizar,::lSuavizar) .and. !::l3D
 	cXml	+= XmlSerIni(oSerie,nIdx)
@@ -1036,23 +1036,23 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartLine
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE PIZZA
+//GR¡FICO DE PIZZA
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartPie
-Gr√°fico de pizza (c:pieChart / c:pie3DChart - ECMA-376 ¬ß21.2.2.141)
+Gr·fico de pizza (c:pieChart / c:pie3DChart - ECMA-376 ß21.2.2.141)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.Chart
-@obs Pizza n√£o possui eixos. Normalmente usa apenas uma s√©rie
+@obs Pizza n„o possui eixos. Normalmente usa apenas uma sÈrie
 /*/
 Class ChartPie from Chart
-	Public Data nAnguloIni		As Numeric		//√Çngulo da primeira fatia em graus (c:firstSliceAng)
-	Public Data lRotulos		As Logical		//Exibir r√≥tulos de dados
-	Public Data lRotVal			As Logical		//R√≥tulo com o valor
-	Public Data lRotPct			As Logical		//R√≥tulo com o percentual
-	Public Data lRotCat			As Logical		//R√≥tulo com a categoria
+	Public Data nAnguloIni		As Numeric		//¬ngulo da primeira fatia em graus (c:firstSliceAng)
+	Public Data lRotulos		As Logical		//Exibir rÛtulos de dados
+	Public Data lRotVal			As Logical		//RÛtulo com o valor
+	Public Data lRotPct			As Logical		//RÛtulo com o percentual
+	Public Data lRotCat			As Logical		//RÛtulo com a categoria
 
 	Public Method New()				As Object
 	Public Method SetAnguloIni()	As Object
@@ -1063,11 +1063,11 @@ Class ChartPie from Chart
 EndClass
 
 /*/{Protheus.doc} ChartPie::New
-Construtor do gr√°fico de pizza
+Construtor do gr·fico de pizza
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1082,11 +1082,11 @@ Method New(oExcel As Object) as Object Class ChartPie
 Return self
 
 /*/{Protheus.doc} ChartPie::SetAnguloIni
-Define o √¢ngulo da primeira fatia
+Define o ‚ngulo da primeira fatia
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param nAngulo, numeric, √Çngulo em graus (0 a 360)
+@param nAngulo, numeric, ¬ngulo em graus (0 a 360)
 @return object, self
 @type method
 /*/
@@ -1096,11 +1096,11 @@ Method SetAnguloIni(nAngulo As Numeric) as Object Class ChartPie
 Return self
 
 /*/{Protheus.doc} ChartPie::SetRotulos
-Define os r√≥tulos de dados das fatias
+Define os rÛtulos de dados das fatias
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param lExibir, logical, .T. exibe os r√≥tulos
+@param lExibir, logical, .T. exibe os rÛtulos
 @param lValor, logical, Exibe o valor
 @param lPercentual, logical, Exibe o percentual
 @param lCategoria, logical, Exibe a categoria
@@ -1119,11 +1119,11 @@ Method SetRotulos(lExibir As Logical, lValor As Logical, lPercentual As Logical,
 Return self
 
 /*/{Protheus.doc} ChartPie::XmlRotulos
-Gera os r√≥tulos de dados (c:dLbls) conforme configura√ß√£o do SetRotulos
+Gera os rÛtulos de dados (c:dLbls) conforme configuraÁ„o do SetRotulos
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@return characters, XML dos r√≥tulos (vazio se desativados)
+@return characters, XML dos rÛtulos (vazio se desativados)
 @type method
 /*/
 Method XmlRotulos() Class ChartPie
@@ -1161,19 +1161,19 @@ Method XmlPlot() Class ChartPie
 	Next
 	cXml	+= ::XmlRotulos()
 	If !::l3D
-		cXml	+= '<c:firstSliceAng val="'+cValToChar(::nAnguloIni)+'"/>'	//N√£o existe no schema 3D
+		cXml	+= '<c:firstSliceAng val="'+cValToChar(::nAnguloIni)+'"/>'	//N„o existe no schema 3D
 	Endif
 	cXml	+= '</'+cTag+'>'
 Return cXml
 
 /*/{Protheus.doc} ChartPie::XmlSer
-Gera uma s√©rie do gr√°fico de pizza (c:ser)
+Gera uma sÈrie do gr·fico de pizza (c:ser)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartPie
@@ -1191,17 +1191,17 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartPie
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE DISPERS√ÉO
+//GR¡FICO DE DISPERS√O
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartScatter
-Gr√°fico de dispers√£o XY (c:scatterChart - ECMA-376 ¬ß21.2.2.161)
+Gr·fico de dispers„o XY (c:scatterChart - ECMA-376 ß21.2.2.161)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.Chart
-@obs Usa dois eixos de valores. Informar as s√©ries com :AddSerie() usando
-cRefCat/aCat como X e cRefVal/aVal como Y, ou usar o m√©todo :SetXY() da s√©rie
+@obs Usa dois eixos de valores. Informar as sÈries com :AddSerie() usando
+cRefCat/aCat como X e cRefVal/aVal como Y, ou usar o mÈtodo :SetXY() da sÈrie
 /*/
 Class ChartScatter from Chart
 	Public Data cEstilo			As Character	//Estilo: marker, lineMarker, smoothMarker, line, smooth
@@ -1215,11 +1215,11 @@ Class ChartScatter from Chart
 EndClass
 
 /*/{Protheus.doc} ChartScatter::New
-Construtor do gr√°fico de dispers√£o
+Construtor do gr·fico de dispers„o
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1230,7 +1230,7 @@ Method New(oExcel As Object) as Object Class ChartScatter
 Return self
 
 /*/{Protheus.doc} ChartScatter::SetEstilo
-Define o estilo da dispers√£o
+Define o estilo da dispers„o
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1241,13 +1241,13 @@ Define o estilo da dispers√£o
 Method SetEstilo(cEstilo As Character) as Object Class ChartScatter
 	PARAMTYPE 0	VAR cEstilo		AS CHARACTER
 	If !(cEstilo=="marker" .or. cEstilo=="lineMarker" .or. cEstilo=="smoothMarker" .or. cEstilo=="line" .or. cEstilo=="smooth")
-		UserException("ChartScatter - Estilo inv√°lido ("+cEstilo+"). Usar: marker,lineMarker,smoothMarker,line,smooth")
+		UserException("ChartScatter - Estilo inv·lido ("+cEstilo+"). Usar: marker,lineMarker,smoothMarker,line,smooth")
 	Endif
 	::cEstilo	:= cEstilo
 Return self
 
 /*/{Protheus.doc} ChartScatter::Set3D
-Dispers√£o e bolhas n√£o possuem vers√£o 3D no ECMA-376
+Dispers„o e bolhas n„o possuem vers„o 3D no ECMA-376
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1255,7 +1255,7 @@ Dispers√£o e bolhas n√£o possuem vers√£o 3D no ECMA-376
 @type method
 /*/
 Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva As Numeric) as Object Class ChartScatter
-	UserException(::cClassName+" - Este tipo de gr√°fico n√£o possui vers√£o 3D no ECMA-376")
+	UserException(::cClassName+" - Este tipo de gr·fico n„o possui vers„o 3D no ECMA-376")
 Return self
 
 /*/{Protheus.doc} ChartScatter::XmlPlot
@@ -1282,13 +1282,13 @@ Method XmlPlot() Class ChartScatter
 Return cXml
 
 /*/{Protheus.doc} ChartScatter::XmlSer
-Gera uma s√©rie do gr√°fico de dispers√£o (c:ser com c:xVal/c:yVal)
+Gera uma sÈrie do gr·fico de dispers„o (c:ser com c:xVal/c:yVal)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartScatter
@@ -1310,7 +1310,7 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartScatter
 		lSuavizar	:= oSerie:xSuavizar
 	Endif
 	cXml	+= XmlSerIni(oSerie,nIdx)
-	//Linha da s√©rie (oculta quando estilo somente pontos)
+	//Linha da sÈrie (oculta quando estilo somente pontos)
 	If !lLinha
 		cXml	+= '<c:spPr><a:ln w="19050"><a:noFill/></a:ln></c:spPr>'
 	ElseIf !Empty(oSerie:cCor)
@@ -1326,7 +1326,7 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartScatter
 		Endif
 		cXml	+= '</c:marker>'
 	Endif
-	//Valores X e Y (num√©ricos)
+	//Valores X e Y (numÈricos)
 	cXml	+= '<c:xVal>'+XmlNum(cRefX,aX)+'</c:xVal>'
 	cXml	+= '<c:yVal>'+XmlNum(cRefY,aY)+'</c:yVal>'
 	cXml	+= '<c:smooth val="'+If(lSuavizar,"1","0")+'"/>'
@@ -1334,7 +1334,7 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartScatter
 Return cXml
 
 /*/{Protheus.doc} ChartScatter::XmlEixosVal
-Gera os dois eixos de valores da dispers√£o/bolhas (X embaixo, Y √† esquerda)
+Gera os dois eixos de valores da dispers„o/bolhas (X embaixo, Y ‡ esquerda)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1373,10 +1373,10 @@ Method XmlEixosVal() Class ChartScatter
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE √ÅREA
+//GR¡FICO DE ¡REA
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartArea
-Gr√°fico de √°rea (c:areaChart / c:area3DChart - ECMA-376 ¬ß21.2.2.5)
+Gr·fico de ·rea (c:areaChart / c:area3DChart - ECMA-376 ß21.2.2.5)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1394,11 +1394,11 @@ Class ChartArea from Chart
 EndClass
 
 /*/{Protheus.doc} ChartArea::New
-Construtor do gr√°fico de √°rea
+Construtor do gr·fico de ·rea
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1409,7 +1409,7 @@ Method New(oExcel As Object) as Object Class ChartArea
 Return self
 
 /*/{Protheus.doc} ChartArea::SetAgrupamento
-Define o agrupamento das s√©ries
+Define o agrupamento das sÈries
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1420,7 +1420,7 @@ Define o agrupamento das s√©ries
 Method SetAgrupamento(cAgrupamento As Character) as Object Class ChartArea
 	PARAMTYPE 0	VAR cAgrupamento	AS CHARACTER
 	If !(cAgrupamento=="standard" .or. cAgrupamento=="stacked" .or. cAgrupamento=="percentStacked")
-		UserException("ChartArea - Agrupamento inv√°lido ("+cAgrupamento+"). Usar: standard,stacked,percentStacked")
+		UserException("ChartArea - Agrupamento inv·lido ("+cAgrupamento+"). Usar: standard,stacked,percentStacked")
 	Endif
 	::cAgrupamento	:= cAgrupamento
 Return self
@@ -1442,12 +1442,12 @@ Method XmlPlot() Class ChartArea
 Return cXml
 
 /*/{Protheus.doc} ChartArea::XmlGrupo
-Gera somente o grupo do gr√°fico (c:areaChart/c:area3DChart), sem os eixos.
-Usado pelo XmlPlot e pela combina√ß√£o de gr√°ficos (ChartCombo).
+Gera somente o grupo do gr·fico (c:areaChart/c:area3DChart), sem os eixos.
+Usado pelo XmlPlot e pela combinaÁ„o de gr·ficos (ChartCombo).
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param nIdxIni, numeric, √çndice inicial das s√©ries (para combina√ß√£o)
+@param nIdxIni, numeric, Õndice inicial das sÈries (para combinaÁ„o)
 @return characters, XML do grupo
 @type method
 /*/
@@ -1475,20 +1475,20 @@ Method XmlGrupo(nIdxIni As Numeric) Class ChartArea
 Return cXml
 
 /*/{Protheus.doc} ChartArea::XmlSer
-Gera uma s√©rie do gr√°fico de √°rea (c:ser)
+Gera uma sÈrie do gr·fico de ·rea (c:ser)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartArea
 	Local cXml := "" As Character
 	cXml	+= XmlSerIni(oSerie,nIdx)
 	If !Empty(oSerie:cCor)
-		cXml	+= '<c:spPr>'+XmlCor(oSerie:cCor)+'</c:spPr>'	//Cor = preenchimento da √°rea
+		cXml	+= '<c:spPr>'+XmlCor(oSerie:cCor)+'</c:spPr>'	//Cor = preenchimento da ·rea
 	Endif
 	cXml	+= XmlCat(oSerie)
 	cXml	+= XmlVal(oSerie)
@@ -1496,18 +1496,18 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartArea
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE A√á√ïES
+//GR¡FICO DE A«’ES
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartStock
-Gr√°fico de a√ß√µes (c:stockChart - ECMA-376 ¬ß21.2.2.198)
+Gr·fico de aÁıes (c:stockChart - ECMA-376 ß21.2.2.198)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.Chart
-@obs As s√©ries devem ser adicionadas em ORDEM FIXA:
-3 s√©ries = HLC: M√°xima, M√≠nima, Fechamento
-4 s√©ries = OHLC: Abertura, M√°xima, M√≠nima, Fechamento (gera barras de alta/baixa)
+@obs As sÈries devem ser adicionadas em ORDEM FIXA:
+3 sÈries = HLC: M·xima, MÌnima, Fechamento
+4 sÈries = OHLC: Abertura, M·xima, MÌnima, Fechamento (gera barras de alta/baixa)
 /*/
 Class ChartStock from Chart
 	Public Method New()			As Object
@@ -1517,11 +1517,11 @@ Class ChartStock from Chart
 EndClass
 
 /*/{Protheus.doc} ChartStock::New
-Construtor do gr√°fico de a√ß√µes
+Construtor do gr·fico de aÁıes
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1531,7 +1531,7 @@ Method New(oExcel As Object) as Object Class ChartStock
 Return self
 
 /*/{Protheus.doc} ChartStock::Set3D
-A√ß√µes n√£o possuem vers√£o 3D no ECMA-376
+AÁıes n„o possuem vers„o 3D no ECMA-376
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1539,7 +1539,7 @@ A√ß√µes n√£o possuem vers√£o 3D no ECMA-376
 @type method
 /*/
 Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva As Numeric) as Object Class ChartStock
-	UserException(::cClassName+" - Este tipo de gr√°fico n√£o possui vers√£o 3D no ECMA-376")
+	UserException(::cClassName+" - Este tipo de gr·fico n„o possui vers„o 3D no ECMA-376")
 Return self
 
 /*/{Protheus.doc} ChartStock::XmlPlot
@@ -1555,13 +1555,13 @@ Method XmlPlot() Class ChartStock
 	Local nCont As Numeric
 	Local nQtd := Len(::aSeries) As Numeric
 	If nQtd<3 .or. nQtd>4
-		UserException("ChartStock - Informar 3 s√©ries na ordem (M√°xima,M√≠nima,Fechamento) ou 4 (Abertura,M√°xima,M√≠nima,Fechamento)")
+		UserException("ChartStock - Informar 3 sÈries na ordem (M·xima,MÌnima,Fechamento) ou 4 (Abertura,M·xima,MÌnima,Fechamento)")
 	Endif
 	cXml	+= '<c:stockChart>'
 	For nCont:=1 to nQtd
 		cXml	+= ::XmlSer(::aSeries[nCont],nCont-1)
 	Next
-	cXml	+= '<c:hiLowLines/>'	//Linhas de m√°xima/m√≠nima
+	cXml	+= '<c:hiLowLines/>'	//Linhas de m·xima/mÌnima
 	If nQtd==4
 		//Barras de alta/baixa (abertura x fechamento)
 		cXml	+= '<c:upDownBars>'
@@ -1577,19 +1577,19 @@ Method XmlPlot() Class ChartStock
 Return cXml
 
 /*/{Protheus.doc} ChartStock::XmlSer
-Gera uma s√©rie do gr√°fico de a√ß√µes (linha invis√≠vel; no HLC o fechamento recebe marcador)
+Gera uma sÈrie do gr·fico de aÁıes (linha invisÌvel; no HLC o fechamento recebe marcador)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartStock
 	Local cXml := "" As Character
 	cXml	+= XmlSerIni(oSerie,nIdx)
-	cXml	+= '<c:spPr><a:ln><a:noFill/></a:ln></c:spPr>'	//Linha invis√≠vel
+	cXml	+= '<c:spPr><a:ln><a:noFill/></a:ln></c:spPr>'	//Linha invisÌvel
 	If Len(::aSeries)==3 .and. nIdx==2
 		cXml	+= '<c:marker><c:symbol val="dot"/><c:size val="3"/></c:marker>'	//Fechamento no HLC
 	Else
@@ -1602,10 +1602,10 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartStock
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE RADAR
+//GR¡FICO DE RADAR
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartRadar
-Gr√°fico de radar (c:radarChart - ECMA-376 ¬ß21.2.2.153)
+Gr·fico de radar (c:radarChart - ECMA-376 ß21.2.2.153)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1623,11 +1623,11 @@ Class ChartRadar from Chart
 EndClass
 
 /*/{Protheus.doc} ChartRadar::New
-Construtor do gr√°fico de radar
+Construtor do gr·fico de radar
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1649,13 +1649,13 @@ Define o estilo do radar
 Method SetEstilo(cEstilo As Character) as Object Class ChartRadar
 	PARAMTYPE 0	VAR cEstilo		AS CHARACTER
 	If !(cEstilo=="standard" .or. cEstilo=="marker" .or. cEstilo=="filled")
-		UserException("ChartRadar - Estilo inv√°lido ("+cEstilo+"). Usar: standard,marker,filled")
+		UserException("ChartRadar - Estilo inv·lido ("+cEstilo+"). Usar: standard,marker,filled")
 	Endif
 	::cEstilo	:= cEstilo
 Return self
 
 /*/{Protheus.doc} ChartRadar::Set3D
-Radar n√£o possui vers√£o 3D no ECMA-376
+Radar n„o possui vers„o 3D no ECMA-376
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1663,7 +1663,7 @@ Radar n√£o possui vers√£o 3D no ECMA-376
 @type method
 /*/
 Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva As Numeric) as Object Class ChartRadar
-	UserException(::cClassName+" - Este tipo de gr√°fico n√£o possui vers√£o 3D no ECMA-376")
+	UserException(::cClassName+" - Este tipo de gr·fico n„o possui vers„o 3D no ECMA-376")
 Return self
 
 /*/{Protheus.doc} ChartRadar::XmlPlot
@@ -1690,13 +1690,13 @@ Method XmlPlot() Class ChartRadar
 Return cXml
 
 /*/{Protheus.doc} ChartRadar::XmlSer
-Gera uma s√©rie do gr√°fico de radar (c:ser)
+Gera uma sÈrie do gr·fico de radar (c:ser)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartRadar
@@ -1724,16 +1724,16 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartRadar
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE ROSCA
+//GR¡FICO DE ROSCA
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartDoughnut
-Gr√°fico de rosca (c:doughnutChart - ECMA-376 ¬ß21.2.2.50)
+Gr·fico de rosca (c:doughnutChart - ECMA-376 ß21.2.2.50)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.ChartPie
-@obs Herda s√©ries, r√≥tulos e √¢ngulo inicial do ChartPie
+@obs Herda sÈries, rÛtulos e ‚ngulo inicial do ChartPie
 /*/
 Class ChartDoughnut from ChartPie
 	Public Data nFuro			As Numeric		//Tamanho do furo central em % (c:holeSize)
@@ -1745,11 +1745,11 @@ Class ChartDoughnut from ChartPie
 EndClass
 
 /*/{Protheus.doc} ChartDoughnut::New
-Construtor do gr√°fico de rosca
+Construtor do gr·fico de rosca
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1771,13 +1771,13 @@ Define o tamanho do furo central da rosca
 Method SetFuro(nFuro As Numeric) as Object Class ChartDoughnut
 	PARAMTYPE 0	VAR nFuro		AS NUMERIC
 	If nFuro<10 .or. nFuro>90
-		UserException("ChartDoughnut - Furo inv√°lido ("+cValToChar(nFuro)+"). Usar entre 10 e 90")
+		UserException("ChartDoughnut - Furo inv·lido ("+cValToChar(nFuro)+"). Usar entre 10 e 90")
 	Endif
 	::nFuro	:= nFuro
 Return self
 
 /*/{Protheus.doc} ChartDoughnut::Set3D
-Rosca n√£o possui vers√£o 3D no ECMA-376
+Rosca n„o possui vers„o 3D no ECMA-376
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1785,7 +1785,7 @@ Rosca n√£o possui vers√£o 3D no ECMA-376
 @type method
 /*/
 Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva As Numeric) as Object Class ChartDoughnut
-	UserException(::cClassName+" - Este tipo de gr√°fico n√£o possui vers√£o 3D no ECMA-376")
+	UserException(::cClassName+" - Este tipo de gr·fico n„o possui vers„o 3D no ECMA-376")
 Return self
 
 /*/{Protheus.doc} ChartDoughnut::XmlPlot
@@ -1811,11 +1811,11 @@ Method XmlPlot() Class ChartDoughnut
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE PIZZA DE PIZZA / BARRA DE PIZZA
+//GR¡FICO DE PIZZA DE PIZZA / BARRA DE PIZZA
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartOfPie
-Gr√°fico de pizza de pizza ou barra de pizza (c:ofPieChart - ECMA-376 ¬ß21.2.2.126).
-As √∫ltimas fatias s√£o destacadas em um segundo gr√°fico (pizza ou barra).
+Gr·fico de pizza de pizza ou barra de pizza (c:ofPieChart - ECMA-376 ß21.2.2.126).
+As ˙ltimas fatias s„o destacadas em um segundo gr·fico (pizza ou barra).
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1823,11 +1823,11 @@ As √∫ltimas fatias s√£o destacadas em um segundo gr√°fico (pizza ou barra).
 @see custom.excel.chart.ChartPie
 /*/
 Class ChartOfPie from ChartPie
-	Public Data cTipoSec		As Character	//Tipo do gr√°fico secund√°rio: pie=pizza, bar=barra
-	Public Data cDivisao		As Character	//Crit√©rio de divis√£o: auto, pos, val, percent
-	Public Data nDivisao		As Numeric		//Valor da divis√£o (posi√ß√£o/valor/percentual)
-	Public Data nTamSec			As Numeric		//Tamanho do gr√°fico secund√°rio em % (c:secondPieSize)
-	Public Data nGapWidth		As Numeric		//Espa√ßo entre os dois gr√°ficos (%)
+	Public Data cTipoSec		As Character	//Tipo do gr·fico secund·rio: pie=pizza, bar=barra
+	Public Data cDivisao		As Character	//CritÈrio de divis„o: auto, pos, val, percent
+	Public Data nDivisao		As Numeric		//Valor da divis„o (posiÁ„o/valor/percentual)
+	Public Data nTamSec			As Numeric		//Tamanho do gr·fico secund·rio em % (c:secondPieSize)
+	Public Data nGapWidth		As Numeric		//EspaÁo entre os dois gr·ficos (%)
 
 	Public Method New()			As Object
 	Public Method SetTipo()		As Object
@@ -1837,11 +1837,11 @@ Class ChartOfPie from ChartPie
 EndClass
 
 /*/{Protheus.doc} ChartOfPie::New
-Construtor do gr√°fico de pizza de pizza
+Construtor do gr·fico de pizza de pizza
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1856,7 +1856,7 @@ Method New(oExcel As Object) as Object Class ChartOfPie
 Return self
 
 /*/{Protheus.doc} ChartOfPie::SetTipo
-Define o tipo do gr√°fico secund√°rio
+Define o tipo do gr·fico secund·rio
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1868,18 +1868,18 @@ Method SetTipo(cTipo As Character) as Object Class ChartOfPie
 	PARAMTYPE 0	VAR cTipo		AS CHARACTER
 	cTipo	:= lower(AllTrim(cTipo))
 	If !(cTipo=="pie" .or. cTipo=="bar")
-		UserException("ChartOfPie - Tipo inv√°lido ("+cTipo+"). Usar: pie,bar")
+		UserException("ChartOfPie - Tipo inv·lido ("+cTipo+"). Usar: pie,bar")
 	Endif
 	::cTipoSec	:= cTipo
 Return self
 
 /*/{Protheus.doc} ChartOfPie::SetDivisao
-Define o crit√©rio de divis√£o das fatias para o gr√°fico secund√°rio
+Define o critÈrio de divis„o das fatias para o gr·fico secund·rio
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cTipo, characters, auto=autom√°tico, pos=√∫ltimas N fatias, val=valores menores que N, percent=percentuais menores que N
-@param nValor, numeric, Valor do crit√©rio (quando n√£o autom√°tico)
+@param cTipo, characters, auto=autom·tico, pos=˙ltimas N fatias, val=valores menores que N, percent=percentuais menores que N
+@param nValor, numeric, Valor do critÈrio (quando n„o autom·tico)
 @return object, self
 @type method
 /*/
@@ -1887,17 +1887,17 @@ Method SetDivisao(cTipo As Character, nValor As Numeric) as Object Class ChartOf
 	PARAMTYPE 0	VAR cTipo		AS CHARACTER
 	PARAMTYPE 1	VAR nValor		AS NUMERIC	OPTIONAL DEFAULT 0
 	If !(cTipo=="auto" .or. cTipo=="pos" .or. cTipo=="val" .or. cTipo=="percent")
-		UserException("ChartOfPie - Divis√£o inv√°lida ("+cTipo+"). Usar: auto,pos,val,percent")
+		UserException("ChartOfPie - Divis„o inv·lida ("+cTipo+"). Usar: auto,pos,val,percent")
 	Endif
 	If cTipo!="auto" .and. nValor<=0
-		UserException("ChartOfPie - Informar o valor da divis√£o (nValor)")
+		UserException("ChartOfPie - Informar o valor da divis„o (nValor)")
 	Endif
 	::cDivisao	:= cTipo
 	::nDivisao	:= nValor
 Return self
 
 /*/{Protheus.doc} ChartOfPie::Set3D
-Pizza de pizza n√£o possui vers√£o 3D no ECMA-376
+Pizza de pizza n„o possui vers„o 3D no ECMA-376
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -1905,7 +1905,7 @@ Pizza de pizza n√£o possui vers√£o 3D no ECMA-376
 @type method
 /*/
 Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva As Numeric) as Object Class ChartOfPie
-	UserException(::cClassName+" - Este tipo de gr√°fico n√£o possui vers√£o 3D no ECMA-376")
+	UserException(::cClassName+" - Este tipo de gr·fico n„o possui vers„o 3D no ECMA-376")
 Return self
 
 /*/{Protheus.doc} ChartOfPie::XmlPlot
@@ -1932,26 +1932,26 @@ Method XmlPlot() Class ChartOfPie
 		cXml	+= '<c:splitPos val="'+cValToChar(::nDivisao)+'"/>'
 	Endif
 	cXml	+= '<c:secondPieSize val="'+cValToChar(::nTamSec)+'"/>'
-	cXml	+= '<c:serLines/>'	//Linhas ligando os dois gr√°ficos
+	cXml	+= '<c:serLines/>'	//Linhas ligando os dois gr·ficos
 	cXml	+= '</c:ofPieChart>'
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE BOLHAS
+//GR¡FICO DE BOLHAS
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartBubble
-Gr√°fico de bolhas (c:bubbleChart - ECMA-376 ¬ß21.2.2.20).
+Gr·fico de bolhas (c:bubbleChart - ECMA-376 ß21.2.2.20).
 Cada ponto possui X, Y e tamanho da bolha (c:bubbleSize).
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.ChartScatter
-@obs Informar o tamanho das bolhas pelo m√©todo :SetTamanho() da s√©rie
+@obs Informar o tamanho das bolhas pelo mÈtodo :SetTamanho() da sÈrie
 /*/
 Class ChartBubble from ChartScatter
 	Public Data nEscala			As Numeric		//Escala do tamanho das bolhas em % (c:bubbleScale)
-	Public Data cTamRepr		As Character	//O tamanho representa: area=√°rea, w=largura (c:sizeRepresents)
+	Public Data cTamRepr		As Character	//O tamanho representa: area=·rea, w=largura (c:sizeRepresents)
 
 	Public Method New()			As Object
 	Public Method SetEscala()	As Object
@@ -1961,11 +1961,11 @@ Class ChartBubble from ChartScatter
 EndClass
 
 /*/{Protheus.doc} ChartBubble::New
-Construtor do gr√°fico de bolhas
+Construtor do gr·fico de bolhas
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -1988,7 +1988,7 @@ Define a escala do tamanho das bolhas
 Method SetEscala(nEscala As Numeric) as Object Class ChartBubble
 	PARAMTYPE 0	VAR nEscala		AS NUMERIC
 	If nEscala<0 .or. nEscala>300
-		UserException("ChartBubble - Escala inv√°lida ("+cValToChar(nEscala)+"). Usar entre 0 e 300")
+		UserException("ChartBubble - Escala inv·lida ("+cValToChar(nEscala)+"). Usar entre 0 e 300")
 	Endif
 	::nEscala	:= nEscala
 Return self
@@ -1998,14 +1998,14 @@ Define o que o valor do tamanho representa na bolha
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cTamRepr, characters, area=√°rea da bolha, w=largura (di√¢metro) da bolha
+@param cTamRepr, characters, area=·rea da bolha, w=largura (di‚metro) da bolha
 @return object, self
 @type method
 /*/
 Method SetTamRepr(cTamRepr As Character) as Object Class ChartBubble
 	PARAMTYPE 0	VAR cTamRepr	AS CHARACTER
 	If !(cTamRepr=="area" .or. cTamRepr=="w")
-		UserException("ChartBubble - Representa√ß√£o inv√°lida ("+cTamRepr+"). Usar: area,w")
+		UserException("ChartBubble - RepresentaÁ„o inv·lida ("+cTamRepr+"). Usar: area,w")
 	Endif
 	::cTamRepr	:= cTamRepr
 Return self
@@ -2036,13 +2036,13 @@ Method XmlPlot() Class ChartBubble
 Return cXml
 
 /*/{Protheus.doc} ChartBubble::XmlSer
-Gera uma s√©rie do gr√°fico de bolhas (c:ser com c:xVal/c:yVal/c:bubbleSize)
+Gera uma sÈrie do gr·fico de bolhas (c:ser com c:xVal/c:yVal/c:bubbleSize)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartBubble
@@ -2057,7 +2057,7 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartBubble
 	aX		:= If(!Empty(oSerie:aX),oSerie:aX,oSerie:aCat)
 	aY		:= If(!Empty(oSerie:aY),oSerie:aY,oSerie:aVal)
 	If Empty(oSerie:cRefTam) .and. Empty(oSerie:aTam)
-		UserException("ChartBubble - S√©rie sem tamanho das bolhas, usar o m√©todo :SetTamanho() da s√©rie")
+		UserException("ChartBubble - SÈrie sem tamanho das bolhas, usar o mÈtodo :SetTamanho() da sÈrie")
 	Endif
 	cXml	+= XmlSerIni(oSerie,nIdx)
 	If !Empty(oSerie:cCor)
@@ -2071,17 +2071,17 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartBubble
 Return cXml
 
 //----------------------------------------------------------------------
-//GR√ÅFICO DE SUPERF√çCIE
+//GR¡FICO DE SUPERFÕCIE
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartSurface
-Gr√°fico de superf√≠cie (c:surfaceChart / c:surface3DChart - ECMA-376 ¬ß21.2.2.204).
-A vers√£o 2D √© a vis√£o de contorno (vista de cima); com Set3D(.T.) gera a superf√≠cie 3D.
+Gr·fico de superfÌcie (c:surfaceChart / c:surface3DChart - ECMA-376 ß21.2.2.204).
+A vers„o 2D È a vis„o de contorno (vista de cima); com Set3D(.T.) gera a superfÌcie 3D.
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.Chart
-@obs Requer no m√≠nimo 2 s√©ries. Usa sempre 3 eixos (categorias, valores e s√©ries)
+@obs Requer no mÌnimo 2 sÈries. Usa sempre 3 eixos (categorias, valores e sÈries)
 /*/
 Class ChartSurface from Chart
 	Public Data lWireframe		As Logical		//Somente estrutura de arame (sem preenchimento)
@@ -2093,11 +2093,11 @@ Class ChartSurface from Chart
 EndClass
 
 /*/{Protheus.doc} ChartSurface::New
-Construtor do gr√°fico de superf√≠cie
+Construtor do gr·fico de superfÌcie
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -2108,7 +2108,7 @@ Method New(oExcel As Object) as Object Class ChartSurface
 Return self
 
 /*/{Protheus.doc} ChartSurface::SetWireframe
-Define a exibi√ß√£o somente da estrutura de arame (sem preenchimento das bandas)
+Define a exibiÁ„o somente da estrutura de arame (sem preenchimento das bandas)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2122,7 +2122,7 @@ Method SetWireframe(lWireframe As Logical) as Object Class ChartSurface
 Return self
 
 /*/{Protheus.doc} ChartSurface::XmlPlot
-Gera o c:surfaceChart/c:surface3DChart e os tr√™s eixos
+Gera o c:surfaceChart/c:surface3DChart e os trÍs eixos
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2134,7 +2134,7 @@ Method XmlPlot() Class ChartSurface
 	Local nCont As Numeric
 	Local cTag As Character
 	If Len(::aSeries)<2
-		UserException("ChartSurface - Informar no m√≠nimo 2 s√©ries")
+		UserException("ChartSurface - Informar no mÌnimo 2 sÈries")
 	Endif
 	cTag	:= If(::l3D,"c:surface3DChart","c:surfaceChart")
 	cXml	+= '<'+cTag+'>'
@@ -2146,19 +2146,19 @@ Method XmlPlot() Class ChartSurface
 	cXml	+= '<c:axId val="'+cValToChar(::nIdEixo2)+'"/>'
 	cXml	+= '<c:axId val="'+cValToChar(::nIdEixo3)+'"/>'
 	cXml	+= '</'+cTag+'>'
-	//Superf√≠cie usa sempre 3 eixos, mesmo em 2D (contorno)
+	//SuperfÌcie usa sempre 3 eixos, mesmo em 2D (contorno)
 	cXml	+= ::XmlEixos("b","l")
 	cXml	+= ::XmlEixoSer()
 Return cXml
 
 /*/{Protheus.doc} ChartSurface::XmlSer
-Gera uma s√©rie do gr√°fico de superf√≠cie (c:ser - as cores das bandas s√£o autom√°ticas)
+Gera uma sÈrie do gr·fico de superfÌcie (c:ser - as cores das bandas s„o autom·ticas)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML da s√©rie
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML da sÈrie
 @type method
 /*/
 Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartSurface
@@ -2170,24 +2170,24 @@ Method XmlSer(oSerie As Object, nIdx As Numeric) Class ChartSurface
 Return cXml
 
 //----------------------------------------------------------------------
-//COMBINA√á√ÉO DE GR√ÅFICOS
+//COMBINA«√O DE GR¡FICOS
 //----------------------------------------------------------------------
 /*/{Protheus.doc} ChartCombo
-Combina√ß√£o de gr√°ficos no mesmo plotArea (ex: barras + linhas).
-Os gr√°ficos membros (ChartBar, ChartLine, ChartArea) s√£o configurados normalmente
-com suas s√©ries e adicionados pelo m√©todo :AddChart(), com op√ß√£o de eixo de valores
-secund√°rio (√† direita). Quem insere na planilha √© o combo (:Insert()).
+CombinaÁ„o de gr·ficos no mesmo plotArea (ex: barras + linhas).
+Os gr·ficos membros (ChartBar, ChartLine, ChartArea) s„o configurados normalmente
+com suas sÈries e adicionados pelo mÈtodo :AddChart(), com opÁ„o de eixo de valores
+secund·rio (‡ direita). Quem insere na planilha È o combo (:Insert()).
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @type class
 @see custom.excel.chart.Chart
-@obs Os gr√°ficos membros N√ÉO devem chamar :Insert()
+@obs Os gr·ficos membros N√O devem chamar :Insert()
 /*/
 Class ChartCombo from Chart
-	Public Data aCharts			As Array		//Gr√°ficos membros {{oChart,lEixoSecundario}}
-	Public Data nIdEixoSec1		As Numeric		//Id do eixo de categorias secund√°rio (oculto)
-	Public Data nIdEixoSec2		As Numeric		//Id do eixo de valores secund√°rio (direita)
+	Public Data aCharts			As Array		//Gr·ficos membros {{oChart,lEixoSecundario}}
+	Public Data nIdEixoSec1		As Numeric		//Id do eixo de categorias secund·rio (oculto)
+	Public Data nIdEixoSec2		As Numeric		//Id do eixo de valores secund·rio (direita)
 
 	Public Method New()			As Object
 	Public Method AddChart()	As Object
@@ -2199,11 +2199,11 @@ Class ChartCombo from Chart
 EndClass
 
 /*/{Protheus.doc} ChartCombo::New
-Construtor da combina√ß√£o de gr√°ficos
+Construtor da combinaÁ„o de gr·ficos
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oExcel, object, Inst√¢ncia da classe custom.excel.Xlsx
+@param oExcel, object, Inst‚ncia da classe custom.excel.Xlsx
 @return object, self
 @type method
 /*/
@@ -2216,13 +2216,13 @@ Method New(oExcel As Object) as Object Class ChartCombo
 Return self
 
 /*/{Protheus.doc} ChartCombo::AddChart
-Adiciona um gr√°fico membro √† combina√ß√£o
+Adiciona um gr·fico membro ‡ combinaÁ„o
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param oChart, object, Gr√°fico membro (ChartBar, ChartLine ou ChartArea) j√° com as s√©ries
-@param lEixoSecundario, logical, .T. usa o eixo de valores secund√°rio (direita)
-@return object, O pr√≥prio gr√°fico membro
+@param oChart, object, Gr·fico membro (ChartBar, ChartLine ou ChartArea) j· com as sÈries
+@param lEixoSecundario, logical, .T. usa o eixo de valores secund·rio (direita)
+@return object, O prÛprio gr·fico membro
 @type method
 /*/
 Method AddChart(oChart As Object, lEixoSecundario As Logical) as Object Class ChartCombo
@@ -2234,13 +2234,13 @@ Method AddChart(oChart As Object, lEixoSecundario As Logical) as Object Class Ch
 		UserException("ChartCombo - Somente ChartBar, ChartLine e ChartArea podem ser combinados ("+cClasse+")")
 	Endif
 	If oChart:l3D
-		UserException("ChartCombo - Gr√°ficos 3D n√£o podem ser combinados")
+		UserException("ChartCombo - Gr·ficos 3D n„o podem ser combinados")
 	Endif
 	AADD(::aCharts,{oChart,lEixoSecundario})
 Return oChart
 
 /*/{Protheus.doc} ChartCombo::AddSerie
-N√£o utilizado na combina√ß√£o - as s√©ries pertencem aos gr√°ficos membros
+N„o utilizado na combinaÁ„o - as sÈries pertencem aos gr·ficos membros
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2248,11 +2248,11 @@ N√£o utilizado na combina√ß√£o - as s√©ries pertencem aos gr√°ficos membros
 @type method
 /*/
 Method AddSerie(cNome As Character, cRefVal As Character, cRefCat As Character, aVal As Array, aCat As Array, cCor As Character) as Object Class ChartCombo
-	UserException("ChartCombo - Adicionar as s√©ries nos gr√°ficos membros e usar o m√©todo :AddChart()")
+	UserException("ChartCombo - Adicionar as sÈries nos gr·ficos membros e usar o mÈtodo :AddChart()")
 Return self
 
 /*/{Protheus.doc} ChartCombo::Set3D
-Combina√ß√£o n√£o suporta 3D
+CombinaÁ„o n„o suporta 3D
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2260,11 +2260,11 @@ Combina√ß√£o n√£o suporta 3D
 @type method
 /*/
 Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva As Numeric) as Object Class ChartCombo
-	UserException(::cClassName+" - Combina√ß√£o de gr√°ficos n√£o suporta 3D")
+	UserException(::cClassName+" - CombinaÁ„o de gr·ficos n„o suporta 3D")
 Return self
 
 /*/{Protheus.doc} ChartCombo::ChecarSeries
-Valida os gr√°ficos membros antes da inser√ß√£o
+Valida os gr·ficos membros antes da inserÁ„o
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2273,21 +2273,21 @@ Valida os gr√°ficos membros antes da inser√ß√£o
 Method ChecarSeries() Class ChartCombo
 	Local nCont As Numeric
 	If Len(::aCharts)<2
-		UserException("ChartCombo - Adicionar ao menos 2 gr√°ficos com o m√©todo :AddChart()")
+		UserException("ChartCombo - Adicionar ao menos 2 gr·ficos com o mÈtodo :AddChart()")
 	Endif
 	For nCont:=1 to Len(::aCharts)
 		If Empty(::aCharts[nCont][1]:aSeries)
-			UserException("ChartCombo - Gr√°fico membro "+cValToChar(nCont)+" sem s√©ries, usar :AddSerie() no membro")
+			UserException("ChartCombo - Gr·fico membro "+cValToChar(nCont)+" sem sÈries, usar :AddSerie() no membro")
 		Endif
 		If ::aCharts[nCont][1]:l3D
-			UserException("ChartCombo - Gr√°ficos 3D n√£o podem ser combinados")
+			UserException("ChartCombo - Gr·ficos 3D n„o podem ser combinados")
 		Endif
 	Next
 Return
 
 /*/{Protheus.doc} ChartCombo::XmlPlot
-Gera os grupos dos gr√°ficos membros compartilhando os eixos e, quando houver
-membro no eixo secund√°rio, o par de eixos secund√°rio
+Gera os grupos dos gr·ficos membros compartilhando os eixos e, quando houver
+membro no eixo secund·rio, o par de eixos secund·rio
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2300,20 +2300,20 @@ Method XmlPlot() Class ChartCombo
 	Local nIdxAcum := 0 As Numeric
 	Local lTemSec := .F. As Logical
 	Local oChart As Object
-	//Ids do par de eixos secund√°rio deste gr√°fico
+	//Ids do par de eixos secund·rio deste gr·fico
 	::nIdEixoSec1	:= 100000004+(::nChart*10)
 	::nIdEixoSec2	:= 100000005+(::nChart*10)
 	For nCont:=1 to Len(::aCharts)
 		oChart	:= ::aCharts[nCont][1]
-		If ::aCharts[nCont][2]	//Membro no eixo secund√°rio
+		If ::aCharts[nCont][2]	//Membro no eixo secund·rio
 			lTemSec	:= .T.
 			oChart:nIdEixo1	:= ::nIdEixoSec1
 			oChart:nIdEixo2	:= ::nIdEixoSec2
-		Else	//Membro no eixo prim√°rio
+		Else	//Membro no eixo prim·rio
 			oChart:nIdEixo1	:= ::nIdEixo1
 			oChart:nIdEixo2	:= ::nIdEixo2
 		Endif
-		//idx/order das s√©ries devem ser √∫nicos no plotArea inteiro
+		//idx/order das sÈries devem ser ˙nicos no plotArea inteiro
 		cXml	+= oChart:XmlGrupo(nIdxAcum)
 		nIdxAcum	+= Len(oChart:aSeries)
 	Next
@@ -2324,16 +2324,16 @@ Method XmlPlot() Class ChartCombo
 Return cXml
 
 /*/{Protheus.doc} ChartCombo::XmlEixosSec
-Gera o par de eixos secund√°rio: valores √† direita e categorias oculto
+Gera o par de eixos secund·rio: valores ‡ direita e categorias oculto
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@return characters, XML dos eixos secund√°rios
+@return characters, XML dos eixos secund·rios
 @type method
 /*/
 Method XmlEixosSec() Class ChartCombo
 	Local cXml := "" As Character
-	//Eixo de valores secund√°rio (direita)
+	//Eixo de valores secund·rio (direita)
 	cXml	+= '<c:valAx>'
 	cXml	+= '<c:axId val="'+cValToChar(::nIdEixoSec2)+'"/>'
 	cXml	+= '<c:scaling><c:orientation val="minMax"/></c:scaling>'
@@ -2345,7 +2345,7 @@ Method XmlEixosSec() Class ChartCombo
 	cXml	+= '<c:crosses val="max"/>'
 	cXml	+= '<c:crossBetween val="between"/>'
 	cXml	+= '</c:valAx>'
-	//Eixo de categorias secund√°rio (oculto)
+	//Eixo de categorias secund·rio (oculto)
 	cXml	+= '<c:catAx>'
 	cXml	+= '<c:axId val="'+cValToChar(::nIdEixoSec1)+'"/>'
 	cXml	+= '<c:scaling><c:orientation val="minMax"/></c:scaling>'
@@ -2362,16 +2362,16 @@ Method XmlEixosSec() Class ChartCombo
 Return cXml
 
 //----------------------------------------------------------------------
-//FUN√á√ïES AUXILIARES (est√°ticas do fonte)
+//FUN«’ES AUXILIARES (est·ticas do fonte)
 //----------------------------------------------------------------------
 /*/{Protheus.doc} XmlSerIni
-Gera a abertura da s√©rie (c:ser com c:idx, c:order e c:tx)
+Gera a abertura da sÈrie (c:ser com c:idx, c:order e c:tx)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@param nIdx, numeric, √çndice da s√©rie (base zero)
-@return characters, XML de abertura da s√©rie (sem fechar o c:ser)
+@param nIdx, numeric, Õndice da sÈrie (base zero)
+@return characters, XML de abertura da sÈrie (sem fechar o c:ser)
 @type function
 /*/
 Static Function XmlSerIni(oSerie As Object, nIdx As Numeric)
@@ -2380,7 +2380,7 @@ Static Function XmlSerIni(oSerie As Object, nIdx As Numeric)
 	cXml	+= '<c:idx val="'+cValToChar(nIdx)+'"/>'
 	cXml	+= '<c:order val="'+cValToChar(nIdx)+'"/>'
 	If !Empty(oSerie:cNome)
-		If "!" $ oSerie:cNome	//Nome por refer√™ncia de c√©lula (ex: "Dados!$B$1")
+		If "!" $ oSerie:cNome	//Nome por referÍncia de cÈlula (ex: "Dados!$B$1")
 			cXml	+= '<c:tx>'+XmlStr(oSerie:cNome,{})+'</c:tx>'
 		Else	//Nome literal
 			cXml	+= '<c:tx><c:v>'+EscXml(oSerie:cNome)+'</c:v></c:tx>'
@@ -2389,12 +2389,12 @@ Static Function XmlSerIni(oSerie As Object, nIdx As Numeric)
 Return cXml
 
 /*/{Protheus.doc} XmlCat
-Gera as categorias da s√©rie (c:cat)
+Gera as categorias da sÈrie (c:cat)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oSerie, object, Objeto Serie
-@return characters, XML das categorias (vazio se n√£o informadas)
+@return characters, XML das categorias (vazio se n„o informadas)
 @type function
 /*/
 Static Function XmlCat(oSerie As Object)
@@ -2405,7 +2405,7 @@ Static Function XmlCat(oSerie As Object)
 Return cXml
 
 /*/{Protheus.doc} XmlVal
-Gera os valores da s√©rie (c:val)
+Gera os valores da sÈrie (c:val)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
@@ -2416,19 +2416,19 @@ Gera os valores da s√©rie (c:val)
 Static Function XmlVal(oSerie As Object)
 	Local cXml := "" As Character
 	If Empty(oSerie:cRefVal) .and. Empty(oSerie:aVal)
-		UserException("Chart - S√©rie sem valores, informar cRefVal ou aVal no :AddSerie()")
+		UserException("Chart - SÈrie sem valores, informar cRefVal ou aVal no :AddSerie()")
 	Endif
 	cXml	+= '<c:val>'+XmlNum(oSerie:cRefVal,oSerie:aVal)+'</c:val>'
 Return cXml
 
 /*/{Protheus.doc} XmlStr
-Gera refer√™ncia de texto (c:strRef com c:strCache) ou literal (c:strLit)
+Gera referÍncia de texto (c:strRef com c:strCache) ou literal (c:strLit)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cRef, characters, Refer√™ncia de c√©lulas (opcional)
+@param cRef, characters, ReferÍncia de cÈlulas (opcional)
 @param aValores, array, Valores literais (opcional, gera cache)
-@return characters, XML da refer√™ncia
+@return characters, XML da referÍncia
 @type function
 /*/
 Static Function XmlStr(cRef As Character, aValores As Array)
@@ -2459,13 +2459,13 @@ Static Function XmlStr(cRef As Character, aValores As Array)
 Return cXml
 
 /*/{Protheus.doc} XmlNum
-Gera refer√™ncia num√©rica (c:numRef com c:numCache) ou literal (c:numLit)
+Gera referÍncia numÈrica (c:numRef com c:numCache) ou literal (c:numLit)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cRef, characters, Refer√™ncia de c√©lulas (opcional)
+@param cRef, characters, ReferÍncia de cÈlulas (opcional)
 @param aValores, array, Valores literais (opcional, gera cache)
-@return characters, XML da refer√™ncia
+@return characters, XML da referÍncia
 @type function
 /*/
 Static Function XmlNum(cRef As Character, aValores As Array)
@@ -2497,11 +2497,11 @@ Static Function XmlNum(cRef As Character, aValores As Array)
 Return cXml
 
 /*/{Protheus.doc} XmlCor
-Gera preenchimento s√≥lido com a cor informada (a:solidFill)
+Gera preenchimento sÛlido com a cor informada (a:solidFill)
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cCor, characters, Cor RGB (6 d√≠gitos) ou ARGB (8 d√≠gitos, o alfa √© descartado)
+@param cCor, characters, Cor RGB (6 dÌgitos) ou ARGB (8 dÌgitos, o alfa È descartado)
 @return characters, XML do preenchimento
 @type function
 /*/
@@ -2534,7 +2534,7 @@ Static Function EscXml(xTexto As Variant)
 	cTexto	:= StrTran(cTexto,">","&gt;")
 	cTexto	:= StrTran(cTexto,'"',"&quot;")
 	cTexto	:= StrTran(cTexto,"'","&apos;")
-	cUtf8	:= EncodeUTF8(cTexto)	//O XML das partes √© gravado em UTF-8
+	cUtf8	:= EncodeUTF8(cTexto)	//O XML das partes È gravado em UTF-8
 	If ValType(cUtf8)=="C"
 		cTexto	:= cUtf8
 	Endif
@@ -2542,13 +2542,13 @@ Return cTexto
 
 /*/{Protheus.doc} AjustNs
 Ajusta o prefixo de namespace dos nodes criados pelo TXmlManager
-(mesma t√©cnica da fun√ß√£o ajustNS do fonte custom.excel.tlpp) e
+(mesma tÈcnica da funÁ„o ajustNS do fonte custom.excel.tlpp) e
 registra novamente os namespaces para as consultas XPath
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
 @param oXml, object, TXmlManager do drawing
-@param cDe, characters, Texto a ser substitu√≠do (ex: "<xdr:a:")
+@param cDe, characters, Texto a ser substituÌdo (ex: "<xdr:a:")
 @param cPara, characters, Texto substituto (ex: "<a:")
 @type function
 /*/
@@ -2560,7 +2560,7 @@ Static Function AjustNs(oXml As Object, cDe As Character, cPara As Character)
 	For nCont:=1 to Len(aNs)
 		oXml:XPathRegisterNs( aNs[nCont][1], aNs[nCont][2] )
 	Next
-	//Prefixos usados pelo gr√°fico que n√£o est√£o declarados na raiz do drawing
+	//Prefixos usados pelo gr·fico que n„o est„o declarados na raiz do drawing
 	oXml:XPathRegisterNs( "c", NS_CHART )
 	oXml:XPathRegisterNs( "r", NS_REL )
 Return

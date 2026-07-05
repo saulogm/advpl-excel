@@ -116,3 +116,244 @@ User Function tstGrafico()
 	oExcel:OpenApp()
 	oExcel:Destroy()
 Return
+
+/*/{Protheus.doc} tstGrafico2
+Teste dos demais gráficos da classe custom.excel.chart:
+Área, Ações (stock), Radar, Rosca, Bolhas, Pizza de Pizza, Superfície e variantes 3D
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type function
+@see custom.excel.chart.Chart
+/*/
+User Function tstGrafico2()
+	Local oExcel As Object
+	Local oGraf As Object
+	Local oSerie As Object
+	Local nCont As Numeric
+	Local aMeses As Array
+	Local aSudeste As Array
+	Local aSul As Array
+	Local aNordeste As Array
+	Local aAbertura As Array
+	Local aMaxima As Array
+	Local aMinima As Array
+	Local aFecha As Array
+	Local aX As Array
+	Local aY As Array
+	Local aTam As Array
+
+	RpcSetEnv("99","01")	//Ajustar empresa/filial do ambiente
+
+	//Dados de exemplo - vendas por região
+	aMeses		:= {"Jan","Fev","Mar","Abr","Mai","Jun"}
+	aSudeste	:= {100,120,90,140,160,150}
+	aSul		:= {80,70,95,85,110,105}
+	aNordeste	:= {60,75,70,90,95,120}
+	//Dados de exemplo - cotações para o gráfico de ações (OHLC)
+	aAbertura	:= {50,53,51,55,58,57}
+	aMaxima		:= {55,56,56,60,61,60}
+	aMinima		:= {48,50,49,53,55,54}
+	aFecha		:= {53,51,55,58,57,59}
+	//Dados de exemplo - bolhas (X, Y e tamanho)
+	aX			:= {10,20,30,40,50,60}
+	aY			:= {30,45,25,60,40,70}
+	aTam		:= {5,10,7,15,9,12}
+
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGrafico2", cTipo = "A")
+	oExcel:ADDPlan(cNome = "Dados")
+
+	//Preenchimento com Pos():SetValue(), linhas e colunas sempre em ordem sequencial
+	//Linha 1 - cabeçalhos das três tabelas (A1:D1, F1:J1 e L1:N1)
+	oExcel:Pos(1,1):SetValue("Mês")
+	oExcel:Pos(1,2):SetValue("Sudeste")
+	oExcel:Pos(1,3):SetValue("Sul")
+	oExcel:Pos(1,4):SetValue("Nordeste")
+	oExcel:Pos(1,6):SetValue("Dia")
+	oExcel:Pos(1,7):SetValue("Abertura")
+	oExcel:Pos(1,8):SetValue("Máxima")
+	oExcel:Pos(1,9):SetValue("Mínima")
+	oExcel:Pos(1,10):SetValue("Fechamento")
+	oExcel:Pos(1,12):SetValue("X")
+	oExcel:Pos(1,13):SetValue("Y")
+	oExcel:Pos(1,14):SetValue("Tamanho")
+	//Linhas 2 a 7 - dados das três tabelas
+	For nCont:=1 to Len(aMeses)
+		oExcel:Pos(nCont+1,1):SetValue(aMeses[nCont])
+		oExcel:Pos(nCont+1,2):SetValue(aSudeste[nCont])
+		oExcel:Pos(nCont+1,3):SetValue(aSul[nCont])
+		oExcel:Pos(nCont+1,4):SetValue(aNordeste[nCont])
+		oExcel:Pos(nCont+1,6):SetValue(nCont)
+		oExcel:Pos(nCont+1,7):SetValue(aAbertura[nCont])
+		oExcel:Pos(nCont+1,8):SetValue(aMaxima[nCont])
+		oExcel:Pos(nCont+1,9):SetValue(aMinima[nCont])
+		oExcel:Pos(nCont+1,10):SetValue(aFecha[nCont])
+		oExcel:Pos(nCont+1,12):SetValue(aX[nCont])
+		oExcel:Pos(nCont+1,13):SetValue(aY[nCont])
+		oExcel:Pos(nCont+1,14):SetValue(aTam[nCont])
+	Next
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE ÁREA EMPILHADA
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("area")
+	oGraf:SetAgrupamento("stacked")
+	oGraf:SetTitulo("Vendas por Região - Área Empilhada")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste	, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSul		, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7", aVal = aNordeste, aCat = aMeses)
+	oGraf:Insert(nLinha = 9, nColuna = 1, nLinha2 = 24, nColuna2 = 9)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE COLUNAS 3D
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("col")
+	oGraf:Set3D(.T.)	//Rotações padrão (X=15, Y=20)
+	oGraf:SetTitulo("Vendas por Região - Colunas 3D")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:Insert(nLinha = 9, nColuna = 11, nLinha2 = 24, nColuna2 = 19)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE PIZZA 3D
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("pie")
+	oGraf:Set3D(lAtivo = .T., nRotX = 30)
+	oGraf:SetTitulo("Participação Mensal - Pizza 3D")
+	oGraf:SetRotulos(lExibir = .T., lPercentual = .T.)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:Insert(nLinha = 26, nColuna = 1, nLinha2 = 41, nColuna2 = 9)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE AÇÕES (OHLC - Abertura, Máxima, Mínima, Fechamento)
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("stock")
+	oGraf:SetTitulo("Cotações - Ações")
+	oGraf:AddSerie(cNome = "Abertura"	, cRefVal = "Dados!$G$2:$G$7", cRefCat = "Dados!$F$2:$F$7", aVal = aAbertura)
+	oGraf:AddSerie(cNome = "Máxima"		, cRefVal = "Dados!$H$2:$H$7", cRefCat = "Dados!$F$2:$F$7", aVal = aMaxima)
+	oGraf:AddSerie(cNome = "Mínima"		, cRefVal = "Dados!$I$2:$I$7", cRefCat = "Dados!$F$2:$F$7", aVal = aMinima)
+	oGraf:AddSerie(cNome = "Fechamento"	, cRefVal = "Dados!$J$2:$J$7", cRefCat = "Dados!$F$2:$F$7", aVal = aFecha)
+	oGraf:Insert(nLinha = 26, nColuna = 11, nLinha2 = 41, nColuna2 = 19)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE RADAR PREENCHIDO
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("radar")
+	oGraf:SetEstilo("filled")
+	oGraf:SetTitulo("Comparativo Regional - Radar")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:Insert(nLinha = 43, nColuna = 1, nLinha2 = 58, nColuna2 = 9)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE ROSCA
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("rosca")
+	oGraf:SetFuro(60)
+	oGraf:SetTitulo("Participação Mensal - Rosca")
+	oGraf:SetRotulos(lExibir = .T., lPercentual = .T.)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:Insert(nLinha = 43, nColuna = 11, nLinha2 = 58, nColuna2 = 19)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE BOLHAS
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("bolhas")
+	oGraf:SetTitulo("Análise - Bolhas")
+	oGraf:SetLegenda(lExibir = .F.)
+	oSerie	:= oGraf:AddSerie(cNome = "Indicador")
+	oSerie:SetXY(cRefX = "Dados!$L$2:$L$7", cRefY = "Dados!$M$2:$M$7", aX = aX, aY = aY)
+	oSerie:SetTamanho(cRefTam = "Dados!$N$2:$N$7", aTam = aTam)
+	oGraf:Insert(nLinha = 60, nColuna = 1, nLinha2 = 75, nColuna2 = 9)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE PIZZA DE PIZZA (últimas 2 fatias no gráfico secundário)
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("ofpie")
+	oGraf:SetTipo("pie")
+	oGraf:SetDivisao(cTipo = "pos", nValor = 2)
+	oGraf:SetTitulo("Participação Mensal - Pizza de Pizza")
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:Insert(nLinha = 60, nColuna = 11, nLinha2 = 75, nColuna2 = 19)
+
+	//----------------------------------------------------------------------
+	//GRÁFICO DE SUPERFÍCIE 3D
+	//----------------------------------------------------------------------
+	oGraf	:= oExcel:NewChart("superficie")
+	oGraf:Set3D(.T.)
+	oGraf:SetTitulo("Vendas por Região - Superfície 3D")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:Insert(nLinha = 77, nColuna = 1, nLinha2 = 92, nColuna2 = 9)
+
+	//Gera o arquivo, abre no aplicativo e libera os objetos
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp()
+	oExcel:Destroy()
+Return
+
+/*/{Protheus.doc} tstGraficoComb
+Teste da combinação de gráficos (ChartCombo): colunas de vendas no eixo primário
+e linha de margem no eixo de valores secundário (à direita)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type function
+@see custom.excel.chart.ChartCombo
+/*/
+User Function tstGraficoComb()
+	Local oExcel As Object
+	Local oCombo As Object
+	Local oCol As Object
+	Local oLin As Object
+	Local nCont As Numeric
+	Local aMeses As Array
+	Local aVendas As Array
+	Local aMargem As Array
+
+	RpcSetEnv("99","01")	//Ajustar empresa/filial do ambiente
+
+	//Dados de exemplo - vendas e margem mensal
+	aMeses	:= {"Jan","Fev","Mar","Abr","Mai","Jun"}
+	aVendas	:= {100,120,90,140,160,150}
+	aMargem	:= {0.15,0.18,0.12,0.20,0.22,0.19}
+
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGraficoComb", cTipo = "A")
+	oExcel:ADDPlan(cNome = "Dados")
+
+	//Preenchimento com Pos():SetValue(), linhas e colunas sempre em ordem sequencial
+	oExcel:Pos(1,1):SetValue("Mês")
+	oExcel:Pos(1,2):SetValue("Vendas")
+	oExcel:Pos(1,3):SetValue("Margem")
+	For nCont:=1 to Len(aMeses)
+		oExcel:Pos(nCont+1,1):SetValue(aMeses[nCont])
+		oExcel:Pos(nCont+1,2):SetValue(aVendas[nCont])
+		oExcel:Pos(nCont+1,3):SetValue(aMargem[nCont])
+	Next
+
+	//----------------------------------------------------------------------
+	//COMBINAÇÃO: COLUNAS (VENDAS) + LINHA (MARGEM NO EIXO SECUNDÁRIO)
+	//----------------------------------------------------------------------
+	oCombo	:= oExcel:NewChart("combo")
+	oCombo:SetTitulo("Vendas x Margem")
+	oCombo:SetLegenda(lExibir = .T., cPosicao = "b")
+
+	//Gráfico membro: colunas de vendas (eixo primário)
+	oCol	:= custom.excel.chart.ChartBar():New(oExcel)
+	oCol:AddSerie(cNome = "Vendas", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aVendas, aCat = aMeses, cCor = "FF4F81BD")
+
+	//Gráfico membro: linha de margem (eixo secundário à direita)
+	oLin	:= custom.excel.chart.ChartLine():New(oExcel)
+	oLin:AddSerie(cNome = "Margem", cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", aVal = aMargem, aCat = aMeses, cCor = "FFC0504D")
+
+	oCombo:AddChart(oCol)
+	oCombo:AddChart(oChart = oLin, lEixoSecundario = .T.)
+	oCombo:Insert(nLinha = 9, nColuna = 1, nLinha2 = 24, nColuna2 = 9)
+
+	//Gera o arquivo, abre no aplicativo e libera os objetos
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp()
+	oExcel:Destroy()
+Return

@@ -1768,7 +1768,7 @@ Cria um objeto de gráfico vinculado a este Excel (classes do fonte custom.excel.
 @author Saulo Gomes Martins
 @since 04/07/2026
 @version 1.0
-@param cTipo, characters, Tipo do gráfico: col=colunas, bar=barras, line=linhas, pie=pizza, scatter=dispersão
+@param cTipo, characters, Tipo do gráfico: col=colunas, bar=barras, line=linhas, pie=pizza, scatter=dispersão, area=área, stock|acoes=ações, radar=radar, doughnut|rosca=rosca, bubble|bolhas=bolhas, ofpie=pizza de pizza, surface|superficie=superfície, combo=combinação
 @return object, Instância do gráfico (custom.excel.chart)
 @type method
 @see custom.excel.chart.Chart
@@ -1776,7 +1776,7 @@ Cria um objeto de gráfico vinculado a este Excel (classes do fonte custom.excel.
 METHOD NewChart(cTipo As Character) Class Xlsx
 	Local oChart As Object
 	PARAMTYPE 0	VAR cTipo		AS CHARACTER	OPTIONAL DEFAULT "col"
-	cTipo	:= AllTrim(cTipo)
+	cTipo	:= lower(AllTrim(cTipo))
 	If cTipo=="col" .or. cTipo=="bar"
 		oChart	:= custom.excel.chart.ChartBar():New(self)
 		oChart:SetDirecao(cTipo)
@@ -1786,8 +1786,24 @@ METHOD NewChart(cTipo As Character) Class Xlsx
 		oChart	:= custom.excel.chart.ChartPie():New(self)
 	ElseIf cTipo=="scatter"
 		oChart	:= custom.excel.chart.ChartScatter():New(self)
+	ElseIf cTipo=="area"
+		oChart	:= custom.excel.chart.ChartArea():New(self)
+	ElseIf cTipo=="stock" .or. cTipo=="acoes"
+		oChart	:= custom.excel.chart.ChartStock():New(self)
+	ElseIf cTipo=="radar"
+		oChart	:= custom.excel.chart.ChartRadar():New(self)
+	ElseIf cTipo=="doughnut" .or. cTipo=="rosca"
+		oChart	:= custom.excel.chart.ChartDoughnut():New(self)
+	ElseIf cTipo=="bubble" .or. cTipo=="bolhas"
+		oChart	:= custom.excel.chart.ChartBubble():New(self)
+	ElseIf cTipo=="ofpie"
+		oChart	:= custom.excel.chart.ChartOfPie():New(self)
+	ElseIf cTipo=="surface" .or. cTipo=="superficie"
+		oChart	:= custom.excel.chart.ChartSurface():New(self)
+	ElseIf cTipo=="combo"
+		oChart	:= custom.excel.chart.ChartCombo():New(self)
 	Else
-		UserException("Xlsx - Tipo de gráfico inválido ("+cTipo+"). Usar: col,bar,line,pie,scatter")
+		UserException("Xlsx - Tipo de gráfico inválido ("+cTipo+"). Usar: col,bar,line,pie,scatter,area,stock,radar,doughnut,bubble,ofpie,surface,combo")
 	Endif
 Return oChart
 
