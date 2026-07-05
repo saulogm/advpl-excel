@@ -124,6 +124,8 @@ Class Xlsx
 	Public Data aCleanObj			As Array
 	Public Data lDelSrv				As Logical
 	Public Data cArqGrv				As Character
+	Public Data cSenha				As Character //Senha de protecao MS-OFFCRYPTO (abrir com senha)
+	Public Data cError				As Character //Mensagem do ultimo erro de abertura (Open)
 	Public Data cLocalFile			As Character
 	//Agrupamento de linha
 	Public Data nRowoutlineLevel	As variant
@@ -156,6 +158,7 @@ Class Xlsx
 	Public METHOD GetPlanAt()		//Retorna qual planilha está em edição
 	Public METHOD LenPlanAt()		//Quantidade de planilha
 	Public METHOD SetsheetProtection()	//Proteção da planilha
+	Public METHOD SetPassword()		//Protege o arquivo para abertura com senha (MS-OFFCRYPTO)
 	//Controle de Células
 	Public METHOD Cell()			//Grava as células
 	Public METHOD Pos()				//posiciona na celula
@@ -225,6 +228,9 @@ Class Xlsx
 	Public METHOD SetStrComp2()
 
 	//Leitura de planilha
+	Public METHOD Open()			//Abre arquivo xlsx (com senha opcional); retorna logico
+	Public METHOD GetError()		//Retorna a mensagem do ultimo erro de abertura
+	Public METHOD AddPadrao()		//Cria fonte/estilos padrao
 	Public METHOD OpenRead()
 	Public METHOD CellRead()
 	Public METHOD CloseRead()
@@ -321,15 +327,12 @@ Construtor da classe
 /*/
 METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) as object Class Xlsx
 	Local nPos As Numeric
-	Local aChildren As Array
 	Local oTabTmp As Object
 	Local oBulk As Object
 	Local aStruct As Array
 	Local aIndex As Array
 	Local cDriver := "SQLITE_TMP" As Character
 	Local cNomTmp := lower(CriaTrab(,.F.)) As Character
-	Local cNome As Character
-	Local nRet As Numeric
 	If ValType(cAr7Zip)=="U"
 		cAr7Zip := GetPvProfString("GENERAL", "LOCAL7ZIP" , "C:\Program Files\7-Zip\7z.exe" , GetAdv97() )
 	Endif
@@ -366,6 +369,8 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::nColuna		:= 0
 	::lDelSrv		:= .T.
 	::cArqGrv		:= ""
+	::cSenha		:= ""
+	::cError		:= ""
 	::cLocalFile	:= ""
 	::nPriodFormCond:= 1
 	::aImgdraw		:= {}
@@ -473,19 +478,94 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 		FwFreeArray(aIndex)
 	EndIf
 	If !Empty(cFileOpen)
-		cFileOpen	:= Rtrim(cFileOpen)
+		If !::Open(cFileOpen)
+			UserException("Xlsx - Falha ao abrir '"+cFileOpen+"'. Se o arquivo for protegido por senha, use oExcel:Open(arquivo, senha).")
+		Endif
+	else
+		::new_app()
+		::new_core()
+		::new_workbook()
+		::new_content_types()
+		::new_styles()
+
+		nPos	:= ::new_rels(,"\_rels\.rels")
+		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument","xl/workbook.xml")
+		::add_rels(nPos,"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties","docProps/core.xml")
+		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties","docProps/app.xml")
+		
+		If ::lMemoria
+			::osharedStrings	:= ::new_sharedString()
+		Else
+			//AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
+		EndIf
+		AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\theme\theme1.xml")
+		nPos	:= ::new_rels(,"\xl\_rels\workbook.xml.rels")
+		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme","theme/theme1.xml")
+		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles","styles.xml")
+		//::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
+		//Defini formato Moeda padrão brasileiro
+		::AddFmt('_-"R$"\ * #,##0.00_-;\-"R$"\ * #,##0.00_-;_-"R$"\ * "-"??_-;_-@_-',44)
+		::AddPadrao()
+	Endif
+Return self
+
+/*/{Protheus.doc} Xlsx::Open
+Abre um arquivo .xlsx existente, opcionalmente protegido por senha (MS-OFFCRYPTO).
+Faz reset do estado, copia, descriptografa (se necessario), descompacta e carrega.
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@param cFile, character, Caminho do arquivo a abrir
+@param cSenha, character, Senha para arquivo protegido (opcional)
+@return logical, .T. se abriu com sucesso; .F. em caso de erro (ver GetError)
+@type method
+/*/
+Method Open(cFile As Character, cSenha As Character) Class Xlsx
+	Local lRet := .T. As Logical
+	Local oErro As Object
+	Local cNome As Character
+	Local nRet As Numeric
+	Local nPos As Numeric
+	Local aChildren As Array
+	Local oCrypto	as object
+	PARAMTYPE 0	VAR cFile		AS CHARACTER
+	PARAMTYPE 1	VAR cSenha	AS CHARACTER	OPTIONAL DEFAULT ""
+	::cError	:= ""
+	Try
+		//Reset defensivo (permite Open apos um New sem arquivo)
+		::aFiles		:= {}
+		::aRels			:= {}
+		::aDraw			:= {}
+		::aworkdrawing	:= {}
+		::asheet		:= {}
+		::aPlanilhas	:= {}
+		::aPadraoSty	:= {}
+		::nIdRelat	:= 0
+		::nPlanilhaAt	:= 0
+		::nLinha		:= 0
+		::nColuna		:= 0
+		cFile	:= Rtrim(cFile)
 		::lArquivo	:= .F.
 		::lMemoria	:= .T.
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
 		
-		If Rat("\",cFileOpen)>0
-			cNome	:= SubStr(cFileOpen,Rat("\",cFileOpen)+1)
+		If Rat("\",cFile)>0
+			cNome	:= SubStr(cFile,Rat("\",cFile)+1)
 		else
-			cNome	:= SubStr(cFileOpen,Rat("/",cFileOpen)+1)
+			cNome	:= SubStr(cFile,Rat("/",cFile)+1)
 		EndIf
 
-		CopyFile(cFileOpen,"\tmpxls\"+::cTmpFile+'\'+cNome)
+		CopyFile(cFile,"\tmpxls\"+::cTmpFile+'\'+cNome)
+		//Descriptografa se o arquivo estiver protegido por senha (MS-OFFCRYPTO)
+		oCrypto := custom.excel.crypto.Crypto():New()
+		AADD(::aCleanObj,oCrypto)
+		If oCrypto:IsEncrypted("\tmpxls\"+::cTmpFile+'\'+cNome)
+			If Empty(cSenha)
+				UserException("Xlsx - Arquivo protegido por senha, informe a senha no metodo Open(arquivo, senha)")
+			Endif
+			oCrypto:DecryptFile("\tmpxls\"+::cTmpFile+'\'+cNome,cSenha)
+		Endif
 		If ValType(cRootPath)=="U"
 			cRootPath	:= GetSrvProfString( "RootPath", "" )
 			If !File(cRootPath,1)	//Validar o RootPath existe no servidor
@@ -550,33 +630,22 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 		Else
 			::cPathsheetData	:= "/xmlns:worksheet/xmlns:sheetData"
 		EndIf
+		::AddPadrao()
+	Catch oErro
+		::cError	:= oErro:Description
+		WarnLogMsg(::cError)
+		lRet	:= .F.
+	EndTry
+Return lRet
 
-	else
-		::new_app()
-		::new_core()
-		::new_workbook()
-		::new_content_types()
-		::new_styles()
-
-		nPos	:= ::new_rels(,"\_rels\.rels")
-		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument","xl/workbook.xml")
-		::add_rels(nPos,"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties","docProps/core.xml")
-		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties","docProps/app.xml")
-		
-		If ::lMemoria
-			::osharedStrings	:= ::new_sharedString()
-		Else
-			//AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\sharedStrings.xml")
-		EndIf
-		AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\theme\theme1.xml")
-		nPos	:= ::new_rels(,"\xl\_rels\workbook.xml.rels")
-		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme","theme/theme1.xml")
-		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles","styles.xml")
-		//::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings","sharedStrings.xml")
-		//Defini formato Moeda padrão brasileiro
-		::AddFmt('_-"R$"\ * #,##0.00_-;\-"R$"\ * #,##0.00_-;_-"R$"\ * "-"??_-;_-@_-',44)
-	Endif
-
+/*/{Protheus.doc} Xlsx::AddPadrao
+Cria a fonte, preenchimentos e estilos padrao usados pela classe.
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@type method
+/*/
+Method AddPadrao() Class Xlsx
 	//Cria conteudo padrão
 	::AddFont(11,"FF000000","Calibri","2")
 	::Borda()	//Sem borda
@@ -585,7 +654,19 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	AADD(::aPadraoSty,::AddStyles(/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Sem Formatação
 	AADD(::aPadraoSty,::AddStyles(14/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data padrão
 	AADD(::aPadraoSty,::AddStyles(::AddFmt("dd/mm/yyyy\ hh:mm AM/PM;@")/*numFmtId*/,/*fontId*/,/*fillId*/,/*borderId*/,/*xfId*/,/*aValores*/,/*aOutrosAtributos*/))	//Formato Data time padrão
-Return self
+Return
+
+/*/{Protheus.doc} Xlsx::GetError
+Retorna a mensagem do ultimo erro de abertura (Open); vazio se abriu com sucesso.
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@return character, Mensagem de erro
+@type method
+/*/
+Method GetError() Class Xlsx
+Return ::cError
+
 
 //Não Documentear
 Method CriaDB(aStruct As Array, aIndex As Array, cPrefixo As Character, cRealName As Character, oTabTmp As Object) Class Xlsx
@@ -1336,6 +1417,23 @@ Quantidade de planilha
 /*/
 METHOD LenPlanAt(xPlan As Variant) Class Xlsx
 Return Len(::aPlanilhas)
+
+/*/{Protheus.doc} Xlsx::SetPassword
+Define a senha para proteção do arquivo (criptografia MS-OFFCRYPTO Agile).
+Quando informada, no Save o pacote .xlsx é encriptado (AES-256) e regravado como
+container OLE/CFB, exigindo a senha para abrir no Excel.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cSenha, character, Senha de proteção (vazio remove a proteção)
+@return object, self (permite encadeamento)
+@type method
+@see custom.excel.crypto
+/*/
+METHOD SetPassword(cSenha As Character) Class Xlsx
+	PARAMTYPE 0	VAR cSenha		AS CHARACTER	OPTIONAL DEFAULT ""
+	::cSenha	:= cSenha
+Return self
 
 /*/{Protheus.doc} Xlsx::SetsheetProtection
 Proteger a Planilha
@@ -5171,7 +5269,7 @@ Cria uma regra para definir o estilo completo da celula, avaliada linha/coluna a
 @since 03/07/2026
 @version 1.0
 @param bRule, codeblock, Bloco {|nLinha,nColuna,oExcel| .T./.F.} avaliado para cada celula
-@param xStyle, numeric ou object, Id do estilo (AddStyles) ou objeto de estilo (NewStyle) a aplicar quando a regra for verdadeira
+@param xStyle, variant, Id do estilo (AddStyles) ou objeto de estilo (NewStyle) a aplicar quando a regra for verdadeira
 @type method
 /*/
 Method AddStyle(bRule As CodeBlock, xStyle As Variant) Class StyleRules
@@ -6275,6 +6373,7 @@ Method Save(cLocal As Character) Class Xlsx
 	Local oFile As Object
 	Local oQryPlan As Object
 	Local cAliasQry As Character
+	Local oCrypto	as object
 	Default cLocal := If(!IsBlind(),GetTempPath(),"\")
 	If ::lBD
 		If ValType(oQryPlan)=="U"
@@ -6654,6 +6753,13 @@ Method Save(cLocal As Character) Class Xlsx
 
 	If !(::cNomeFile==::cNomeFile2)	//Ajusta Case
 		FRename( cArquivo, cArquivo2, , .F. )
+	Endif
+
+	//Protege o arquivo com senha (criptografia MS-OFFCRYPTO Agile) antes de copiar para o client
+	If !Empty(::cSenha)
+		oCrypto := custom.excel.crypto.Crypto():New()
+		oCrypto:EncryptFile(cArquivo2,::cSenha)
+		AADD(::aCleanObj,oCrypto)
 	Endif
 
 	//Apaga arquivos temporarios listados

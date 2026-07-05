@@ -1,0 +1,123 @@
+#include "tlpp-core.th"
+#include "protheus.ch"
+Namespace custom.excel.teste
+
+//Identificador do modo AES: 2 = AES-256-CBC
+#define AES_256_CBC		2
+//Tipo de algoritmo HMAC: 3 = SHA-512
+#define HMAC_SHA512		7	//1=MD5, 3=SHA1, 5=SHA256, 7=SHA512
+
+/*/{Protheus.doc} tstCrypto
+Probe das primitivas de criptografia nativas usadas pelo MS-OFFCRYPTO.
+Confirma o comportamento de padding do AESEncrypt, o formato do array de retorno,
+o round-trip AES-256-CBC e os tamanhos RAW de SHA512/HMAC. Rodar antes de gerar
+arquivos protegidos, conferindo a saída no console (ConOut).
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type function
+/*/
+User Function tstCrypto()
+	Local aEnc As Array
+	Local aDec As Array
+	Local cKey As Character
+	Local cIV As Character
+	Local cData As Character
+	Local cSha As Character
+	Local cHmac As Character
+
+	cKey	:= Replicate(chr(65),32)	//Chave de 32 bytes (AES-256)
+	cIV		:= Replicate(chr(66),16)	//IV de 16 bytes
+	cData	:= Replicate(chr(67),16)	//1 bloco exato (16 bytes)
+
+	ConOut("=== tstCrypto ===")
+
+	//AESEncrypt: array [1]=nResultCode, [2]=cCipherText, [3]=cKeyUsed, [4]=cIVUsed
+	aEnc	:= AESEncrypt(AES_256_CBC, cData, , cKey, cIV)
+	ConOut("AESEncrypt ResultCode = "+cValToChar(aEnc[1]))
+	ConOut("Entrada = 16 bytes | Saida cifrada = "+cValToChar(Len(aEnc[2]))+" bytes")
+	ConOut("  -> Se 32: aplica PKCS#7 (bloco extra). Se 16: sem padding. Se 24: pode ser Base64 (revisar).")
+
+	//Round-trip
+	aDec	:= AESDecrypt(AES_256_CBC, aEnc[2], cKey, cIV)
+	ConOut("AESDecrypt ResultCode = "+cValToChar(aDec[1])+" | Saida = "+cValToChar(Len(aDec[2]))+" bytes")
+	If SubStr(aDec[2],1,16)==cData
+		ConOut("Round-trip AES-256-CBC: OK (16 primeiros bytes conferem)")
+	Else
+		ConOut("Round-trip AES-256-CBC: FALHA")
+	Endif
+
+	//SHA512 RAW (nType=1) deve ter 64 bytes
+	cSha	:= SHA512(cData,1)
+	ConOut("SHA512(...,1) = "+cValToChar(Len(cSha))+" bytes (esperado 64)")
+
+	//HMAC-SHA512 RAW: nRetType=1, conteudo/chave como bytes crus (1=Texto)
+	cHmac	:= HMAC(cData, cKey, HMAC_SHA512, 1, 1, 1)
+	ConOut("HMAC-SHA512(...) = "+cValToChar(Len(cHmac))+" bytes (esperado 64)")
+	//Diagnostico: tipo do conteudo importa para binario nao-hex?
+	ConOut("HMAC binario type1 vs type2: "+If(HMAC(chr(255)+chr(0)+chr(200),cKey,HMAC_SHA512,1,1,1)==HMAC(chr(255)+chr(0)+chr(200),cKey,HMAC_SHA512,1,2,2),"IGUAIS (tipo irrelevante)","DIFERENTES (usar type 1 p/ binario)"))
+
+	ConOut("=== fim tstCrypto ===")
+Return
+
+/*/{Protheus.doc} tstXlsxSenha
+Testa a proteção por senha (MS-OFFCRYPTO Agile): gera uma planilha protegida e a
+reabre informando a senha, além de validar a rejeição de senha incorreta.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type function
+@see custom.excel.crypto
+/*/
+User Function tstXlsxSenha()
+	Local oExcel As Object
+	Local cArq As Character
+	Local xValor As Variant
+
+	RpcSetEnv("99","01")
+
+	//----------------------------------------------------------------------
+	//Gera a planilha protegida e abre no Excel (teste visual - pedirá a senha)
+	//----------------------------------------------------------------------
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstSenha", cTipo = "A")
+	oExcel:ADDPlan(cNome = "Dados")
+	oExcel:Pos(1,1):SetValue("Conteúdo protegido por senha")
+	oExcel:Pos(2,1):SetValue("Senha: 1234")
+	oExcel:Pos(3,1):SetValue(1234.56)
+	oExcel:SetPassword("1234")
+	oExcel:Save(GetTempPath())
+	oExcel:OpenApp()
+	oExcel:Destroy()
+
+	//----------------------------------------------------------------------
+	//Round-trip no servidor: grava protegido em pasta do servidor e reabre com a senha
+	//----------------------------------------------------------------------
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstSenhaSrv", cTipo = "A")
+	oExcel:ADDPlan(cNome = "Dados")
+	oExcel:Pos(1,1):SetValue("Round-trip")
+	oExcel:Pos(1,2):SetValue(987.65)
+	oExcel:SetPassword("1234")
+	cArq	:= oExcel:Save("\temp")	//Mantém no servidor para reabrir
+	oExcel:Destroy()
+	ConOut("=== tstXlsxSenha ===")
+	ConOut("Arquivo protegido gerado: "+cArq)
+
+	//Reabre com a senha correta
+	oExcel	:= custom.excel.Xlsx():New()
+	If !oExcel:Open(cArq, "1234")
+		ConOut("FALHA ao abrir: "+oExcel:GetError())
+	Endif
+	xValor	:= oExcel:Pos(1,2):GetValue()
+	ConOut("Leitura B1 (esperado 987.65): "+cValToChar(xValor))
+	oExcel:Destroy()
+
+	//Reabre com senha incorreta - Open deve retornar .F.
+	oExcel	:= custom.excel.Xlsx():New()
+	If oExcel:Open(cArq, "errada")
+		ConOut("FALHA: senha incorreta NAO foi rejeitada")
+	Else
+		ConOut("OK: senha incorreta rejeitada: "+oExcel:GetError())
+	Endif
+	oExcel:Destroy()
+	ConOut("=== fim tstXlsxSenha ===")
+Return

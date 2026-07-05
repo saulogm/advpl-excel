@@ -1,0 +1,1533 @@
+// Fonte de criptografia MS-OFFCRYPTO (Agile Encryption) para a classe custom.excel.Xlsx
+// Protege o .xlsx para abertura com senha, encriptando o pacote OPC/ZIP com AES-256-CBC
+// e embrulhando num container OLE/CFB (MS-CFB) com os streams EncryptionInfo e EncryptedPackage.
+// Referencias: [MS-OFFCRYPTO] Agile Encryption e [MS-CFB] Compound File Binary.
+#include "tlpp-core.th"
+#include "totvs.ch"
+#include "fileio.ch"
+#include "parmtype.ch"
+
+Namespace custom.excel.crypto
+
+//Identificador do modo AES (nao existe include crypto.ch): 0=AES-128-CBC, 1=AES-192-CBC, 2=AES-256-CBC
+#define AES_256_CBC		2
+//Tipo de algoritmo para a funcao HMAC: 3 = SHA-512
+#define HMAC_SHA512		7	//1=MD5, 3=SHA1, 5=SHA256, 7=SHA512
+//Assinatura do container OLE/CFB (D0 CF 11 E0 A1 B1 1A E1)
+#define CFB_MAGIC		"D0CF11E0A1B11AE1"
+//Parametros do esquema Agile
+#define SPIN_COUNT		100000	//Iteracoes da derivacao de senha
+#define SALT_SIZE		16		//Tamanho dos salts (bytes)
+#define KEY_BYTES		32		//Tamanho da chave AES-256 (bytes)
+#define HASH_SIZE		64		//Tamanho do hash SHA-512 (bytes)
+#define BLOCK_SIZE		16		//Tamanho do bloco AES (bytes)
+#define SEGMENT_SIZE	4096	//Tamanho do segmento do pacote (bytes)
+
+//Cache do comportamento de padding do AESEncrypt (detectado uma unica vez): "U"=indefinido, "S"=aplica PKCS#7, "N"=nao aplica
+Static cAesPad := "U" As Character
+
+//----------------------------------------------------------------------
+//CLASSE PUBLICA DE CRIPTOGRAFIA (fachada chamada por custom.excel.Xlsx)
+//----------------------------------------------------------------------
+/*/{Protheus.doc} Crypto
+Fachada de criptografia MS-OFFCRYPTO usada pela classe custom.excel.Xlsx.
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@type class
+/*/
+Class Crypto
+	Public Method New()		As Object
+	Public Method Encrypt()
+	Public Method Decrypt()
+	Public Method IsEncrypted()
+	Public Method EncryptFile()
+	Public Method DecryptFile()
+EndClass
+
+/*/{Protheus.doc} Crypto::New
+Construtor (sem estado).
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@return object, self
+@type method
+/*/
+Method New() as Object Class Crypto
+Return self
+
+//----------------------------------------------------------------------
+//UTILITARIOS DE BYTES (little-endian)
+//----------------------------------------------------------------------
+/*/{Protheus.doc} U16LE
+Empacota um inteiro em 2 bytes little-endian
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nVal, numeric, Valor a empacotar
+@return character, 2 bytes
+@type function
+/*/
+Static Function U16LE(nVal As Numeric)
+Return chr(Int(nVal%256)) + chr(Int((nVal/256)%256))
+
+/*/{Protheus.doc} U32LE
+Empacota um inteiro em 4 bytes little-endian
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nVal, numeric, Valor a empacotar
+@return character, 4 bytes
+@type function
+/*/
+Static Function U32LE(nVal As Numeric)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	For nCont:=0 to 3
+		cRet	+= chr(Int((nVal/(2^(8*nCont)))%256))
+	Next
+Return cRet
+
+/*/{Protheus.doc} U64LE
+Empacota um inteiro em 8 bytes little-endian
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nVal, numeric, Valor a empacotar
+@return character, 8 bytes
+@type function
+/*/
+Static Function U64LE(nVal As Numeric)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	For nCont:=0 to 7
+		cRet	+= chr(Int((nVal/(2^(8*nCont)))%256))
+	Next
+Return cRet
+
+/*/{Protheus.doc} RU32LE
+Le um inteiro de 4 bytes little-endian a partir da posicao informada (base 1)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cBytes, character, Buffer de bytes
+@param nPos, numeric, Posicao inicial (base 1)
+@return numeric, Valor lido
+@type function
+/*/
+Static Function RU32LE(cBytes As Character, nPos As Numeric)
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	For nCont:=0 to 3
+		nRet	+= asc(SubStr(cBytes,nPos+nCont,1)) * (2^(8*nCont))
+	Next
+Return nRet
+
+/*/{Protheus.doc} RU64LE
+Le um inteiro de 8 bytes little-endian a partir da posicao informada (base 1)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cBytes, character, Buffer de bytes
+@param nPos, numeric, Posicao inicial (base 1)
+@return numeric, Valor lido
+@type function
+/*/
+Static Function RU64LE(cBytes As Character, nPos As Numeric)
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	For nCont:=0 to 7
+		nRet	+= asc(SubStr(cBytes,nPos+nCont,1)) * (2^(8*nCont))
+	Next
+Return nRet
+
+/*/{Protheus.doc} RU16LE2
+Le um inteiro de 2 bytes little-endian (base 1)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cBytes, character, Buffer
+@param nPos, numeric, Posicao inicial (base 1)
+@return numeric, Valor lido
+@type function
+/*/
+Static Function RU16LE2(cBytes As Character, nPos As Numeric)
+Return asc(SubStr(cBytes,nPos,1)) + asc(SubStr(cBytes,nPos+1,1))*256
+
+/*/{Protheus.doc} HexToBin
+Converte uma string hexadecimal em bytes (parse manual, pois Val nao interpreta hexadecimal)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cHex, character, String hexadecimal (pares de digitos)
+@return character, Bytes correspondentes
+@type function
+/*/
+Static Function HexToBin(cHex As Character)
+	Local cRet := "" As Character
+	Local cDig := "0123456789ABCDEF" As Character
+	Local nCont As Numeric
+	Local nAlto As Numeric
+	Local nBaixo As Numeric
+	cHex	:= Upper(cHex)
+	For nCont:=1 to Len(cHex) step 2
+		nAlto	:= At(SubStr(cHex,nCont,1),cDig)-1
+		nBaixo	:= At(SubStr(cHex,nCont+1,1),cDig)-1
+		cRet	+= chr( nAlto*16 + nBaixo )
+	Next
+Return cRet
+
+/*/{Protheus.doc} GetHex
+Converte um byte (0-255) em hexadecimal (2 digitos maiusculos)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nByte, numeric, Valor do byte
+@return character, Hexadecimal
+@type function
+/*/
+Static Function GetHex(nByte As Numeric)
+	Local cHex := "0123456789ABCDEF" As Character
+Return SubStr(cHex,Int(nByte/16)+1,1) + SubStr(cHex,(nByte%16)+1,1)
+
+/*/{Protheus.doc} BinToHex
+Converte bytes em string hexadecimal (maiuscula)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cBytes, character, Bytes
+@return character, Representacao hexadecimal
+@type function
+/*/
+Static Function BinToHex(cBytes As Character)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	For nCont:=1 to Len(cBytes)
+		cRet	+= GetHex(asc(SubStr(cBytes,nCont,1)))
+	Next
+Return cRet
+
+/*/{Protheus.doc} ZeroPad
+Completa a string com bytes zero ate um multiplo do tamanho de bloco informado
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cData, character, Dados
+@param nBloco, numeric, Tamanho do bloco
+@return character, Dados alinhados ao bloco
+@type function
+/*/
+Static Function ZeroPad(cData As Character, nBloco As Numeric)
+	Local nResto := Len(cData) % nBloco As Numeric
+	If nResto>0
+		cData	+= Replicate(chr(0),nBloco-nResto)
+	Endif
+Return cData
+
+/*/{Protheus.doc} CeilDiv
+Divisao inteira arredondada para cima (nao existe Ceiling no AdvPL)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nA, numeric, Dividendo
+@param nB, numeric, Divisor
+@return numeric, Teto de nA/nB
+@type function
+/*/
+Static Function CeilDiv(nA As Numeric, nB As Numeric)
+	Local nDiv := nA/nB As Numeric
+Return If( nDiv>Int(nDiv), Int(nDiv)+1, Int(nDiv) )
+
+//----------------------------------------------------------------------
+//WRAPPER AES-256-CBC
+//----------------------------------------------------------------------
+/*/{Protheus.doc} DetectaPad
+Detecta uma unica vez se o AESEncrypt aplica padding PKCS#7 (saida maior que a entrada
+alinhada ao bloco). O resultado e guardado no estatico cAesPad.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@return character, "S" aplica PKCS#7, "N" nao aplica
+@type function
+/*/
+Static Function DetectaPad()
+	Local aRet As Array
+	Local cKey := Replicate(chr(1),KEY_BYTES) As Character
+	Local cIV := Replicate(chr(2),BLOCK_SIZE) As Character
+	Local cData := Replicate(chr(3),BLOCK_SIZE) As Character	//1 bloco exato
+	If cAesPad=="U"
+		aRet	:= AESEncrypt(AES_256_CBC, cData, , cKey, cIV)
+		If aRet[1]!=0
+			UserException("custom.excel.crypto - Falha ao detectar padding do AESEncrypt (codigo "+cValToChar(aRet[1])+")")
+		Endif
+		//Entrada de 16 bytes: PKCS#7 gera 32 bytes; sem padding gera 16
+		cAesPad	:= If(Len(aRet[2])>BLOCK_SIZE,"S","N")
+	Endif
+Return cAesPad
+
+/*/{Protheus.doc} AesCbc
+Encripta ou decripta em AES-256-CBC, isolando o comportamento de padding do AESEncrypt.
+Sempre trabalha com dados alinhados ao bloco (o chamador faz o zero-pad quando necessario)
+e devolve o resultado com o mesmo tamanho da entrada alinhada (sem bloco de pad extra).
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cData, character, Dados alinhados a 16 bytes
+@param cKey, character, Chave de 32 bytes
+@param cIV, character, Vetor de inicializacao de 16 bytes
+@param lEnc, logical, .T. encripta, .F. decripta
+@return character, Resultado com o mesmo tamanho de cData
+@type function
+/*/
+Static Function AesCbc(cData As Character, cKey As Character, cIV As Character, lEnc As Logical)
+	Local aRet As Array
+	Local cRet As Character
+	Local nTam := Len(cData) As Numeric
+	DetectaPad()
+	If lEnc
+		//Encripta: com PKCS#7 o AESEncrypt gera 1 bloco extra que descartamos (mantem o tamanho)
+		aRet	:= AESEncrypt(AES_256_CBC, cData, , cKey, cIV)
+		cRet	:= aRet[2]
+	Else
+		If cAesPad=="S"
+			//O AESDecrypt exige o bloco de pad; reconstroi-se para decifrar sem perder dados
+			cRet	:= AesDecNoPad(cData,cKey,cIV)
+		Else
+			aRet	:= AESDecrypt(AES_256_CBC, cData, cKey, cIV)
+			cRet	:= aRet[2]
+		Endif
+	Endif
+	If Len(cRet)<nTam	//Seguranca: nunca retornar menos bytes que a entrada
+		cRet	+= Replicate(chr(0),nTam-Len(cRet))
+	Endif
+Return SubStr(cRet,1,nTam)
+
+/*/{Protheus.doc} AesDecNoPad
+Decripta AES-256-CBC de dados sem padding PKCS#7, quando o AESDecrypt do ambiente exige o pad.
+Reconstroi o bloco de pad cifrando um bloco PKCS#7 completo (encadeado ao ultimo bloco do texto
+cifrado) e anexa-o antes de decifrar, descartando o bloco de pad resultante.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cCipher, character, Texto cifrado alinhado a 16 bytes
+@param cKey, character, Chave de 32 bytes
+@param cIV, character, Vetor de inicializacao de 16 bytes
+@return character, Texto decifrado com o mesmo tamanho de cCipher
+@type function
+/*/
+Static Function AesDecNoPad(cCipher As Character, cKey As Character, cIV As Character)
+	Local aRet As Array
+	Local cUltBloco As Character
+	Local cPadBloco As Character
+	Local cRet As Character
+	//Bloco PKCS#7 cheio (16 bytes com valor 16), cifrado usando como IV o ultimo bloco cifrado
+	cUltBloco	:= SubStr(cCipher,Len(cCipher)-BLOCK_SIZE+1,BLOCK_SIZE)
+	aRet		:= AESEncrypt(AES_256_CBC, Replicate(chr(BLOCK_SIZE),BLOCK_SIZE), , cKey, cUltBloco)
+	cPadBloco	:= SubStr(aRet[2],1,BLOCK_SIZE)
+	//Decifra cifrado + bloco de pad; o AESDecrypt remove o PKCS#7 e devolve o texto original
+	aRet		:= AESDecrypt(AES_256_CBC, cCipher+cPadBloco, cKey, cIV)
+	cRet		:= aRet[2]
+Return cRet
+
+//----------------------------------------------------------------------
+//DERIVACAO DE CHAVE (MS-OFFCRYPTO 2.3.4.11)
+//----------------------------------------------------------------------
+/*/{Protheus.doc} PwHash
+Calcula o hash iterado da senha: H0 = SHA512(salt + UTF16LE(senha)); Hn = SHA512(U32LE(i) + Hn-1)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cSenha, character, Senha em CP-1252
+@param cSalt, character, Salt de 16 bytes
+@param nSpin, numeric, Numero de iteracoes
+@return character, Hash de 64 bytes RAW
+@type function
+/*/
+Static Function PwHash(cSenha As Character, cSalt As Character, nSpin As Numeric)
+	Local cHash As Character
+	Local nCont As Numeric
+	cHash	:= SHA512( cSalt + EncodeUTF16(cSenha,2) , 1 )
+	For nCont:=0 to nSpin-1
+		cHash	:= SHA512( U32LE(nCont) + cHash , 1 )
+	Next
+Return cHash
+
+/*/{Protheus.doc} DeriveKey
+Deriva uma chave a partir do hash da senha e de um blockKey fixo: SHA512(pwHash + blockKey),
+ajustada ao tamanho informado (trunca ou completa com 54)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cPwHash, character, Hash da senha (64 bytes)
+@param cBlockKey, character, Bytes do blockKey
+@param nKeyBytes, numeric, Tamanho da chave em bytes
+@return character, Chave derivada
+@type function
+/*/
+Static Function DeriveKey(cPwHash As Character, cBlockKey As Character, nKeyBytes As Numeric)
+	Local cKey As Character
+	cKey	:= SHA512( cPwHash + cBlockKey , 1 )
+	If Len(cKey)>nKeyBytes
+		cKey	:= SubStr(cKey,1,nKeyBytes)
+	ElseIf Len(cKey)<nKeyBytes
+		cKey	+= Replicate(chr(54),nKeyBytes-Len(cKey))
+	Endif
+Return cKey
+
+/*/{Protheus.doc} IvSegmento
+Calcula o IV de um segmento/bloco: SHA512(keySalt + blockKey) truncado a 16 bytes
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cKeySalt, character, Salt da chave (16 bytes)
+@param cBlock, character, blockKey (bytes) ou indice ja empacotado
+@return character, IV de 16 bytes
+@type function
+/*/
+Static Function IvSegmento(cKeySalt As Character, cBlock As Character)
+	Local cIV As Character
+	cIV	:= SHA512( cKeySalt + cBlock , 1 )
+	If Len(cIV)>BLOCK_SIZE
+		cIV	:= SubStr(cIV,1,BLOCK_SIZE)
+	ElseIf Len(cIV)<BLOCK_SIZE
+		cIV	+= Replicate(chr(54),BLOCK_SIZE-Len(cIV))
+	Endif
+Return cIV
+
+/*/{Protheus.doc} RandBytes
+Gera bytes pseudoaleatorios a partir de SHA-512 de sementes variaveis (relogio, Randomize, UUID)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nQtd, numeric, Quantidade de bytes
+@return character, Bytes aleatorios
+@type function
+/*/
+Static Function RandBytes(nQtd As Numeric)
+	Local cRet := "" As Character
+	Local cSeed As Character
+	While Len(cRet)<nQtd
+		cSeed	:= DTOS(Date())+Time()+cValToChar(Seconds())+cValToChar(Randomize(0,999999999))+UUIDRandom()
+		cRet	+= SHA512( cSeed , 1 )
+	End
+Return SubStr(cRet,1,nQtd)
+
+//BlockKeys fixos do esquema Agile (MS-OFFCRYPTO)
+Static Function BkVerInput() ;	Return HexToBin("FEA7D2763B4B9E79")	//encryptedVerifierHashInput
+Static Function BkVerValue() ;	Return HexToBin("D7AA0F6D3061344E")	//encryptedVerifierHashValue
+Static Function BkKeyValue() ;	Return HexToBin("146E0BE7ABACD0D6")	//encryptedKeyValue
+Static Function BkIntegKey() ;	Return HexToBin("5FB2AD010CB9E1F6")	//dataIntegrity encryptedHmacKey
+Static Function BkIntegVal() ;	Return HexToBin("A0677F02B22C8433")	//dataIntegrity encryptedHmacValue
+
+//----------------------------------------------------------------------
+//ENCRIPTACAO / DESCRIPTOGRAFIA AGILE
+//----------------------------------------------------------------------
+/*/{Protheus.doc} Encrypt
+Encripta os bytes de um pacote .xlsx (ZIP/OPC) no esquema MS-OFFCRYPTO Agile e devolve
+os bytes do container OLE/CFB pronto para gravacao.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cZipBytes, character, Bytes do pacote .xlsx original
+@param cSenha, character, Senha de protecao
+@return character, Bytes do container CFB criptografado
+@type function
+/*/
+Method Encrypt(cZipBytes As Character, cSenha As Character) Class Crypto
+	Local cKeySalt As Character
+	Local cVerSalt As Character
+	Local cKeyValue As Character
+	Local cVerInput As Character
+	Local cHmacKey As Character
+	Local cPwHash As Character
+	Local cEncVerInput As Character
+	Local cEncVerValue As Character
+	Local cEncKeyValue As Character
+	Local cEncPackage As Character
+	Local cEncHmacKey As Character
+	Local cHmacValue As Character
+	Local cEncHmacValue As Character
+	Local cEncInfo As Character
+	Local cSeg As Character
+	Local nPos As Numeric
+	Local nSeg := 0 As Numeric
+	Local oCfb As Object
+	PARAMTYPE 0	VAR cZipBytes	AS CHARACTER
+	PARAMTYPE 1	VAR cSenha		AS CHARACTER
+
+	//Materiais aleatorios
+	cKeySalt	:= RandBytes(SALT_SIZE)
+	cVerSalt	:= RandBytes(SALT_SIZE)
+	cKeyValue	:= RandBytes(KEY_BYTES)
+	cVerInput	:= RandBytes(SALT_SIZE)
+	cHmacKey	:= RandBytes(HASH_SIZE)
+
+	//Hash da senha e verificadores
+	cPwHash			:= PwHash(cSenha,cVerSalt,SPIN_COUNT)
+	cEncVerInput	:= AesCbc(cVerInput, DeriveKey(cPwHash,BkVerInput(),KEY_BYTES), cVerSalt, .T.)
+	cEncVerValue	:= AesCbc(SHA512(cVerInput,1), DeriveKey(cPwHash,BkVerValue(),KEY_BYTES), cVerSalt, .T.)
+	cEncKeyValue	:= AesCbc(cKeyValue, DeriveKey(cPwHash,BkKeyValue(),KEY_BYTES), cVerSalt, .T.)
+
+	//Pacote encriptado por segmentos de 4096 bytes (prefixado pelo tamanho original em 8 bytes)
+	cEncPackage	:= U64LE(Len(cZipBytes))
+	nPos		:= 1
+	While nPos<=Len(cZipBytes)
+		cSeg		:= SubStr(cZipBytes,nPos,SEGMENT_SIZE)
+		cEncPackage	+= AesCbc( ZeroPad(cSeg,BLOCK_SIZE), cKeyValue, IvSegmento(cKeySalt,U32LE(nSeg)), .T. )
+		nPos		+= SEGMENT_SIZE
+		nSeg++
+	End
+
+	//Integridade HMAC-SHA512 sobre o stream EncryptedPackage
+	cEncHmacKey		:= AesCbc( ZeroPad(cHmacKey,BLOCK_SIZE), cKeyValue, IvSegmento(cKeySalt,BkIntegKey()), .T. )
+	cHmacValue		:= HMAC( cEncPackage, cHmacKey, HMAC_SHA512, 1, 1, 1 )
+	cEncHmacValue	:= AesCbc( ZeroPad(cHmacValue,BLOCK_SIZE), cKeyValue, IvSegmento(cKeySalt,BkIntegVal()), .T. )
+
+	//Descritor EncryptionInfo (cabecalho de 8 bytes + XML UTF-8)
+	cEncInfo	:= XmlEncInfo(cKeySalt,cVerSalt,cEncVerInput,cEncVerValue,cEncKeyValue,cEncHmacKey,cEncHmacValue)
+
+	//Monta o container CFB com os streams
+	oCfb	:= Cfb():New()
+	oCfb:AddDataSpaces()	//Streams boilerplate \x06DataSpaces
+	oCfb:AddStream("EncryptionInfo",cEncInfo)
+	oCfb:AddStream("EncryptedPackage",cEncPackage)
+Return oCfb:Build()
+
+/*/{Protheus.doc} Decrypt
+Decripta os bytes de um container OLE/CFB (MS-OFFCRYPTO Agile) e devolve os bytes do .xlsx original.
+Gera excecao se a senha estiver incorreta.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cCfbBytes, character, Bytes do container CFB criptografado
+@param cSenha, character, Senha informada
+@return character, Bytes do pacote .xlsx decifrado
+@type function
+/*/
+Method Decrypt(cCfbBytes As Character, cSenha As Character) Class Crypto
+	Local oCfb As Object
+	Local cEncInfo As Character
+	Local cEncPackage As Character
+	Local cXml As Character
+	Local oXml As Object
+	Local cKeySalt As Character
+	Local cVerSalt As Character
+	Local cPwHash As Character
+	Local cVerInput As Character
+	Local cVerValue As Character
+	Local cKeyValue As Character
+	Local cZip := "" As Character
+	Local nTamOrig As Numeric
+	Local nPos As Numeric
+	Local nSeg := 0 As Numeric
+	Local cBase As Character
+	PARAMTYPE 0	VAR cCfbBytes	AS CHARACTER
+	PARAMTYPE 1	VAR cSenha		AS CHARACTER
+
+	//Le os streams do container
+	oCfb		:= Cfb():New()
+	oCfb:Load(cCfbBytes)
+	cEncInfo	:= oCfb:GetStream("EncryptionInfo")
+	cEncPackage	:= oCfb:GetStream("EncryptedPackage")
+	If Empty(cEncInfo) .or. Empty(cEncPackage)
+		UserException("custom.excel.crypto - Arquivo nao e um pacote criptografado valido")
+	Endif
+
+	//Parse do EncryptionInfo (pula o cabecalho de 8 bytes)
+	cXml	:= SubStr(cEncInfo,9)
+	oXml	:= TXMLManager():New()
+	If !oXml:Parse(cXml)
+		UserException("custom.excel.crypto - EncryptionInfo invalido: "+oXml:Error())
+	Endif
+	RegNs(oXml)
+	cKeySalt	:= Decode64( oXml:XPathGetAtt("/xmlns:encryption/xmlns:keyData","saltValue") )
+	cVerSalt	:= Decode64( oXml:XPathGetAtt(cPathEncKey()+"/p:encryptedKey","saltValue") )
+
+	//Verificacao da senha
+	cPwHash		:= PwHash(cSenha,cVerSalt,SPIN_COUNT)
+	cVerInput	:= AesCbc( Decode64(oXml:XPathGetAtt(cPathEncKey()+"/p:encryptedKey","encryptedVerifierHashInput")), DeriveKey(cPwHash,BkVerInput(),KEY_BYTES), cVerSalt, .F. )
+	cVerValue	:= AesCbc( Decode64(oXml:XPathGetAtt(cPathEncKey()+"/p:encryptedKey","encryptedVerifierHashValue")), DeriveKey(cPwHash,BkVerValue(),KEY_BYTES), cVerSalt, .F. )
+	If SubStr(SHA512(SubStr(cVerInput,1,SALT_SIZE),1),1,HASH_SIZE) != SubStr(cVerValue,1,HASH_SIZE)
+		FreeObj(oXml)
+		UserException("Xlsx - Senha incorreta")
+	Endif
+
+	//Decifra a chave do pacote e depois os segmentos
+	cKeyValue	:= AesCbc( Decode64(oXml:XPathGetAtt(cPathEncKey()+"/p:encryptedKey","encryptedKeyValue")), DeriveKey(cPwHash,BkKeyValue(),KEY_BYTES), cVerSalt, .F. )
+	cKeyValue	:= SubStr(cKeyValue,1,KEY_BYTES)
+	FreeObj(oXml)
+
+	nTamOrig	:= RU64LE(cEncPackage,1)
+	nPos		:= 9	//Apos o prefixo de 8 bytes
+	While nPos<=Len(cEncPackage)
+		cBase	:= SubStr(cEncPackage,nPos,SEGMENT_SIZE)
+		cZip	+= AesCbc( cBase, cKeyValue, IvSegmento(cKeySalt,U32LE(nSeg)), .F. )
+		nPos	+= SEGMENT_SIZE
+		nSeg++
+	End
+Return SubStr(cZip,1,nTamOrig)
+
+/*/{Protheus.doc} cPathEncKey
+Caminho XPath do no keyEncryptor de senha no EncryptionInfo
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@return character, Caminho XPath
+@type function
+/*/
+Static Function cPathEncKey()
+Return "/xmlns:encryption/xmlns:keyEncryptors/xmlns:keyEncryptor"
+
+/*/{Protheus.doc} RegNs
+Registra os namespaces do EncryptionInfo no TXMLManager para as consultas XPath
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param oXml, object, TXMLManager ja parseado
+@type function
+/*/
+Static Function RegNs(oXml As Object)
+	oXml:XPathRegisterNs( "xmlns", "http://schemas.microsoft.com/office/2006/encryption" )
+	oXml:XPathRegisterNs( "p", "http://schemas.microsoft.com/office/2006/keyEncryptor/password" )
+Return
+
+/*/{Protheus.doc} XmlEncInfo
+Monta o stream EncryptionInfo (cabecalho de 8 bytes + XML do esquema Agile em UTF-8)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cKeySalt, character, Salt da chave do pacote
+@param cVerSalt, character, Salt do verificador/senha
+@param cEncVerInput, character, encryptedVerifierHashInput
+@param cEncVerValue, character, encryptedVerifierHashValue
+@param cEncKeyValue, character, encryptedKeyValue
+@param cEncHmacKey, character, dataIntegrity encryptedHmacKey
+@param cEncHmacValue, character, dataIntegrity encryptedHmacValue
+@return character, Stream EncryptionInfo completo
+@type function
+/*/
+Static Function XmlEncInfo(cKeySalt, cVerSalt, cEncVerInput, cEncVerValue, cEncKeyValue, cEncHmacKey, cEncHmacValue)
+	Local cXml := "" As Character
+	Local cAtrCipher As Character
+	cAtrCipher	:= ' cipherAlgorithm="AES" cipherChaining="ChainingModeCBC" hashAlgorithm="SHA512"'
+	cAtrCipher	+= ' saltSize="'+cValToChar(SALT_SIZE)+'" blockSize="'+cValToChar(BLOCK_SIZE)+'"'
+	cAtrCipher	+= ' keyBits="'+cValToChar(KEY_BYTES*8)+'" hashSize="'+cValToChar(HASH_SIZE)+'"'
+	cXml	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	cXml	+= '<encryption xmlns="http://schemas.microsoft.com/office/2006/encryption"'
+	cXml	+= ' xmlns:p="http://schemas.microsoft.com/office/2006/keyEncryptor/password"'
+	cXml	+= ' xmlns:c="http://schemas.microsoft.com/office/2006/keyEncryptor/certificate">'
+	cXml	+= '<keyData saltValue="'+Encode64(cKeySalt)+'"'+cAtrCipher+'/>'
+	cXml	+= '<dataIntegrity encryptedHmacKey="'+Encode64(cEncHmacKey)+'" encryptedHmacValue="'+Encode64(cEncHmacValue)+'"/>'
+	cXml	+= '<keyEncryptors>'
+	cXml	+= '<keyEncryptor uri="http://schemas.microsoft.com/office/2006/keyEncryptor/password">'
+	cXml	+= '<p:encryptedKey spinCount="'+cValToChar(SPIN_COUNT)+'"'+cAtrCipher
+	cXml	+= ' saltValue="'+Encode64(cVerSalt)+'"'
+	cXml	+= ' encryptedVerifierHashInput="'+Encode64(cEncVerInput)+'"'
+	cXml	+= ' encryptedVerifierHashValue="'+Encode64(cEncVerValue)+'"'
+	cXml	+= ' encryptedKeyValue="'+Encode64(cEncKeyValue)+'"/>'
+	cXml	+= '</keyEncryptor>'
+	cXml	+= '</keyEncryptors>'
+	cXml	+= '</encryption>'
+	//Cabecalho: versao major=4, minor=4 e flags reservadas (64)
+Return U16LE(4)+U16LE(4)+U32LE(64)+EncodeUTF8(cXml)
+
+//----------------------------------------------------------------------
+//OPERACOES EM ARQUIVO (usadas pela classe Xlsx)
+//----------------------------------------------------------------------
+/*/{Protheus.doc} IsEncrypted
+Verifica se o arquivo e um container OLE/CFB (candidato a .xlsx protegido por senha)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cPath, character, Caminho do arquivo no servidor
+@return logical, .T. se possui a assinatura CFB
+@type function
+/*/
+Method IsEncrypted(cPath As Character) Class Crypto
+	Local nH As Numeric
+	Local cBuffer := Space(8) As Character
+	Local lRet := .F. As Logical
+	PARAMTYPE 0	VAR cPath		AS CHARACTER
+	nH	:= FOpen(cPath,FO_READ)
+	If nH>=0
+		FRead(nH,@cBuffer,8)
+		FClose(nH)
+		lRet	:= ( Upper(BinToHex(cBuffer)) == CFB_MAGIC )
+	Endif
+Return lRet
+
+/*/{Protheus.doc} LeArquivo
+Le todo o conteudo binario de um arquivo do servidor
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cPath, character, Caminho do arquivo
+@return character, Bytes do arquivo
+@type function
+/*/
+Static Function LeArquivo(cPath As Character)
+	Local nH As Numeric
+	Local nTam As Numeric
+	Local cBuffer As Character
+	Local cRet := "" As Character
+	Local nLido As Numeric
+	nH	:= FOpen(cPath,FO_READ)
+	If nH<0
+		UserException("custom.excel.crypto - Erro ao abrir arquivo ("+cValToChar(FError())+"): "+cPath)
+	Endif
+	nTam	:= FSeek(nH,0,FS_END)
+	FSeek(nH,0,FS_SET)
+	While Len(cRet)<nTam
+		cBuffer	:= Space(65536)
+		nLido	:= FRead(nH,@cBuffer,65536)
+		If nLido<=0
+			Exit
+		Endif
+		cRet	+= SubStr(cBuffer,1,nLido)
+	End
+	FClose(nH)
+Return cRet
+
+/*/{Protheus.doc} GravaArquivo
+Grava bytes em um arquivo do servidor (sobrescreve)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cPath, character, Caminho do arquivo
+@param cBytes, character, Conteudo binario
+@type function
+/*/
+Static Function GravaArquivo(cPath As Character, cBytes As Character)
+	Local oFile As Object
+	oFile	:= FWFileWriter():New(cPath,.T.)
+	oFile:SetCaseSensitive(.T.)
+	If !oFile:Create()
+		UserException("custom.excel.crypto - Erro ao criar arquivo: "+oFile:Error():Message)
+	Endif
+	oFile:Write(cBytes)
+	oFile:Close()
+	FreeObj(oFile)
+Return
+
+/*/{Protheus.doc} EncryptFile
+Encripta um arquivo .xlsx no lugar (sobrescreve com o container CFB protegido por senha)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cPath, character, Caminho do .xlsx a proteger
+@param cSenha, character, Senha de protecao
+@type function
+/*/
+Method EncryptFile(cPath As Character, cSenha As Character) Class Crypto
+	Local cZip As Character
+	Local cCfb As Character
+	PARAMTYPE 0	VAR cPath		AS CHARACTER
+	PARAMTYPE 1	VAR cSenha		AS CHARACTER
+	cZip	:= LeArquivo(cPath)
+	cCfb	:= ::Encrypt(cZip,cSenha)
+	GravaArquivo(cPath,cCfb)
+Return
+
+/*/{Protheus.doc} DecryptFile
+Decripta um arquivo criptografado (CFB) no lugar (sobrescreve com o .xlsx original)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cPath, character, Caminho do arquivo criptografado
+@param cSenha, character, Senha informada
+@type function
+/*/
+Method DecryptFile(cPath As Character, cSenha As Character) Class Crypto
+	Local cCfb As Character
+	Local cZip As Character
+	PARAMTYPE 0	VAR cPath		AS CHARACTER
+	PARAMTYPE 1	VAR cSenha		AS CHARACTER
+	cCfb	:= LeArquivo(cPath)
+	cZip	:= ::Decrypt(cCfb,cSenha)
+	GravaArquivo(cPath,cZip)
+Return
+
+//----------------------------------------------------------------------
+//CONTAINER OLE/CFB (MS-CFB) - WRITER/READER
+//----------------------------------------------------------------------
+/*/{Protheus.doc} Cfb
+Monta e le um Compound File Binary (MS-CFB) simples, usado como container do MS-OFFCRYPTO.
+Setores de 512 bytes, minisetores de 64 bytes, corte de mini-stream em 4096 bytes.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type class
+@obs Suporta a arvore de streams/storages necessaria ao esquema Agile
+/*/
+Class Cfb
+	Public Data aEntries		As Array	//Entradas {cNome,nTipo,aFilhos,cData,nStart,nSize,lRaiz,nLeft,nRight,nChild}
+	Public Data cData			As Character	//Buffer carregado no Load
+
+	Public Method New()			As Object
+	Public Method AddStream()
+	Public Method AddStorage()
+	Public Method AddDataSpaces()
+	Public Method Build()
+	Public Method Load()
+	Public Method GetStream()
+EndClass
+
+/*/{Protheus.doc} Cfb::New
+Construtor. Cria a Root Entry.
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@return object, self
+@type method
+/*/
+Method New() as Object Class Cfb
+	::aEntries	:= {}
+	::cData		:= ""
+	//Indice 1 = Root Entry (tipo 5). 10 posicoes: {nome,tipo,filhos,dados,start,size,raiz,left,right,child}
+	AADD(::aEntries,{ "Root Entry", 5, {}, "", -1, 0, .T., -1, -1, -1 })
+Return self
+
+/*/{Protheus.doc} Cfb::AddStream
+Adiciona um stream (arquivo) na raiz ou dentro de um storage
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cNome, character, Nome da entrada
+@param cConteudo, character, Bytes do stream
+@param nPai, numeric, Indice do storage pai (default raiz=1)
+@return numeric, Indice da entrada criada
+@type method
+/*/
+Method AddStream(cNome As Character, cConteudo As Character, nPai As Numeric) Class Cfb
+	PARAMTYPE 2	VAR nPai		AS NUMERIC	OPTIONAL DEFAULT 1
+	AADD(::aEntries,{ cNome, 2/*stream*/, {}, cConteudo, -1, Len(cConteudo), .F., -1, -1, -1 })
+	AADD(::aEntries[nPai][3],Len(::aEntries))
+Return Len(::aEntries)
+
+/*/{Protheus.doc} Cfb::AddStorage
+Adiciona um storage (pasta) na raiz ou dentro de outro storage
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cNome, character, Nome do storage
+@param nPai, numeric, Indice do storage pai (default raiz=1)
+@return numeric, Indice da entrada criada
+@type method
+/*/
+Method AddStorage(cNome As Character, nPai As Numeric) Class Cfb
+	PARAMTYPE 1	VAR nPai		AS NUMERIC	OPTIONAL DEFAULT 1
+	AADD(::aEntries,{ cNome, 1/*storage*/, {}, "", -1, 0, .F., -1, -1, -1 })
+	AADD(::aEntries[nPai][3],Len(::aEntries))
+Return Len(::aEntries)
+
+/*/{Protheus.doc} Cfb::AddDataSpaces
+Adiciona a estrutura boilerplate \x06DataSpaces exigida pelo MS-OFFCRYPTO
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@type method
+@obs Conteudo binario fixo conforme [MS-OFFCRYPTO] 2.1
+/*/
+Method AddDataSpaces() Class Cfb
+	Local nDs As Numeric
+	Local nInfo As Numeric
+	Local nTrans As Numeric
+	Local nStrong As Numeric
+	Local cVersion As Character
+	Local cDsMap As Character
+	Local cStrongDs As Character
+	Local cPrimary As Character
+	//storage \x06DataSpaces
+	nDs		:= ::AddStorage(chr(6)+"DataSpaces",1)
+
+	//Stream Version
+	cVersion	:= DsUnicodeLP("Microsoft.Container.DataSpaces")
+	cVersion	+= U16LE(1)+U16LE(0)	//ReaderVersion
+	cVersion	+= U16LE(1)+U16LE(0)	//UpdaterVersion
+	cVersion	+= U16LE(1)+U16LE(0)	//WriterVersion
+	::AddStream("Version",cVersion,nDs)
+
+	//Stream DataSpaceMap
+	cDsMap	:= U32LE(8)					//HeaderLength
+	cDsMap	+= U32LE(1)					//EntryCount
+	cDsMap	+= DsMapEntry("EncryptedPackage","StrongEncryptionDataSpace")
+	::AddStream("DataSpaceMap",cDsMap,nDs)
+
+	//storage DataSpaceInfo -> stream StrongEncryptionDataSpace
+	nInfo		:= ::AddStorage("DataSpaceInfo",nDs)
+	cStrongDs	:= U32LE(8)				//HeaderLength
+	cStrongDs	+= U32LE(1)				//TransformReferenceCount
+	cStrongDs	+= DsUnicodeLP("StrongEncryptionTransform")
+	::AddStream("StrongEncryptionDataSpace",cStrongDs,nInfo)
+
+	//storage TransformInfo -> storage StrongEncryptionTransform -> stream \x06Primary
+	nTrans		:= ::AddStorage("TransformInfo",nDs)
+	nStrong		:= ::AddStorage("StrongEncryptionTransform",nTrans)
+	cPrimary	:= DsPrimary()
+	::AddStream(chr(6)+"Primary",cPrimary,nStrong)
+Return
+
+/*/{Protheus.doc} Cfb::Build
+Serializa o Compound File completo e devolve os bytes
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@return character, Bytes do container CFB
+@type method
+/*/
+Method Build() Class Cfb
+	Local nCont As Numeric
+	Local nSecSize := 512 As Numeric
+	Local nMiniSize := 64 As Numeric
+	Local nCutoff := 4096 As Numeric
+	Local cMiniStream := "" As Character
+	Local aMiniFat := {} As Array
+	Local aFat := {} As Array
+	Local cSectors := "" As Character
+	Local nSec As Numeric
+	Local nMini As Numeric
+	Local cContent As Character
+	Local nBlocos As Numeric
+	Local nJ As Numeric
+	Local cDir As Character
+	Local nDirSectors As Numeric
+	Local nMiniFatSectors As Numeric
+	Local nFatSectors As Numeric
+	Local cHeader As Character
+	Local nTotalSec As Numeric
+	Local nMiniStart As Numeric
+	Local cMiniFat := "" As Character
+	Local cFat := "" As Character
+
+	//1) Ordena os filhos de cada storage e monta as ligacoes left/right/child
+	MontaArvore(::aEntries)
+
+	//2) Aloca conteudo dos streams: >= 4096 vao para setores; < 4096 vao para o mini-stream
+	For nCont:=1 to Len(::aEntries)
+		If ::aEntries[nCont][2]==2 .and. ::aEntries[nCont][6]>0	//stream com dados
+			cContent	:= ::aEntries[nCont][4]
+			If ::aEntries[nCont][6]>=nCutoff
+				//Setores regulares
+				::aEntries[nCont][5]	:= Len(cSectors)/nSecSize	//setor inicial
+				cContent	:= PadSector(cContent,nSecSize)
+				nBlocos		:= Len(cContent)/nSecSize
+				nSec		:= Len(aFat)
+				For nJ:=1 to nBlocos
+					AADD(aFat, If(nJ<nBlocos, nSec+nJ, -2))	//-2=ENDOFCHAIN
+				Next
+				cSectors	+= cContent
+			Else
+				//Mini-stream
+				::aEntries[nCont][5]	:= Len(cMiniStream)/nMiniSize	//minisetor inicial
+				cContent	:= PadSector(cContent,nMiniSize)
+				nBlocos		:= Len(cContent)/nMiniSize
+				nMini		:= Len(aMiniFat)
+				For nJ:=1 to nBlocos
+					AADD(aMiniFat, If(nJ<nBlocos, nMini+nJ, -2))
+				Next
+				cMiniStream	+= cContent
+			Endif
+		Endif
+	Next
+
+	//3) O mini-stream vira o conteudo da Root Entry (em setores regulares)
+	::aEntries[1][6]	:= Len(cMiniStream)
+	If Len(cMiniStream)>0
+		::aEntries[1][5]	:= Len(cSectors)/nSecSize
+		cContent	:= PadSector(cMiniStream,nSecSize)
+		nBlocos		:= Len(cContent)/nSecSize
+		nSec		:= Len(aFat)
+		For nJ:=1 to nBlocos
+			AADD(aFat, If(nJ<nBlocos, nSec+nJ, -2))
+		Next
+		cSectors	+= cContent
+	Else
+		::aEntries[1][5]	:= -2
+	Endif
+
+	//4) Diretorio: 128 bytes por entrada
+	cDir	:= ""
+	For nCont:=1 to Len(::aEntries)
+		cDir	+= DirEntry(::aEntries[nCont])
+	Next
+	cDir	:= PadSector(cDir,nSecSize)
+	nDirSectors	:= Len(cDir)/nSecSize
+
+	//5) MiniFAT em setores
+	For nCont:=1 to Len(aMiniFat)
+		cMiniFat	+= U32LE( FatVal(aMiniFat[nCont]) )
+	Next
+	cMiniFat	:= PadFat(cMiniFat,nSecSize)
+	nMiniFatSectors	:= Len(cMiniFat)/nSecSize
+
+	//6) Layout de setores: [dados+ministream] [diretorio] [minifat]; depois a FAT descreve todos
+	nSec		:= Len(aFat)	//proximos setores = diretorio
+	For nCont:=1 to nDirSectors
+		AADD(aFat, If(nCont<nDirSectors, nSec+nCont, -2))
+	Next
+	nSec		:= Len(aFat)	//proximos setores = minifat
+	For nCont:=1 to nMiniFatSectors
+		AADD(aFat, If(nCont<nMiniFatSectors, nSec+nCont, -2))
+	Next
+
+	//7) A propria FAT ocupa setores; calcula quantos e marca-os como FATSECT (-3)
+	nFatSectors	:= 1
+	While .T.
+		nTotalSec	:= Len(aFat) + nFatSectors
+		If CeilDiv( nTotalSec*4, nSecSize ) <= nFatSectors
+			Exit
+		Endif
+		nFatSectors++
+	End
+	For nCont:=1 to nFatSectors
+		AADD(aFat,-3)	//FATSECT
+	Next
+
+	//8) Serializa a FAT
+	For nCont:=1 to Len(aFat)
+		cFat	+= U32LE( FatVal(aFat[nCont]) )
+	Next
+	cFat	:= PadFat(cFat,nSecSize)
+
+	//9) Cabecalho (512 bytes)
+	nMiniStart	:= If(nMiniFatSectors>0, (Len(aFat)-nFatSectors-nMiniFatSectors), -2)
+	cHeader	:= MontaHeader(nSecSize, (Len(cSectors)/nSecSize)/*dir start*/, nFatSectors, ;
+		nMiniStart, nMiniFatSectors, aFat, nDirSectors)
+
+	//10) Ordem fisica: header + dados + diretorio + minifat + FAT (coerente com os indices)
+Return cHeader + cSectors + cDir + cMiniFat + cFat
+
+/*/{Protheus.doc} Cfb::Load
+Carrega um Compound File na memoria para leitura de streams
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cBytes, character, Bytes do container
+@type method
+/*/
+Method Load(cBytes As Character) Class Cfb
+	::cData	:= cBytes
+Return
+
+/*/{Protheus.doc} Cfb::GetStream
+Recupera o conteudo de um stream pelo nome no container carregado
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cNome, character, Nome do stream (ex: EncryptionInfo)
+@return character, Bytes do stream (vazio se nao encontrado)
+@type method
+/*/
+Method GetStream(cNome As Character) Class Cfb
+	Local nSecSize As Numeric
+	Local nMiniSize := 64 As Numeric
+	Local nCutoff := 4096 As Numeric
+	Local nDirStart As Numeric
+	Local aFat As Array
+	Local aMiniFat As Array
+	Local cDir As Character
+	Local nEnt As Numeric
+	Local nTipo As Numeric
+	Local nStart As Numeric
+	Local nSize As Numeric
+	Local cRet := "" As Character
+	Local nMiniStart As Numeric
+	Local cMiniStream As Character
+	Local nRootStart As Numeric
+	Local nRootSize As Numeric
+	Local aDir As Array
+
+	nSecSize	:= 2^RU16LE2(::cData,31)	//SectorShift (offset 30, base 1 = 31)
+	aFat		:= LeFatDoHeader(::cData,nSecSize)
+	nDirStart	:= RU32LE(::cData,49)	//offset 48: primeiro setor do diretorio
+	nMiniStart	:= RU32LE(::cData,61)	//offset 60: primeiro setor da MiniFAT
+	cDir		:= LeCadeia(::cData,nSecSize,aFat,nDirStart)
+	aMiniFat	:= {}
+	If nMiniStart>=0 .and. nMiniStart<4294967280
+		aMiniFat	:= FatBytesToArr( LeCadeia(::cData,nSecSize,aFat,nMiniStart) )
+	Endif
+	//Root Entry (primeira entrada) aponta para o mini-stream
+	nRootStart	:= RU32LE(cDir,116+1)
+	nRootSize	:= RU64LE(cDir,120+1)
+	cMiniStream	:= LeCadeia(::cData,nSecSize,aFat,nRootStart)
+	cMiniStream	:= SubStr(cMiniStream,1,nRootSize)
+
+	aDir	:= ParseDir(cDir)
+	nEnt	:= aScan(aDir,{|x| x[1]==cNome })
+	If nEnt==0
+		Return ""
+	Endif
+	nTipo	:= aDir[nEnt][2]
+	nStart	:= aDir[nEnt][3]
+	nSize	:= aDir[nEnt][4]
+	If nTipo!=2	//nao e stream
+		Return ""
+	Endif
+	If nSize>=nCutoff
+		cRet	:= LeCadeia(::cData,nSecSize,aFat,nStart)
+	Else
+		cRet	:= LeCadeiaMini(cMiniStream,nMiniSize,aMiniFat,nStart)
+	Endif
+Return SubStr(cRet,1,nSize)
+
+//----------------------------------------------------------------------
+//AUXILIARES DO CFB (funcoes estaticas)
+//----------------------------------------------------------------------
+/*/{Protheus.doc} FatVal
+Converte um valor logico de FAT para o inteiro de 32 bits do MS-CFB
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nVal, numeric, -1=FREESECT, -2=ENDOFCHAIN, -3=FATSECT, -4=DIFSECT, >=0 proximo setor
+@return numeric, Valor de 32 bits
+@type function
+/*/
+Static Function FatVal(nVal As Numeric)
+	Local nRet As Numeric
+	Do Case
+		Case nVal==-1	;	nRet	:= 4294967295	//FREESECT   FFFFFFFF
+		Case nVal==-2	;	nRet	:= 4294967294	//ENDOFCHAIN FFFFFFFE
+		Case nVal==-3	;	nRet	:= 4294967293	//FATSECT    FFFFFFFD
+		Case nVal==-4	;	nRet	:= 4294967292	//DIFSECT    FFFFFFFC
+		Otherwise		;	nRet	:= nVal
+	EndCase
+Return nRet
+
+/*/{Protheus.doc} PadSector
+Completa a string com bytes zero ate um multiplo do tamanho de setor
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cData, character, Dados
+@param nSec, numeric, Tamanho do setor
+@return character, Dados alinhados
+@type function
+/*/
+Static Function PadSector(cData As Character, nSec As Numeric)
+	Local nResto := Len(cData) % nSec As Numeric
+	If nResto>0
+		cData	+= Replicate(chr(0),nSec-nResto)
+	Endif
+Return cData
+
+/*/{Protheus.doc} PadFat
+Completa a serializacao de FAT/MiniFAT com FREESECT (FFFFFFFF) ate o tamanho do setor
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cData, character, Bytes da FAT
+@param nSec, numeric, Tamanho do setor
+@return character, FAT alinhada ao setor
+@type function
+/*/
+Static Function PadFat(cData As Character, nSec As Numeric)
+	Local nResto := Len(cData) % nSec As Numeric
+	Local nFalta As Numeric
+	If nResto>0
+		nFalta	:= nSec-nResto
+		While nFalta>=4
+			cData	+= U32LE(4294967295)	//FREESECT
+			nFalta	-= 4
+		End
+	Endif
+Return cData
+
+/*/{Protheus.doc} DirEntry
+Serializa uma entrada de diretorio (128 bytes) do MS-CFB
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param aEnt, array, Entrada {cNome,nTipo,aFilhos,cData,nStart,nSize,lRaiz,nLeft,nRight,nChild}
+@return character, 128 bytes
+@type function
+/*/
+Static Function DirEntry(aEnt As Array)
+	Local cUtf16 As Character
+	Local nLenNome As Numeric
+	Local cRet := "" As Character
+	//Nome em UTF-16LE + terminador (0), ate 32 caracteres (64 bytes)
+	cUtf16	:= EncodeUTF16(aEnt[1],2) + chr(0)+chr(0)
+	nLenNome:= Len(cUtf16)
+	If nLenNome>64
+		nLenNome	:= 64
+		cUtf16		:= SubStr(cUtf16,1,64)
+	Endif
+	cRet	+= cUtf16 + Replicate(chr(0),64-nLenNome)	//offset 0..63: nome (64 bytes)
+	cRet	+= U16LE(nLenNome)							//offset 64..65: tamanho do nome (com terminador)
+	cRet	+= chr(aEnt[2])								//offset 66: tipo (1 storage,2 stream,5 root)
+	cRet	+= chr(1)									//offset 67: cor (1=preto; readers ignoram)
+	cRet	+= U32LE( DirRef(aEnt,8) )				//offset 68..71: Left sibling ID
+	cRet	+= U32LE( DirRef(aEnt,9) )				//offset 72..75: Right sibling ID
+	cRet	+= U32LE( DirRef(aEnt,10) )				//offset 76..79: Child ID
+	cRet	+= Replicate(chr(0),16)					//offset 80..95: CLSID
+	cRet	+= U32LE(0)								//offset 96..99: State bits
+	cRet	+= Replicate(chr(0),8)					//offset 100..107: Creation time
+	cRet	+= Replicate(chr(0),8)					//offset 108..115: Modified time
+	cRet	+= U32LE( If(aEnt[5]<0,0,aEnt[5]) )		//offset 116..119: Starting sector
+	cRet	+= U64LE( aEnt[6] )						//offset 120..127: Stream size (64 bits)
+	If Len(cRet)<128
+		cRet	+= Replicate(chr(0),128-Len(cRet))
+	Endif
+Return SubStr(cRet,1,128)
+
+/*/{Protheus.doc} DirRef
+Retorna o ID de referencia (Left/Right/Child) de uma entrada, ou NOSTREAM (FFFFFFFF)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param aEnt, array, Entrada
+@param nIdx, numeric, Indice do campo (8=left,9=right,10=child)
+@return numeric, ID (base 0) ou 4294967295
+@type function
+/*/
+Static Function DirRef(aEnt As Array, nIdx As Numeric)
+	Local nRet As Numeric
+	If Len(aEnt)<nIdx .or. aEnt[nIdx]==Nil .or. aEnt[nIdx]<0
+		nRet	:= 4294967295	//NOSTREAM
+	Else
+		nRet	:= aEnt[nIdx]-1	//IDs em base 0
+	Endif
+Return nRet
+
+/*/{Protheus.doc} MontaArvore
+Define Left/Right/Child (base 1) de cada entrada. Cada storage aponta para o primeiro filho
+e os irmaos sao encadeados como arvore so-direita, ordenados por (tamanho do nome, nome UPPER).
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param aEntries, array, Entradas do diretorio
+@type function
+/*/
+Static Function MontaArvore(aEntries As Array)
+	Local nCont As Numeric
+	Local nJ As Numeric
+	Local aFilhos As Array
+	For nCont:=1 to Len(aEntries)
+		aEntries[nCont][8]	:= -1
+		aEntries[nCont][9]	:= -1
+		aEntries[nCont][10]	:= -1
+	Next
+	For nCont:=1 to Len(aEntries)
+		If aEntries[nCont][2]==1 .or. aEntries[nCont][2]==5	//storage ou root
+			aFilhos	:= aClone(aEntries[nCont][3])
+			aSort(aFilhos,,,{|x,y| CompNome(aEntries[x][1],aEntries[y][1]) })
+			If Len(aFilhos)>0
+				aEntries[nCont][10]	:= aFilhos[1]	//Child = primeiro
+				For nJ:=1 to Len(aFilhos)-1
+					aEntries[aFilhos[nJ]][9]	:= aFilhos[nJ+1]	//Right sibling encadeado
+				Next
+			Endif
+		Endif
+	Next
+Return
+
+/*/{Protheus.doc} CompNome
+Comparacao de nomes de entrada do CFB: primeiro por tamanho, depois por UPPER
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cA, character, Nome A
+@param cB, character, Nome B
+@return logical, .T. se A vem antes de B
+@type function
+/*/
+Static Function CompNome(cA As Character, cB As Character)
+	Local lRet As Logical
+	If Len(cA)!=Len(cB)
+		lRet	:= Len(cA)<Len(cB)
+	Else
+		lRet	:= Upper(cA)<Upper(cB)
+	Endif
+Return lRet
+
+/*/{Protheus.doc} MontaHeader
+Monta o cabecalho de 512 bytes do MS-CFB (com o DIFAT dos setores de FAT)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param nSecSize, numeric, Tamanho do setor
+@param nDirStart, numeric, Setor inicial do diretorio
+@param nFatSectors, numeric, Quantidade de setores de FAT
+@param nMiniStart, numeric, Setor inicial da MiniFAT
+@param nMiniFatSectors, numeric, Quantidade de setores da MiniFAT
+@param aFat, array, FAT completa (para localizar os setores FATSECT)
+@param nDirSectors, numeric, Quantidade de setores de diretorio
+@return character, 512 bytes do cabecalho
+@type function
+/*/
+Static Function MontaHeader(nSecSize, nDirStart, nFatSectors, nMiniStart, nMiniFatSectors, aFat, nDirSectors)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local nSecShift As Numeric
+	Local aFatSect := {} As Array
+	nSecShift	:= If(nSecSize==4096,12,9)
+	//Localiza os setores marcados como FATSECT (-3) => contem a FAT
+	For nCont:=1 to Len(aFat)
+		If aFat[nCont]==-3
+			AADD(aFatSect,nCont-1)	//base 0
+		Endif
+	Next
+	cRet	+= HexToBin(CFB_MAGIC)				//assinatura
+	cRet	+= Replicate(chr(0),16)				//CLSID
+	cRet	+= U16LE(62)					//Minor version
+	cRet	+= U16LE( If(nSecSize==4096,4,3) )	//Major version (3=512,4=4096)
+	cRet	+= U16LE(65534)					//Byte order (little-endian)
+	cRet	+= U16LE(nSecShift)					//Sector shift
+	cRet	+= U16LE(6)							//Mini sector shift (64 bytes)
+	cRet	+= Replicate(chr(0),6)				//Reservado
+	cRet	+= U32LE( If(nSecSize==4096,nDirSectors,0) )	//Num dir sectors (0 na v3)
+	cRet	+= U32LE(nFatSectors)				//Num FAT sectors
+	cRet	+= U32LE(nDirStart)					//First dir sector
+	cRet	+= U32LE(0)							//Transaction signature
+	cRet	+= U32LE(4096)						//Mini stream cutoff
+	cRet	+= U32LE( If(nMiniFatSectors>0,nMiniStart,4294967294) )	//First MiniFAT sector
+	cRet	+= U32LE(nMiniFatSectors)			//Num MiniFAT sectors
+	cRet	+= U32LE(4294967294)				//First DIFAT sector (ENDOFCHAIN)
+	cRet	+= U32LE(0)							//Num DIFAT sectors
+	//DIFAT: 109 entradas de 4 bytes com os setores de FAT
+	For nCont:=1 to 109
+		If nCont<=Len(aFatSect)
+			cRet	+= U32LE(aFatSect[nCont])
+		Else
+			cRet	+= U32LE(4294967295)	//FREESECT
+		Endif
+	Next
+	If nSecSize==4096
+		cRet	+= Replicate(chr(0),4096-512)
+	Endif
+Return cRet
+
+/*/{Protheus.doc} LeFatDoHeader
+Le a FAT completa seguindo o DIFAT do cabecalho (suporta ate 109 setores de FAT)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cData, character, Bytes do container
+@param nSecSize, numeric, Tamanho do setor
+@return array, Vetor de inteiros da FAT
+@type function
+/*/
+Static Function LeFatDoHeader(cData As Character, nSecSize As Numeric)
+	Local aFat := {} As Array
+	Local nCont As Numeric
+	Local nSecFat As Numeric
+	Local nOff As Numeric
+	Local nJ As Numeric
+	For nCont:=1 to 109
+		nSecFat	:= RU32LE(cData,76+1+(nCont-1)*4)	//DIFAT comeca no offset 76
+		If nSecFat>=4294967280	//FREESECT/ENDOFCHAIN
+			Loop
+		Endif
+		nOff	:= 512 + nSecFat*nSecSize	//dados comecam apos o header (512 na v3)
+		For nJ:=0 to (nSecSize/4)-1
+			AADD(aFat, RU32LE(cData,nOff+1+nJ*4))
+		Next
+	Next
+Return aFat
+
+/*/{Protheus.doc} LeCadeia
+Le o conteudo de uma cadeia de setores regulares a partir do setor inicial
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cData, character, Bytes do container
+@param nSecSize, numeric, Tamanho do setor
+@param aFat, array, FAT
+@param nStart, numeric, Setor inicial
+@return character, Conteudo concatenado
+@type function
+/*/
+Static Function LeCadeia(cData As Character, nSecSize As Numeric, aFat As Array, nStart As Numeric)
+	Local cRet := "" As Character
+	Local nSec := nStart As Numeric
+	Local nOff As Numeric
+	Local nLimite := 0 As Numeric
+	While nSec>=0 .and. nSec<4294967280
+		nOff	:= 512 + nSec*nSecSize
+		cRet	+= SubStr(cData,nOff+1,nSecSize)
+		If nSec+1>Len(aFat)
+			Exit
+		Endif
+		nSec	:= aFat[nSec+1]
+		If nSec>=4294967280	//ENDOFCHAIN/FREESECT
+			Exit
+		Endif
+		nLimite++
+		If nLimite>1000000	//trava de seguranca
+			Exit
+		Endif
+	End
+Return cRet
+
+/*/{Protheus.doc} LeCadeiaMini
+Le o conteudo de uma cadeia de minisetores no mini-stream
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cMini, character, Mini-stream
+@param nMiniSize, numeric, Tamanho do minisetor
+@param aMiniFat, array, MiniFAT
+@param nStart, numeric, Minisetor inicial
+@return character, Conteudo concatenado
+@type function
+/*/
+Static Function LeCadeiaMini(cMini As Character, nMiniSize As Numeric, aMiniFat As Array, nStart As Numeric)
+	Local cRet := "" As Character
+	Local nSec := nStart As Numeric
+	Local nLimite := 0 As Numeric
+	While nSec>=0 .and. nSec<4294967280
+		cRet	+= SubStr(cMini,nSec*nMiniSize+1,nMiniSize)
+		If nSec+1>Len(aMiniFat)
+			Exit
+		Endif
+		nSec	:= aMiniFat[nSec+1]
+		If nSec>=4294967280
+			Exit
+		Endif
+		nLimite++
+		If nLimite>1000000
+			Exit
+		Endif
+	End
+Return cRet
+
+/*/{Protheus.doc} FatBytesToArr
+Converte os bytes de uma FAT/MiniFAT em vetor de inteiros
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cBytes, character, Bytes
+@return array, Vetor de inteiros de 32 bits
+@type function
+/*/
+Static Function FatBytesToArr(cBytes As Character)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	For nCont:=1 to Len(cBytes) step 4
+		AADD(aRet, RU32LE(cBytes,nCont))
+	Next
+Return aRet
+
+/*/{Protheus.doc} ParseDir
+Interpreta o stream de diretorio em entradas {cNome,nTipo,nStart,nSize}
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cDir, character, Stream de diretorio
+@return array, Entradas
+@type function
+/*/
+Static Function ParseDir(cDir As Character)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Local nQtd := Int(Len(cDir)/128) As Numeric
+	Local nBase As Numeric
+	Local nLenNome As Numeric
+	Local cNome As Character
+	Local nTipo As Numeric
+	Local nStart As Numeric
+	Local nSize As Numeric
+	For nCont:=1 to nQtd
+		nBase	:= (nCont-1)*128
+		nTipo	:= asc(SubStr(cDir,nBase+66+1,1))
+		If nTipo==0	//entrada livre
+			Loop
+		Endif
+		nLenNome	:= RU16LE2(cDir,nBase+64+1)
+		If nLenNome>2
+			cNome	:= DecodeUtf16Str( SubStr(cDir,nBase+1,nLenNome-2) )
+		Else
+			cNome	:= ""
+		Endif
+		nStart	:= RU32LE(cDir,nBase+116+1)
+		nSize	:= RU64LE(cDir,nBase+120+1)
+		AADD(aRet,{cNome,nTipo,nStart,nSize})
+	Next
+Return aRet
+
+/*/{Protheus.doc} DecodeUtf16Str
+Converte bytes UTF-16LE em string CP-1252 (para nomes de entrada latinos)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cUtf16, character, Bytes UTF-16LE
+@return character, String
+@type function
+/*/
+Static Function DecodeUtf16Str(cUtf16 As Character)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	For nCont:=1 to Len(cUtf16) step 2
+		cRet	+= SubStr(cUtf16,nCont,1)	//byte baixo (LE) = caractere latino
+	Next
+Return cRet
+
+//----------------------------------------------------------------------
+//BOILERPLATE \x06DataSpaces
+//----------------------------------------------------------------------
+/*/{Protheus.doc} DsUnicodeLP
+Serializa uma UNICODE-LP-P4 (length-prefixed UTF-16LE alinhada a 4 bytes) do MS-OFFCRYPTO
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cTexto, character, Texto
+@return character, Estrutura length-prefixed
+@type function
+/*/
+Static Function DsUnicodeLP(cTexto As Character)
+	Local cUtf16 As Character
+	Local cRet As Character
+	Local nResto As Numeric
+	cUtf16	:= EncodeUTF16(cTexto,2)
+	cRet	:= U32LE(Len(cUtf16)) + cUtf16
+	nResto	:= Len(cUtf16) % 4
+	If nResto>0
+		cRet	+= Replicate(chr(0),4-nResto)
+	Endif
+Return cRet
+
+/*/{Protheus.doc} DsMapEntry
+Serializa uma DataSpaceMapEntry ligando o stream ao dataspace
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@param cStream, character, Nome do stream (EncryptedPackage)
+@param cDataSpace, character, Nome do dataspace
+@return character, Entrada serializada
+@type function
+/*/
+Static Function DsMapEntry(cStream As Character, cDataSpace As Character)
+	Local cRef As Character
+	Local cCorpo As Character
+	cRef	:= U32LE(0) + DsUnicodeLP(cStream)	//ReferenceComponent: type=0 (stream) + nome
+	cCorpo	:= U32LE(1)			//ReferenceComponentCount
+	cCorpo	+= cRef
+	cCorpo	+= DsUnicodeLP(cDataSpace)
+	//Length inclui os 4 bytes do proprio length
+Return U32LE(Len(cCorpo)+4) + cCorpo
+
+/*/{Protheus.doc} DsPrimary
+Conteudo do stream \x06Primary (TransformInfoHeader + EncryptionTransformInfo)
+@author Saulo Gomes Martins
+@since 04/07/2026
+@version 1.0
+@return character, Bytes do stream Primary
+@type function
+/*/
+Static Function DsPrimary()
+	Local cRet := "" As Character
+	Local cId := "{FF9A3F03-56EF-4613-BDD5-5A41C1D07246}" As Character
+	Local cName := "Microsoft.Container.EncryptionTransform" As Character
+	//TransformInfoHeader
+	cRet	+= U32LE(1)			//TransformType (1)
+	cRet	+= DsUnicodeLP(cId)	//TransformID
+	cRet	+= DsUnicodeLP(cName)	//TransformName
+	cRet	+= U16LE(1)+U16LE(0)	//ReaderVersion
+	cRet	+= U16LE(1)+U16LE(0)	//UpdaterVersion
+	cRet	+= U16LE(1)+U16LE(0)	//WriterVersion
+	//EncryptionTransformInfo
+	cRet	+= DsUnicodeLP("")	//EncryptionName (vazio no Agile)
+	cRet	+= U32LE(0)			//EncryptionBlockSize
+	cRet	+= U32LE(0)			//CipherMode
+	cRet	+= U32LE(4)			//Reserved (=4)
+Return cRet
