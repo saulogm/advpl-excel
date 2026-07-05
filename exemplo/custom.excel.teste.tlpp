@@ -75,6 +75,7 @@ User Function tstXlsx()
 	Local lCombo As Logical
 	Local cAlias As Character
 	Local nStart As Numeric
+	Local aNome As Array
 
 	//RpcSetEnv("01","010101")
 	RpcSetEnv("99","01")
@@ -411,6 +412,33 @@ User Function tstXlsx()
 	oTabela:AddTotais()	//Adiciona linha de totais
 	oTabela:Finish()	//Fecha a edição da tabela
 	(cAlias)->(DbCloseArea())
+
+	//----------------------------------------------------------------------
+	//Formatacao condicional avancada: Barra de Dados, Icones, Duplicados/Unicos e Periodo
+	//Obs: em modo arquivo a gravacao e sequencial, entao preenche-se linha a linha
+	//----------------------------------------------------------------------
+	oExcel:ADDPlan(cNome = "FormatCondAvancada")
+	aNome := {"Ana","Bruno","Ana","Carlos","Bruno","Diego"}	//col E (linhas 2-7): repetidos e unicos
+	oExcel:Pos(1,1):SetValue("Valor")	//A
+	oExcel:Pos(1,2):SetValue("Barra")	//B
+	oExcel:Pos(1,3):SetValue("Icones")	//C
+	oExcel:Pos(1,5):SetValue("Nome")	//E
+	oExcel:Pos(1,7):SetValue("Data")	//G
+	For nCont := 1 to 8
+		oExcel:Pos(nCont+1,1):SetValue(nCont*12)	//A - valor
+		oExcel:Pos(nCont+1,2):SetValue(nCont*12)	//B - barra de dados
+		oExcel:Pos(nCont+1,3):SetValue(nCont*12)	//C - conjunto de icones
+		If nCont<=Len(aNome)
+			oExcel:Pos(nCont+1,5):SetValue(aNome[nCont])		//E - texto (dup/unico)
+			oExcel:Pos(nCont+1,7):SetValue(Date()-(nCont-1)*3)	//G - data (periodo)
+		Endif
+	Next
+	oExcel:DataBar(cRefDe = "B2", cRefAte = "B9", cCor = "FF638EC6")							//Barra de dados azul
+	oExcel:IconSet(cRefDe = "C2", cRefAte = "C9", cIconSet = "3TrafficLights1")				//Semaforo de 3 icones
+	oExcel:FormatCondDup(cRefDe = "E2", cRefAte = "E7", nEstilo = nPosVerm, lUnico = .F.)		//Duplicados em vermelho
+	oExcel:FormatCondDup(cRefDe = "E2", cRefAte = "E7", nEstilo = nPosVerd, lUnico = .T.)		//Exclusivos em verde
+	oExcel:FormatCondTempo(cRefDe = "G2", cRefAte = "G7", nEstilo = nPosAmar, cPeriodo = "today")	//Hoje
+	oExcel:FormatCondTempo(cRefDe = "G2", cRefAte = "G7", nEstilo = nPosVerd, cPeriodo = "thisWeek")	//Esta semana
 
 	oExcel:Save(GetTempPath())
 	oExcel:OpenApp()

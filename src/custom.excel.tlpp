@@ -282,6 +282,11 @@ Class Xlsx
 	Public METHOD ObjBorda()		//Cria objeto de borda
 	Public METHOD gradientFill()	//Cria objeto de efeito de preenchimento
 	Public METHOD ADDdxf()			//Cria o estilo para formatação condicional
+	Public METHOD DataBar()			//Formatacao condicional: barra de dados
+	Public METHOD IconSet()			//Formatacao condicional: conjunto de icones
+	Public METHOD FormatCondDup()	//Formatacao condicional: valores duplicados/exclusivos
+	Public METHOD FormatCondTempo()	//Formatacao condicional: periodo temporal (timePeriod)
+	Public METHOD NewCondFmt()		//Auxiliar: cria no conditionalFormatting
 
 	//Imagem/Gráfico
 	Public METHOD ADDImg()			//Adiciona uma Imagem
@@ -3548,6 +3553,195 @@ METHOD AddFormatCond(cRefDe As Character, cRefAte As Character, nEstilo As Numer
 		Endif
 	Endif
 	::aPlanilhas[::nPlanilhaAt][9]	:= .T.	//Quando enviado formatação condicional é obrigatorio reorganizar o xml
+Return
+
+/*/{Protheus.doc} Xlsx::NewCondFmt
+Cria um novo no conditionalFormatting para a referencia informada (auxiliar interno)
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@param cRef, characters, Referencia/intervalo (ex: "B2:B9")
+@type method
+/*/
+METHOD NewCondFmt(cRef As Character) Class Xlsx
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet", "conditionalFormatting", "" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:conditionalFormatting[last()]", "sqref", cRef )
+	::aPlanilhas[::nPlanilhaAt][9]	:= .T.	//Obrigatorio reorganizar o xml quando ha formatacao condicional
+Return
+
+/*/{Protheus.doc} Xlsx::DataBar
+Formatacao condicional com Barra de Dados: preenche o fundo da celula com uma barra proporcional ao valor
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@param cRefDe, characters, Referencia inicial (ex: "B2")
+@param cRefAte, characters, Referencia final (ex: "B9")
+@param cCor, characters, Cor da barra em ARGB (padrao azul "FF638EC6")
+@param lMostrarValor, logical, Exibir o valor na celula (padrao .T.)
+@param cTipoMin, characters, Tipo do minimo: min,num,percent,percentile,formula (padrao "min")
+@param xValMin, variadic, Valor do minimo (quando o tipo exigir)
+@param cTipoMax, characters, Tipo do maximo: max,num,percent,percentile,formula (padrao "max")
+@param xValMax, variadic, Valor do maximo (quando o tipo exigir)
+@type method
+@obs ECMA-376 CT_DataBar (18.3.1.28)
+/*/
+METHOD DataBar(cRefDe As Character, cRefAte As Character, cCor As Character, lMostrarValor As Logical, cTipoMin As Character, xValMin As Variant, cTipoMax As Character, xValMax As Variant) Class Xlsx
+	Local cRef := cRefDe+If(!Empty(cRefAte),":"+cRefAte,"") As Character
+	Local cBase As Character
+	PARAMTYPE 0	VAR cRefDe			AS CHARACTER
+	PARAMTYPE 1	VAR cRefAte			AS CHARACTER			OPTIONAL
+	PARAMTYPE 2	VAR cCor			AS CHARACTER			OPTIONAL DEFAULT "FF638EC6"
+	PARAMTYPE 3	VAR lMostrarValor	AS LOGICAL				OPTIONAL DEFAULT .T.
+	PARAMTYPE 4	VAR cTipoMin		AS CHARACTER			OPTIONAL DEFAULT "min"
+	PARAMTYPE 5	VAR xValMin			AS CHARACTER,NUMERIC	OPTIONAL
+	PARAMTYPE 6	VAR cTipoMax		AS CHARACTER			OPTIONAL DEFAULT "max"
+	PARAMTYPE 7	VAR xValMax			AS CHARACTER,NUMERIC	OPTIONAL
+	::NewCondFmt(cRef)
+	cBase	:= "/xmlns:worksheet/xmlns:conditionalFormatting[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "cfRule", "" )
+	cBase	+= "/xmlns:cfRule[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "type", "dataBar" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "priority", cValToChar(::nPriodFormCond) )
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "dataBar", "" )
+	If !lMostrarValor
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:dataBar", "showValue", "0" )
+	Endif
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase+"/xmlns:dataBar", "cfvo", "" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:dataBar/xmlns:cfvo[last()]", "type", cTipoMin )
+	If ValType(xValMin)!="U"
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:dataBar/xmlns:cfvo[last()]", "val", cValToChar(xValMin) )
+	Endif
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase+"/xmlns:dataBar", "cfvo", "" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:dataBar/xmlns:cfvo[last()]", "type", cTipoMax )
+	If ValType(xValMax)!="U"
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:dataBar/xmlns:cfvo[last()]", "val", cValToChar(xValMax) )
+	Endif
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase+"/xmlns:dataBar", "color", "" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:dataBar/xmlns:color", "rgb", cCor )
+	::nPriodFormCond++
+Return
+
+/*/{Protheus.doc} Xlsx::IconSet
+Formatacao condicional com Conjunto de Icones (semaforos, setas, etc.) por faixas de valor
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@param cRefDe, characters, Referencia inicial (ex: "C2")
+@param cRefAte, characters, Referencia final (ex: "C9")
+@param cIconSet, characters, Conjunto (3TrafficLights1,3Arrows,4Rating,5Quarters,...); o prefixo numerico define a qtd de icones
+@param lReverso, logical, Inverter a ordem dos icones (padrao .F.)
+@param lMostrarValor, logical, Exibir o valor na celula (padrao .T.)
+@type method
+@obs ECMA-376 CT_IconSet (18.3.1.49). Faixas geradas em percentual iguais (0,33,67 / 0,25,50,75 / 0,20,40,60,80)
+/*/
+METHOD IconSet(cRefDe As Character, cRefAte As Character, cIconSet As Character, lReverso As Logical, lMostrarValor As Logical) Class Xlsx
+	Local cRef := cRefDe+If(!Empty(cRefAte),":"+cRefAte,"") As Character
+	Local cBase As Character
+	Local nQtd As Numeric
+	Local nCont As Numeric
+	PARAMTYPE 0	VAR cRefDe			AS CHARACTER
+	PARAMTYPE 1	VAR cRefAte			AS CHARACTER	OPTIONAL
+	PARAMTYPE 2	VAR cIconSet		AS CHARACTER	OPTIONAL DEFAULT "3TrafficLights1"
+	PARAMTYPE 3	VAR lReverso		AS LOGICAL		OPTIONAL DEFAULT .F.
+	PARAMTYPE 4	VAR lMostrarValor	AS LOGICAL		OPTIONAL DEFAULT .T.
+	nQtd	:= Val(Left(cIconSet,1))	//3, 4 ou 5 icones (prefixo do nome)
+	If nQtd<3 .or. nQtd>5
+		nQtd	:= 3
+	Endif
+	::NewCondFmt(cRef)
+	cBase	:= "/xmlns:worksheet/xmlns:conditionalFormatting[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "cfRule", "" )
+	cBase	+= "/xmlns:cfRule[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "type", "iconSet" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "priority", cValToChar(::nPriodFormCond) )
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "iconSet", "" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:iconSet", "iconSet", cIconSet )
+	If lReverso
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:iconSet", "reverse", "1" )
+	Endif
+	If !lMostrarValor
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:iconSet", "showValue", "0" )
+	Endif
+	For nCont:=0 to nQtd-1
+		::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase+"/xmlns:iconSet", "cfvo", "" )
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:iconSet/xmlns:cfvo[last()]", "type", "percent" )
+		::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase+"/xmlns:iconSet/xmlns:cfvo[last()]", "val", cValToChar(Round(nCont*100/nQtd,0)) )
+	Next
+	::nPriodFormCond++
+Return
+
+/*/{Protheus.doc} Xlsx::FormatCondDup
+Formatacao condicional para valores duplicados ou exclusivos no intervalo
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@param cRefDe, characters, Referencia inicial (ex: "E2")
+@param cRefAte, characters, Referencia final (ex: "E7")
+@param nEstilo, numeric, Estilo dxf criado por :ADDdxf()
+@param lUnico, logical, .T.=valores exclusivos (uniqueValues); .F.=duplicados (duplicateValues) [padrao .F.]
+@type method
+/*/
+METHOD FormatCondDup(cRefDe As Character, cRefAte As Character, nEstilo As Numeric, lUnico As Logical) Class Xlsx
+	Local cRef := cRefDe+If(!Empty(cRefAte),":"+cRefAte,"") As Character
+	Local cBase As Character
+	PARAMTYPE 0	VAR cRefDe		AS CHARACTER
+	PARAMTYPE 1	VAR cRefAte		AS CHARACTER	OPTIONAL
+	PARAMTYPE 2	VAR nEstilo		AS NUMERIC
+	PARAMTYPE 3	VAR lUnico		AS LOGICAL		OPTIONAL DEFAULT .F.
+	::NewCondFmt(cRef)
+	cBase	:= "/xmlns:worksheet/xmlns:conditionalFormatting[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "cfRule", "" )
+	cBase	+= "/xmlns:cfRule[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "type", If(lUnico,"uniqueValues","duplicateValues") )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "dxfId", cValToChar(nEstilo) )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "priority", cValToChar(::nPriodFormCond) )
+	::nPriodFormCond++
+Return
+
+/*/{Protheus.doc} Xlsx::FormatCondTempo
+Formatacao condicional por periodo temporal dinamico (timePeriod)
+@author Saulo Gomes Martins
+@since 05/07/2026
+@version 1.0
+@param cRefDe, characters, Referencia inicial (ex: "G2")
+@param cRefAte, characters, Referencia final (ex: "G7")
+@param nEstilo, numeric, Estilo dxf criado por :ADDdxf()
+@param cPeriodo, characters, today,yesterday,tomorrow,last7Days,thisWeek,lastWeek,nextWeek,thisMonth,lastMonth,nextMonth
+@type method
+@obs A formula relativa usa a celula inicial (cRefDe) como ancora, no mesmo padrao gerado pelo Excel
+/*/
+METHOD FormatCondTempo(cRefDe As Character, cRefAte As Character, nEstilo As Numeric, cPeriodo As Character) Class Xlsx
+	Local cRef := cRefDe+If(!Empty(cRefAte),":"+cRefAte,"") As Character
+	Local cBase As Character
+	Local cCel := cRefDe As Character
+	Local cFormula As Character
+	PARAMTYPE 0	VAR cRefDe		AS CHARACTER
+	PARAMTYPE 1	VAR cRefAte		AS CHARACTER	OPTIONAL
+	PARAMTYPE 2	VAR nEstilo		AS NUMERIC
+	PARAMTYPE 3	VAR cPeriodo	AS CHARACTER	OPTIONAL DEFAULT "today"
+	Do Case
+		Case cPeriodo=="today"		;	cFormula := "FLOOR("+cCel+",1)=TODAY()"
+		Case cPeriodo=="yesterday"	;	cFormula := "FLOOR("+cCel+",1)=TODAY()-1"
+		Case cPeriodo=="tomorrow"	;	cFormula := "FLOOR("+cCel+",1)=TODAY()+1"
+		Case cPeriodo=="last7Days"	;	cFormula := "AND(TODAY()-FLOOR("+cCel+",1)>=0,TODAY()-FLOOR("+cCel+",1)<=6)"
+		Case cPeriodo=="thisWeek"	;	cFormula := "AND(TODAY()-ROUNDDOWN("+cCel+",0)>=(WEEKDAY(TODAY())-1),TODAY()-ROUNDDOWN("+cCel+",0)<=(7-WEEKDAY(TODAY())))"
+		Case cPeriodo=="lastWeek"	;	cFormula := "AND(TODAY()-ROUNDDOWN("+cCel+",0)>=(WEEKDAY(TODAY())),TODAY()-ROUNDDOWN("+cCel+",0)<(WEEKDAY(TODAY())+7))"
+		Case cPeriodo=="nextWeek"	;	cFormula := "AND(ROUNDDOWN("+cCel+",0)-TODAY()>(7-WEEKDAY(TODAY())),ROUNDDOWN("+cCel+",0)-TODAY()<(15-WEEKDAY(TODAY())))"
+		Case cPeriodo=="thisMonth"	;	cFormula := "AND(MONTH("+cCel+")=MONTH(TODAY()),YEAR("+cCel+")=YEAR(TODAY()))"
+		Case cPeriodo=="lastMonth"	;	cFormula := "AND(MONTH("+cCel+")=MONTH(EDATE(TODAY(),0-1)),YEAR("+cCel+")=YEAR(EDATE(TODAY(),0-1)))"
+		Case cPeriodo=="nextMonth"	;	cFormula := "AND(MONTH("+cCel+")=MONTH(EDATE(TODAY(),0+1)),YEAR("+cCel+")=YEAR(EDATE(TODAY(),0+1)))"
+		Otherwise					;	UserException("Xlsx - Periodo invalido ("+cPeriodo+"). Ver ProtheusDOC do metodo FormatCondTempo.")
+	EndCase
+	::NewCondFmt(cRef)
+	cBase	:= "/xmlns:worksheet/xmlns:conditionalFormatting[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "cfRule", "" )
+	cBase	+= "/xmlns:cfRule[last()]"
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "type", "timePeriod" )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "dxfId", cValToChar(nEstilo) )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "priority", cValToChar(::nPriodFormCond) )
+	::asheet[::nPlanilhaAt][1]:XPathAddAtt( cBase, "timePeriod", cPeriodo )
+	::asheet[::nPlanilhaAt][1]:XPathAddNode( cBase, "formula", cFormula )
+	::nPriodFormCond++
 Return
 
 /*/{Protheus.doc} AddFont
