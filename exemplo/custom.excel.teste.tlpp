@@ -2,12 +2,19 @@
 #include "protheus.ch"
 Namespace custom.excel.teste
 /*/{Protheus.doc} tstyexcel
-Teste da classe YExcel
+Teste completo da classe custom.excel.Xlsx: estilos, fontes, bordas, formulas, datas,
+hyperlink/comentario, protecao, formatacao condicional (basica e avancada), tabela
+formatada, preenchimento via Alias2Tab (SB1/SA1) e graficos (custom.excel.chart),
+tudo no mesmo arquivo/planilha
 @author Saulo Gomes Martins
 @since 08/05/2017
 @version 2.0
 @type function
 @obs para LEITURA/EDIÇÃO ver função YTstRW no fim do fonte
+@obs os demais testes do fonte (tstBulk, tstMemoria, TstEdit, YTstLeitura, etc.) seguem
+independentes, pois usam modos (banco/memoria) ou arquivos externos incompativeis com
+esta planilha unica; os testes de grafico (tstGrafico/tstGrafico2/tstGraficoComb) foram
+adaptados para aceitar um oExcel externo e sao chamados a partir daqui
 /*/
 User Function tstXlsx()
 	Local oExcel As Object
@@ -439,6 +446,16 @@ User Function tstXlsx()
 	oExcel:FormatCondDup(cRefDe = "E2", cRefAte = "E7", nEstilo = nPosVerd, lUnico = .T.)		//Exclusivos em verde
 	oExcel:FormatCondTempo(cRefDe = "G2", cRefAte = "G7", nEstilo = nPosAmar, cPeriodo = "today")	//Hoje
 	oExcel:FormatCondTempo(cRefDe = "G2", cRefAte = "G7", nEstilo = nPosVerd, cPeriodo = "thisWeek")	//Esta semana
+
+	//----------------------------------------------------------------------
+	//Graficos (custom.excel.chart): reaproveita as demonstracoes dos testes
+	//tstGrafico/tstGrafico2/tstGraficoComb, passando o oExcel atual para que
+	//cada uma adicione sua propria planilha de dados+graficos neste mesmo
+	//arquivo, em vez de gerar/abrir um arquivo separado
+	//----------------------------------------------------------------------
+	custom.excel.teste.u_tstGrafico(oExcelPar = oExcel, cNomePlan = "GraficosBasicos")
+	custom.excel.teste.u_tstGrafico2(oExcelPar = oExcel, cNomePlan = "GraficosAvancados")
+	custom.excel.teste.u_tstGraficoComb(oExcelPar = oExcel, cNomePlan = "GraficoCombinado")
 
 	oExcel:Save(GetTempPath())
 	oExcel:OpenApp()

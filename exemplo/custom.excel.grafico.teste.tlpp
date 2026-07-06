@@ -1,5 +1,6 @@
 #include "tlpp-core.th"
 #include "protheus.ch"
+#include "parmtype.ch"
 Namespace custom.excel.teste
 /*/{Protheus.doc} tstGrafico
 Teste dos gráficos da classe custom.excel.chart
@@ -9,9 +10,11 @@ Barras/Colunas, Linhas, Pizza e Dispersão
 @since 04/07/2026
 @version 1.0
 @type function
+@param oExcelPar, object, (opcional) instancia de custom.excel.Xlsx ja aberta - quando informada, adiciona a planilha de graficos a ela em vez de criar/salvar/abrir um arquivo proprio (uso por tstXlsx)
+@param cNomePlan, characters, (opcional) nome da planilha de dados/graficos a ser criada. Default "Dados"
 @see custom.excel.chart.Chart
 /*/
-User Function tstGrafico()
+User Function tstGrafico(oExcelPar As Object, cNomePlan As Character)
 	Local oExcel As Object
 	Local oGraf As Object
 	Local oSerie As Object
@@ -22,8 +25,9 @@ User Function tstGrafico()
 	Local aNordeste As Array
 	Local aTemp As Array
 	Local aSorvete As Array
+	Local lExterno As Logical
 
-	RpcSetEnv("99","01")	//Ajustar empresa/filial do ambiente
+	lExterno	:= (oExcelPar<>Nil)
 
 	//Dados de exemplo - vendas por região
 	aMeses		:= {"Jan","Fev","Mar","Abr","Mai","Jun"}
@@ -34,8 +38,12 @@ User Function tstGrafico()
 	aTemp		:= {18,20,22,24,26,28,30,32,34,36}
 	aSorvete	:= {12,15,20,26,30,38,45,50,58,65}
 
-	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGrafico", cTipo = "A")
-	oExcel:ADDPlan(cNome = "Dados")
+	If lExterno
+		oExcel	:= oExcelPar
+	Else
+		oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGrafico", cTipo = "A")
+	EndIf
+	oExcel:ADDPlan(cNome = cNomePlan)
 
 	//Preenchimento com Pos():SetValue(), linhas e colunas sempre em ordem sequencial
 	//Linha 1 - cabeçalhos das duas tabelas (A1:D1 e F1:G1)
@@ -62,9 +70,9 @@ User Function tstGrafico()
 	//----------------------------------------------------------------------
 	oGraf	:= oExcel:NewChart("col")
 	oGraf:SetTitulo("Vendas por Região - Colunas")
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste	, aCat = aMeses)
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSul		, aCat = aMeses)
-	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7", aVal = aNordeste, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSudeste	, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSul		, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = cNomePlan+"!$D$2:$D$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aNordeste, aCat = aMeses)
 	oGraf:Insert(nLinha = 1, nColuna = 9, nLinha2 = 16, nColuna2 = 17)
 
 	//----------------------------------------------------------------------
@@ -74,9 +82,9 @@ User Function tstGrafico()
 	oGraf:SetAgrupamento("stacked")
 	oGraf:SetTitulo("Vendas por Região - Empilhado")
 	oGraf:SetLegenda(lExibir = .T., cPosicao = "b")	//Legenda no rodapé
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", cCor = "FF4F81BD")
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", cCor = "FFC0504D")
-	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7", cCor = "FF9BBB59")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", cCor = "FF4F81BD")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7", cCor = "FFC0504D")
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = cNomePlan+"!$D$2:$D$7", cRefCat = cNomePlan+"!$A$2:$A$7", cCor = "FF9BBB59")
 	oGraf:Insert(nLinha = 18, nColuna = 9, nLinha2 = 33, nColuna2 = 17)
 
 	//----------------------------------------------------------------------
@@ -85,9 +93,9 @@ User Function tstGrafico()
 	oGraf	:= oExcel:NewChart("line")
 	oGraf:SetTitulo("Evolução Mensal - Linhas")
 	oGraf:SetMarcador(.T.)
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
-	oSerie	:= oGraf:AddSerie(cNome = "Nordeste", cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oSerie	:= oGraf:AddSerie(cNome = "Nordeste", cRefVal = cNomePlan+"!$D$2:$D$7", cRefCat = cNomePlan+"!$A$2:$A$7")
 	oSerie:SetSuavizar(.T.)	//Apenas esta série com linha suavizada
 	oGraf:Insert(nLinha = 1, nColuna = 19, nLinha2 = 16, nColuna2 = 27)
 
@@ -97,7 +105,7 @@ User Function tstGrafico()
 	oGraf	:= oExcel:NewChart("pie")
 	oGraf:SetTitulo("Participação Mensal - Sudeste")
 	oGraf:SetRotulos(lExibir = .T., lPercentual = .T., lCategoria = .F.)
-	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
 	oGraf:Insert(nLinha = 18, nColuna = 19, nLinha2 = 33, nColuna2 = 27)
 
 	//----------------------------------------------------------------------
@@ -108,13 +116,15 @@ User Function tstGrafico()
 	oGraf:SetTitulo("Temperatura x Venda de Sorvetes")
 	oGraf:SetLegenda(lExibir = .F.)
 	oSerie	:= oGraf:AddSerie(cNome = "Sorvetes")
-	oSerie:SetXY(cRefX = "Dados!$F$2:$F$11", cRefY = "Dados!$G$2:$G$11", aX = aTemp, aY = aSorvete)
+	oSerie:SetXY(cRefX = cNomePlan+"!$F$2:$F$11", cRefY = cNomePlan+"!$G$2:$G$11", aX = aTemp, aY = aSorvete)
 	oGraf:Insert(nLinha = 35, nColuna = 9, nLinha2 = 50, nColuna2 = 17)
 
-	//Gera o arquivo, abre no aplicativo e libera os objetos
-	oExcel:Save(GetTempPath())
-	oExcel:OpenApp()
-	oExcel:Destroy()
+	//Gera o arquivo, abre no aplicativo e libera os objetos (somente quando a instancia foi criada por esta funcao)
+	If !lExterno
+		oExcel:Save(GetTempPath())
+		oExcel:OpenApp()
+		oExcel:Destroy()
+	EndIf
 Return
 
 /*/{Protheus.doc} tstGrafico2
@@ -124,9 +134,11 @@ Teste dos demais gráficos da classe custom.excel.chart:
 @since 04/07/2026
 @version 1.0
 @type function
+@param oExcelPar, object, (opcional) instancia de custom.excel.Xlsx ja aberta - quando informada, adiciona a planilha de graficos a ela em vez de criar/salvar/abrir um arquivo proprio (uso por tstXlsx)
+@param cNomePlan, characters, (opcional) nome da planilha de dados/graficos a ser criada. Default "Dados"
 @see custom.excel.chart.Chart
 /*/
-User Function tstGrafico2()
+User Function tstGrafico2(oExcelPar As Object, cNomePlan As Character)
 	Local oExcel As Object
 	Local oGraf As Object
 	Local oSerie As Object
@@ -142,8 +154,9 @@ User Function tstGrafico2()
 	Local aX As Array
 	Local aY As Array
 	Local aTam As Array
+	Local lExterno As Logical
 
-	RpcSetEnv("99","01")	//Ajustar empresa/filial do ambiente
+	lExterno	:= (oExcelPar<>Nil)
 
 	//Dados de exemplo - vendas por região
 	aMeses		:= {"Jan","Fev","Mar","Abr","Mai","Jun"}
@@ -160,8 +173,12 @@ User Function tstGrafico2()
 	aY			:= {30,45,25,60,40,70}
 	aTam		:= {5,10,7,15,9,12}
 
-	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGrafico2", cTipo = "A")
-	oExcel:ADDPlan(cNome = "Dados")
+	If lExterno
+		oExcel	:= oExcelPar
+	Else
+		oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGrafico2", cTipo = "A")
+	EndIf
+	oExcel:ADDPlan(cNome = cNomePlan)
 
 	//Preenchimento com Pos():SetValue(), linhas e colunas sempre em ordem sequencial
 	//Linha 1 - cabeçalhos das três tabelas (A1:D1, F1:J1 e L1:N1)
@@ -199,9 +216,9 @@ User Function tstGrafico2()
 	oGraf	:= oExcel:NewChart("area")
 	oGraf:SetAgrupamento("stacked")
 	oGraf:SetTitulo("Vendas por Região - Área Empilhada")
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste	, aCat = aMeses)
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSul		, aCat = aMeses)
-	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7", aVal = aNordeste, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSudeste	, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSul		, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = cNomePlan+"!$D$2:$D$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aNordeste, aCat = aMeses)
 	oGraf:Insert(nLinha = 9, nColuna = 1, nLinha2 = 24, nColuna2 = 9)
 
 	//----------------------------------------------------------------------
@@ -210,9 +227,9 @@ User Function tstGrafico2()
 	oGraf	:= oExcel:NewChart("col")
 	oGraf:Set3D(.T.)	//Rotações padrão (X=15, Y=20)
 	oGraf:SetTitulo("Vendas por Região - Colunas 3D")
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
-	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = cNomePlan+"!$D$2:$D$7", cRefCat = cNomePlan+"!$A$2:$A$7")
 	oGraf:Insert(nLinha = 9, nColuna = 11, nLinha2 = 24, nColuna2 = 19)
 
 	//----------------------------------------------------------------------
@@ -222,7 +239,7 @@ User Function tstGrafico2()
 	oGraf:Set3D(lAtivo = .T., nRotX = 30)
 	oGraf:SetTitulo("Participação Mensal - Pizza 3D")
 	oGraf:SetRotulos(lExibir = .T., lPercentual = .T.)
-	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
 	oGraf:Insert(nLinha = 26, nColuna = 1, nLinha2 = 41, nColuna2 = 9)
 
 	//----------------------------------------------------------------------
@@ -230,10 +247,10 @@ User Function tstGrafico2()
 	//----------------------------------------------------------------------
 	oGraf	:= oExcel:NewChart("stock")
 	oGraf:SetTitulo("Cotações - Ações")
-	oGraf:AddSerie(cNome = "Abertura"	, cRefVal = "Dados!$G$2:$G$7", cRefCat = "Dados!$F$2:$F$7", aVal = aAbertura)
-	oGraf:AddSerie(cNome = "Máxima"		, cRefVal = "Dados!$H$2:$H$7", cRefCat = "Dados!$F$2:$F$7", aVal = aMaxima)
-	oGraf:AddSerie(cNome = "Mínima"		, cRefVal = "Dados!$I$2:$I$7", cRefCat = "Dados!$F$2:$F$7", aVal = aMinima)
-	oGraf:AddSerie(cNome = "Fechamento"	, cRefVal = "Dados!$J$2:$J$7", cRefCat = "Dados!$F$2:$F$7", aVal = aFecha)
+	oGraf:AddSerie(cNome = "Abertura"	, cRefVal = cNomePlan+"!$G$2:$G$7", cRefCat = cNomePlan+"!$F$2:$F$7", aVal = aAbertura)
+	oGraf:AddSerie(cNome = "Máxima"		, cRefVal = cNomePlan+"!$H$2:$H$7", cRefCat = cNomePlan+"!$F$2:$F$7", aVal = aMaxima)
+	oGraf:AddSerie(cNome = "Mínima"		, cRefVal = cNomePlan+"!$I$2:$I$7", cRefCat = cNomePlan+"!$F$2:$F$7", aVal = aMinima)
+	oGraf:AddSerie(cNome = "Fechamento"	, cRefVal = cNomePlan+"!$J$2:$J$7", cRefCat = cNomePlan+"!$F$2:$F$7", aVal = aFecha)
 	oGraf:Insert(nLinha = 26, nColuna = 11, nLinha2 = 41, nColuna2 = 19)
 
 	//----------------------------------------------------------------------
@@ -242,8 +259,8 @@ User Function tstGrafico2()
 	oGraf	:= oExcel:NewChart("radar")
 	oGraf:SetEstilo("filled")
 	oGraf:SetTitulo("Comparativo Regional - Radar")
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7")
 	oGraf:Insert(nLinha = 43, nColuna = 1, nLinha2 = 58, nColuna2 = 9)
 
 	//----------------------------------------------------------------------
@@ -253,7 +270,7 @@ User Function tstGrafico2()
 	oGraf:SetFuro(60)
 	oGraf:SetTitulo("Participação Mensal - Rosca")
 	oGraf:SetRotulos(lExibir = .T., lPercentual = .T.)
-	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
 	oGraf:Insert(nLinha = 43, nColuna = 11, nLinha2 = 58, nColuna2 = 19)
 
 	//----------------------------------------------------------------------
@@ -263,8 +280,8 @@ User Function tstGrafico2()
 	oGraf:SetTitulo("Análise - Bolhas")
 	oGraf:SetLegenda(lExibir = .F.)
 	oSerie	:= oGraf:AddSerie(cNome = "Indicador")
-	oSerie:SetXY(cRefX = "Dados!$L$2:$L$7", cRefY = "Dados!$M$2:$M$7", aX = aX, aY = aY)
-	oSerie:SetTamanho(cRefTam = "Dados!$N$2:$N$7", aTam = aTam)
+	oSerie:SetXY(cRefX = cNomePlan+"!$L$2:$L$7", cRefY = cNomePlan+"!$M$2:$M$7", aX = aX, aY = aY)
+	oSerie:SetTamanho(cRefTam = cNomePlan+"!$N$2:$N$7", aTam = aTam)
 	oGraf:Insert(nLinha = 60, nColuna = 1, nLinha2 = 75, nColuna2 = 9)
 
 	//----------------------------------------------------------------------
@@ -274,7 +291,7 @@ User Function tstGrafico2()
 	oGraf:SetTipo("pie")
 	oGraf:SetDivisao(cTipo = "pos", nValor = 2)
 	oGraf:SetTitulo("Participação Mensal - Pizza de Pizza")
-	oGraf:AddSerie(cNome = "Sudeste", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
+	oGraf:AddSerie(cNome = "Sudeste", cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aSudeste, aCat = aMeses)
 	oGraf:Insert(nLinha = 60, nColuna = 11, nLinha2 = 75, nColuna2 = 19)
 
 	//----------------------------------------------------------------------
@@ -283,15 +300,17 @@ User Function tstGrafico2()
 	oGraf	:= oExcel:NewChart("superficie")
 	oGraf:Set3D(.T.)
 	oGraf:SetTitulo("Vendas por Região - Superfície 3D")
-	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7")
-	oGraf:AddSerie(cNome = "Sul"		, cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7")
-	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = "Dados!$D$2:$D$7", cRefCat = "Dados!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sudeste"	, cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Sul"		, cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7")
+	oGraf:AddSerie(cNome = "Nordeste"	, cRefVal = cNomePlan+"!$D$2:$D$7", cRefCat = cNomePlan+"!$A$2:$A$7")
 	oGraf:Insert(nLinha = 77, nColuna = 1, nLinha2 = 92, nColuna2 = 9)
 
-	//Gera o arquivo, abre no aplicativo e libera os objetos
-	oExcel:Save(GetTempPath())
-	oExcel:OpenApp()
-	oExcel:Destroy()
+	//Gera o arquivo, abre no aplicativo e libera os objetos (somente quando a instancia foi criada por esta funcao)
+	If !lExterno
+		oExcel:Save(GetTempPath())
+		oExcel:OpenApp()
+		oExcel:Destroy()
+	EndIf
 Return
 
 /*/{Protheus.doc} tstGraficoComb
@@ -301,9 +320,11 @@ e linha de margem no eixo de valores secundário (à direita)
 @since 04/07/2026
 @version 1.0
 @type function
+@param oExcelPar, object, (opcional) instancia de custom.excel.Xlsx ja aberta - quando informada, adiciona a planilha de graficos a ela em vez de criar/salvar/abrir um arquivo proprio (uso por tstXlsx)
+@param cNomePlan, characters, (opcional) nome da planilha de dados/graficos a ser criada. Default "Dados"
 @see custom.excel.chart.ChartCombo
 /*/
-User Function tstGraficoComb()
+User Function tstGraficoComb(oExcelPar As Object, cNomePlan As Character)
 	Local oExcel As Object
 	Local oCombo As Object
 	Local oCol As Object
@@ -312,16 +333,21 @@ User Function tstGraficoComb()
 	Local aMeses As Array
 	Local aVendas As Array
 	Local aMargem As Array
+	Local lExterno As Logical
 
-	RpcSetEnv("99","01")	//Ajustar empresa/filial do ambiente
+	lExterno	:= (oExcelPar<>Nil)
 
 	//Dados de exemplo - vendas e margem mensal
 	aMeses	:= {"Jan","Fev","Mar","Abr","Mai","Jun"}
 	aVendas	:= {100,120,90,140,160,150}
 	aMargem	:= {0.15,0.18,0.12,0.20,0.22,0.19}
 
-	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGraficoComb", cTipo = "A")
-	oExcel:ADDPlan(cNome = "Dados")
+	If lExterno
+		oExcel	:= oExcelPar
+	Else
+		oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstGraficoComb", cTipo = "A")
+	EndIf
+	oExcel:ADDPlan(cNome = cNomePlan)
 
 	//Preenchimento com Pos():SetValue(), linhas e colunas sempre em ordem sequencial
 	oExcel:Pos(1,1):SetValue("Mês")
@@ -342,18 +368,20 @@ User Function tstGraficoComb()
 
 	//Gráfico membro: colunas de vendas (eixo primário)
 	oCol	:= custom.excel.chart.ChartBar():New(oExcel)
-	oCol:AddSerie(cNome = "Vendas", cRefVal = "Dados!$B$2:$B$7", cRefCat = "Dados!$A$2:$A$7", aVal = aVendas, aCat = aMeses, cCor = "FF4F81BD")
+	oCol:AddSerie(cNome = "Vendas", cRefVal = cNomePlan+"!$B$2:$B$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aVendas, aCat = aMeses, cCor = "FF4F81BD")
 
 	//Gráfico membro: linha de margem (eixo secundário à direita)
 	oLin	:= custom.excel.chart.ChartLine():New(oExcel)
-	oLin:AddSerie(cNome = "Margem", cRefVal = "Dados!$C$2:$C$7", cRefCat = "Dados!$A$2:$A$7", aVal = aMargem, aCat = aMeses, cCor = "FFC0504D")
+	oLin:AddSerie(cNome = "Margem", cRefVal = cNomePlan+"!$C$2:$C$7", cRefCat = cNomePlan+"!$A$2:$A$7", aVal = aMargem, aCat = aMeses, cCor = "FFC0504D")
 
 	oCombo:AddChart(oCol)
 	oCombo:AddChart(oChart = oLin, lEixoSecundario = .T.)
 	oCombo:Insert(nLinha = 9, nColuna = 1, nLinha2 = 24, nColuna2 = 9)
 
-	//Gera o arquivo, abre no aplicativo e libera os objetos
-	oExcel:Save(GetTempPath())
-	oExcel:OpenApp()
-	oExcel:Destroy()
+	//Gera o arquivo, abre no aplicativo e libera os objetos (somente quando a instancia foi criada por esta funcao)
+	If !lExterno
+		oExcel:Save(GetTempPath())
+		oExcel:OpenApp()
+		oExcel:Destroy()
+	EndIf
 Return
