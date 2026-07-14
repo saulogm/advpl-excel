@@ -18,7 +18,7 @@ Gerar Excel formato xlsx
 
 @author Saulo Gomes Martins
 @since 27/10/2014 17:51:57
-@version 2.0
+@version 3.0
 @OBS
 RECURSOS DISPONIVEIS
 * Definir células String,Numérica,data,DateTime,Logica,formula
@@ -1758,9 +1758,9 @@ Usa imagem
 @type method
 @OBS pag 3166
 /*/
-METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric, nY As Numeric, cUnidade As Character, nRot As Numeric) Class Xlsx
+METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric, nY As Numeric, cUnidade As Character, nRot As Numeric,cCellType) Class Xlsx
 	Local nPos As Numeric
-	Local cCellType As Character
+	Local cCellType := "oneCellAnchor" As Character
 	Local cID As Character
 	Local cIdDraw As Character
 	PARAMTYPE 0	VAR nID			AS NUMERIC
@@ -1784,7 +1784,6 @@ METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric,
 		nX	:= nX*36000
 		nY	:= nY*36000
 	Endif
-	Default cCellType	:= "oneCellAnchor"
 	//absolute	- Não mover ou redimensionar com linhas / colunas subjacentes
 	//oneCell	- Mova-se com células, mas não redimensione
 	//twoCell	- Mover e redimensionar com células âncoras
