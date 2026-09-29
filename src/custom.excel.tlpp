@@ -70,7 +70,7 @@ Class Xlsx
 	Public Data cNomeFile2			As Character //Nome do arquivo para gerar
 	Public Data oFile				As Object //Arquivo temporario dos dados
 	Public Data cPlanilhaAt			As Character //Nome da planilha atual
-	Public Data nPlanilhaAt			As Numeric //Indice da planilha atual
+	Public Data nPlanilhaAt			As Variant //Indice da planilha atual
 	Public Data aPlanilhas			As Array //Dados das planilhas
 	Public Data lRowDef				As Logical //deprecated
 	Public Data nTamLinha			As variant //Tamanho da linha atual
@@ -4474,13 +4474,13 @@ Class Style
 	Public Data aFilhos				As Array
 	Public Data oExcel				As Object
 	Public Data nStyle				As Variant
-	Public Data numFmtId			As Numeric
+	Public Data numFmtId			As Variant
 	Public Data fontId				As Variant
 	Public Data fillId				As Variant
-	Public Data borderId			As Numeric
+	Public Data borderId			As Variant
 	Public Data xfId				As Variant
-	Public Data aValores			As Array
-	Public Data aOutrosAtributos	As Array
+	Public Data aValores			As Variant
+	Public Data aOutrosAtributos	As Variant
 	Public Method New()				As Object
 	Public Method ClassName()
 	Public Method SetnumFmt()
@@ -4505,7 +4505,7 @@ EndClass
 Method New(oPai As Object, oExcel As Object) as Object Class Style
 	Local nStyle As Numeric
 	Local cXPath As Character
-	Local aValores As Array
+	Local aValores As Variant
 	Local aChildren As Array
 	Local nCont As Numeric
 	Local xTmp As Variant
