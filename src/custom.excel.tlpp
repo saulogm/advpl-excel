@@ -7677,7 +7677,7 @@ Method DefBulkLine(aCampos As Array, xRegraStyle As Variant, lMontarLin As Logic
 				If lCombo
 					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+(if(jCombo:HasProperty(xValor),jCombo[xValor],xValor))+'"+']]></t></is>')	//TODO colocar opções de combo em string compartilhada
 				Else
-					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(cValToChar(xValor))+'"+']]></t></is>')
+					oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+custom.excel.u_AjusEncode(cValToChar(xValor))+'"+']]></t></is>')
 				EndIf
 			ElseIf aCampos[nCont]["tipo"]=="L"
 				oC:SetAtributo("t","b")
@@ -7690,7 +7690,7 @@ Method DefBulkLine(aCampos As Array, xRegraStyle As Variant, lMontarLin As Logic
 				oC:AddArr('<v>'+"'+cValToChar(xValor:GetStrNumber())+'"+'</v>')
 			ElseIf aCampos[nCont]["tipo"]=="M"
 				oC:SetAtributo("t","inlineStr")
-				oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+AjusEncode(xValor)+'"+']]></t></is>')
+				oC:AddArr('<is><t xml:space="preserve"><![CDATA['+"'+custom.excel.u_AjusEncode(xValor)+'"+']]></t></is>')
 			Else
 				oTmpObj	:= Tag():New("v","'+xValor+'")
 				oC:AddArr(oTmpObj:GetTag())
@@ -10804,6 +10804,9 @@ Static Function SetAtrr(oXml As Object, cPath As Character, cAtrr As Character, 
 		oXml:XPathAddAtt(cPath,cAtrr,cValAtrr)
 	Endif
 Return
+
+User Function AjusEncode(cTexto2 As Character)
+Return AjusEncode(cTexto2)
 
 Static Function AjusEncode(cTexto2 As Character)
 	Local cTexto := cTexto2 As Character
