@@ -9,8 +9,8 @@
 
 Namespace custom.excel
 
-Static cAr7Zip As Character	//Caminho do 7zip para compactar o arquivo
-Static cRootPath As Character
+Static cAr7Zip As Variant	//Caminho do 7zip para compactar o arquivo
+Static cRootPath As Variant
 Static c7Zip := "Z" As Character	//Existe 7Zip
 //CLASSE EXCEL
 /*/{Protheus.doc} Xlsx
