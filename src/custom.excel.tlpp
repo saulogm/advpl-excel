@@ -8040,10 +8040,13 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @version 1.0
 @author Saulo Gomes Martins
 @since 13/05/2023
+@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem,nStyle)
 @param cCampo, character, Nome do campo no alias
 @param cDescricao, character, Descrição a ser alterada, enviar nil para não alterar
 @param nTamanho, numeric, Tamanho da coluna(no excel), enviar nil para não alterar
+@param cPicture, character, Formato da célula, enviar nil para não alterar
 @param cCombo, character, Combo de opções, enviar nil para não alterar
+@param xStyle, variant, Estilo a ser aplicado na coluna, enviar nil para não alterar
 @param nOrdem, numeric, Definir a ordem da coluna
 @param cTipo, character, altera o tipo de dado
 @param cDados, character, altera o dado de leitura
@@ -8079,7 +8082,7 @@ Preeencher excel com conteudo de alias
 @param cAlias, character, Alias com dados
 @param oStyle, object, Estilo a ser aplicado no cabeçario
 @param lSx3, logical, Se vai buscar os SXs para definição de campos
-@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem)
+@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem,StyleCab - estilo do cabeçalho do campo)
 @param lExibirCab, logical, Se vai exibir o cabeçario
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
 @param aOnlyFieds, array, Se enviado somente os campos enviado vai ser exibido
@@ -8320,11 +8323,13 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 		AADD(aCampos,::BulkNewField(nColAtu,cTipo,nTamDados,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo,cDados))
 		If lExibirCab .OR. lTabela
 			If lTabela
-				oTabela:AddColumn(cNomeCampo)
+				oTabela:AddColumn(cNomeCampo,oStyTmp,cCampo)
 			Else
 				::Pos(nLinIni,nColAtu):SetValue(cNomeCampo)
 			EndIf
-			If cTpStyle!="U"
+			If lDefCampo .AND. ValType(jCab[cCampo]["stylecab"])!="U"	//Estilo do cabeçalho definido por campo
+				::SetStyle(jCab[cCampo]["stylecab"])
+			ElseIf cTpStyle!="U"
 				::SetStyle(oStyle)
 			EndIf
 		Endif
@@ -9193,19 +9198,20 @@ CLASSE PARA CRIAÇÃO DE TABELAS PARA A CLASSE YEXCEL
 @type class
 /*/
 Class Table from Tag
-	Public Data oyExcel    As Object
-	Public Data lAutoFilter    As Logical
-	Public Data aRef    As Array
-	Public Data nPrimLinha    As Numeric
-	Public Data nPrimColuna    As Numeric
-	Public Data oColunas    As Object
-	Public Data aColunas    As Array
-	Public Data nLinha    As Numeric
-	Public Data oTableColumns    As Object
-	Public Data otableStyleInfo    As Object
-	Public Data cNomeTabela    As Character
-	Public Data nIdRelat    As Numeric
-	Public METHOD new()     As Object
+	Public Data oyExcel			As Object
+	Public Data lAutoFilter		As Logical
+	Public Data aRef			As Array
+	Public Data nPrimLinha		As Numeric
+	Public Data nPrimColuna		As Numeric
+	Public Data oColunas		As Object
+	Public Data oColunasCampo	As Object
+	Public Data aColunas		As Array
+	Public Data nLinha		 	As Numeric
+	Public Data oTableColumns	As Object
+	Public Data otableStyleInfo	As Object
+	Public Data cNomeTabela		As Character
+	Public Data nIdRelat		As Numeric
+	Public METHOD new()			As Object
 	Public METHOD cell()
 	Public METHOD AddStyle()
 	Public METHOD AddLine()
@@ -9230,6 +9236,7 @@ METHOD new(oyExcel As Object, nLinha As Numeric, nColuna As Numeric, cNome As Ch
 	::nPrimLinha	:= nLinha
 	::nPrimColuna	:= nColuna
 	::oColunas		:= tHashMap():New()
+	::oColunasCampo	:= tHashMap():New()
 	::aColunas		:= {}
 	::nLinha		:= 0
 	::cNomeTabela	:= cNome
@@ -9290,7 +9297,9 @@ METHOD Cell(xColuna As Variant, xValor As Variant, cFormula As Character, nStyle
 	PARAMTYPE 0	VAR xColuna	AS CHARACTER,NUMERIC
 	If ValType(xColuna)=="C"
 		If !::oColunas:Get(xColuna,@aColuna)
-			UserException("Xlsx - Coluna informada não encontrado. Utilize o metodo AddColumn para adicionar a coluna:"+cValToChar(xColuna))
+			If !::oColunasCampo:Get(xColuna,@aColuna)
+				UserException("Xlsx - Coluna informada não encontrado. Utilize o metodo AddColumn para adicionar a coluna:"+cValToChar(xColuna))
+			Endif
 		Endif
 		nColuna	:= aColuna[2]
 		If Empty(nStyle)
@@ -9327,7 +9336,7 @@ Adiciona uma nova coluna a tabela
 @param nStyle, numeric, descricao
 @type method
 /*/
-METHOD AddColumn(cNome As Character, nStyle As Numeric) Class Table
+METHOD AddColumn(cNome As Character, nStyle As Variant, cNameField As Character) Class Table
 	Local otableColumn As Object
 	Local nCont As Numeric
 	Local aColuna As Array
@@ -9347,6 +9356,9 @@ METHOD AddColumn(cNome As Character, nStyle As Numeric) Class Table
 	self:oTableColumns:SetAtributo("count",nCont)
 	self:oTableColumns:AddValor(otableColumn)
 	::oColunas:Set(cNome,{::aRef[1][1],::aRef[1][2]+Len(::aColunas),otableColumn,nil,nStyle})
+	If ValType(cNameField)<>"U"
+		::oColunasCampo:Set(cNameField,{::aRef[1][1],::aRef[1][2]+Len(::aColunas),otableColumn,nil,nStyle})
+	EndIf
 	AADD(::aColunas,cNome)
 	::Cell(cNome,cNome)
 Return
@@ -9384,7 +9396,7 @@ METHOD AddTotal(xColuna As Variant, xValor As Variant, cFunction As Character, n
 	If ValType(xColuna)=="N"
 		xColuna	:= ::aColunas[xColuna]
 	Endif
-	If ::oColunas:Get(xColuna,@aColuna)
+	If ::oColunas:Get(xColuna,@aColuna) .OR. ::oColunasCampo:Get(xColuna,@aColuna)
 		otableColumn	:= aColuna[3]
 		aColuna[4]		:= xValor
 		If ValType(nStyle)<>"U"
@@ -9450,8 +9462,8 @@ Method AddTotais() Class Table
 	//::SetAtributo("totalsRowShown",1)
 	For nCont:=1 to Len(::aColunas)
 		::oColunas:Get(::aColunas[nCont],@aColuna)
-		xValor	:= aColuna[4]
-		cFormula:= nil
+		xValor		:= aColuna[4]
+		cFormula	:= nil
 		otableColumn	:= aColuna[3]
 		If !Empty(otableColumn:GetAtributo("totalsRowLabel",""))
 			xValor		:= otableColumn:GetAtributo("totalsRowLabel","")
@@ -9478,7 +9490,7 @@ Method AddTotais() Class Table
 				cFormula		:= "SUBTOTAL(110,"+::cNomeTabela+"["+::aColunas[nCont]+"])"
 			ElseIf UPPER(otableColumn:GetAtributo("totalsRowFunction",""))=="VARP"
 				cFormula		:= "SUBTOTAL(111,"+::cNomeTabela+"["+::aColunas[nCont]+"])"
-			Elseif otableColumn:GetAtributo("totalsRowFunction","")=="custom"
+			ElseIf otableColumn:GetAtributo("totalsRowFunction","")=="custom"
 				cFormula		:= otableColumn:GetValor("totalsRowFormula"):GetValor()
 			Endif
 		Endif
