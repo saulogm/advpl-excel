@@ -8040,7 +8040,7 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @version 1.0
 @author Saulo Gomes Martins
 @since 13/05/2023
-@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem,nStyle)
+@param jCab, json, json Modifica Cabeçario dos campos (Campo,Descricao,Tamanho,Picture,Combo,Estilo,Ordem,StyleCab)
 @param cCampo, character, Nome do campo no alias
 @param cDescricao, character, Descrição a ser alterada, enviar nil para não alterar
 @param nTamanho, numeric, Tamanho da coluna(no excel), enviar nil para não alterar
@@ -8053,9 +8053,10 @@ Inicializa campo para ser usado na definição do Alias2Tab
 @param lNewCampo, logical, Cria novo campo
 @param lHidden, logical, Oculta campo
 @param nTamDados, numeric, Tamanho dos dados
+@param xStyleCab, variant, Estilo a ser aplicado somente no cabeçalho do campo (substitui o oStyle do Alias2Tab), enviar nil para não alterar
 @return json, definição de campos
 /*/
-Method NewFldTab(jCab As json, cCampo As Character, cDescricao As Character, nTamanho As Numeric, cPicture As Character, cCombo As Character, xStyle As Variant, nOrdem As Numeric, cTipo As Character, cDados As Character, lNewCampo As Logical, lHidden As Logical, nTamDados As Numeric) Class Xlsx
+Method NewFldTab(jCab As json, cCampo As Character, cDescricao As Character, nTamanho As Numeric, cPicture As Character, cCombo As Character, xStyle As Variant, nOrdem As Numeric, cTipo As Character, cDados As Character, lNewCampo As Logical, lHidden As Logical, nTamDados As Numeric, xStyleCab As Variant) Class Xlsx
 	Default lNewCampo			:= .F.
 	Default lHidden				:= .F.
 	jCab[cCampo]				:= jSonObject():New()
@@ -8070,6 +8071,7 @@ Method NewFldTab(jCab As json, cCampo As Character, cDescricao As Character, nTa
 	jCab[cCampo]["newcampo"]	:= lNewCampo
 	jCab[cCampo]["tamdados"]	:= nTamDados
 	jCab[cCampo]["hidden"]		:= lHidden
+	jCab[cCampo]["stylecab"]	:= xStyleCab
 	AADD(::aCleanObj,jCab)
 return jCab
 
