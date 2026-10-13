@@ -55,6 +55,34 @@ Pronto para usar a classe YExcel!
 Problema conhecido:
 * Para servidor Windows o arquivo gerado pela função FZip não é compatível com LibreOffice. Para contornar, realize a instalação do 7-zip no servidor Windows.
 
+# Skill para Claude Code
+A pasta [skills/advpl-excel-xlsx](skills/advpl-excel-xlsx) contém uma *skill* para o [Claude Code](https://claude.com/claude-code), que ensina o assistente de IA a gerar, ler e editar planilhas com a classe `custom.excel.Xlsx` (antiga `YExcel`).
+
+A skill é acionada automaticamente quando você pede algo como "gerar relatório em Excel no Protheus", "exportar query para xlsx", "planilha com gráfico" ou "xlsx com senha", e quando você altera um fonte que usa `YExcel`.
+
+O que a skill cobre:
+* Código novo sempre com `custom.excel.Xlsx():New()`, com argumentos nomeados em TLPP e posicionais em ADVPL (.prw)
+* Migração de fontes com `YExcel`, `YExcel_Style`, `YExcel_Table` etc. e da API v1 (`Cell`, `AddStyles`, `Gravar`, `OpenRead`) para o padrão atual
+* Escolha do tipo de gravação (`"A"` arquivo, `"M"` memória, `"B"` banco/bulk) e a regra de escrita sequencial do tipo `"A"`
+* Estilos, formatos numéricos, formatação condicional, tabelas formatadas, `Alias2Tab` com subtotais, bulk, gráficos, imagens, senha/proteção, impressão e leitura de arquivos
+* Ciclo de vida (`Save`, `OpenApp`, `Destroy`) e liberação de memória sem duplicidade
+* Fontes em CP-1252 sem BOM, CRLF e TAB
+
+Estrutura:
+* `SKILL.md`: fluxo, regras e template base
+* `references/`: referência da API por assunto (núcleo, estilos, tabelas/bulk/alias, gráficos, proteção/impressão, migração do YExcel e receitas completas)
+
+### Instalação da skill
+Copie a pasta `skills/advpl-excel-xlsx` para um dos locais abaixo:
+* `~/.claude/skills/advpl-excel-xlsx` (Windows: `%USERPROFILE%\.claude\skills\advpl-excel-xlsx`): disponível em todos os seus projetos
+* `<seu-projeto>/.claude/skills/advpl-excel-xlsx`: disponível só naquele projeto (e versionada com ele)
+
+```powershell
+Copy-Item -Recurse .\skills\advpl-excel-xlsx "$env:USERPROFILE\.claude\skills\"
+```
+
+Depois de copiar, abra uma nova sessão do Claude Code. A skill aparece na lista de skills disponíveis como `advpl-excel-xlsx`.
+
 ### Dúvidas
 - https://github.com/saulogm/advpl-excel/issues
 
