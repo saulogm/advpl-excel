@@ -156,6 +156,7 @@ Class Xlsx
 	Public Data oMotor				As Object //Motor de cálculo em uso (custom.excel.calc.Motor)
 	Public Data oCalcCache			As Object //Cache do cálculo (células lidas do arquivo, dimensões, linhas ocultas)
 	Public Data oCalcNomes			As Object //Nomes definidos (cálculo)
+	Public Data cCalcLocal			As Character //Localidade do cálculo (pt-BR ou en-US)
 
 	Public METHOD New()			 	As Object
 	Public METHOD ClassName()
@@ -190,6 +191,7 @@ Class Xlsx
 	Public METHOD GetFormula()		//Retorna a formula da celula posicionada
 	Public METHOD SetCalcFormula()	//Define se as fórmulas sem valor são calculadas ao salvar
 	Public METHOD AddFuncFormula()	//Registra função para o cálculo de fórmulas
+	Public METHOD SetCalcLocal()	//Localidade do cálculo de fórmulas (pt-BR/en-US)
 	Public METHOD CalcFormulas()	//Calcula as fórmulas sem valor (Save/Save2Html)
 	Public METHOD ColTam()			//Coluna Mínima e Máxima
 	Public METHOD LinTam()			//Linha Mínima e Máxima
@@ -435,6 +437,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::oFmlPend		:= tHashMap():New()
 	::aFuncCalc		:= {}
 	::aCalcDim		:= {}
+	::cCalcLocal	:= "pt-BR"
 	::oRegex1 		:= tlpp.regex.Regex():New('[^A-Za-z0-9\s_]')	//Aceita Alfa,Num,Espaco,underline
 	::oRegex2		:= tlpp.regex.Regex():New('[A-Za-z]{1,3}[0-9]{1,7}')	//Se é uma referencia de celula
 	If cTipo=="M"
@@ -11720,6 +11723,21 @@ Method AddFuncFormula(cNome As Character, bBloco As CodeBlock, nMin As Numeric, 
 	AADD(::aFuncCalc,{cNome,bBloco,nMin,nMax,cFlags})
 Return self
 
+/*/{Protheus.doc} Xlsx::SetCalcLocal
+Define a localidade usada no cálculo de fórmulas: separador decimal na conversão número/texto (ex.: ="v="&0,5),
+códigos de formato do TEXT (pt-BR: "#.##0,00", "dd/mm/aaaa"; en-US: "#,##0.00"), nomes de dias e meses,
+FIXED/DOLLAR/VALUE/DATEVALUE. Padrão pt-BR, como o Excel em português
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 25/10/2026
+@param cLocal, character, "pt-BR" ou "en-US"
+@return object, self
+/*/
+Method SetCalcLocal(cLocal As Character) Class Xlsx
+	::cCalcLocal	:= If(Upper(cLocal)=="EN-US","en-US","pt-BR")
+Return self
+
 //NÃO DOCUMENTAR
 //Registra (ou retira) a fórmula pendente de cálculo da célula
 Method CalcPendente(nPla As Numeric, nLin As Numeric, nCol As Numeric, cFormula As Variant, lPendente As Logical) Class Xlsx
@@ -11767,6 +11785,7 @@ Method CalcFormulas() Class Xlsx
 		Return
 	EndIf
 	::oMotor	:= custom.excel.calc.Motor():New(self)
+	::oMotor:SetLocal(::cCalcLocal)
 	For nCont:=1 to Len(::aFuncCalc)
 		::oMotor:Registrar(::aFuncCalc[nCont][1],::aFuncCalc[nCont][2],::aFuncCalc[nCont][3],::aFuncCalc[nCont][4],::aFuncCalc[nCont][5])
 	Next

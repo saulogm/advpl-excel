@@ -1,0 +1,631 @@
+// Expressões regulares para as funções REGEXTEST, REGEXEXTRACT e REGEXREPLACE (motor custom.excel.calc)
+// Motor de retrocesso (backtracking) com a sintaxe usual do PCRE: classes, quantificadores gulosos e
+// preguiçosos, grupos com e sem captura, alternância, âncoras, \b, retrovisores e lookahead
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+//Tipos de nó
+#define R_LIT		1	//{1,cCaracter}
+#define R_QQ		2	//{2} ponto
+#define R_CLASSE	3	//{3,aItens,lNegada}
+#define R_ANCORA	4	//{4,cTipo} ^ $ b B A z
+#define R_GRUPO		5	//{5,aAlternativas,nGrupo}
+#define R_QUANT		6	//{6,aNo,nMin,nMax,lGuloso}
+#define R_RETRO		7	//{7,nGrupo}
+#define R_LOOK		8	//{8,aAlternativas,lNegado}
+
+#define R_INFINITO	999999999
+
+/*/{Protheus.doc} ExpReg
+Expressão regular compilada
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class ExpReg
+	Public Data nTipoV		As Numeric	//0: não é valor do motor (EhErro/EhRef retornam .F.)
+	Public Data cPadrao		As Character
+	Public Data nPos		As Numeric
+	Public Data aRaiz		As Array
+	Public Data nGrupos		As Numeric
+	Public Data aCap		As Array
+	Public Data lIgnCaixa	As Logical
+	Public Data lMultiLin	As Logical
+	Public Data cTxt		As Character
+	Public Data nLen		As Numeric
+	Public Data cErro		As Character
+	Public Method New()		As Object
+	Public Method Busca()
+	Public Method Alts()
+	Public Method Seq()
+	Public Method Atomo()
+	Public Method Classe()
+	Public Method Escape()
+	Public Method Casa()
+	Public Method Continua()
+	Public Method Rep()
+	Public Method Bate()
+	Public Method Palavra()
+EndClass
+
+/*/{Protheus.doc} ExpReg::New
+Compila o padrão. Em caso de erro, cErro fica preenchido
+@type method
+@param cPadrao, character, Expressão regular
+@param lIgnCaixa, logical, Ignora maiúsculas/minúsculas
+/*/
+Method New(cPadrao As Character, lIgnCaixa As Logical) As Object Class ExpReg
+	Local oErro As Object
+	Default lIgnCaixa	:= .F.
+	::nTipoV	:= 0
+	::cPadrao	:= cPadrao
+	::nPos		:= 1
+	::nGrupos	:= 0
+	::lIgnCaixa	:= lIgnCaixa
+	::lMultiLin	:= .F.
+	::cErro		:= ""
+	Try
+		::aRaiz	:= {R_GRUPO,::Alts(),0}
+		If ::nPos<=Len(::cPadrao)
+			UserException("parêntese ')' sem abertura")
+		EndIf
+	Catch oErro
+		::cErro	:= oErro:Description
+		::aRaiz	:= nil
+	EndTry
+Return self
+
+//Alternativas a|b|c
+Method Alts() Class ExpReg
+	Local aRet := {::Seq()} As Array
+	While SubStr(::cPadrao,::nPos,1)=="|"
+		::nPos++
+		AADD(aRet,::Seq())
+	EndDo
+Return aRet
+
+//Sequência de átomos com quantificadores
+Method Seq() Class ExpReg
+	Local aRet := {} As Array
+	Local aNo As Array
+	Local cCar As Character
+	Local nMin As Numeric
+	Local nMax As Numeric
+	Local nFim As Numeric
+	Local cConteudo As Character
+	Local nVirg As Numeric
+	While ::nPos<=Len(::cPadrao)
+		cCar	:= SubStr(::cPadrao,::nPos,1)
+		If cCar=="|" .OR. cCar==")"
+			Exit
+		EndIf
+		aNo	:= ::Atomo()
+		If aNo==nil
+			Loop
+		EndIf
+		cCar	:= SubStr(::cPadrao,::nPos,1)
+		nMin	:= -1
+		If cCar=="*"
+			nMin	:= 0
+			nMax	:= R_INFINITO
+			::nPos++
+		ElseIf cCar=="+"
+			nMin	:= 1
+			nMax	:= R_INFINITO
+			::nPos++
+		ElseIf cCar=="?"
+			nMin	:= 0
+			nMax	:= 1
+			::nPos++
+		ElseIf cCar=="{"
+			nFim	:= At("}",::cPadrao,::nPos)
+			cConteudo	:= If(nFim>0,SubStr(::cPadrao,::nPos+1,nFim-::nPos-1),"")
+			If nFim>0 .AND. !Empty(cConteudo) .AND. SoDigVirg(cConteudo)
+				nVirg	:= At(",",cConteudo)
+				If nVirg==0
+					nMin	:= Val(cConteudo)
+					nMax	:= nMin
+				Else
+					nMin	:= Val(Left(cConteudo,nVirg-1))
+					nMax	:= If(nVirg==Len(cConteudo),R_INFINITO,Val(SubStr(cConteudo,nVirg+1)))
+				EndIf
+				::nPos	:= nFim+1
+			EndIf
+		EndIf
+		If nMin>=0
+			If aNo[1]==R_ANCORA
+				UserException("quantificador sem alvo")
+			EndIf
+			aNo	:= {R_QUANT,aNo,nMin,nMax,.T.}
+			If SubStr(::cPadrao,::nPos,1)=="?"
+				aNo[5]	:= .F.
+				::nPos++
+			ElseIf SubStr(::cPadrao,::nPos,1)=="+"	//Possessivo tratado como guloso
+				::nPos++
+			EndIf
+		EndIf
+		AADD(aRet,aNo)
+	EndDo
+Return aRet
+
+Static Function SoDigVirg(cTxt As Character)
+	Local nCont As Numeric
+	For nCont:=1 to Len(cTxt)
+		If !IsDigit(SubStr(cTxt,nCont,1)) .AND. SubStr(cTxt,nCont,1)!=","
+			Return .F.
+		EndIf
+	Next
+Return IsDigit(Left(cTxt,1))
+
+Method Atomo() Class ExpReg
+	Local cCar := SubStr(::cPadrao,::nPos,1) As Character
+	Local nGrupo As Numeric
+	Local aAlts As Array
+	Local lLook := .F. As Logical
+	Local lNeg := .F. As Logical
+	Local nFim As Numeric
+	Local cFlags As Character
+	Do Case
+		Case cCar=="("
+			::nPos++
+			nGrupo	:= -1
+			If SubStr(::cPadrao,::nPos,1)=="?"
+				cCar	:= SubStr(::cPadrao,::nPos+1,1)
+				Do Case
+					Case cCar==":"
+						nGrupo	:= 0
+						::nPos	+= 2
+					Case cCar=="=" .OR. cCar=="!"
+						lLook	:= .T.
+						lNeg	:= cCar=="!"
+						::nPos	+= 2
+					Case cCar=="<" .AND. SubStr(::cPadrao,::nPos+2,1)!="=" .AND. SubStr(::cPadrao,::nPos+2,1)!="!"
+						nFim	:= At(">",::cPadrao,::nPos)	//Grupo nomeado (?<nome>...)
+						::nPos	:= nFim+1
+					Case cCar=="P" .AND. SubStr(::cPadrao,::nPos+2,1)=="<"
+						nFim	:= At(">",::cPadrao,::nPos)
+						::nPos	:= nFim+1
+					Otherwise	//Modificadores (?i) (?m) (?s) (?x)
+						nFim	:= At(")",::cPadrao,::nPos)
+						cFlags	:= SubStr(::cPadrao,::nPos+1,nFim-::nPos-1)
+						If "i" $ cFlags .AND. !("-i" $ cFlags)
+							::lIgnCaixa	:= .T.
+						EndIf
+						If "m" $ cFlags
+							::lMultiLin	:= .T.
+						EndIf
+						If ":" $ cFlags
+							nGrupo	:= 0
+							::nPos	:= ::nPos+At(":",cFlags)+1
+						Else
+							::nPos	:= nFim+1
+							Return nil
+						EndIf
+				EndCase
+			EndIf
+			If nGrupo==-1
+				::nGrupos++
+				nGrupo	:= ::nGrupos
+			EndIf
+			aAlts	:= ::Alts()
+			If SubStr(::cPadrao,::nPos,1)!=")"
+				UserException("parêntese não fechado")
+			EndIf
+			::nPos++
+			If lLook
+				Return {R_LOOK,aAlts,lNeg}
+			EndIf
+			Return {R_GRUPO,aAlts,nGrupo}
+		Case cCar=="["
+			Return ::Classe()
+		Case cCar=="."
+			::nPos++
+			Return {R_QQ}
+		Case cCar=="^"
+			::nPos++
+			Return {R_ANCORA,"^"}
+		Case cCar=="$"
+			::nPos++
+			Return {R_ANCORA,"$"}
+		Case cCar=="\"
+			Return ::Escape(.F.)
+		Case cCar=="*" .OR. cCar=="+" .OR. cCar=="?"
+			UserException("quantificador sem alvo")
+	EndCase
+	::nPos++
+Return {R_LIT,cCar}
+
+//Sequência de escape (fora ou dentro de classe)
+Method Escape(lClasse As Logical) Class ExpReg
+	Local cCar := SubStr(::cPadrao,::nPos+1,1) As Character
+	Local cHex As Character
+	Local nFim As Numeric
+	::nPos	+= 2
+	Do Case
+		Case cCar=="d"
+			Return {R_CLASSE,{{"D"}},.F.}
+		Case cCar=="D"
+			Return {R_CLASSE,{{"D"}},.T.}
+		Case cCar=="w"
+			Return {R_CLASSE,{{"W"}},.F.}
+		Case cCar=="W"
+			Return {R_CLASSE,{{"W"}},.T.}
+		Case cCar=="s"
+			Return {R_CLASSE,{{"S"}},.F.}
+		Case cCar=="S"
+			Return {R_CLASSE,{{"S"}},.T.}
+		Case (cCar=="b" .OR. cCar=="B" .OR. cCar=="A" .OR. cCar=="z" .OR. cCar=="Z") .AND. !lClasse
+			Return {R_ANCORA,cCar}
+		Case cCar=="n"
+			Return {R_LIT,Chr(10)}
+		Case cCar=="r"
+			Return {R_LIT,Chr(13)}
+		Case cCar=="t"
+			Return {R_LIT,Chr(9)}
+		Case cCar=="f"
+			Return {R_LIT,Chr(12)}
+		Case cCar=="v"
+			Return {R_LIT,Chr(11)}
+		Case cCar=="x"
+			If SubStr(::cPadrao,::nPos,1)=="{"
+				nFim	:= At("}",::cPadrao,::nPos)
+				cHex	:= SubStr(::cPadrao,::nPos+1,nFim-::nPos-1)
+				::nPos	:= nFim+1
+			Else
+				cHex	:= SubStr(::cPadrao,::nPos,2)
+				::nPos	+= 2
+			EndIf
+			Return {R_LIT,Chr(Min(CTON(cHex,16),255))}
+		Case IsDigit(cCar) .AND. cCar!="0" .AND. !lClasse
+			Return {R_RETRO,Val(cCar)}
+		Case cCar=="0"
+			Return {R_LIT,Chr(0)}
+	EndCase
+Return {R_LIT,cCar}
+
+//Classe de caracteres [a-z\d_]
+Method Classe() Class ExpReg
+	Local aItens := {} As Array
+	Local lNeg := .F. As Logical
+	Local cCar As Character
+	Local cIni As Character
+	Local aEsc As Array
+	Local lPrim := .T. As Logical
+	::nPos++
+	If SubStr(::cPadrao,::nPos,1)=="^"
+		lNeg	:= .T.
+		::nPos++
+	EndIf
+	While .T.
+		If ::nPos>Len(::cPadrao)
+			UserException("classe '[' não fechada")
+		EndIf
+		cCar	:= SubStr(::cPadrao,::nPos,1)
+		If cCar=="]" .AND. !lPrim
+			::nPos++
+			Exit
+		EndIf
+		lPrim	:= .F.
+		If cCar=="\"
+			aEsc	:= ::Escape(.T.)
+			If aEsc[1]==R_CLASSE
+				AADD(aItens,{If(aEsc[3],Lower(aEsc[2][1][1]),aEsc[2][1][1])})
+				Loop
+			EndIf
+			cIni	:= aEsc[2]
+		ElseIf cCar=="[" .AND. SubStr(::cPadrao,::nPos+1,1)==":"	//[:alpha:]
+			cIni	:= SubStr(::cPadrao,::nPos+2,At(":]",::cPadrao,::nPos)-::nPos-2)
+			::nPos	:= At(":]",::cPadrao,::nPos)+2
+			AADD(aItens,{"P",Lower(cIni)})
+			Loop
+		Else
+			cIni	:= cCar
+			::nPos++
+		EndIf
+		If SubStr(::cPadrao,::nPos,1)=="-" .AND. SubStr(::cPadrao,::nPos+1,1)!="]" .AND. ::nPos<Len(::cPadrao)
+			::nPos++
+			cCar	:= SubStr(::cPadrao,::nPos,1)
+			If cCar=="\"
+				aEsc	:= ::Escape(.T.)
+				cCar	:= aEsc[2]
+			Else
+				::nPos++
+			EndIf
+			AADD(aItens,{"R",Asc(cIni),Asc(cCar)})
+		Else
+			AADD(aItens,{"R",Asc(cIni),Asc(cIni)})
+		EndIf
+	EndDo
+Return {R_CLASSE,aItens,lNeg}
+
+/*/{Protheus.doc} ExpReg::Busca
+Procura a primeira ocorrência a partir da posição
+@type method
+@param cTxt, character, Texto
+@param nIni, numeric, Posição inicial (1)
+@return array, {nInicio,nFim(exclusivo),aGrupos} ou nil
+/*/
+Method Busca(cTxt As Character, nIni As Numeric) Class ExpReg
+	Local nStart As Numeric
+	Local nFim As Numeric
+	Local nCont As Numeric
+	Default nIni	:= 1
+	If ::aRaiz==nil
+		Return nil
+	EndIf
+	::cTxt	:= cTxt
+	::nLen	:= Len(cTxt)
+	For nStart:=nIni to ::nLen+1
+		::aCap	:= Array(::nGrupos)
+		For nCont:=1 to ::nGrupos
+			::aCap[nCont]	:= {0,0}
+		Next
+		nFim	:= ::Casa({::aRaiz},1,nStart,nil)
+		If nFim>0
+			Return {nStart,nFim,::aCap}
+		EndIf
+	Next
+Return nil
+
+//Casa a sequência a partir do índice; retorna a posição final (>0) ou 0
+Method Casa(aSeq As Array, nIdx As Numeric, nPos As Numeric, aCont As Variant) Class ExpReg
+	Local aNo As Array
+	Local nCont As Numeric
+	Local nRet As Numeric
+	Local aSalva As Array
+	Local cCap As Character
+	While .T.
+		If nIdx>Len(aSeq)
+			Return ::Continua(aCont,nPos)
+		EndIf
+		aNo	:= aSeq[nIdx]
+		Do Case
+			Case aNo[1]==R_LIT .OR. aNo[1]==R_QQ .OR. aNo[1]==R_CLASSE
+				If nPos>::nLen .OR. !::Bate(aNo,SubStr(::cTxt,nPos,1))
+					Return 0
+				EndIf
+				nPos++
+				nIdx++
+			Case aNo[1]==R_ANCORA
+				If !Ancora(self,aNo[2],nPos)
+					Return 0
+				EndIf
+				nIdx++
+			Case aNo[1]==R_GRUPO
+				For nCont:=1 to Len(aNo[2])
+					aSalva	:= aClone(::aCap)
+					nRet	:= ::Casa(aNo[2][nCont],1,nPos,{"G",aNo[3],nPos,{"S",aSeq,nIdx+1,aCont}})
+					If nRet>0
+						Return nRet
+					EndIf
+					::aCap	:= aSalva
+				Next
+				Return 0
+			Case aNo[1]==R_QUANT
+				Return ::Rep(aNo,0,nPos,{"S",aSeq,nIdx+1,aCont})
+			Case aNo[1]==R_RETRO
+				If aNo[2]>Len(::aCap) .OR. ::aCap[aNo[2]][1]==0
+					nIdx++
+					Loop
+				EndIf
+				cCap	:= SubStr(::cTxt,::aCap[aNo[2]][1],::aCap[aNo[2]][2]-::aCap[aNo[2]][1])
+				If If(::lIgnCaixa,RxMaius(SubStr(::cTxt,nPos,Len(cCap)))==RxMaius(cCap),SubStr(::cTxt,nPos,Len(cCap))==cCap)
+					nPos	+= Len(cCap)
+					nIdx++
+				Else
+					Return 0
+				EndIf
+			Case aNo[1]==R_LOOK
+				nRet	:= 0
+				For nCont:=1 to Len(aNo[2])
+					aSalva	:= aClone(::aCap)
+					nRet	:= ::Casa(aNo[2][nCont],1,nPos,{"L"})
+					If nRet>0
+						Exit
+					EndIf
+					::aCap	:= aSalva
+				Next
+				If (nRet>0)==aNo[3]
+					Return 0
+				EndIf
+				nIdx++
+		EndCase
+	EndDo
+Return 0
+
+//Continuação após o fim de uma sequência
+Method Continua(aCont As Variant, nPos As Numeric) Class ExpReg
+	Local nRet As Numeric
+	Local aAnt As Array
+	If aCont==nil
+		Return nPos
+	EndIf
+	Do Case
+		Case aCont[1]=="S"
+			Return ::Casa(aCont[2],aCont[3],nPos,aCont[4])
+		Case aCont[1]=="G"	//Fim de grupo: registra a captura
+			If aCont[2]>0
+				aAnt	:= aClone(::aCap[aCont[2]])
+				::aCap[aCont[2]]	:= {aCont[3],nPos}
+				nRet	:= ::Continua(aCont[4],nPos)
+				If nRet==0
+					::aCap[aCont[2]]	:= aAnt
+				EndIf
+				Return nRet
+			EndIf
+			Return ::Continua(aCont[4],nPos)
+		Case aCont[1]=="R"	//Fim de uma repetição do quantificador
+			If nPos==aCont[4]	//Repetição vazia: encerra para não entrar em laço
+				Return ::Continua(aCont[5],nPos)
+			EndIf
+			Return ::Rep(aCont[2],aCont[3],nPos,aCont[5])
+		Case aCont[1]=="L"
+			Return nPos
+	EndCase
+Return 0
+
+/*/{Protheus.doc} ExpReg::Rep
+Repetição do quantificador a partir de nQtd repetições já feitas
+@type method
+/*/
+Method Rep(aQ As Array, nQtd As Numeric, nPos As Numeric, aCont As Variant) Class ExpReg
+	Local aNo := aQ[2] As Array
+	Local nMax As Numeric
+	Local nCont As Numeric
+	Local nRet As Numeric
+	//Caminho rápido: átomo de um caractere sem captura (iterativo, sem recursão por caractere)
+	If aNo[1]==R_LIT .OR. aNo[1]==R_QQ .OR. aNo[1]==R_CLASSE
+		nMax	:= 0
+		While nQtd+nMax<aQ[4] .AND. nPos+nMax<=::nLen .AND. ::Bate(aNo,SubStr(::cTxt,nPos+nMax,1))
+			nMax++
+		EndDo
+		If nQtd+nMax<aQ[3]
+			Return 0
+		EndIf
+		If aQ[5]	//Guloso
+			For nCont:=nMax to Max(aQ[3]-nQtd,0) Step -1
+				nRet	:= ::Continua(aCont,nPos+nCont)
+				If nRet>0
+					Return nRet
+				EndIf
+			Next
+		Else
+			For nCont:=Max(aQ[3]-nQtd,0) to nMax
+				nRet	:= ::Continua(aCont,nPos+nCont)
+				If nRet>0
+					Return nRet
+				EndIf
+			Next
+		EndIf
+		Return 0
+	EndIf
+	If aQ[5]
+		If nQtd<aQ[4]
+			nRet	:= ::Casa({aNo},1,nPos,{"R",aQ,nQtd+1,nPos,aCont})
+			If nRet>0
+				Return nRet
+			EndIf
+		EndIf
+		If nQtd>=aQ[3]
+			Return ::Continua(aCont,nPos)
+		EndIf
+		Return 0
+	EndIf
+	If nQtd>=aQ[3]
+		nRet	:= ::Continua(aCont,nPos)
+		If nRet>0
+			Return nRet
+		EndIf
+	EndIf
+	If nQtd<aQ[4]
+		Return ::Casa({aNo},1,nPos,{"R",aQ,nQtd+1,nPos,aCont})
+	EndIf
+Return 0
+
+//Caractere atende ao nó (literal, ponto ou classe)
+Method Bate(aNo As Array, cCar As Character) Class ExpReg
+	Local nAsc As Numeric
+	Local nCont As Numeric
+	Local aItem As Array
+	Local lRet := .F. As Logical
+	Local cAlt As Character
+	If aNo[1]==R_LIT
+		If ::lIgnCaixa
+			Return RxMaius(cCar)==RxMaius(aNo[2])
+		EndIf
+		Return cCar==aNo[2]
+	EndIf
+	If aNo[1]==R_QQ
+		Return cCar!=Chr(10)
+	EndIf
+	nAsc	:= Asc(cCar)
+	For nCont:=1 to Len(aNo[2])
+		aItem	:= aNo[2][nCont]
+		Do Case
+			Case aItem[1]=="R"
+				lRet	:= nAsc>=aItem[2] .AND. nAsc<=aItem[3]
+				If !lRet .AND. ::lIgnCaixa
+					cAlt	:= If(RxMaius(cCar)==cCar,RxMinus(cCar),RxMaius(cCar))
+					lRet	:= Asc(cAlt)>=aItem[2] .AND. Asc(cAlt)<=aItem[3]
+				EndIf
+			Case aItem[1]=="D"
+				lRet	:= IsDigit(cCar)
+			Case aItem[1]=="d"
+				lRet	:= !IsDigit(cCar)
+			Case aItem[1]=="W"
+				lRet	:= ::Palavra(cCar)
+			Case aItem[1]=="w"
+				lRet	:= !::Palavra(cCar)
+			Case aItem[1]=="S"
+				lRet	:= cCar $ " "+Chr(9)+Chr(10)+Chr(11)+Chr(12)+Chr(13)
+			Case aItem[1]=="s"
+				lRet	:= !(cCar $ " "+Chr(9)+Chr(10)+Chr(11)+Chr(12)+Chr(13))
+			Case aItem[1]=="P"
+				lRet	:= ClassePosix(aItem[2],cCar)
+		EndCase
+		If lRet
+			Exit
+		EndIf
+	Next
+Return lRet!=aNo[3]
+
+//Caractere de palavra (\w): letras, dígitos e _
+Method Palavra(cCar As Character) Class ExpReg
+Return IsAlpha(cCar) .OR. IsDigit(cCar) .OR. cCar=="_" .OR. (Asc(cCar)>=192 .AND. Asc(cCar)!=215 .AND. Asc(cCar)!=247)
+
+Static Function ClassePosix(cNome As Character, cCar As Character)
+	Do Case
+		Case cNome=="alpha"
+			Return IsAlpha(cCar)
+		Case cNome=="digit"
+			Return IsDigit(cCar)
+		Case cNome=="alnum"
+			Return IsAlpha(cCar) .OR. IsDigit(cCar)
+		Case cNome=="space"
+			Return cCar $ " "+Chr(9)+Chr(10)+Chr(11)+Chr(12)+Chr(13)
+		Case cNome=="upper"
+			Return Asc(cCar)>=65 .AND. Asc(cCar)<=90
+		Case cNome=="lower"
+			Return Asc(cCar)>=97 .AND. Asc(cCar)<=122
+		Case cNome=="punct"
+			Return cCar $ "!"+'"'+"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"
+		Case cNome=="xdigit"
+			Return IsDigit(cCar) .OR. Upper(cCar) $ "ABCDEF"
+	EndCase
+Return .F.
+
+//Âncoras ^ $ \b \B \A \z
+Static Function Ancora(oRx As Object, cTipo As Character, nPos As Numeric)
+	Local lAntes As Logical
+	Local lDepois As Logical
+	Do Case
+		Case cTipo=="^"
+			Return nPos==1 .OR. (oRx:lMultiLin .AND. SubStr(oRx:cTxt,nPos-1,1)==Chr(10))
+		Case cTipo=="$"
+			Return nPos==oRx:nLen+1 .OR. (nPos==oRx:nLen .AND. SubStr(oRx:cTxt,nPos,1)==Chr(10)) .OR. (oRx:lMultiLin .AND. SubStr(oRx:cTxt,nPos,1)==Chr(10))
+		Case cTipo=="A"
+			Return nPos==1
+		Case cTipo=="z" .OR. cTipo=="Z"
+			Return nPos==oRx:nLen+1
+		Case cTipo=="b" .OR. cTipo=="B"
+			lAntes	:= nPos>1 .AND. oRx:Palavra(SubStr(oRx:cTxt,nPos-1,1))
+			lDepois	:= nPos<=oRx:nLen .AND. oRx:Palavra(SubStr(oRx:cTxt,nPos,1))
+			Return (lAntes!=lDepois)==(cTipo=="b")
+	EndCase
+Return .F.
+
+Static Function RxMaius(cTxt As Character)
+	Local nAsc := Asc(cTxt) As Numeric
+	If Len(cTxt)==1 .AND. nAsc>=224 .AND. nAsc<=254 .AND. nAsc!=247
+		Return Chr(nAsc-32)
+	EndIf
+Return Upper(cTxt)
+
+Static Function RxMinus(cTxt As Character)
+	Local nAsc := Asc(cTxt) As Numeric
+	If Len(cTxt)==1 .AND. nAsc>=192 .AND. nAsc<=222 .AND. nAsc!=215
+		Return Chr(nAsc+32)
+	EndIf
+Return Lower(cTxt)

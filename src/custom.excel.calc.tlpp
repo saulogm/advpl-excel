@@ -843,6 +843,10 @@ Class Motor
 	Public Data aEscopos	As Array	//Variáveis de LET/LAMBDA (pilha de tHashMap)
 	Public Data lIncompleto	As Logical	//Fórmula usa recurso não calculável (Excel deve recalcular)
 	Public Data cUltErro	As Character
+	Public Data cLocal		As Character	//Localidade (pt-BR ou en-US): separadores e nomes de dias/meses
+	Public Data cSepDec		As Character
+	Public Data cSepMil		As Character
+	Public Data nVolatil	As Variant	//Data/hora de referência para NOW/TODAY (serial)
 	Public Method New()		As Object
 	Public Method Registrar()
 	Public Method Funcao()
@@ -889,6 +893,15 @@ Class Motor
 	Public Method ColLetra()
 	Public Method Curinga()
 	Public Method Precisa()
+	Public Method SetLocal()
+	Public Method TxtLoc()
+	Public Method NumLoc()
+	Public Method Maius()
+	Public Method Minus()
+	Public Method SerialData()
+	Public Method DataSerial()
+	Public Method DiaSemana()
+	Public Method TxtData()
 EndClass
 
 Method New(oProv As Object) As Object Class Motor
@@ -903,6 +916,8 @@ Method New(oProv As Object) As Object Class Motor
 	::aEscopos	:= {}
 	::lIncompleto	:= .F.
 	::cUltErro	:= ""
+	::nVolatil	:= nil
+	::SetLocal("pt-BR")
 	::Funcoes()
 Return self
 
@@ -950,7 +965,7 @@ Return .F.
 Method Funcoes() Class Motor
 	Local aCat As Array
 	Local nCont As Numeric
-	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New()}
+	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New(),FuncTxt():New()}
 	For nCont:=1 to Len(aCat)
 		aCat[nCont]:Registrar(self)
 		FreeObj(aCat[nCont])
@@ -1202,7 +1217,7 @@ Method Num(xVal As Variant) Class Motor
 		Case cTipo=="L"
 			Return If(xVal,1,0)
 		Case cTipo=="C"
-			nRet	:= TxtParaNum(xVal)
+			nRet	:= TxtParaNum(xVal,::cSepDec)
 			If nRet==nil
 				Return Err("#VALUE!")
 			EndIf
@@ -1221,7 +1236,7 @@ Method Txt(xVal As Variant) Class Motor
 		Case cTipo=="C"
 			Return xVal
 		Case cTipo=="N"
-			Return NumTxt(xVal)
+			Return NumTxt(xVal,::cSepDec)
 		Case cTipo=="U"
 			Return ""
 		Case cTipo=="L"
@@ -1877,8 +1892,8 @@ Static Function Compara(xA As Variant, xB As Variant)
 		EndIf
 		Return If(xA,1,-1)
 	EndIf
-	cA	:= Upper(xA)
-	cB	:= Upper(xB)
+	cA	:= Maius(xA)
+	cB	:= Maius(xB)
 	If cA==cB
 		Return 0
 	EndIf
@@ -1900,8 +1915,9 @@ Return xRet
 Monta número a partir da mantissa e do expoente em texto
 /*/
 Static Function TxtNum(cNum As Character, cExp As Character)
-	Local nRet := Val(cNum) As Numeric
+	Local nRet As Numeric
 	Local nExp As Numeric
+	nRet	:= Val(cNum)
 	If !Empty(cExp)
 		nExp	:= Val(cExp)
 		nRet	:= nRet*(10^nExp)
@@ -1911,7 +1927,7 @@ Return nRet
 /*/{Protheus.doc} TxtParaNum
 Converte texto em número como o Excel (número, percentual, notação científica); nil se não for número
 /*/
-Static Function TxtParaNum(cTxt As Character)
+Static Function TxtParaNum(cTxt As Character, cSepDec As Character)
 	Local cT := AllTrim(cTxt) As Character
 	Local nPct := 1 As Numeric
 	Local nSinal := 1 As Numeric
@@ -1935,7 +1951,17 @@ Static Function TxtParaNum(cTxt As Character)
 	ElseIf Left(cT,1)=="+"
 		cT		:= SubStr(cT,2)
 	EndIf
-	cT		:= StrTran(cT,",","")	//Separador de milhar
+	Default cSepDec	:= "."
+	If cSepDec==","	//pt-BR: "1.234,5" -> 1234.5 ("1.5" sem vírgula é aceito como decimal)
+		If "," $ cT
+			cT	:= StrTran(cT,".","")
+			cT	:= StrTran(cT,",",".")
+		ElseIf Len(cT)-Len(StrTran(cT,".",""))>1
+			cT	:= StrTran(cT,".","")
+		EndIf
+	Else
+		cT		:= StrTran(cT,",","")	//Separador de milhar
+	EndIf
 	nPosE	:= At("E",Upper(cT))
 	cMant	:= cT
 	If nPosE>0
@@ -1970,50 +1996,50 @@ Static Function TxtParaNum(cTxt As Character)
 Return nSinal*TxtNum(cMant,cExp)/nPct
 
 /*/{Protheus.doc} NumTxt
-Converte número em texto no formato Geral do Excel (até 15 dígitos significativos)
+Converte número em texto no formato Geral do Excel (até 15 dígitos significativos, separador decimal ".")
 /*/
-Static Function NumTxt(nNum As Numeric)
-	Local cRet As Character
+Static Function NumTxt(nNum As Numeric, cSepDec As Character)
 	Local nAbs := Abs(nNum) As Numeric
-	Local nInt As Numeric
-	Local nDec As Numeric
 	Local nExp As Numeric
-	Local nMant As Numeric
+	Local nDig As Numeric
+	Local cDig As Character
+	Local cRet As Character
+	Local cSinal := If(nNum<0,"-","") As Character
+	Default cSepDec	:= "."
 	If nNum==0
 		Return "0"
 	EndIf
-	If nAbs>=1000000000000000 .OR. nAbs<0.000000001
-		nExp	:= Int(Log(nAbs)/Log(10))
-		If 10^nExp>nAbs
-			nExp--
+	nExp	:= Int(Log10(nAbs))
+	If 10^nExp>nAbs
+		nExp--
+	EndIf
+	If nExp<=14	//15 dígitos significativos (potência positiva de 10 é exata)
+		nDig	:= Round(nAbs*(10^(14-nExp)),0)
+	Else
+		nDig	:= Round(nAbs/(10^(nExp-14)),0)
+	EndIf
+	If nDig>=1000000000000000
+		nDig	:= Round(nDig/10,0)
+		nExp++
+	EndIf
+	cDig	:= cValToChar(nDig)
+	While Len(cDig)>1 .AND. Right(cDig,1)=="0"
+		cDig	:= Left(cDig,Len(cDig)-1)
+	EndDo
+	If nExp>=15 .OR. nExp<-9	//Notação científica
+		cRet	:= Left(cDig,1)
+		If Len(cDig)>1
+			cRet	+= cSepDec+SubStr(cDig,2)
 		EndIf
-		nMant	:= Round(nNum/(10^nExp),14)
-		If Abs(nMant)>=10
-			nMant	:= nMant/10
-			nExp++
-		EndIf
-		cRet	:= NumTxt(nMant)+"E"+If(nExp<0,"-","+")+StrZero(Abs(nExp),2)
-		Return cRet
+		Return cSinal+cRet+"E"+If(nExp<0,"-","+")+StrZero(Abs(nExp),2)
 	EndIf
-	nInt	:= Len(cValToChar(Int(nAbs)))
-	If Int(nAbs)==0
-		nInt	:= 0
+	If nExp<0
+		Return cSinal+"0"+cSepDec+Replicate("0",-nExp-1)+cDig
 	EndIf
-	nDec	:= Max(15-nInt,0)
-	nNum	:= Round(nNum,nDec)
-	If nNum==Int(nNum)
-		Return cValToChar(Int(nNum))
+	If Len(cDig)<=nExp+1
+		Return cSinal+cDig+Replicate("0",nExp+1-Len(cDig))
 	EndIf
-	cRet	:= AllTrim(Str(nNum,40,nDec))
-	If "." $ cRet
-		While Right(cRet,1)=="0"
-			cRet	:= Left(cRet,Len(cRet)-1)
-		EndDo
-		If Right(cRet,1)=="."
-			cRet	:= Left(cRet,Len(cRet)-1)
-		EndIf
-	EndIf
-Return cRet
+Return cSinal+Left(cDig,nExp+1)+cSepDec+SubStr(cDig,nExp+2)
 
 /*/{Protheus.doc} NomeFunc
 Normaliza o nome da função (remove prefixos _xlfn. _xlws.)
@@ -2192,7 +2218,7 @@ Method Criterio(xCrit As Variant) Class Motor
 		cOp		:= Left(cTxt,1)
 		cTxt	:= SubStr(cTxt,2)
 	EndIf
-	nNum	:= TxtParaNum(cTxt)
+	nNum	:= TxtParaNum(cTxt,::cSepDec)
 	If nNum!=nil
 		Return {cOp,nNum,.F.,.T.}
 	EndIf
@@ -2234,7 +2260,7 @@ Method TestaCrit(aCrit As Array, xVal As Variant) Class Motor
 	EndIf
 	If aCrit[4]	//Critério numérico
 		If cTipo=="C" .AND. cOp=="="
-			nNum	:= TxtParaNum(xVal)
+			nNum	:= TxtParaNum(xVal,::cSepDec)
 			If nNum==nil
 				Return .F.
 			EndIf
@@ -2277,7 +2303,7 @@ Compara texto com padrão de curingas do Excel (* ? e ~ como escape), sem diferen
 @type method
 /*/
 Method Curinga(cPadrao As Character, cTxt As Character) Class Motor
-Return Curinga(Upper(cPadrao),1,Upper(cTxt),1)
+Return Curinga(Maius(cPadrao),1,Maius(cTxt),1)
 
 Static Function Curinga(cP As Character, nP As Numeric, cT As Character, nT As Numeric)
 	Local cCar As Character
@@ -2412,3 +2438,313 @@ Static Function PrecisaNo(oM As Object, aNo As Array, aAreas As Array, nNivel As
 			Next
 	EndCase
 Return .T.
+
+/*/{Protheus.doc} Motor::SetLocal
+Define a localidade usada nas conversões texto/número e nos formatos de TEXT/FIXED/DOLLAR/VALUE
+@type method
+@param cLocal, character, "pt-BR" (padrão) ou "en-US"
+/*/
+Method SetLocal(cLocal As Character) Class Motor
+	::cLocal	:= If(Upper(cLocal)=="EN-US","en-US","pt-BR")
+	::cSepDec	:= If(::cLocal=="pt-BR",",",".")
+	::cSepMil	:= If(::cLocal=="pt-BR",".",",")
+Return self
+
+//Texto para número na localidade (nil se não for número)
+Method TxtLoc(cTxt As Character) Class Motor
+Return TxtParaNum(cTxt,::cSepDec)
+
+//Número para texto (formato Geral) na localidade
+Method NumLoc(nNum As Numeric) Class Motor
+Return NumTxt(nNum,::cSepDec)
+
+//Maiúsculas com acentos (CP-1252)
+Method Maius(cTxt As Character) Class Motor
+Return Maius(cTxt)
+
+//Minúsculas com acentos (CP-1252)
+Method Minus(cTxt As Character) Class Motor
+Return Minus(cTxt)
+
+/*/{Protheus.doc} Maius
+Converte em maiúsculas incluindo letras acentuadas da página de código 1252
+/*/
+Static Function Maius(cTxt As Character)
+	Local cRet As Character
+	Local nCont As Numeric
+	Local nAsc As Numeric
+	cRet	:= Upper(cTxt)
+	If !TemAcento(cRet)
+		Return cRet
+	EndIf
+	cTxt	:= cRet
+	cRet	:= ""
+	For nCont:=1 to Len(cTxt)
+		nAsc	:= Asc(SubStr(cTxt,nCont,1))
+		If (nAsc>=224 .AND. nAsc<=254 .AND. nAsc!=247)
+			nAsc	-= 32
+		ElseIf nAsc==154 .OR. nAsc==156 .OR. nAsc==158
+			nAsc	-= 16
+		ElseIf nAsc==255
+			nAsc	:= 159
+		EndIf
+		cRet	+= Chr(nAsc)
+	Next
+Return cRet
+
+/*/{Protheus.doc} Minus
+Converte em minúsculas incluindo letras acentuadas da página de código 1252
+/*/
+Static Function Minus(cTxt As Character)
+	Local cRet As Character
+	Local nCont As Numeric
+	Local nAsc As Numeric
+	cRet	:= Lower(cTxt)
+	If !TemAcento(cRet)
+		Return cRet
+	EndIf
+	cTxt	:= cRet
+	cRet	:= ""
+	For nCont:=1 to Len(cTxt)
+		nAsc	:= Asc(SubStr(cTxt,nCont,1))
+		If (nAsc>=192 .AND. nAsc<=222 .AND. nAsc!=215)
+			nAsc	+= 32
+		ElseIf nAsc==138 .OR. nAsc==140 .OR. nAsc==142
+			nAsc	+= 16
+		ElseIf nAsc==159
+			nAsc	:= 255
+		EndIf
+		cRet	+= Chr(nAsc)
+	Next
+Return cRet
+
+//Texto possui caracteres acima de 127
+Static Function TemAcento(cTxt As Character)
+	Local nCont As Numeric
+	For nCont:=1 to Len(cTxt)
+		If Asc(SubStr(cTxt,nCont,1))>127
+			Return .T.
+		EndIf
+	Next
+Return .F.
+
+/*/{Protheus.doc} Motor::SerialData
+Data serial do Excel (sistema 1900) para {ano,mês,dia}; serial 60 é o 29/02/1900 fictício do Excel
+@type method
+/*/
+Method SerialData(nSerial As Numeric) Class Motor
+	Local dData As Date
+	nSerial	:= Int(nSerial)
+	If nSerial==60
+		Return {1900,2,29}
+	EndIf
+	If nSerial==0
+		Return {1900,1,0}
+	EndIf
+	If nSerial<60
+		dData	:= STOD("18991231")+nSerial
+	Else
+		dData	:= STOD("18991230")+nSerial
+	EndIf
+Return {Year(dData),Month(dData),Day(dData)}
+
+/*/{Protheus.doc} Motor::DataSerial
+{ano,mês,dia} para data serial do Excel com as regras da função DATE (ano 0-1899 soma 1900, mês e dia excedentes)
+@type method
+@return variant, serial ou Erro #NUM!
+/*/
+Method DataSerial(nAno As Numeric, nMes As Numeric, nDia As Numeric) Class Motor
+	Local nSerial As Numeric
+	Local dData As Date
+	Local xDias As Variant
+	nAno	:= Int(nAno)
+	nMes	:= Int(nMes)
+	nDia	:= Int(nDia)
+	If nAno<1900
+		nAno	+= 1900
+	EndIf
+	nAno	+= Int((nMes-1)/12)
+	nMes	:= Mod(nMes-1,12)
+	If nMes<0
+		nMes	+= 12
+		nAno	-= 1
+	EndIf
+	If nAno<1900 .OR. nAno>9999
+		Return Err("#NUM!")
+	EndIf
+	If nAno==1900 .AND. nMes==1 .AND. nDia==29	//29/02/1900 inexistente que o Excel considera
+		Return 60
+	EndIf
+	dData	:= STOD(StrZero(nAno,4)+StrZero(nMes+1,2)+"01")
+	xDias	:= dData-STOD("18991231")
+	nSerial	:= xDias+nDia-1
+	If nSerial>=60
+		nSerial++
+	EndIf
+	If nSerial<0 .OR. nSerial>2958465
+		Return Err("#NUM!")
+	EndIf
+Return nSerial
+
+//Dia da semana do serial (1=domingo ... 7=sábado), como WEEKDAY tipo 1
+Method DiaSemana(nSerial As Numeric) Class Motor
+Return Mod(Int(nSerial)+6,7)+1
+
+/*/{Protheus.doc} Motor::TxtData
+Converte texto de data e/ou hora em serial do Excel conforme a localidade
+("31/12/2024", "2024-12-31", "15-jan-2024", "15 de janeiro de 2024", "10:30", "31/12/2024 10:30:15", "1:05 PM")
+@type method
+@return variant, serial ou nil
+/*/
+Method TxtData(cTxt As Character) Class Motor
+	Local cT := Lower(AllTrim(cTxt)) As Character
+	Local nHora := 0 As Numeric
+	Local lHora := .F. As Logical
+	Local lData := .F. As Logical
+	Local nSerial := 0 As Numeric
+	Local aPartes As Array
+	Local nCont As Numeric
+	Local cParte As Character
+	Local cHora := "" As Character
+	Local cData := "" As Character
+	Local nPm := 0 As Numeric
+	Local aHms As Array
+	Local aTok As Array
+	Local nMes As Numeric
+	Local aNum := {} As Array
+	Local nAno As Numeric
+	Local nDia As Numeric
+	Local xRet As Variant
+	If Empty(cT)
+		Return nil
+	EndIf
+	If Right(cT,2)=="am" .OR. Right(cT,2)=="pm"
+		nPm	:= If(Right(cT,2)=="pm",2,1)
+		cT	:= AllTrim(Left(cT,Len(cT)-2))
+	EndIf
+	cT		:= StrTran(cT,"t"," ")	//ISO 2024-01-31T10:00
+	aPartes	:= StrTokArr2(cT," ",.F.)
+	For nCont:=1 to Len(aPartes)
+		cParte	:= aPartes[nCont]
+		If ":" $ cParte
+			cHora	:= cParte
+		ElseIf !(cParte=="de")
+			cData	+= If(Empty(cData),""," ")+cParte
+		EndIf
+	Next
+	FwFreeArray(aPartes)
+	If !Empty(cHora)
+		aHms	:= StrTokArr2(StrTran(cHora,",","."),":",.T.)
+		If Len(aHms)>3 .OR. !SoNum(aHms[1]) .OR. !SoNum(aHms[2]) .OR. (Len(aHms)==3 .AND. !SoNum(StrTran(aHms[3],".","")))
+			Return nil
+		EndIf
+		nHora	:= Val(aHms[1])
+		If nPm>0
+			If nHora>12 .OR. nHora==0
+				Return nil
+			EndIf
+			nHora	:= Mod(nHora,12)+If(nPm==2,12,0)
+		EndIf
+		nHora	:= (nHora*3600+Val(aHms[2])*60+If(Len(aHms)==3,Val(aHms[3]),0))/86400
+		lHora	:= .T.
+		FwFreeArray(aHms)
+	ElseIf nPm>0
+		Return nil
+	EndIf
+	If !Empty(cData)
+		aTok	:= StrTokArr2(StrTran(StrTran(StrTran(cData,"-","/"),".","/")," ","/"),"/",.F.)
+		nMes	:= 0
+		For nCont:=1 to Len(aTok)
+			If SoNum(aTok[nCont])
+				AADD(aNum,{nCont,Val(aTok[nCont]),Len(aTok[nCont])})
+			ElseIf nMes==0
+				nMes	:= MesNome(aTok[nCont])
+				If nMes==0
+					Return nil
+				EndIf
+			Else
+				Return nil
+			EndIf
+		Next
+		Do Case
+			Case nMes>0 .AND. Len(aNum)==2	//15-jan-2024 ou jan 15 2024
+				nDia	:= aNum[1][2]
+				nAno	:= aNum[2][2]
+				If aNum[1][3]==4
+					nAno	:= aNum[1][2]
+					nDia	:= aNum[2][2]
+				EndIf
+			Case nMes>0 .AND. Len(aNum)==1
+				nDia	:= aNum[1][2]
+				nAno	:= Year(Date())
+			Case nMes==0 .AND. Len(aNum)==3
+				If aNum[1][3]==4	//ISO ano-mês-dia
+					nAno	:= aNum[1][2]
+					nMes	:= aNum[2][2]
+					nDia	:= aNum[3][2]
+				ElseIf ::cLocal=="pt-BR"
+					nDia	:= aNum[1][2]
+					nMes	:= aNum[2][2]
+					nAno	:= aNum[3][2]
+				Else
+					nMes	:= aNum[1][2]
+					nDia	:= aNum[2][2]
+					nAno	:= aNum[3][2]
+				EndIf
+			Case nMes==0 .AND. Len(aNum)==2
+				If ::cLocal=="pt-BR"
+					nDia	:= aNum[1][2]
+					nMes	:= aNum[2][2]
+				Else
+					nMes	:= aNum[1][2]
+					nDia	:= aNum[2][2]
+				EndIf
+				nAno	:= Year(Date())
+			Otherwise
+				Return nil
+		EndCase
+		If nAno<100
+			nAno	+= If(nAno<30,2000,1900)
+		EndIf
+		If nMes<1 .OR. nMes>12 .OR. nDia<1 .OR. nDia>31 .OR. nAno<1900 .OR. nAno>9999
+			Return nil
+		EndIf
+		xRet	:= ::DataSerial(nAno,nMes,nDia)
+		If ValType(xRet)!="N" .OR. ::SerialData(xRet)[3]!=nDia
+			Return nil
+		EndIf
+		nSerial	:= xRet
+		lData	:= .T.
+		FwFreeArray(aTok)
+		FwFreeArray(aNum)
+	EndIf
+	If !lData .AND. !lHora
+		Return nil
+	EndIf
+Return nSerial+nHora
+
+Static Function SoNum(cTxt As Character)
+	Local nCont As Numeric
+	If Empty(cTxt)
+		Return .F.
+	EndIf
+	For nCont:=1 to Len(cTxt)
+		If !IsDigit(SubStr(cTxt,nCont,1))
+			Return .F.
+		EndIf
+	Next
+Return .T.
+
+//Número do mês pelo nome (português ou inglês, completo ou abreviado)
+Static Function MesNome(cNome As Character)
+	Local aPt := {"jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"} As Array
+	Local aEn := {"jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"} As Array
+	Local nPos As Numeric
+	cNome	:= Left(Lower(cNome),3)
+	nPos	:= aScan(aPt,cNome)
+	If nPos==0
+		nPos	:= aScan(aEn,cNome)
+	EndIf
+	FwFreeArray(aPt)
+	FwFreeArray(aEn)
+Return nPos

@@ -61,6 +61,8 @@ Method Registrar(oM As Object) Class FuncLog
 	oM:Registrar("TYPE"			,{|o,a| fType(o,a) }							,1,1)
 	oM:Registrar("SHEET"		,{|o,a| fSheet(o,a,.F.) }						,0,1)
 	oM:Registrar("SHEETS"		,{|o,a| fSheet(o,a,.T.) }						,0,1)
+	oM:Registrar("CELL"			,{|o,a| fCell(o,a) }							,1,2)
+	oM:Registrar("INFO"			,{|o,a| fInfo(o,a) }							,1,1)
 Return
 
 //Avalia o nó e remove a referência
@@ -404,4 +406,63 @@ Static Function fSheet(oM As Object, aArgs As Array, lQtd As Logical)
 		EndIf
 		Return nPla
 	EndIf
+Return oM:Err("#VALUE!")
+
+/*/{Protheus.doc} fCell
+CELL(tipo,[referência]) - address, col, row, contents, type; os demais dependem do ambiente do Excel
+/*/
+Static Function fCell(oM As Object, aArgs As Array)
+	Local cTipo := oM:Txt(aArgs[1]) As Variant
+	Local oRef As Object
+	Local xVal As Variant
+	If oM:EhErro(cTipo)
+		Return cTipo
+	EndIf
+	If Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U"
+		If !oM:EhRef(aArgs[2])
+			Return oM:Err("#VALUE!")
+		EndIf
+		oRef	:= aArgs[2]
+	Else
+		oRef	:= oM:NovaRef(oM:nPla,oM:nLin,oM:nCol,oM:nLin,oM:nCol)
+	EndIf
+	cTipo	:= Lower(AllTrim(cTipo))
+	Do Case
+		Case cTipo=="address"
+			Return "$"+oM:ColLetra(oRef:nC1)+"$"+cValToChar(oRef:nL1)
+		Case cTipo=="col"
+			Return oRef:nC1
+		Case cTipo=="row"
+			Return oRef:nL1
+		Case cTipo=="contents"
+			Return oM:ValorCel(oRef:nPla,oRef:nL1,oRef:nC1)
+		Case cTipo=="type"
+			xVal	:= oM:ValorCel(oRef:nPla,oRef:nL1,oRef:nC1)
+			Return If(ValType(xVal)=="U","b",If(ValType(xVal)=="C","l","v"))
+		Case cTipo $ "filename|format|color|parentheses|prefix|protect|width"
+			oM:lIncompleto	:= .T.	//Depende do arquivo/estilo no Excel
+			Return oM:Err("#N/A")
+	EndCase
+Return oM:Err("#VALUE!")
+
+/*/{Protheus.doc} fInfo
+INFO(tipo) - numfile, recalc, system; os demais dependem do ambiente do Excel
+/*/
+Static Function fInfo(oM As Object, aArgs As Array)
+	Local cTipo := oM:Txt(aArgs[1]) As Variant
+	If oM:EhErro(cTipo)
+		Return cTipo
+	EndIf
+	cTipo	:= Lower(AllTrim(cTipo))
+	Do Case
+		Case cTipo=="numfile"
+			Return oM:oProv:CalcQtdPlan()
+		Case cTipo=="recalc"
+			Return If(oM:cLocal=="pt-BR","Automático","Automatic")
+		Case cTipo=="system"
+			Return "pcdos"
+		Case cTipo $ "directory|origin|osversion|release"
+			oM:lIncompleto	:= .T.
+			Return oM:Err("#N/A")
+	EndCase
 Return oM:Err("#VALUE!")

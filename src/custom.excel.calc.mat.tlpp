@@ -48,6 +48,7 @@ Method Registrar(oM As Object) Class FuncMat
 	oM:Registrar("LOG"			,{|o,a| fLog(o,a,-1) }			,1,2	,"E")
 	oM:Registrar("EVEN"			,{|o,a| fParImpar(o,a,.T.) }	,1,1	,"E")
 	oM:Registrar("ODD"			,{|o,a| fParImpar(o,a,.F.) }	,1,1	,"E")
+	RegMat2(oM)
 Return
 
 //Maior inteiro menor ou igual
@@ -368,3 +369,793 @@ Static Function fParImpar(oM As Object, aArgs As Array, lPar As Logical)
 		EndIf
 	EndIf
 Return nSinal*nRet
+
+//Registro das funções matemáticas adicionais (etapa 1b)
+Static Function RegMat2(oM As Object)
+	oM:Registrar("SIN"				,{|o,a| Trig(o,a,{|n| Sin(n) }) }								,1,1,"E")
+	oM:Registrar("COS"				,{|o,a| Trig(o,a,{|n| Cos(n) }) }								,1,1,"E")
+	oM:Registrar("TAN"				,{|o,a| Trig(o,a,{|n| Tan(n) }) }								,1,1,"E")
+	oM:Registrar("COT"				,{|o,a| Trig(o,a,{|n,o| If(Tan(n)==0,o:Err("#DIV/0!"),1/Tan(n)) }) }	,1,1,"E")
+	oM:Registrar("SEC"				,{|o,a| Trig(o,a,{|n| 1/Cos(n) }) }								,1,1,"E")
+	oM:Registrar("CSC"				,{|o,a| Trig(o,a,{|n,o| If(Sin(n)==0,o:Err("#DIV/0!"),1/Sin(n)) }) }	,1,1,"E")
+	oM:Registrar("ASIN"				,{|o,a| Fn1D(o,a,{|n| Abs(n)<=1 },{|n| ASin(n) }) }				,1,1,"E")
+	oM:Registrar("ACOS"				,{|o,a| Fn1D(o,a,{|n| Abs(n)<=1 },{|n| ACos(n) }) }				,1,1,"E")
+	oM:Registrar("ATAN"				,{|o,a| Fn1(o,a,{|n| ATan(n) }) }								,1,1,"E")
+	oM:Registrar("ACOT"				,{|o,a| Fn1(o,a,{|n| XPI/2-ATan(n) }) }							,1,1,"E")
+	oM:Registrar("ATAN2"			,{|o,a| fAtan2(o,a) }											,2,2,"E")
+	oM:Registrar("SINH"				,{|o,a| Fn1(o,a,{|n| (Exp(n)-Exp(-n))/2 }) }					,1,1,"E")
+	oM:Registrar("COSH"				,{|o,a| Fn1(o,a,{|n| (Exp(n)+Exp(-n))/2 }) }					,1,1,"E")
+	oM:Registrar("TANH"				,{|o,a| Fn1(o,a,{|n| TanH(n) }) }								,1,1,"E")
+	oM:Registrar("COTH"				,{|o,a| Fn1D(o,a,{|n| n!=0 },{|n| 1/TanH(n) },"#DIV/0!") }		,1,1,"E")
+	oM:Registrar("SECH"				,{|o,a| Fn1(o,a,{|n| 2/(Exp(n)+Exp(-n)) }) }					,1,1,"E")
+	oM:Registrar("CSCH"				,{|o,a| Fn1D(o,a,{|n| n!=0 },{|n| 2/(Exp(n)-Exp(-n)) },"#DIV/0!") }	,1,1,"E")
+	oM:Registrar("ASINH"			,{|o,a| Fn1(o,a,{|n| If(n<0,-1,1)*Log(Abs(n)+Sqrt(n*n+1)) }) }	,1,1,"E")
+	oM:Registrar("ACOSH"			,{|o,a| Fn1D(o,a,{|n| n>=1 },{|n| Log(n+Sqrt(n*n-1)) }) }		,1,1,"E")
+	oM:Registrar("ATANH"			,{|o,a| Fn1D(o,a,{|n| Abs(n)<1 },{|n| Log((1+n)/(1-n))/2 }) }	,1,1,"E")
+	oM:Registrar("ACOTH"			,{|o,a| Fn1D(o,a,{|n| Abs(n)>1 },{|n| Log((n+1)/(n-1))/2 }) }	,1,1,"E")
+	oM:Registrar("DEGREES"			,{|o,a| Fn1(o,a,{|n| n*180/XPI }) }								,1,1,"E")
+	oM:Registrar("RADIANS"			,{|o,a| Fn1(o,a,{|n| n*XPI/180 }) }								,1,1,"E")
+	oM:Registrar("SQRTPI"			,{|o,a| Fn1D(o,a,{|n| n>=0 },{|n| Sqrt(n*XPI) }) }				,1,1,"E")
+	oM:Registrar("FACT"				,{|o,a| Fn1D(o,a,{|n| n>=0 .AND. n<171 },{|n| Fatorial(Int(n)) }) }	,1,1,"E")
+	oM:Registrar("FACTDOUBLE"		,{|o,a| Fn1D(o,a,{|n| n>=-1 .AND. n<301 },{|n| FatDuplo(Int(n)) }) }	,1,1,"E")
+	oM:Registrar("COMBIN"			,{|o,a| fCombin(o,a,.F.) }										,2,2,"E")
+	oM:Registrar("COMBINA"			,{|o,a| fCombin(o,a,.T.) }										,2,2,"E")
+	oM:Registrar("MULTINOMIAL"		,{|o,a| fMultinomial(o,a) }										,1,255)
+	oM:Registrar("GCD"				,{|o,a| fMdcMmc(o,a,.T.) }										,1,255)
+	oM:Registrar("LCM"				,{|o,a| fMdcMmc(o,a,.F.) }										,1,255)
+	oM:Registrar("CEILING"			,{|o,a| fTeto(o,a,0) }											,1,2,"E")
+	oM:Registrar("CEILING.MATH"		,{|o,a| fTeto(o,a,1) }											,1,3,"E")
+	oM:Registrar("CEILING.PRECISE"	,{|o,a| fTeto(o,a,2) }											,1,2,"E")
+	oM:Registrar("ISO.CEILING"		,{|o,a| fTeto(o,a,2) }											,1,2,"E")
+	oM:Registrar("ECMA.CEILING"		,{|o,a| fTeto(o,a,0) }											,2,2,"E")
+	oM:Registrar("FLOOR"			,{|o,a| fPiso(o,a,0) }											,1,2,"E")
+	oM:Registrar("FLOOR.MATH"		,{|o,a| fPiso(o,a,1) }											,1,3,"E")
+	oM:Registrar("FLOOR.PRECISE"	,{|o,a| fPiso(o,a,2) }											,1,2,"E")
+	oM:Registrar("MROUND"			,{|o,a| fMRound(o,a) }											,2,2,"E")
+	oM:Registrar("BASE"				,{|o,a| fBase(o,a) }											,2,3,"E")
+	oM:Registrar("DECIMAL"			,{|o,a| fDecimal(o,a) }											,2,2,"E")
+	oM:Registrar("ROMAN"			,{|o,a| fRoman(o,a) }											,1,2,"E")
+	oM:Registrar("ARABIC"			,{|o,a| fArabic(o,a) }											,1,1,"E")
+	oM:Registrar("MDETERM"			,{|o,a| fMDeterm(o,a) }											,1,1)
+	oM:Registrar("MINVERSE"			,{|o,a| fMInverse(o,a) }										,1,1)
+	oM:Registrar("MMULT"			,{|o,a| fMMult(o,a) }											,2,2)
+	oM:Registrar("MUNIT"			,{|o,a| fMUnit(o,a) }											,1,1)
+	oM:Registrar("RAND"				,{|o,a| Aleatorio() }											,0,0,"V")
+	oM:Registrar("RANDBETWEEN"		,{|o,a| fRandBetween(o,a) }										,2,2,"EV")
+	oM:Registrar("RANDARRAY"		,{|o,a| fRandArray(o,a) }										,0,5,"V")
+	oM:Registrar("SEQUENCE"			,{|o,a| fSequence(o,a) }										,1,4)
+	oM:Registrar("SERIESSUM"		,{|o,a| fSeriesSum(o,a) }										,4,4)
+	oM:Registrar("SUMX2MY2"			,{|o,a| fSomaPares(o,a,1) }										,2,2)
+	oM:Registrar("SUMX2PY2"			,{|o,a| fSomaPares(o,a,2) }										,2,2)
+	oM:Registrar("SUMXMY2"			,{|o,a| fSomaPares(o,a,3) }										,2,2)
+Return
+
+//Função de um argumento com validação de domínio (fora do domínio: cErro, padrão #NUM!)
+Static Function Fn1D(oM As Object, aArgs As Array, bValida As CodeBlock, bCalc As CodeBlock, cErro As Character)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Default cErro	:= "#NUM!"
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If !Eval(bValida,nNum)
+		Return oM:Err(cErro)
+	EndIf
+Return Eval(bCalc,nNum)
+
+//Funções trigonométricas: argumento acima de 2^27 retorna #NUM!
+Static Function Trig(oM As Object, aArgs As Array, bCalc As CodeBlock)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If Abs(nNum)>=134217728
+		Return oM:Err("#NUM!")
+	EndIf
+Return Eval(bCalc,nNum,oM)
+
+Static Function TanH(nNum As Numeric)
+	If nNum>20
+		Return 1
+	ElseIf nNum<-20
+		Return -1
+	EndIf
+Return (Exp(nNum)-Exp(-nNum))/(Exp(nNum)+Exp(-nNum))
+
+Static Function fAtan2(oM As Object, aArgs As Array)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	Local nY := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+	If oM:EhErro(nY)
+		Return nY
+	EndIf
+	If nX==0 .AND. nY==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+	If nX>0
+		Return ATan(nY/nX)
+	ElseIf nX<0
+		Return ATan(nY/nX)+If(nY>=0,XPI,-XPI)
+	EndIf
+Return If(nY>0,XPI/2,-XPI/2)
+
+Static Function Fatorial(nNum As Numeric)
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	For nCont:=2 to nNum
+		nRet	*= nCont
+	Next
+Return nRet
+
+Static Function FatDuplo(nNum As Numeric)
+	Local nRet := 1 As Numeric
+	While nNum>1
+		nRet	*= nNum
+		nNum	-= 2
+	EndDo
+Return nRet
+
+Static Function fCombin(oM As Object, aArgs As Array, lRepet As Logical)
+	Local nN := oM:Num(aArgs[1]) As Variant
+	Local nK := oM:Num(aArgs[2]) As Variant
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	If oM:EhErro(nN)
+		Return nN
+	EndIf
+	If oM:EhErro(nK)
+		Return nK
+	EndIf
+	nN	:= Int(nN)
+	nK	:= Int(nK)
+	If nN<0 .OR. nK<0
+		Return oM:Err("#NUM!")
+	EndIf
+	If lRepet
+		If nN==0 .AND. nK==0
+			Return 1
+		EndIf
+		nN	:= nN+nK-1
+	EndIf
+	If nN<nK
+		Return oM:Err("#NUM!")
+	EndIf
+	nK	:= Min(nK,nN-nK)
+	For nCont:=1 to nK
+		nRet	:= nRet*(nN-nK+nCont)/nCont
+	Next
+Return Round(nRet,0)
+
+Static Function fMultinomial(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local nSoma := 0 As Numeric
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	Local nN As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	For nCont:=1 to Len(aNums)
+		nN	:= Int(aNums[nCont])
+		If nN<0
+			Return oM:Err("#NUM!")
+		EndIf
+		nSoma	+= nN
+		nRet	:= nRet*CombinN(nSoma,nN)
+	Next
+	FwFreeArray(aNums)
+Return Round(nRet,0)
+
+Static Function CombinN(nN As Numeric, nK As Numeric)
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	nK	:= Min(nK,nN-nK)
+	For nCont:=1 to nK
+		nRet	:= nRet*(nN-nK+nCont)/nCont
+	Next
+Return nRet
+
+Static Function fMdcMmc(oM As Object, aArgs As Array, lMdc As Logical)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local nRet As Numeric
+	Local nCont As Numeric
+	Local nN As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nRet	:= If(lMdc,0,1)
+	For nCont:=1 to Len(aNums)
+		nN	:= Int(aNums[nCont])
+		If nN<0 .OR. nN>=9007199254740992
+			Return oM:Err("#NUM!")
+		EndIf
+		If lMdc
+			nRet	:= Mdc(nRet,nN)
+		ElseIf nN==0 .OR. nRet==0
+			nRet	:= 0
+		Else
+			nRet	:= nRet/Mdc(nRet,nN)*nN
+		EndIf
+	Next
+	FwFreeArray(aNums)
+Return nRet
+
+Static Function Mdc(nA As Numeric, nB As Numeric)
+	Local nT As Numeric
+	While nB!=0
+		nT	:= nA-nB*Int(nA/nB)
+		nA	:= nB
+		nB	:= nT
+	EndDo
+Return nA
+
+//Divisão para arredondamento por múltiplo, sem resíduo de ponto flutuante
+Static Function DivMult(nNum As Numeric, nSig As Numeric)
+Return Round(nNum/nSig,9)
+
+//Teto do número (inteiro >= x)
+Static Function Teto(nNum As Numeric)
+	Local nInt := Int(nNum) As Numeric
+	If nNum>0 .AND. nInt!=nNum
+		nInt	+= 1
+	EndIf
+Return nInt
+
+//nModo 0=CEILING 1=CEILING.MATH 2=CEILING.PRECISE/ISO.CEILING
+Static Function fTeto(oM As Object, aArgs As Array, nModo As Numeric)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nSig := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Num(aArgs[2]),If(nModo==0 .AND. Len(aArgs)>=2,0,1)) As Variant
+	Local nTipo := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),0) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nSig)
+		Return nSig
+	EndIf
+	If oM:EhErro(nTipo)
+		Return nTipo
+	EndIf
+	If nModo==0 .AND. Len(aArgs)<2
+		Return oM:Err("#VALUE!")	//CEILING exige a significância
+	EndIf
+	If nSig==0 .OR. nNum==0
+		Return 0
+	EndIf
+	If nModo==0
+		If nNum>0 .AND. nSig<0
+			Return oM:Err("#NUM!")
+		EndIf
+		Return nSig*Teto(DivMult(nNum,nSig))
+	EndIf
+	nSig	:= Abs(nSig)
+	If nModo==1 .AND. nNum<0 .AND. nTipo!=0	//Afasta do zero
+		Return -nSig*Teto(DivMult(-nNum,nSig))
+	EndIf
+Return nSig*Teto(DivMult(nNum,nSig))
+
+//nModo 0=FLOOR 1=FLOOR.MATH 2=FLOOR.PRECISE
+Static Function fPiso(oM As Object, aArgs As Array, nModo As Numeric)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nSig := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Num(aArgs[2]),If(nModo==0 .AND. Len(aArgs)>=2,0,1)) As Variant
+	Local nTipo := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),0) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nSig)
+		Return nSig
+	EndIf
+	If oM:EhErro(nTipo)
+		Return nTipo
+	EndIf
+	If nModo==0 .AND. Len(aArgs)<2
+		Return oM:Err("#VALUE!")
+	EndIf
+	If nModo==0
+		If nSig==0
+			Return If(nNum==0,0,oM:Err("#DIV/0!"))
+		EndIf
+		If nNum>0 .AND. nSig<0
+			Return oM:Err("#NUM!")
+		EndIf
+		Return nSig*Piso(DivMult(nNum,nSig))
+	EndIf
+	If nSig==0 .OR. nNum==0
+		Return 0
+	EndIf
+	nSig	:= Abs(nSig)
+	If nModo==1 .AND. nNum<0 .AND. nTipo!=0	//Em direção ao zero
+		Return -nSig*Piso(DivMult(-nNum,nSig))
+	EndIf
+Return nSig*Piso(DivMult(nNum,nSig))
+
+Static Function fMRound(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nMult := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nMult)
+		Return nMult
+	EndIf
+	If nMult==0
+		Return 0
+	EndIf
+	If (nNum>0 .AND. nMult<0) .OR. (nNum<0 .AND. nMult>0)
+		Return oM:Err("#NUM!")
+	EndIf
+Return nMult*ArredExcel(nNum/nMult,0,0)
+
+Static Function fBase(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nBase := oM:Num(aArgs[2]) As Variant
+	Local nMin := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),0) As Variant
+	Local cRet := "" As Character
+	Local nDig As Numeric
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nBase)
+		Return nBase
+	EndIf
+	If oM:EhErro(nMin)
+		Return nMin
+	EndIf
+	nNum	:= Int(nNum)
+	nBase	:= Int(nBase)
+	If nNum<0 .OR. nNum>=9007199254740992 .OR. nBase<2 .OR. nBase>36 .OR. nMin<0 .OR. nMin>255
+		Return oM:Err("#NUM!")
+	EndIf
+	While nNum>0
+		nDig	:= nNum-nBase*Int(nNum/nBase)
+		cRet	:= SubStr("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",nDig+1,1)+cRet
+		nNum	:= Int(nNum/nBase)
+	EndDo
+	If Empty(cRet)
+		cRet	:= "0"
+	EndIf
+	If Len(cRet)<nMin
+		cRet	:= Replicate("0",nMin-Len(cRet))+cRet
+	EndIf
+Return cRet
+
+Static Function fDecimal(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nBase := oM:Num(aArgs[2]) As Variant
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	Local nDig As Numeric
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	If oM:EhErro(nBase)
+		Return nBase
+	EndIf
+	nBase	:= Int(nBase)
+	If nBase<2 .OR. nBase>36 .OR. Len(cTxt)>255
+		Return oM:Err("#NUM!")
+	EndIf
+	cTxt	:= Upper(AllTrim(cTxt))
+	For nCont:=1 to Len(cTxt)
+		nDig	:= At(SubStr(cTxt,nCont,1),"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")-1
+		If nDig<0 .OR. nDig>=nBase
+			Return oM:Err("#NUM!")
+		EndIf
+		nRet	:= nRet*nBase+nDig
+	Next
+Return nRet
+
+/*/{Protheus.doc} fRoman
+ROMAN(número,[forma]) - formas 0 (clássica) a 4 (simplificada), mesmo algoritmo do LibreOffice/Excel
+/*/
+Static Function fRoman(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local xForma := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",aArgs[2],0) As Variant
+	Local aCar := {"M","D","C","L","X","V","I"} As Array
+	Local aVal := {1000,500,100,50,10,5,1} As Array
+	Local nMaxIdx := 6 As Numeric
+	Local cRet := "" As Character
+	Local nI As Numeric
+	Local nIdx As Numeric
+	Local nIdx2 As Numeric
+	Local nDig As Numeric
+	Local nPassos As Numeric
+	Local nModo As Numeric
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If ValType(xForma)=="L"
+		nModo	:= If(xForma,0,4)
+	Else
+		nModo	:= oM:Num(xForma)
+		If oM:EhErro(nModo)
+			Return nModo
+		EndIf
+		nModo	:= Int(nModo)
+	EndIf
+	nNum	:= Int(nNum)
+	If nNum<0 .OR. nNum>3999 .OR. nModo<0 .OR. nModo>4
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nI:=0 to Int(nMaxIdx/2)
+		nIdx	:= 2*nI
+		nDig	:= Int(nNum/aVal[nIdx+1])
+		If Mod(nDig,5)==4
+			nIdx2	:= If(nDig==4,nIdx-1,nIdx-2)
+			nPassos	:= 0
+			While nPassos<nModo .AND. nIdx<nMaxIdx
+				nPassos++
+				If aVal[nIdx2+1]-aVal[nIdx+2]<=nNum
+					nIdx++
+				Else
+					nPassos	:= nModo
+				EndIf
+			EndDo
+			cRet	+= aCar[nIdx+1]+aCar[nIdx2+1]
+			nNum	:= nNum+aVal[nIdx+1]-aVal[nIdx2+1]
+		Else
+			If nDig>4
+				cRet	+= aCar[nIdx]
+			EndIf
+			cRet	+= Replicate(aCar[nIdx+1],Mod(nDig,5))
+			nNum	:= Mod(nNum,aVal[nIdx+1])
+		EndIf
+	Next
+	FwFreeArray(aCar)
+	FwFreeArray(aVal)
+Return cRet
+
+Static Function fArabic(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nSinal := 1 As Numeric
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	Local nAtu As Numeric
+	Local nProx As Numeric
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	cTxt	:= Upper(AllTrim(cTxt))
+	If Left(cTxt,1)=="-"
+		nSinal	:= -1
+		cTxt	:= SubStr(cTxt,2)
+	EndIf
+	If Len(cTxt)>255
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nCont:=1 to Len(cTxt)
+		nAtu	:= ValRomano(SubStr(cTxt,nCont,1))
+		If nAtu==0
+			Return oM:Err("#VALUE!")
+		EndIf
+		nProx	:= If(nCont<Len(cTxt),ValRomano(SubStr(cTxt,nCont+1,1)),0)
+		nRet	+= If(nAtu<nProx,-nAtu,nAtu)
+	Next
+Return nSinal*nRet
+
+Static Function ValRomano(cCar As Character)
+	Local nPos := At(cCar,"IVXLCDM") As Numeric
+	Local aVal := {1,5,10,50,100,500,1000} As Array
+	Local nRet := 0 As Numeric
+	If nPos>0
+		nRet	:= aVal[nPos]
+	EndIf
+	FwFreeArray(aVal)
+Return nRet
+
+//Matriz numérica quadrada (Erro se houver texto/vazio)
+Static Function MatNum(oM As Object, xArg As Variant, lQuadrada As Logical)
+	Local oMat := oM:ParaMat(xArg) As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If lQuadrada .AND. oMat:nL!=oMat:nC
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nI:=1 to oMat:nL
+		For nJ:=1 to oMat:nC
+			If oM:EhErro(oMat:aV[nI][nJ])
+				Return oMat:aV[nI][nJ]
+			EndIf
+			If ValType(oMat:aV[nI][nJ])!="N"
+				Return oM:Err("#VALUE!")
+			EndIf
+		Next
+	Next
+Return oMat
+
+Static Function fMDeterm(oM As Object, aArgs As Array)
+	Local oMat := MatNum(oM,aArgs[1],.T.) As Variant
+	Local aA As Array
+	Local nN As Numeric
+	Local nDet := 1 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nK As Numeric
+	Local nPiv As Numeric
+	Local nFat As Numeric
+	Local aTmp As Array
+	If oM:EhErro(oMat)
+		Return oMat
+	EndIf
+	nN	:= oMat:nL
+	aA	:= aClone(oMat:aV)
+	For nI:=1 to nN	//Eliminação de Gauss com pivoteamento parcial
+		nPiv	:= nI
+		For nK:=nI+1 to nN
+			If Abs(aA[nK][nI])>Abs(aA[nPiv][nI])
+				nPiv	:= nK
+			EndIf
+		Next
+		If aA[nPiv][nI]==0
+			FwFreeArray(aA)
+			Return 0
+		EndIf
+		If nPiv!=nI
+			aTmp		:= aA[nI]
+			aA[nI]		:= aA[nPiv]
+			aA[nPiv]	:= aTmp
+			nDet		:= -nDet
+		EndIf
+		nDet	*= aA[nI][nI]
+		For nK:=nI+1 to nN
+			nFat	:= aA[nK][nI]/aA[nI][nI]
+			For nJ:=nI to nN
+				aA[nK][nJ]	-= nFat*aA[nI][nJ]
+			Next
+		Next
+	Next
+	FwFreeArray(aA)
+Return nDet
+
+Static Function fMInverse(oM As Object, aArgs As Array)
+	Local oMat := MatNum(oM,aArgs[1],.T.) As Variant
+	Local aA As Array
+	Local nN As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nK As Numeric
+	Local nPiv As Numeric
+	Local nFat As Numeric
+	Local aTmp As Array
+	Local oRes As Object
+	If oM:EhErro(oMat)
+		Return oMat
+	EndIf
+	nN	:= oMat:nL
+	aA	:= Array(nN)
+	For nI:=1 to nN	//Matriz aumentada [A|I]
+		aA[nI]	:= Array(2*nN)
+		For nJ:=1 to nN
+			aA[nI][nJ]		:= oMat:aV[nI][nJ]
+			aA[nI][nN+nJ]	:= If(nI==nJ,1,0)
+		Next
+	Next
+	For nI:=1 to nN	//Gauss-Jordan
+		nPiv	:= nI
+		For nK:=nI+1 to nN
+			If Abs(aA[nK][nI])>Abs(aA[nPiv][nI])
+				nPiv	:= nK
+			EndIf
+		Next
+		If Abs(aA[nPiv][nI])<0.000000000000001
+			FwFreeArray(aA)
+			Return oM:Err("#NUM!")
+		EndIf
+		aTmp		:= aA[nI]
+		aA[nI]		:= aA[nPiv]
+		aA[nPiv]	:= aTmp
+		nFat	:= aA[nI][nI]
+		For nJ:=1 to 2*nN
+			aA[nI][nJ]	:= aA[nI][nJ]/nFat
+		Next
+		For nK:=1 to nN
+			If nK!=nI .AND. aA[nK][nI]!=0
+				nFat	:= aA[nK][nI]
+				For nJ:=1 to 2*nN
+					aA[nK][nJ]	-= nFat*aA[nI][nJ]
+				Next
+			EndIf
+		Next
+	Next
+	oRes	:= oM:NovaMat(nil,nN,nN)
+	For nI:=1 to nN
+		For nJ:=1 to nN
+			oRes:aV[nI][nJ]	:= aA[nI][nN+nJ]
+		Next
+	Next
+	FwFreeArray(aA)
+Return oRes
+
+Static Function fMMult(oM As Object, aArgs As Array)
+	Local oA := MatNum(oM,aArgs[1],.F.) As Variant
+	Local oB := MatNum(oM,aArgs[2],.F.) As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nK As Numeric
+	Local nSoma As Numeric
+	If oM:EhErro(oA)
+		Return oA
+	EndIf
+	If oM:EhErro(oB)
+		Return oB
+	EndIf
+	If oA:nC!=oB:nL
+		Return oM:Err("#VALUE!")
+	EndIf
+	oRes	:= oM:NovaMat(nil,oA:nL,oB:nC)
+	For nI:=1 to oA:nL
+		For nJ:=1 to oB:nC
+			nSoma	:= 0
+			For nK:=1 to oA:nC
+				nSoma	+= oA:aV[nI][nK]*oB:aV[nK][nJ]
+			Next
+			oRes:aV[nI][nJ]	:= nSoma
+		Next
+	Next
+Return oRes
+
+Static Function fMUnit(oM As Object, aArgs As Array)
+	Local nN := oM:Num(aArgs[1]) As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If oM:EhErro(nN)
+		Return nN
+	EndIf
+	nN	:= Int(nN)
+	If nN<1
+		Return oM:Err("#VALUE!")
+	EndIf
+	oRes	:= oM:NovaMat(nil,nN,nN)
+	For nI:=1 to nN
+		For nJ:=1 to nN
+			oRes:aV[nI][nJ]	:= If(nI==nJ,1,0)
+		Next
+	Next
+Return oRes
+
+//Número aleatório em [0,1)
+Static Function Aleatorio()
+Return (Randomize(0,1000000000)+Randomize(0,1000000000)/1000000000)/1000000000
+
+Static Function fRandBetween(oM As Object, aArgs As Array)
+	Local nIni := oM:Num(aArgs[1]) As Variant
+	Local nFim := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(nIni)
+		Return nIni
+	EndIf
+	If oM:EhErro(nFim)
+		Return nFim
+	EndIf
+	nIni	:= Teto(nIni)
+	nFim	:= Piso(nFim)
+	If nIni>nFim
+		Return oM:Err("#NUM!")
+	EndIf
+Return nIni+Int(Aleatorio()*(nFim-nIni+1))
+
+Static Function fRandArray(oM As Object, aArgs As Array)
+	Local nL := ArgNum(oM,aArgs,1,1) As Variant
+	Local nC := ArgNum(oM,aArgs,2,1) As Variant
+	Local nMin := ArgNum(oM,aArgs,3,0) As Variant
+	Local nMax := ArgNum(oM,aArgs,4,1) As Variant
+	Local lInt := Len(aArgs)>=5 .AND. ValType(aArgs[5])!="U" .AND. ValType(oM:Log(aArgs[5]))=="L" .AND. oM:Log(aArgs[5]) As Logical
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If oM:EhErro(nL) .OR. oM:EhErro(nC) .OR. oM:EhErro(nMin) .OR. oM:EhErro(nMax)
+		Return oM:Err("#VALUE!")
+	EndIf
+	nL	:= Int(nL)
+	nC	:= Int(nC)
+	If nL<1 .OR. nC<1 .OR. nMin>nMax
+		Return oM:Err(If(nMin>nMax,"#VALUE!","#CALC!"))
+	EndIf
+	oRes	:= oM:NovaMat(nil,nL,nC)
+	For nI:=1 to nL
+		For nJ:=1 to nC
+			If lInt
+				oRes:aV[nI][nJ]	:= Teto(nMin)+Int(Aleatorio()*(Piso(nMax)-Teto(nMin)+1))
+			Else
+				oRes:aV[nI][nJ]	:= nMin+Aleatorio()*(nMax-nMin)
+			EndIf
+		Next
+	Next
+Return oRes
+
+//Argumento numérico opcional (padrão quando omitido)
+Static Function ArgNum(oM As Object, aArgs As Array, nPos As Numeric, nPadrao As Numeric)
+	If Len(aArgs)<nPos .OR. ValType(aArgs[nPos])=="U"
+		Return nPadrao
+	EndIf
+Return oM:Num(aArgs[nPos])
+
+Static Function fSequence(oM As Object, aArgs As Array)
+	Local nL := ArgNum(oM,aArgs,1,1) As Variant
+	Local nC := ArgNum(oM,aArgs,2,1) As Variant
+	Local nIni := ArgNum(oM,aArgs,3,1) As Variant
+	Local nPasso := ArgNum(oM,aArgs,4,1) As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If oM:EhErro(nL) .OR. oM:EhErro(nC) .OR. oM:EhErro(nIni) .OR. oM:EhErro(nPasso)
+		Return oM:Err("#VALUE!")
+	EndIf
+	nL	:= Int(nL)
+	nC	:= Int(nC)
+	If nL<1 .OR. nC<1
+		Return oM:Err("#CALC!")
+	EndIf
+	oRes	:= oM:NovaMat(nil,nL,nC)
+	For nI:=1 to nL
+		For nJ:=1 to nC
+			oRes:aV[nI][nJ]	:= nIni+((nI-1)*nC+nJ-1)*nPasso
+		Next
+	Next
+Return oRes
+
+Static Function fSeriesSum(oM As Object, aArgs As Array)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	Local nN := oM:Num(aArgs[2]) As Variant
+	Local nM := oM:Num(aArgs[3]) As Variant
+	Local aCoef := {} As Array
+	Local xErro As Variant
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+	If oM:EhErro(nN)
+		Return nN
+	EndIf
+	If oM:EhErro(nM)
+		Return nM
+	EndIf
+	xErro	:= oM:Numeros({aArgs[4]},@aCoef)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	For nCont:=1 to Len(aCoef)
+		nRet	+= aCoef[nCont]*(nX^(nN+(nCont-1)*nM))
+	Next
+	FwFreeArray(aCoef)
+Return nRet
+
+//nTipo 1=SUMX2MY2 2=SUMX2PY2 3=SUMXMY2
+Static Function fSomaPares(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local oA := oM:ParaMat(aArgs[1]) As Object
+	Local oB := oM:ParaMat(aArgs[2]) As Object
+	Local nRet := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xA As Variant
+	Local xB As Variant
+	If oA:nL*oA:nC!=oB:nL*oB:nC
+		Return oM:Err("#N/A")
+	EndIf
+	For nI:=1 to oA:nL
+		For nJ:=1 to oA:nC
+			xA	:= oA:aV[nI][nJ]
+			xB	:= If(oB:nL==oA:nL,oB:aV[nI][nJ],oB:aV[Int(((nI-1)*oA:nC+nJ-1)/oB:nC)+1][Mod((nI-1)*oA:nC+nJ-1,oB:nC)+1])
+			If oM:EhErro(xA)
+				Return xA
+			EndIf
+			If oM:EhErro(xB)
+				Return xB
+			EndIf
+			If ValType(xA)=="N" .AND. ValType(xB)=="N"
+				Do Case
+					Case nTipo==1
+						nRet	+= xA*xA-xB*xB
+					Case nTipo==2
+						nRet	+= xA*xA+xB*xB
+					Otherwise
+						nRet	+= (xA-xB)^2
+				EndCase
+			EndIf
+		Next
+	Next
+Return nRet

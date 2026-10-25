@@ -121,16 +121,10 @@ User Function XCALCTST()
 	Local oMotor As Object
 	Local aCasos As Array
 	Local nCont As Numeric
-	Local xRes As Variant
-	Local lInc As Logical
 	Local cLog := "" As Character
 	Local nOk := 0 As Numeric
 	Local nFalha := 0 As Numeric
-	Local lPassou As Logical
 	Local nSeg := Seconds() As Numeric
-	Local nLin As Numeric
-	Local nCol As Numeric
-	Local oErr As Object
 	Local cFiltro := "" As Character
 	If File("\xcalc_filtro.txt")	//Filtro opcional de casos (trecho da fórmula)
 		cFiltro	:= AllTrim(MemoRead("\xcalc_filtro.txt"))
@@ -165,8 +159,32 @@ User Function XCALCTST()
 	oProv:oNomes:Set("TAXA","Plan1!$A$2")
 	oProv:oNomes:Set("DOBRO","LAMBDA(x,x*2)")
 
-	aCasos	:= CasosTeste()
 	oMotor	:= custom.excel.calc.Motor():New(oProv)
+	oMotor:SetLocal("en-US")
+	aCasos	:= CasosTeste()
+	RodaCasos(oMotor,aCasos,cFiltro,@nOk,@nFalha,@cLog)
+	FwFreeArray(aCasos)
+	oMotor:SetLocal("pt-BR")
+	aCasos	:= CasosPtBr()
+	RodaCasos(oMotor,aCasos,cFiltro,@nOk,@nFalha,@cLog)
+	cLog	:= "XCALCTST: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas, "+cValToChar(Seconds()-nSeg)+"s"+Chr(13)+Chr(10)+cLog
+	MemoWrite("\xcalc_teste.log",cLog)
+	ConOut(cLog)
+	oMotor:Limpar()
+	FreeObj(oMotor)
+	FreeObj(oProv)
+	FwFreeArray(aCasos)
+Return 0
+
+//Executa os casos e acumula o relatório
+Static Function RodaCasos(oMotor As Object, aCasos As Array, cFiltro As Character, nOk As Numeric, nFalha As Numeric, cLog As Character)
+	Local nCont As Numeric
+	Local xRes As Variant
+	Local lInc As Logical
+	Local lPassou As Logical
+	Local nLin As Numeric
+	Local nCol As Numeric
+	Local oErr As Object
 	For nCont:=1 to Len(aCasos)
 		If !Empty(cFiltro) .AND. !(Upper(cFiltro) $ Upper(aCasos[nCont][1]))
 			Loop
@@ -184,18 +202,11 @@ User Function XCALCTST()
 			nOk++
 		Else
 			nFalha++
-			cLog	+= "FALHA ["+aCasos[nCont][1]+"] esperado="+Mostra(aCasos[nCont][2])+" obtido="+Mostra(xRes)+If(lInc," (incompleto)","")+If(!Empty(oMotor:cUltErro)," erro="+oMotor:cUltErro,"")+Chr(13)+Chr(10)
+			cLog	+= "FALHA ["+oMotor:cLocal+"] ["+aCasos[nCont][1]+"] esperado="+Mostra(aCasos[nCont][2])+" obtido="+Mostra(xRes)+If(lInc," (incompleto)","")+If(!Empty(oMotor:cUltErro)," erro="+oMotor:cUltErro,"")+Chr(13)+Chr(10)
 		EndIf
 		oMotor:cUltErro	:= ""
 	Next
-	cLog	:= "XCALCTST: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas, "+cValToChar(Seconds()-nSeg)+"s"+Chr(13)+Chr(10)+cLog
-	MemoWrite("\xcalc_teste.log",cLog)
-	ConOut(cLog)
-	oMotor:Limpar()
-	FreeObj(oMotor)
-	FreeObj(oProv)
-	FwFreeArray(aCasos)
-Return 0
+Return
 
 //Compara resultado com o esperado (números com tolerância, erros pelo código)
 Static Function Confere(xRes As Variant, xEsp As Variant)
@@ -206,7 +217,7 @@ Static Function Confere(xRes As Variant, xEsp As Variant)
 		Return .F.
 	EndIf
 	If ValType(xEsp)=="N"
-		Return Abs(xRes-xEsp)<=Max(Abs(xEsp),1)*0.000000001
+		Return Abs(xRes-xEsp)<=Max(Abs(xEsp),1)*0.0000000001
 	EndIf
 Return xRes==xEsp
 
@@ -218,7 +229,7 @@ Static Function Mostra(xVal As Variant)
 		Return '"'+xVal+'"'
 	EndIf
 	If ValType(xVal)=="N"
-		Return AllTrim(Str(xVal,30,12))
+		Return AllTrim(Transform(xVal,"999999999999999.999999999999"))
 	EndIf
 Return cValToChar(xVal)
 
@@ -326,6 +337,160 @@ Static Function CasosTeste()
 	AADD(aRet,{"Tab1[@Valor]*2",40,9,8})
 	AADD(aRet,{"[@Valor]+1",21,9,7})
 	AADD(aRet,{"COUNTA(Tab1[#Headers])",2})
+	//Matemática e trigonometria (1b)
+	AADD(aRet,{"SIN(PI()/2)",1})
+	AADD(aRet,{"COS(0)",1})
+	AADD(aRet,{"TAN(PI()/4)",1})
+	AADD(aRet,{"ATAN2(1,1)",0.785398163397448})
+	AADD(aRet,{"ATAN2(-1,0)",3.14159265358979})
+	AADD(aRet,{"ASIN(2)","#NUM!"})
+	AADD(aRet,{"ACOS(-1)",3.14159265358979})
+	AADD(aRet,{"SINH(1)",1.1752011936438})
+	AADD(aRet,{"COSH(1)",1.54308063481524})
+	AADD(aRet,{"TANH(0.5)",0.46211715726001})
+	AADD(aRet,{"ASINH(-2)",-1.44363547517881})
+	AADD(aRet,{"ACOSH(2)",1.31695789692482})
+	AADD(aRet,{"ATANH(0.5)",0.549306144334055})
+	AADD(aRet,{"ACOT(1)",0.785398163397448})
+	AADD(aRet,{"ACOTH(2)",0.549306144334055})
+	AADD(aRet,{"COT(1)",0.642092615934331})
+	AADD(aRet,{"SEC(1)",1.85081571768093})
+	AADD(aRet,{"CSC(1)",1.18839510577812})
+	AADD(aRet,{"SECH(1)",0.648054273663885})
+	AADD(aRet,{"CSCH(1)",0.850918128239322})
+	AADD(aRet,{"COTH(1)",1.31303528549933})
+	AADD(aRet,{"DEGREES(PI())",180})
+	AADD(aRet,{"RADIANS(180)",3.14159265358979})
+	AADD(aRet,{"SQRTPI(2)",2.506628274631})
+	AADD(aRet,{"FACT(5)",120})
+	AADD(aRet,{"FACT(-1)","#NUM!"})
+	AADD(aRet,{"FACTDOUBLE(7)",105})
+	AADD(aRet,{"COMBIN(8,2)",28})
+	AADD(aRet,{"COMBINA(4,3)",20})
+	AADD(aRet,{"MULTINOMIAL(2,3,4)",1260})
+	AADD(aRet,{"GCD(24,36)",12})
+	AADD(aRet,{"LCM(4,6)",12})
+	AADD(aRet,{"CEILING(2.5,1)",3})
+	AADD(aRet,{"CEILING(-2.5,-2)",-4})
+	AADD(aRet,{"CEILING(-2.5,2)",-2})
+	AADD(aRet,{"CEILING(1.5,0.1)",1.5})
+	AADD(aRet,{"CEILING.MATH(-5.5,2,-1)",-6})
+	AADD(aRet,{"CEILING.MATH(24.3,5)",25})
+	AADD(aRet,{"FLOOR(-2.5,-2)",-2})
+	AADD(aRet,{"FLOOR(3.7,2)",2})
+	AADD(aRet,{"FLOOR(-2.5,2)",-4})
+	AADD(aRet,{"FLOOR.MATH(-5.5,2,-1)",-4})
+	AADD(aRet,{"FLOOR.PRECISE(-3.2,-1)",-4})
+	AADD(aRet,{"MROUND(10,3)",9})
+	AADD(aRet,{"MROUND(-10,-3)",-9})
+	AADD(aRet,{"MROUND(5,-2)","#NUM!"})
+	AADD(aRet,{"BASE(7,2)","111"})
+	AADD(aRet,{"BASE(100,16,4)","0064"})
+	AADD(aRet,{'DECIMAL("FF",16)',255})
+	AADD(aRet,{"ROMAN(499,0)","CDXCIX"})
+	AADD(aRet,{"ROMAN(499,1)","LDVLIV"})
+	AADD(aRet,{"ROMAN(499,2)","XDIX"})
+	AADD(aRet,{"ROMAN(499,3)","VDIV"})
+	AADD(aRet,{"ROMAN(499,4)","ID"})
+	AADD(aRet,{'ARABIC("MXMVII")',1997})
+	AADD(aRet,{"MDETERM({3,6,1;1,1,0;3,10,2})",1})
+	AADD(aRet,{"SUM(MINVERSE({4,-1;2,0}))",1.5})
+	AADD(aRet,{"SUM(MMULT({1,2;3,4},{5;6}))",56})
+	AADD(aRet,{"SUM(MUNIT(3))",3})
+	AADD(aRet,{"SUM(SEQUENCE(3,2,10,5))",135})
+	AADD(aRet,{"SERIESSUM(2,1,1,{1,2,3})",34})
+	AADD(aRet,{"SUMX2MY2({2,3},{1,1})",11})
+	AADD(aRet,{"SUMX2PY2({2,3},{1,1})",15})
+	AADD(aRet,{"SUMXMY2({2,3},{1,1})",5})
+	AADD(aRet,{"AND(RAND()>=0,RAND()<1)",.T.})
+	AADD(aRet,{"RANDBETWEEN(5,5)",5})
+	//Texto (1b)
+	AADD(aRet,{'CONCAT(B1:B3,"x")',"abcx"})
+	AADD(aRet,{'CONCATENATE("a",1,TRUE)',"a1TRUE"})
+	AADD(aRet,{'TEXTJOIN("-",TRUE,"a","","b")',"a-b"})
+	AADD(aRet,{'TEXTJOIN(", ",FALSE,B1:B3)',"a, b, c"})
+	AADD(aRet,{'LEFT("abcdef",2)',"ab"})
+	AADD(aRet,{'RIGHT("abc")',"c"})
+	AADD(aRet,{'MID("abcdef",2,3)',"bcd"})
+	AADD(aRet,{'LEN("abc")',3})
+	AADD(aRet,{'UPPER("ação")',"AÇÃO"})
+	AADD(aRet,{'LOWER("ÁB")',"áb"})
+	AADD(aRet,{'PROPER("joão da silva")',"João Da Silva"})
+	AADD(aRet,{'TRIM("  a   b  ")',"a b"})
+	AADD(aRet,{'CLEAN("a"&CHAR(9)&"b")',"ab"})
+	AADD(aRet,{'EXACT("a","A")',.F.})
+	AADD(aRet,{'"é"="É"',.T.})
+	AADD(aRet,{'REPT("ab",3)',"ababab"})
+	AADD(aRet,{'REPLACE("abcdef",2,3,"X")',"aXef"})
+	AADD(aRet,{'SUBSTITUTE("a-b-c","-","+")',"a+b+c"})
+	AADD(aRet,{'SUBSTITUTE("a-b-c","-","+",2)',"a-b+c"})
+	AADD(aRet,{'FIND("b","abcb",3)',4})
+	AADD(aRet,{'FIND("B","abc")',"#VALUE!"})
+	AADD(aRet,{'SEARCH("B","abc")',2})
+	AADD(aRet,{'SEARCH("c?e","abcdef")',3})
+	AADD(aRet,{'CHAR(65)',"A"})
+	AADD(aRet,{'CODE("A")',65})
+	AADD(aRet,{'UNICODE("€")',8364})
+	AADD(aRet,{'UNICHAR(8364)',"€"})
+	AADD(aRet,{'VALUE("1,234.5")',1234.5})
+	AADD(aRet,{'VALUE("12%")',0.12})
+	AADD(aRet,{'VALUE("($5)")',-5})
+	AADD(aRet,{'VALUE("12/31/2024")',45657})
+	AADD(aRet,{'NUMBERVALUE("1.234,5",",",".")',1234.5})
+	AADD(aRet,{'"v="&0.5',"v=0.5"})
+	AADD(aRet,{'1/3&""',"0.333333333333333"})
+	AADD(aRet,{'1E+20&""',"1E+20"})
+	AADD(aRet,{'0.0001&""',"0.0001"})
+	AADD(aRet,{'TEXT(1234.567,"#,##0.00")',"1,234.57"})
+	AADD(aRet,{'TEXT(0.256,"0.0%")',"25.6%"})
+	AADD(aRet,{'TEXT(-5,"0;(0)")',"(5)"})
+	AADD(aRet,{'TEXT(-5,"0.00")',"-5.00"})
+	AADD(aRet,{'TEXT(1234567,"#,##0,")',"1,235"})
+	AADD(aRet,{'TEXT(12345,"0.00E+00")',"1.23E+04"})
+	AADD(aRet,{'TEXT(0.5,"# ?/?")'," 1/2"})
+	AADD(aRet,{'TEXT(1.25,"# ?/?")',"1 1/4"})
+	AADD(aRet,{'TEXT(45000,"dd/mm/yyyy")',"15/03/2023"})
+	AADD(aRet,{'TEXT(45000,"dddd, mmmm d")',"Wednesday, March 15"})
+	AADD(aRet,{'TEXT(0.75,"hh:mm AM/PM")',"06:00 PM"})
+	AADD(aRet,{'TEXT(1.5,"[h]:mm")',"36:00"})
+	AADD(aRet,{'TEXT(5,"000")',"005"})
+	AADD(aRet,{'TEXT(0.5,"#.00")',".50"})
+	AADD(aRet,{'TEXT(1234.5,"$#,##0.00")',"$1,234.50"})
+	AADD(aRet,{'TEXT(3,"[>=5]""alto"";""baixo""")',"baixo"})
+	AADD(aRet,{'TEXT("abc","""<""@"">""")',"<abc>"})
+	AADD(aRet,{'TEXT(1/3,"General")',"0.333333333"})
+	AADD(aRet,{'FIXED(1234.567,1)',"1,234.6"})
+	AADD(aRet,{'FIXED(1234.567,-1,TRUE)',"1230"})
+	AADD(aRet,{'DOLLAR(-1234.567)',"($1,234.57)"})
+	AADD(aRet,{'VALUETOTEXT("a",1)','"a"'})
+	AADD(aRet,{'ARRAYTOTEXT({1,"a";TRUE,2},1)','{1,"a";TRUE,2}'})
+	AADD(aRet,{'TEXTBEFORE("a-b-c","-")',"a"})
+	AADD(aRet,{'TEXTBEFORE("a-b-c","-",-1)',"a-b"})
+	AADD(aRet,{'TEXTAFTER("a-b-c","-",2)',"c"})
+	AADD(aRet,{'TEXTAFTER("abc","x",1,0,0,"nf")',"nf"})
+	AADD(aRet,{'TEXTSPLIT("a,b,c",",")',"a"})
+	AADD(aRet,{'COUNTA(TEXTSPLIT("a,b;c",",",";"))',4})
+	AADD(aRet,{'REGEXTEST("abc123","\d+")',.T.})
+	AADD(aRet,{'REGEXEXTRACT("Tel: 555-1234","\d{3}-\d{4}")',"555-1234"})
+	AADD(aRet,{'REGEXEXTRACT("a1b22c333","\d+",1)',"1"})
+	AADD(aRet,{'COUNTA(REGEXEXTRACT("a1b22c333","\d+",1))',3})
+	AADD(aRet,{'REGEXEXTRACT("João Silva","(\w+) (\w+)",2)',"João"})
+	AADD(aRet,{'REGEXREPLACE("2024-01-31","(\d+)-(\d+)-(\d+)","$3/$2/$1")',"31/01/2024"})
+	AADD(aRet,{'REGEXREPLACE("aaa","a","b",2)',"aba"})
+	AADD(aRet,{'REGEXTEST("ABC","^abc$",1)',.T.})
+	AADD(aRet,{'REGEXTEST("ABC","^abc$")',.F.})
+	AADD(aRet,{'REGEXEXTRACT("<a><b>","<.+?>")',"<a>"})
+	AADD(aRet,{'REGEXTEST("foo.bar","^\w+\.\w+$")',.T.})
+	AADD(aRet,{'REGEXTEST("ab","(?=a)a(?!c)b")',.T.})
+	AADD(aRet,{'REGEXREPLACE("x1y2","[^0-9]","")',"12"})
+	AADD(aRet,{'REGEXTEST("aXbXc","^(a|b|c|X)+$")',.T.})
+	AADD(aRet,{'REGEXTEST("abab","^(ab)\1$")',.T.})
+	AADD(aRet,{'REGEXTEST("[x","[")',"#VALUE!"})
+	AADD(aRet,{'CELL("address",B3)',"$B$3"})
+	AADD(aRet,{'CELL("type",C5)',"b"})
+	AADD(aRet,{'CELL("contents",A2)',2})
+	AADD(aRet,{'INFO("numfile")',2})
+	AADD(aRet,{'ISBLANK(CELL("filename"))',.F.})
 	//Erros
 	AADD(aRet,{"FuncaoInexistente(1)","#NAME?"})
 	AADD(aRet,{"NomeInexistente+1","#NAME?"})
@@ -462,3 +627,24 @@ Static Function ConfInt(cArq As Character)
 	FreeObj(oLer)
 	FwFreeArray(aEsp)
 Return cRet
+
+/*/{Protheus.doc} CasosPtBr
+Casos executados com a localidade pt-BR
+/*/
+Static Function CasosPtBr()
+	Local aRet := {} As Array
+	AADD(aRet,{'"v="&0.5',"v=0,5"})
+	AADD(aRet,{'TEXT(1234.567,"#.##0,00")',"1.234,57"})
+	AADD(aRet,{'TEXT(45000,"dddd")',"quarta-feira"})
+	AADD(aRet,{'TEXT(45000,"dd/mmm/aaaa")',"15/mar/2023"})
+	AADD(aRet,{'TEXT(45000,"dd \d\e mmmm \d\e yyyy")',"15 de março de 2023"})
+	AADD(aRet,{'VALUE("1.234,5")',1234.5})
+	AADD(aRet,{'VALUE("31/12/2024")',45657})
+	AADD(aRet,{'VALUE("31/12/2024 18:00")',45657.75})
+	AADD(aRet,{'FIXED(1234.5,2)',"1.234,50"})
+	AADD(aRet,{'DOLLAR(1234.5)',"R$ 1.234,50"})
+	AADD(aRet,{'DOLLAR(-2)',"-R$ 2,00"})
+	AADD(aRet,{'"1,5"*2',3})
+	AADD(aRet,{'COUNTIF({1.5,2.5},">2")',1})
+	AADD(aRet,{'TEXT(0.5,"0,0%")',"50,0%"})
+Return aRet

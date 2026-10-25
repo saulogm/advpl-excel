@@ -1,0 +1,1834 @@
+// Funções de texto do Excel (motor custom.excel.calc), incluindo o formatador de TEXT/FIXED/DOLLAR
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define V_ERRO		1
+#define V_REF		2
+#define V_MAT		3
+
+/*/{Protheus.doc} FuncTxt
+Registro das funções de texto
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncTxt
+	Public Method New()			As Object
+	Public Method Registrar()
+	Public Method Formata()
+EndClass
+
+Method New() As Object Class FuncTxt
+Return self
+
+Method Registrar(oM As Object) Class FuncTxt
+	oM:Registrar("CONCAT"			,{|o,a| fConcat(o,a) }							,1,255)
+	oM:Registrar("CONCATENATE"		,{|o,a| fConcatenate(o,a) }						,1,255,"E")
+	oM:Registrar("TEXTJOIN"			,{|o,a| fTextJoin(o,a) }						,3,255)
+	oM:Registrar("LEFT"				,{|o,a| fEsqDir(o,a,.T.) }						,1,2,"E")
+	oM:Registrar("LEFTB"			,{|o,a| fEsqDir(o,a,.T.) }						,1,2,"E")
+	oM:Registrar("RIGHT"			,{|o,a| fEsqDir(o,a,.F.) }						,1,2,"E")
+	oM:Registrar("RIGHTB"			,{|o,a| fEsqDir(o,a,.F.) }						,1,2,"E")
+	oM:Registrar("MID"				,{|o,a| fMid(o,a) }								,3,3,"E")
+	oM:Registrar("MIDB"				,{|o,a| fMid(o,a) }								,3,3,"E")
+	oM:Registrar("LEN"				,{|o,a| Tx1(o,a,{|c| Len(c) }) }				,1,1,"E")
+	oM:Registrar("LENB"				,{|o,a| Tx1(o,a,{|c| Len(c) }) }				,1,1,"E")
+	oM:Registrar("LOWER"			,{|o,a| Tx1(o,a,{|c,o| o:Minus(c) }) }			,1,1,"E")
+	oM:Registrar("UPPER"			,{|o,a| Tx1(o,a,{|c,o| o:Maius(c) }) }			,1,1,"E")
+	oM:Registrar("PROPER"			,{|o,a| Tx1(o,a,{|c,o| Proper(o,c) }) }			,1,1,"E")
+	oM:Registrar("TRIM"				,{|o,a| Tx1(o,a,{|c| Trim2(c) }) }				,1,1,"E")
+	oM:Registrar("CLEAN"			,{|o,a| Tx1(o,a,{|c| Limpa(c) }) }				,1,1,"E")
+	oM:Registrar("EXACT"			,{|o,a| fExact(o,a) }							,2,2,"E")
+	oM:Registrar("REPT"				,{|o,a| fRept(o,a) }							,2,2,"E")
+	oM:Registrar("REPLACE"			,{|o,a| fReplace(o,a) }							,4,4,"E")
+	oM:Registrar("REPLACEB"			,{|o,a| fReplace(o,a) }							,4,4,"E")
+	oM:Registrar("SUBSTITUTE"		,{|o,a| fSubstitute(o,a) }						,3,4,"E")
+	oM:Registrar("FIND"				,{|o,a| fFind(o,a,.F.) }						,2,3,"E")
+	oM:Registrar("FINDB"			,{|o,a| fFind(o,a,.F.) }						,2,3,"E")
+	oM:Registrar("SEARCH"			,{|o,a| fFind(o,a,.T.) }						,2,3,"E")
+	oM:Registrar("SEARCHB"			,{|o,a| fFind(o,a,.T.) }						,2,3,"E")
+	oM:Registrar("CHAR"				,{|o,a| fChar(o,a,.F.) }						,1,1,"E")
+	oM:Registrar("UNICHAR"			,{|o,a| fChar(o,a,.T.) }						,1,1,"E")
+	oM:Registrar("CODE"				,{|o,a| fCode(o,a,.F.) }						,1,1,"E")
+	oM:Registrar("UNICODE"			,{|o,a| fCode(o,a,.T.) }						,1,1,"E")
+	oM:Registrar("VALUE"			,{|o,a| fValue(o,a) }							,1,1,"E")
+	oM:Registrar("NUMBERVALUE"		,{|o,a| fNumberValue(o,a) }						,1,3,"E")
+	oM:Registrar("TEXT"				,{|o,a| fText(o,a) }							,2,2,"E")
+	oM:Registrar("FIXED"			,{|o,a| fFixed(o,a) }							,1,3,"E")
+	oM:Registrar("DOLLAR"			,{|o,a| fDollar(o,a) }							,1,2,"E")
+	oM:Registrar("VALUETOTEXT"		,{|o,a| fValueToText(o,a) }						,1,2,"E")
+	oM:Registrar("ARRAYTOTEXT"		,{|o,a| fArrayToText(o,a) }						,1,2)
+	oM:Registrar("TEXTBEFORE"		,{|o,a| fTextAntesDepois(o,a,.T.) }				,2,6)
+	oM:Registrar("TEXTAFTER"		,{|o,a| fTextAntesDepois(o,a,.F.) }				,2,6)
+	oM:Registrar("TEXTSPLIT"		,{|o,a| fTextSplit(o,a) }						,2,6)
+	oM:Registrar("REGEXTEST"		,{|o,a| fRegexTest(o,a) }						,2,3,"E")
+	oM:Registrar("REGEXEXTRACT"		,{|o,a| fRegexExtract(o,a) }					,2,4)
+	oM:Registrar("REGEXREPLACE"		,{|o,a| fRegexReplace(o,a) }					,3,5,"E")
+	oM:Registrar("ASC"				,{|o,a| Tx1(o,a,{|c| c }) }						,1,1,"E")
+	oM:Registrar("DBCS"				,{|o,a| Tx1(o,a,{|c| c }) }						,1,1,"E")
+	oM:Registrar("JIS"				,{|o,a| Tx1(o,a,{|c| c }) }						,1,1,"E")
+	oM:Registrar("PHONETIC"			,{|o,a| Tx1(o,a,{|c| c }) }						,1,1,"E")
+	oM:Registrar("BAHTTEXT"			,{|o,a| o:Err("#NAME?") }						,1,1,"X")
+	oM:Registrar("TRANSLATE"		,{|o,a| o:Err("#NAME?") }						,1,3,"X")
+	oM:Registrar("DETECTLANGUAGE"	,{|o,a| o:Err("#NAME?") }						,1,1,"X")
+Return
+
+/*/{Protheus.doc} FuncTxt::Formata
+Formata número com o código de formato do Excel (usado por TEXT e pela exibição de células)
+@type method
+@param oM, object, Motor (localidade)
+@param xVal, variant, Valor (número ou texto)
+@param cFmt, character, Código de formato
+@param lInvariante, logical, .T. usa o formato invariante do xlsx (ponto decimal, vírgula de milhar)
+@return variant, texto formatado ou Erro
+/*/
+Method Formata(oM As Object, xVal As Variant, cFmt As Character, lInvariante As Logical) Class FuncTxt
+Return Formata(oM,xVal,cFmt,lInvariante)
+
+//Texto de um argumento
+Static Function Tx1(oM As Object, aArgs As Array, bCalc As CodeBlock)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+Return Eval(bCalc,cTxt,oM)
+
+//Número opcional
+Static Function NumOpc(oM As Object, aArgs As Array, nPos As Numeric, nPadrao As Numeric)
+	If Len(aArgs)<nPos .OR. ValType(aArgs[nPos])=="U"
+		Return nPadrao
+	EndIf
+Return oM:Num(aArgs[nPos])
+
+//Lógico opcional
+Static Function LogOpc(oM As Object, aArgs As Array, nPos As Numeric, lPadrao As Logical)
+	If Len(aArgs)<nPos .OR. ValType(aArgs[nPos])=="U"
+		Return lPadrao
+	EndIf
+Return oM:Log(aArgs[nPos])
+
+//Primeiro erro de uma lista de valores (nil se nenhum)
+Static Function PrimErro(oM As Object, aVals As Array)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aVals)
+		If oM:EhErro(aVals[nCont])
+			Return aVals[nCont]
+		EndIf
+	Next
+Return nil
+
+Static Function fConcat(oM As Object, aArgs As Array)
+	Local aVals := oM:Lista(aArgs) As Array
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local xErro := PrimErro(oM,aVals) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	For nCont:=1 to Len(aVals)
+		cRet	+= oM:Txt(aVals[nCont])
+	Next
+	FwFreeArray(aVals)
+	If Len(cRet)>32767
+		Return oM:Err("#VALUE!")
+	EndIf
+Return cRet
+
+Static Function fConcatenate(oM As Object, aArgs As Array)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local xTxt As Variant
+	For nCont:=1 to Len(aArgs)
+		xTxt	:= oM:Txt(aArgs[nCont])
+		If oM:EhErro(xTxt)
+			Return xTxt
+		EndIf
+		cRet	+= xTxt
+	Next
+Return cRet
+
+Static Function fTextJoin(oM As Object, aArgs As Array)
+	Local aDelim := oM:Lista({aArgs[1]},.T.) As Array
+	Local lIgnora := oM:Log(aArgs[2]) As Variant
+	Local aVals As Array
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local nUsados := 0 As Numeric
+	Local xTxt As Variant
+	Local xErro As Variant
+	If oM:EhErro(lIgnora)
+		Return lIgnora
+	EndIf
+	aVals	:= oM:Lista(ArgsDesde(aArgs,3),.T.)
+	xErro	:= PrimErro(oM,aVals)
+	If xErro==nil
+		xErro	:= PrimErro(oM,aDelim)
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	For nCont:=1 to Len(aVals)
+		xTxt	:= oM:Txt(aVals[nCont])
+		If lIgnora .AND. Empty(xTxt)
+			Loop
+		EndIf
+		If nUsados>0 .AND. !Empty(aDelim)
+			cRet	+= oM:Txt(aDelim[Mod(nUsados-1,Len(aDelim))+1])
+		EndIf
+		cRet	+= xTxt
+		nUsados++
+	Next
+	FwFreeArray(aVals)
+	FwFreeArray(aDelim)
+	If Len(cRet)>32767
+		Return oM:Err("#VALUE!")
+	EndIf
+Return cRet
+
+//Argumentos a partir da posição
+Static Function ArgsDesde(aArgs As Array, nIni As Numeric)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	For nCont:=nIni to Len(aArgs)
+		AADD(aRet,aArgs[nCont])
+	Next
+Return aRet
+
+Static Function fEsqDir(oM As Object, aArgs As Array, lEsq As Logical)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nQtd := NumOpc(oM,aArgs,2,1) As Variant
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	If oM:EhErro(nQtd)
+		Return nQtd
+	EndIf
+	nQtd	:= Int(nQtd)
+	If nQtd<0
+		Return oM:Err("#VALUE!")
+	EndIf
+Return If(lEsq,Left(cTxt,nQtd),Right(cTxt,nQtd))
+
+Static Function fMid(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nIni := oM:Num(aArgs[2]) As Variant
+	Local nQtd := oM:Num(aArgs[3]) As Variant
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	If oM:EhErro(nIni)
+		Return nIni
+	EndIf
+	If oM:EhErro(nQtd)
+		Return nQtd
+	EndIf
+	nIni	:= Int(nIni)
+	nQtd	:= Int(nQtd)
+	If nIni<1 .OR. nQtd<0
+		Return oM:Err("#VALUE!")
+	EndIf
+Return SubStr(cTxt,nIni,nQtd)
+
+//Primeira letra de cada palavra em maiúscula
+Static Function Proper(oM As Object, cTxt As Character)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local cCar As Character
+	Local lLetraAnt := .F. As Logical
+	For nCont:=1 to Len(cTxt)
+		cCar	:= SubStr(cTxt,nCont,1)
+		If lLetraAnt
+			cRet	+= oM:Minus(cCar)
+		Else
+			cRet	+= oM:Maius(cCar)
+		EndIf
+		lLetraAnt	:= IsAlpha(cCar) .OR. Asc(cCar)>=192
+	Next
+Return cRet
+
+//TRIM: retira espaços das pontas e repetidos no meio
+Static Function Trim2(cTxt As Character)
+	cTxt	:= AllTrim(cTxt)
+	While "  " $ cTxt
+		cTxt	:= StrTran(cTxt,"  "," ")
+	EndDo
+Return cTxt
+
+//CLEAN: retira caracteres de controle (0 a 31)
+Static Function Limpa(cTxt As Character)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	For nCont:=1 to Len(cTxt)
+		If Asc(SubStr(cTxt,nCont,1))>=32
+			cRet	+= SubStr(cTxt,nCont,1)
+		EndIf
+	Next
+Return cRet
+
+Static Function fExact(oM As Object, aArgs As Array)
+	Local cA := oM:Txt(aArgs[1]) As Variant
+	Local cB := oM:Txt(aArgs[2]) As Variant
+	If oM:EhErro(cA)
+		Return cA
+	EndIf
+	If oM:EhErro(cB)
+		Return cB
+	EndIf
+Return cA==cB
+
+Static Function fRept(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nQtd := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	If oM:EhErro(nQtd)
+		Return nQtd
+	EndIf
+	nQtd	:= Int(nQtd)
+	If nQtd<0 .OR. Len(cTxt)*nQtd>32767
+		Return oM:Err("#VALUE!")
+	EndIf
+Return Replicate(cTxt,nQtd)
+
+Static Function fReplace(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nIni := oM:Num(aArgs[2]) As Variant
+	Local nQtd := oM:Num(aArgs[3]) As Variant
+	Local cNovo := oM:Txt(aArgs[4]) As Variant
+	Local xErro := PrimErro(oM,{cTxt,nIni,nQtd,cNovo}) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nIni	:= Int(nIni)
+	nQtd	:= Int(nQtd)
+	If nIni<1 .OR. nQtd<0
+		Return oM:Err("#VALUE!")
+	EndIf
+Return Left(cTxt,nIni-1)+cNovo+SubStr(cTxt,nIni+nQtd)
+
+Static Function fSubstitute(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local cVelho := oM:Txt(aArgs[2]) As Variant
+	Local cNovo := oM:Txt(aArgs[3]) As Variant
+	Local nInst := NumOpc(oM,aArgs,4,0) As Variant
+	Local xErro := PrimErro(oM,{cTxt,cVelho,cNovo,nInst}) As Variant
+	Local nPos As Numeric
+	Local nAchou := 0 As Numeric
+	Local nIni := 1 As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If Empty(cVelho)
+		Return cTxt
+	EndIf
+	nInst	:= Int(nInst)
+	If Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U" .AND. nInst<1
+		Return oM:Err("#VALUE!")
+	EndIf
+	If nInst==0
+		Return StrTran(cTxt,cVelho,cNovo)
+	EndIf
+	While (nPos:=At(cVelho,cTxt,nIni))>0
+		nAchou++
+		If nAchou==nInst
+			Return Left(cTxt,nPos-1)+cNovo+SubStr(cTxt,nPos+Len(cVelho))
+		EndIf
+		nIni	:= nPos+Len(cVelho)
+	EndDo
+Return cTxt
+
+//FIND (diferencia maiúsculas, sem curingas) e SEARCH (sem diferenciar, com curingas ? * ~)
+Static Function fFind(oM As Object, aArgs As Array, lSearch As Logical)
+	Local cBusca := oM:Txt(aArgs[1]) As Variant
+	Local cTxt := oM:Txt(aArgs[2]) As Variant
+	Local nIni := NumOpc(oM,aArgs,3,1) As Variant
+	Local xErro := PrimErro(oM,{cBusca,cTxt,nIni}) As Variant
+	Local nPos As Numeric
+	Local cPadrao As Character
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nIni	:= Int(nIni)
+	If nIni<1 .OR. nIni>Len(cTxt)+1
+		Return oM:Err("#VALUE!")
+	EndIf
+	If Empty(cBusca)
+		Return nIni
+	EndIf
+	If !lSearch
+		nPos	:= At(cBusca,cTxt,nIni)
+		If nPos==0
+			Return oM:Err("#VALUE!")
+		EndIf
+		Return nPos
+	EndIf
+	If !("*" $ cBusca .OR. "?" $ cBusca .OR. "~" $ cBusca)
+		nPos	:= At(oM:Maius(cBusca),oM:Maius(cTxt),nIni)
+		If nPos==0
+			Return oM:Err("#VALUE!")
+		EndIf
+		Return nPos
+	EndIf
+	cPadrao	:= cBusca+"*"
+	For nPos:=nIni to Len(cTxt)
+		If oM:Curinga(cPadrao,SubStr(cTxt,nPos))
+			Return nPos
+		EndIf
+	Next
+Return oM:Err("#VALUE!")
+
+//Caracteres 128 a 159 da página 1252 e seus códigos Unicode
+Static Function Uni1252()
+Return {8364,129,8218,402,8222,8230,8224,8225,710,8240,352,8249,338,141,381,143,144,8216,8217,8220,8221,8226,8211,8212,732,8482,353,8250,339,157,382,376}
+
+Static Function fChar(oM As Object, aArgs As Array, lUni As Logical)
+	Local nCod := oM:Num(aArgs[1]) As Variant
+	Local nPos As Numeric
+	Local aUni As Array
+	If oM:EhErro(nCod)
+		Return nCod
+	EndIf
+	nCod	:= Int(nCod)
+	If lUni
+		If nCod<1 .OR. nCod>1114111
+			Return oM:Err("#VALUE!")
+		EndIf
+		If nCod<128 .OR. (nCod>=160 .AND. nCod<=255)
+			Return Chr(nCod)
+		EndIf
+		aUni	:= Uni1252()
+		nPos	:= aScan(aUni,nCod)
+		FwFreeArray(aUni)
+		If nPos>0
+			Return Chr(127+nPos)
+		EndIf
+		Return "?"	//Caractere sem representação na página de código 1252
+	EndIf
+	If nCod<1 .OR. nCod>255
+		Return oM:Err("#VALUE!")
+	EndIf
+Return Chr(nCod)
+
+Static Function fCode(oM As Object, aArgs As Array, lUni As Logical)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nCod As Numeric
+	Local aUni As Array
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	If Empty(cTxt)
+		Return oM:Err("#VALUE!")
+	EndIf
+	nCod	:= Asc(cTxt)
+	If lUni .AND. nCod>=128 .AND. nCod<=159
+		aUni	:= Uni1252()
+		nCod	:= aUni[nCod-127]
+		FwFreeArray(aUni)
+	EndIf
+Return nCod
+
+//VALUE: número na localidade, percentual, moeda, data e hora
+Static Function fValue(oM As Object, aArgs As Array)
+	Local xVal := aArgs[1] As Variant
+	Local cTxt As Character
+	Local nRet As Variant
+	If ValType(xVal)=="N" .OR. oM:EhErro(xVal)
+		Return xVal
+	EndIf
+	If ValType(xVal)=="U"
+		Return 0
+	EndIf
+	If ValType(xVal)=="L"
+		Return oM:Err("#VALUE!")
+	EndIf
+	cTxt	:= AllTrim(xVal)
+	cTxt	:= StrTran(cTxt,"R$","")
+	cTxt	:= StrTran(cTxt,"$","")
+	cTxt	:= AllTrim(cTxt)
+	If Left(cTxt,1)=="(" .AND. Right(cTxt,1)==")"	//Negativo contábil
+		cTxt	:= "-"+SubStr(cTxt,2,Len(cTxt)-2)
+	EndIf
+	nRet	:= oM:TxtLoc(cTxt)
+	If nRet==nil
+		nRet	:= oM:TxtData(xVal)
+	EndIf
+	If nRet==nil
+		Return oM:Err("#VALUE!")
+	EndIf
+Return nRet
+
+Static Function fNumberValue(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local cDec := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Txt(aArgs[2]),oM:cSepDec) As Variant
+	Local cMil := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Txt(aArgs[3]),oM:cSepMil) As Variant
+	Local xErro := PrimErro(oM,{cTxt,cDec,cMil}) As Variant
+	Local nPct := 0 As Numeric
+	Local nRet As Variant
+	Local nPos As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	cDec	:= Left(cDec,1)
+	cMil	:= Left(cMil,1)
+	cTxt	:= StrTran(StrTran(cTxt," ",""),Chr(9),"")
+	If Empty(cTxt)
+		Return 0
+	EndIf
+	While Right(cTxt,1)=="%"
+		nPct++
+		cTxt	:= Left(cTxt,Len(cTxt)-1)
+	EndDo
+	nPos	:= At(cDec,cTxt)
+	If nPos>0 .AND. At(cMil,SubStr(cTxt,nPos+1))>0 .AND. !Empty(cMil)	//Milhar depois do decimal
+		Return oM:Err("#VALUE!")
+	EndIf
+	If !Empty(cMil)
+		cTxt	:= StrTran(cTxt,cMil,"")
+	EndIf
+	cTxt	:= StrTran(cTxt,cDec,".")
+	nRet	:= oM:TxtNum(cTxt)
+	If nRet==nil
+		Return oM:Err("#VALUE!")
+	EndIf
+Return nRet/(100^nPct)
+
+Static Function fText(oM As Object, aArgs As Array)
+	Local xVal := aArgs[1] As Variant
+	Local cFmt := oM:Txt(aArgs[2]) As Variant
+	If oM:EhErro(xVal)
+		Return xVal
+	EndIf
+	If oM:EhErro(cFmt)
+		Return cFmt
+	EndIf
+	If ValType(xVal)=="L"
+		xVal	:= If(xVal,"TRUE","FALSE")
+	EndIf
+	If ValType(xVal)=="U"
+		xVal	:= 0
+	EndIf
+Return Formata(oM,xVal,cFmt,.F.)
+
+//FIXED(número,[decimais=2],[sem_separador])
+Static Function fFixed(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nDec := NumOpc(oM,aArgs,2,2) As Variant
+	Local lSemMil := LogOpc(oM,aArgs,3,.F.) As Variant
+	Local xErro := PrimErro(oM,{nNum,nDec,lSemMil}) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nDec	:= Int(nDec)
+	If nDec>127
+		Return oM:Err("#VALUE!")
+	EndIf
+	nNum	:= ArredExc(nNum,nDec)
+Return NumFixo(oM,nNum,Max(nDec,0),!lSemMil)
+
+//DOLLAR(número,[decimais=2]) no formato de moeda da localidade
+Static Function fDollar(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nDec := NumOpc(oM,aArgs,2,2) As Variant
+	Local cRet As Character
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nDec)
+		Return nDec
+	EndIf
+	nDec	:= Int(nDec)
+	nNum	:= ArredExc(nNum,nDec)
+	cRet	:= NumFixo(oM,Abs(nNum),Max(nDec,0),.T.)
+	If oM:cLocal=="pt-BR"
+		Return If(nNum<0,"-","")+"R$ "+cRet
+	EndIf
+Return If(nNum<0,"($"+cRet+")","$"+cRet)
+
+//Número com casas decimais fixas e separadores da localidade
+Static Function NumFixo(oM As Object, nNum As Numeric, nDec As Numeric, lMilhar As Logical)
+	Local cRet As Character
+	Local cInt As Character
+	Local cDec := "" As Character
+	Local nInt As Numeric
+	Local nFrac As Numeric
+	Local cSinal := If(nNum<0,"-","") As Character
+	nNum	:= Abs(nNum)
+	nInt	:= Int(nNum)
+	cInt	:= DigInt(nInt)
+	If nDec>0
+		nFrac	:= Round((nNum-nInt)*(10^nDec),0)
+		If nFrac>=10^nDec	//Arredondamento passou para a parte inteira
+			nFrac	:= 0
+			cInt	:= DigInt(nInt+1)
+		EndIf
+		cDec	:= oM:cSepDec+PadL(DigInt(nFrac),nDec,"0")
+	EndIf
+	If lMilhar
+		cInt	:= Agrupa(cInt,oM:cSepMil)
+	EndIf
+	cRet	:= cSinal+cInt+cDec
+	If cRet=="-0" .OR. (Left(cRet,1)=="-" .AND. Val(StrTran(StrTran(cRet,oM:cSepMil,""),oM:cSepDec,"."))==0)
+		cRet	:= SubStr(cRet,2)
+	EndIf
+Return cRet
+
+//Dígitos de um inteiro não negativo (sem notação científica)
+Static Function DigInt(nInt As Numeric)
+	Local cRet := "" As Character
+	Local nDig As Numeric
+	nInt	:= Round(nInt,0)
+	If nInt<1000000000000000
+		Return cValToChar(nInt)
+	EndIf
+	While nInt>=1
+		nDig	:= nInt-10*Int(nInt/10)
+		cRet	:= cValToChar(Round(nDig,0))+cRet
+		nInt	:= Int(nInt/10)
+	EndDo
+Return cRet
+
+//Separador de milhar
+Static Function Agrupa(cInt As Character, cSep As Character)
+	Local cRet := "" As Character
+	While Len(cInt)>3
+		cRet	:= cSep+Right(cInt,3)+cRet
+		cInt	:= Left(cInt,Len(cInt)-3)
+	EndDo
+Return cInt+cRet
+
+//Arredondamento do Excel (metade para longe do zero)
+Static Function ArredExc(nNum As Numeric, nDig As Numeric)
+	Local nFat := 10^nDig As Numeric
+	Local nX := Round(Abs(nNum)*nFat,9) As Numeric
+Return If(nNum<0,-1,1)*Int(nX+0.5)/nFat
+
+//VALUETOTEXT(valor,[formato]) 0=conciso 1=estrito (texto entre aspas)
+Static Function fValueToText(oM As Object, aArgs As Array)
+	Local nFmt := NumOpc(oM,aArgs,2,0) As Variant
+	If oM:EhErro(nFmt)
+		Return nFmt
+	EndIf
+Return ValTxt(oM,aArgs[1],Int(nFmt)==1)
+
+Static Function ValTxt(oM As Object, xVal As Variant, lEstrito As Logical)
+	If oM:EhErro(xVal)
+		Return xVal:cCod
+	EndIf
+	If ValType(xVal)=="C"
+		Return If(lEstrito,'"'+StrTran(xVal,'"','""')+'"',xVal)
+	EndIf
+	If ValType(xVal)=="U"
+		Return ""
+	EndIf
+Return oM:Txt(xVal)
+
+//ARRAYTOTEXT(matriz,[formato])
+Static Function fArrayToText(oM As Object, aArgs As Array)
+	Local oMat := oM:ParaMat(aArgs[1]) As Object
+	Local nFmt := NumOpc(oM,aArgs,2,0) As Variant
+	Local cRet := "" As Character
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local lEstrito As Logical
+	If oM:EhErro(nFmt)
+		Return nFmt
+	EndIf
+	lEstrito	:= Int(nFmt)==1
+	For nI:=1 to oMat:nL
+		For nJ:=1 to oMat:nC
+			If nJ>1
+				cRet	+= If(lEstrito,",",", ")
+			ElseIf nI>1
+				cRet	+= If(lEstrito,";",", ")
+			EndIf
+			cRet	+= ValTxt(oM,oMat:aV[nI][nJ],lEstrito)
+		Next
+	Next
+	If lEstrito
+		cRet	:= "{"+cRet+"}"
+	EndIf
+Return cRet
+
+/*/{Protheus.doc} fTextAntesDepois
+TEXTBEFORE/TEXTAFTER(texto,delimitador,[instância],[sem_caixa],[fim_como_delim],[se_não_encontrado])
+/*/
+Static Function fTextAntesDepois(oM As Object, aArgs As Array, lAntes As Logical)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local aDelim := oM:Lista({aArgs[2]},.T.) As Array
+	Local nInst := NumOpc(oM,aArgs,3,1) As Variant
+	Local nSemCaixa := NumOpc(oM,aArgs,4,0) As Variant
+	Local nFimDelim := NumOpc(oM,aArgs,5,0) As Variant
+	Local xErro := PrimErro(oM,{cTxt,nInst,nSemCaixa,nFimDelim}) As Variant
+	Local cBusca As Character
+	Local aPos As Array
+	Local nCont As Numeric
+	Local nIdx As Numeric
+	Local nIni As Numeric
+	Local nTam As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nInst	:= Int(nInst)
+	If nInst==0 .OR. Abs(nInst)>Len(cTxt)+1
+		Return If(nInst==0,oM:Err("#VALUE!"),oM:Err("#N/A"))
+	EndIf
+	cBusca	:= If(nSemCaixa==1,oM:Maius(cTxt),cTxt)
+	aPos	:= PosDelim(oM,cBusca,aDelim,nSemCaixa==1)	//{nPos,nTamanho} de cada ocorrência
+	If nFimDelim==1	//Início/fim do texto valem como delimitador
+		If nInst>0
+			AADD(aPos,{Len(cTxt)+1,0})
+		Else
+			aPos	:= PosComInicio(aPos)
+		EndIf
+	EndIf
+	If Abs(nInst)>Len(aPos)
+		If Len(aArgs)>=6 .AND. ValType(aArgs[6])!="U"
+			Return aArgs[6]
+		EndIf
+		Return oM:Err("#N/A")
+	EndIf
+	nIdx	:= If(nInst>0,nInst,Len(aPos)+nInst+1)
+	nIni	:= aPos[nIdx][1]
+	nTam	:= aPos[nIdx][2]
+	FwFreeArray(aDelim)
+	If lAntes
+		Return Left(cTxt,nIni-1)
+	EndIf
+Return SubStr(cTxt,nIni+nTam)
+
+//Inclui o início do texto como posição de delimitador (instância negativa)
+Static Function PosComInicio(aPos As Array)
+	Local aRet := {{1,0}} As Array
+	Local nCont As Numeric
+	For nCont:=1 to Len(aPos)
+		If ValType(aPos[nCont])=="A"
+			AADD(aRet,aPos[nCont])
+		EndIf
+	Next
+Return aRet
+
+//Posições de todos os delimitadores (o mais longo na mesma posição prevalece)
+Static Function PosDelim(oM As Object, cTxt As Character, aDelim As Array, lSemCaixa As Logical)
+	Local aRet := {} As Array
+	Local nPos := 1 As Numeric
+	Local nCont As Numeric
+	Local cDel As Character
+	Local nTam As Numeric
+	While nPos<=Len(cTxt)
+		nTam	:= 0
+		For nCont:=1 to Len(aDelim)
+			cDel	:= oM:Txt(aDelim[nCont])
+			If lSemCaixa
+				cDel	:= oM:Maius(cDel)
+			EndIf
+			If !Empty(cDel) .AND. SubStr(cTxt,nPos,Len(cDel))==cDel .AND. Len(cDel)>nTam
+				nTam	:= Len(cDel)
+			EndIf
+		Next
+		If nTam>0
+			AADD(aRet,{nPos,nTam})
+			nPos	+= nTam
+		Else
+			nPos++
+		EndIf
+	EndDo
+Return aRet
+
+/*/{Protheus.doc} fTextSplit
+TEXTSPLIT(texto,delim_coluna,[delim_linha],[ignora_vazio],[sem_caixa],[preencher_com])
+/*/
+Static Function fTextSplit(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local aDelCol := If(ValType(aArgs[2])=="U",{},oM:Lista({aArgs[2]},.T.)) As Array
+	Local aDelLin := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Lista({aArgs[3]},.T.),{}) As Array
+	Local lIgnora := LogOpc(oM,aArgs,4,.F.) As Variant
+	Local nSemCaixa := NumOpc(oM,aArgs,5,0) As Variant
+	Local xPad := If(Len(aArgs)>=6 .AND. ValType(aArgs[6])!="U",oM:Esc(aArgs[6]),oM:Err("#N/A")) As Variant
+	Local aLinhas As Array
+	Local aRet := {} As Array
+	Local nMaxC := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local oRes As Object
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	If Empty(aDelCol) .AND. Empty(aDelLin)
+		Return oM:Err("#VALUE!")
+	EndIf
+	aLinhas	:= If(Empty(aDelLin),{cTxt},Divide(oM,cTxt,aDelLin,lIgnora,nSemCaixa==1))
+	For nI:=1 to Len(aLinhas)
+		AADD(aRet,If(Empty(aDelCol),{aLinhas[nI]},Divide(oM,aLinhas[nI],aDelCol,lIgnora,nSemCaixa==1)))
+		nMaxC	:= Max(nMaxC,Len(aRet[nI]))
+	Next
+	oRes	:= oM:NovaMat(nil,Len(aRet),nMaxC)
+	For nI:=1 to Len(aRet)
+		For nJ:=1 to nMaxC
+			oRes:aV[nI][nJ]	:= If(nJ<=Len(aRet[nI]),aRet[nI][nJ],xPad)
+		Next
+	Next
+	FwFreeArray(aLinhas)
+	FwFreeArray(aRet)
+Return oRes
+
+Static Function Divide(oM As Object, cTxt As Character, aDelim As Array, lIgnora As Logical, lSemCaixa As Logical)
+	Local aPos := PosDelim(oM,If(lSemCaixa,oM:Maius(cTxt),cTxt),aDelim,lSemCaixa) As Array
+	Local aRet := {} As Array
+	Local nIni := 1 As Numeric
+	Local nCont As Numeric
+	Local cParte As Character
+	For nCont:=1 to Len(aPos)
+		cParte	:= SubStr(cTxt,nIni,aPos[nCont][1]-nIni)
+		If !(lIgnora .AND. Empty(cParte))
+			AADD(aRet,cParte)
+		EndIf
+		nIni	:= aPos[nCont][1]+aPos[nCont][2]
+	Next
+	cParte	:= SubStr(cTxt,nIni)
+	If !(lIgnora .AND. Empty(cParte))
+		AADD(aRet,cParte)
+	EndIf
+	FwFreeArray(aPos)
+Return aRet
+
+//Expressão regular compilada (#VALUE! se o padrão for inválido)
+Static Function Rx(oM As Object, cPadrao As Character, nCaixa As Numeric)
+	Local oRx := ExpReg():New(cPadrao,nCaixa==1) As Object
+	If !Empty(oRx:cErro)
+		FreeObj(oRx)
+		Return oM:Err("#VALUE!")
+	EndIf
+Return oRx
+
+Static Function fRegexTest(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local cPad := oM:Txt(aArgs[2]) As Variant
+	Local nCaixa := NumOpc(oM,aArgs,3,0) As Variant
+	Local xErro := PrimErro(oM,{cTxt,cPad,nCaixa}) As Variant
+	Local oRx As Variant
+	Local lRet As Logical
+	If xErro!=nil
+		Return xErro
+	EndIf
+	oRx	:= Rx(oM,cPad,nCaixa)
+	If oM:EhErro(oRx)
+		Return oRx
+	EndIf
+	lRet	:= oRx:Busca(cTxt)!=nil
+	FreeObj(oRx)
+Return lRet
+
+//REGEXEXTRACT(texto,padrão,[modo 0=primeira 1=todas 2=grupos da primeira],[caixa])
+Static Function fRegexExtract(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local cPad := oM:Txt(aArgs[2]) As Variant
+	Local nModo := NumOpc(oM,aArgs,3,0) As Variant
+	Local nCaixa := NumOpc(oM,aArgs,4,0) As Variant
+	Local xErro := PrimErro(oM,{cTxt,cPad,nModo,nCaixa}) As Variant
+	Local oRx As Variant
+	Local aRes As Variant
+	Local aTodas := {} As Array
+	Local nPos := 1 As Numeric
+	Local oRes As Object
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	oRx	:= Rx(oM,cPad,nCaixa)
+	If oM:EhErro(oRx)
+		Return oRx
+	EndIf
+	nModo	:= Int(nModo)
+	aRes	:= oRx:Busca(cTxt)
+	If aRes==nil
+		FreeObj(oRx)
+		Return oM:Err("#N/A")
+	EndIf
+	Do Case
+		Case nModo==0
+			FreeObj(oRx)
+			Return SubStr(cTxt,aRes[1],aRes[2]-aRes[1])
+		Case nModo==1
+			While aRes!=nil
+				AADD(aTodas,SubStr(cTxt,aRes[1],aRes[2]-aRes[1]))
+				nPos	:= If(aRes[2]>aRes[1],aRes[2],aRes[1]+1)
+				aRes	:= If(nPos<=Len(cTxt)+1,oRx:Busca(cTxt,nPos),nil)
+			EndDo
+			oRes	:= oM:NovaMat(nil,Len(aTodas),1)
+			For nCont:=1 to Len(aTodas)
+				oRes:aV[nCont][1]	:= aTodas[nCont]
+			Next
+			FreeObj(oRx)
+			Return oRes
+		Case nModo==2
+			If Empty(aRes[3])
+				FreeObj(oRx)
+				Return oM:Err("#N/A")
+			EndIf
+			oRes	:= oM:NovaMat(nil,1,Len(aRes[3]))
+			For nCont:=1 to Len(aRes[3])
+				oRes:aV[1][nCont]	:= If(aRes[3][nCont][1]>0,SubStr(cTxt,aRes[3][nCont][1],aRes[3][nCont][2]-aRes[3][nCont][1]),"")
+			Next
+			FreeObj(oRx)
+			Return oRes
+	EndCase
+	FreeObj(oRx)
+Return oM:Err("#VALUE!")
+
+//REGEXREPLACE(texto,padrão,substituição,[ocorrência 0=todas],[caixa]); $1..$9 e $0 na substituição
+Static Function fRegexReplace(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local cPad := oM:Txt(aArgs[2]) As Variant
+	Local cSubst := oM:Txt(aArgs[3]) As Variant
+	Local nOcorr := NumOpc(oM,aArgs,4,0) As Variant
+	Local nCaixa := NumOpc(oM,aArgs,5,0) As Variant
+	Local xErro := PrimErro(oM,{cTxt,cPad,cSubst,nOcorr,nCaixa}) As Variant
+	Local oRx As Variant
+	Local aRes As Variant
+	Local aTodas := {} As Array
+	Local nPos := 1 As Numeric
+	Local cRet := "" As Character
+	Local nUlt := 1 As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	oRx	:= Rx(oM,cPad,nCaixa)
+	If oM:EhErro(oRx)
+		Return oRx
+	EndIf
+	nOcorr	:= Int(nOcorr)
+	aRes	:= oRx:Busca(cTxt)
+	While aRes!=nil
+		AADD(aTodas,aRes)
+		nPos	:= If(aRes[2]>aRes[1],aRes[2],aRes[1]+1)
+		aRes	:= If(nPos<=Len(cTxt)+1,oRx:Busca(cTxt,nPos),nil)
+	EndDo
+	For nCont:=1 to Len(aTodas)
+		If nOcorr==0 .OR. nCont==nOcorr .OR. (nOcorr<0 .AND. nCont==Len(aTodas)+nOcorr+1)
+			cRet	+= SubStr(cTxt,nUlt,aTodas[nCont][1]-nUlt)+Substitui(cTxt,cSubst,aTodas[nCont])
+			nUlt	:= aTodas[nCont][2]
+		EndIf
+	Next
+	cRet	+= SubStr(cTxt,nUlt)
+	FreeObj(oRx)
+	FwFreeArray(aTodas)
+Return cRet
+
+//Texto de substituição com $0..$9 e ${n}
+Static Function Substitui(cTxt As Character, cSubst As Character, aRes As Array)
+	Local cRet := "" As Character
+	Local nCont := 1 As Numeric
+	Local cCar As Character
+	Local nGrp As Numeric
+	Local nFim As Numeric
+	While nCont<=Len(cSubst)
+		cCar	:= SubStr(cSubst,nCont,1)
+		If cCar=="$" .AND. nCont<Len(cSubst)
+			If IsDigit(SubStr(cSubst,nCont+1,1))
+				nGrp	:= Val(SubStr(cSubst,nCont+1,1))
+				nCont	+= 2
+			ElseIf SubStr(cSubst,nCont+1,1)=="{" .AND. (nFim:=At("}",cSubst,nCont))>0
+				nGrp	:= Val(SubStr(cSubst,nCont+2,nFim-nCont-2))
+				nCont	:= nFim+1
+			ElseIf SubStr(cSubst,nCont+1,1)=="$"
+				cRet	+= "$"
+				nCont	+= 2
+				Loop
+			Else
+				cRet	+= cCar
+				nCont++
+				Loop
+			EndIf
+			If nGrp==0
+				cRet	+= SubStr(cTxt,aRes[1],aRes[2]-aRes[1])
+			ElseIf nGrp<=Len(aRes[3]) .AND. aRes[3][nGrp][1]>0
+				cRet	+= SubStr(cTxt,aRes[3][nGrp][1],aRes[3][nGrp][2]-aRes[3][nGrp][1])
+			EndIf
+			Loop
+		EndIf
+		cRet	+= cCar
+		nCont++
+	EndDo
+Return cRet
+
+/* =====================================================================================
+   Formatador de números do Excel (TEXT, FIXED e exibição de células)
+   ===================================================================================== */
+
+/*/{Protheus.doc} Formata
+Formata o valor com o código de formato
+@param lInvariante, logical, Formato do xlsx (separadores invariantes) - na saída usa a localidade
+/*/
+Static Function Formata(oM As Object, xVal As Variant, cFmt As Character, lInvariante As Logical)
+	Local aSecoes As Array
+	Local aSec As Array
+	Local nVal As Variant
+	Local nCont As Numeric
+	Local cSec As Character
+	Local lSinal := .F. As Logical
+	Local aCond As Array
+	Local nTxt := 0 As Numeric
+	Local cRet As Variant
+	Default lInvariante	:= .F.
+	aSecoes	:= Secoes(cFmt)
+	If ValType(xVal)=="C"	//Texto numérico é formatado como número
+		nVal	:= oM:TxtLoc(xVal)
+		If nVal==nil
+			nVal	:= oM:TxtData(xVal)
+		EndIf
+		If nVal==nil
+			For nCont:=1 to Len(aSecoes)
+				If "@" $ SemLiterais(aSecoes[nCont])
+					nTxt	:= nCont
+				EndIf
+			Next
+			If nTxt==0 .AND. Len(aSecoes)>=4
+				nTxt	:= 4
+			EndIf
+			If nTxt==0
+				Return xVal
+			EndIf
+			Return SecaoTexto(aSecoes[nTxt],xVal)
+		EndIf
+		xVal	:= nVal
+	EndIf
+	//Escolha da seção
+	aCond	:= {}
+	For nCont:=1 to Min(Len(aSecoes),3)
+		AADD(aCond,Condicao(aSecoes[nCont]))
+	Next
+	If Len(aCond)>0 .AND. aCond[1]!=nil
+		If TestaCond(aCond[1],xVal)
+			cSec	:= aSecoes[1]
+			lSinal	:= xVal<0
+		ElseIf Len(aSecoes)>=2 .AND. (aCond[2]==nil .OR. TestaCond(aCond[2],xVal))
+			cSec	:= aSecoes[2]
+			lSinal	:= xVal<0 .AND. aCond[2]==nil .AND. Len(aSecoes)==2
+			If aCond[2]!=nil
+				lSinal	:= xVal<0
+			EndIf
+		ElseIf Len(aSecoes)>=3
+			cSec	:= aSecoes[3]
+			lSinal	:= xVal<0
+		Else
+			Return Replicate("#",10)
+		EndIf
+		If lSinal
+			xVal	:= Abs(xVal)
+		EndIf
+	Else
+		Do Case
+			Case Len(aSecoes)==1 .OR. (xVal>0 .AND. Len(aSecoes)>=1)
+				cSec	:= aSecoes[1]
+				lSinal	:= xVal<0
+			Case xVal<0
+				cSec	:= aSecoes[2]
+				xVal	:= Abs(xVal)
+			Case xVal==0 .AND. Len(aSecoes)>=3
+				cSec	:= aSecoes[3]
+			OtherWise
+				cSec	:= aSecoes[1]
+		EndCase
+		If lSinal
+			xVal	:= Abs(xVal)
+		EndIf
+	EndIf
+	aSec	:= Tokens(oM,cSec,lInvariante)
+	If aSec[1]=="D"	//Data/hora
+		If lSinal .OR. xVal<0
+			Return oM:Err("#VALUE!")
+		EndIf
+		cRet	:= FmtData(oM,xVal,aSec[2])
+	ElseIf aSec[1]=="G"
+		cRet	:= Geral(oM,xVal)
+		If lSinal
+			cRet	:= "-"+cRet
+			lSinal	:= .F.
+		EndIf
+		cRet	:= MontaLiterais(aSec[2],cRet)
+	Else
+		cRet	:= FmtNum(oM,xVal,aSec[2])
+		If lSinal .AND. TemDigitoNaoZero(cRet)
+			cRet	:= "-"+cRet
+		EndIf
+	EndIf
+	FwFreeArray(aSecoes)
+Return cRet
+
+//Há algum dígito diferente de zero (evita "-0,00")
+Static Function TemDigitoNaoZero(cTxt As Character)
+	Local nCont As Numeric
+	For nCont:=1 to Len(cTxt)
+		If SubStr(cTxt,nCont,1) $ "123456789"
+			Return .T.
+		EndIf
+	Next
+Return .F.
+
+//Separa as seções do formato por ";" (fora de aspas e colchetes)
+Static Function Secoes(cFmt As Character)
+	Local aRet := {} As Array
+	Local cAtu := "" As Character
+	Local nCont As Numeric
+	Local cCar As Character
+	Local lAspas := .F. As Logical
+	Local lCol := .F. As Logical
+	nCont	:= 1
+	While nCont<=Len(cFmt)
+		cCar	:= SubStr(cFmt,nCont,1)
+		If cCar=="\" .AND. !lAspas
+			cAtu	+= SubStr(cFmt,nCont,2)
+			nCont	+= 2
+			Loop
+		EndIf
+		If cCar=='"'
+			lAspas	:= !lAspas
+		ElseIf cCar=="[" .AND. !lAspas
+			lCol	:= .T.
+		ElseIf cCar=="]" .AND. !lAspas
+			lCol	:= .F.
+		EndIf
+		If cCar==";" .AND. !lAspas .AND. !lCol
+			AADD(aRet,cAtu)
+			cAtu	:= ""
+		Else
+			cAtu	+= cCar
+		EndIf
+		nCont++
+	EndDo
+	AADD(aRet,cAtu)
+Return aRet
+
+//Formato sem os literais entre aspas e escapes
+Static Function SemLiterais(cSec As Character)
+	Local cRet := "" As Character
+	Local nCont := 1 As Numeric
+	Local cCar As Character
+	Local lAspas := .F. As Logical
+	While nCont<=Len(cSec)
+		cCar	:= SubStr(cSec,nCont,1)
+		If cCar=='"'
+			lAspas	:= !lAspas
+		ElseIf cCar=="\" .AND. !lAspas
+			nCont++
+		ElseIf !lAspas
+			cRet	+= cCar
+		EndIf
+		nCont++
+	EndDo
+Return cRet
+
+//Condição [>=100] da seção: {cOperador,nValor} ou nil
+Static Function Condicao(cSec As Character)
+	Local nIni := At("[",cSec) As Numeric
+	Local nFim As Numeric
+	Local cCond As Character
+	Local cOp As Character
+	While nIni>0
+		nFim	:= At("]",cSec,nIni)
+		cCond	:= SubStr(cSec,nIni+1,nFim-nIni-1)
+		If Left(cCond,1) $ "<>="
+			cOp	:= If(SubStr(cCond,2,1) $ "=>",Left(cCond,2),Left(cCond,1))
+			Return {cOp,Val(SubStr(cCond,Len(cOp)+1))}
+		EndIf
+		nIni	:= At("[",cSec,nFim)
+	EndDo
+Return nil
+
+Static Function TestaCond(aCond As Array, nVal As Numeric)
+	Do Case
+		Case aCond[1]=="="
+			Return nVal==aCond[2]
+		Case aCond[1]=="<>"
+			Return nVal!=aCond[2]
+		Case aCond[1]=="<"
+			Return nVal<aCond[2]
+		Case aCond[1]==">"
+			Return nVal>aCond[2]
+		Case aCond[1]=="<="
+			Return nVal<=aCond[2]
+		Case aCond[1]==">="
+			Return nVal>=aCond[2]
+	EndCase
+Return .F.
+
+//Seção de texto: @ é substituído pelo valor
+Static Function SecaoTexto(cSec As Character, cTxt As Character)
+	Local cRet := "" As Character
+	Local nCont := 1 As Numeric
+	Local cCar As Character
+	Local nFim As Numeric
+	While nCont<=Len(cSec)
+		cCar	:= SubStr(cSec,nCont,1)
+		Do Case
+			Case cCar=='"'
+				nFim	:= At('"',cSec,nCont+1)
+				If nFim==0
+					nFim	:= Len(cSec)+1
+				EndIf
+				cRet	+= SubStr(cSec,nCont+1,nFim-nCont-1)
+				nCont	:= nFim+1
+				Loop
+			Case cCar=="\"
+				cRet	+= SubStr(cSec,nCont+1,1)
+				nCont	+= 2
+				Loop
+			Case cCar=="@"
+				cRet	+= cTxt
+			Case cCar=="_"
+				cRet	+= " "
+				nCont++
+			Case cCar=="*"
+				nCont++
+			Case cCar=="["
+				nFim	:= At("]",cSec,nCont)
+				nCont	:= If(nFim>0,nFim,nCont)
+			OtherWise
+				cRet	+= cCar
+		EndCase
+		nCont++
+	EndDo
+Return cRet
+
+/*/{Protheus.doc} Tokens
+Quebra a seção do formato em tokens
+@return array, {cTipo("N" número, "D" data, "G" geral),aTokens}; token {cTipo,cTexto,nTam}
+	tipos: L literal, 0 # ? dígitos, . decimal, , milhar, % percentual, E expoente, / fração,
+	y m d h s data/hora, AMPM, AP, [h] [m] [s] tempo decorrido, @ texto, G geral
+/*/
+Static Function Tokens(oM As Object, cSec As Character, lInvariante As Logical)
+	Local aTok := {} As Array
+	Local nCont := 1 As Numeric
+	Local cCar As Character
+	Local cUp As Character
+	Local nFim As Numeric
+	Local cDec := If(lInvariante .OR. oM:cLocal=="en-US",".",",") As Character
+	Local cMil := If(lInvariante .OR. oM:cLocal=="en-US",",",".") As Character
+	Local lData := .F. As Logical
+	Local lGeral := .F. As Logical
+	Local cConteudo As Character
+	Local nTam As Numeric
+	Local cLetra As Character
+	While nCont<=Len(cSec)
+		cCar	:= SubStr(cSec,nCont,1)
+		cUp		:= Upper(cCar)
+		Do Case
+			Case cCar=='"'
+				nFim	:= At('"',cSec,nCont+1)
+				If nFim==0
+					nFim	:= Len(cSec)+1
+				EndIf
+				AADD(aTok,{"L",SubStr(cSec,nCont+1,nFim-nCont-1)})
+				nCont	:= nFim+1
+				Loop
+			Case cCar=="\"
+				AADD(aTok,{"L",SubStr(cSec,nCont+1,1)})
+				nCont	+= 2
+				Loop
+			Case cCar=="_"
+				AADD(aTok,{"L"," "})
+				nCont	+= 2
+				Loop
+			Case cCar=="*"
+				nCont	+= 2
+				Loop
+			Case cCar=="["
+				nFim		:= At("]",cSec,nCont)
+				If nFim==0
+					nFim	:= Len(cSec)
+				EndIf
+				cConteudo	:= Upper(SubStr(cSec,nCont+1,nFim-nCont-1))
+				If !Empty(cConteudo) .AND. (Left(cConteudo,1) $ "HMS") .AND. Len(StrTran(cConteudo,Left(cConteudo,1),""))==0
+					AADD(aTok,{"["+Lower(Left(cConteudo,1))+"]","",Len(cConteudo)})
+					lData	:= .T.
+				ElseIf Left(cConteudo,1)=="$"	//Moeda: [$R$-416]
+					cConteudo	:= SubStr(cSec,nCont+2,nFim-nCont-2)
+					If "-" $ cConteudo
+						cConteudo	:= Left(cConteudo,At("-",cConteudo)-1)
+					EndIf
+					AADD(aTok,{"L",cConteudo})
+				EndIf
+				nCont	:= nFim+1
+				Loop
+			Case Upper(SubStr(cSec,nCont,7))=="GENERAL" .OR. Upper(SubStr(cSec,nCont,5))=="GERAL"
+				AADD(aTok,{"G",""})
+				lGeral	:= .T.
+				nCont	+= If(Upper(SubStr(cSec,nCont,7))=="GENERAL",7,5)
+				Loop
+			Case cUp=="A" .AND. Upper(SubStr(cSec,nCont,5))=="AM/PM"
+				AADD(aTok,{"AMPM",SubStr(cSec,nCont,5)})
+				lData	:= .T.
+				nCont	+= 5
+				Loop
+			Case cUp=="A" .AND. Upper(SubStr(cSec,nCont,3))=="A/P"
+				AADD(aTok,{"AP",SubStr(cSec,nCont,3)})
+				lData	:= .T.
+				nCont	+= 3
+				Loop
+			Case cCar $ "0#?"
+				AADD(aTok,{cCar,cCar})
+			Case cCar==cDec
+				AADD(aTok,{".",cCar})
+			Case cCar==cMil
+				AADD(aTok,{",",cCar})
+			Case cCar=="%"
+				AADD(aTok,{"%","%"})
+			Case cUp=="E" .AND. (SubStr(cSec,nCont+1,1)=="+" .OR. SubStr(cSec,nCont+1,1)=="-")
+				AADD(aTok,{"E",SubStr(cSec,nCont+1,1)})
+				nCont	+= 2
+				Loop
+			Case cCar=="/"
+				AADD(aTok,{"/","/"})
+			Case cCar=="@"
+				AADD(aTok,{"@","@"})
+			Case cUp $ "YMDHS" .OR. (cUp=="A" .AND. oM:cLocal=="pt-BR")
+				cLetra	:= If(cUp=="A","Y",cUp)
+				nTam	:= 0
+				While nCont+nTam<=Len(cSec) .AND. (Upper(SubStr(cSec,nCont+nTam,1))==cUp)
+					nTam++
+				EndDo
+				AADD(aTok,{Lower(cLetra),SubStr(cSec,nCont,nTam),nTam})
+				lData	:= .T.
+				nCont	+= nTam
+				Loop
+			OtherWise
+				AADD(aTok,{"L",cCar})
+		EndCase
+		nCont++
+	EndDo
+	If lGeral
+		Return {"G",aTok}
+	EndIf
+	If lData
+		//"." seguido de zeros após segundos: frações de segundo; demais pontos e barras são literais
+		Return {"D",aTok}
+	EndIf
+Return {"N",aTok}
+
+//Literais antes/depois do "General"
+Static Function MontaLiterais(aTok As Array, cGeral As Character)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	For nCont:=1 to Len(aTok)
+		If aTok[nCont][1]=="G"
+			cRet	+= cGeral
+		ElseIf aTok[nCont][1]=="L"
+			cRet	+= aTok[nCont][2]
+		Else
+			cRet	+= aTok[nCont][2]
+		EndIf
+	Next
+Return cRet
+
+//Formato Geral: até 11 caracteres
+Static Function Geral(oM As Object, nVal As Numeric)
+	Local cRet := oM:NumLoc(nVal) As Character
+	Local nDec As Numeric
+	Local nInt As Numeric
+	Local nExp As Numeric
+	Local nMant As Numeric
+	If Len(cRet)<=11
+		Return cRet
+	EndIf
+	If Abs(nVal)>=1 .AND. Abs(nVal)<100000000000
+		nInt	:= Len(DigInt(Int(Abs(nVal))))
+		nDec	:= Max(10-nInt-If(nVal<0,1,0),0)
+		Return oM:NumLoc(ArredExc(nVal,nDec))
+	EndIf
+	If Abs(nVal)<1 .AND. Abs(nVal)>=0.0001
+		nDec	:= 9-If(nVal<0,1,0)
+		Return oM:NumLoc(ArredExc(nVal,nDec))
+	EndIf
+	nExp	:= Int(Log10(Abs(nVal)))
+	If 10^nExp>Abs(nVal)
+		nExp--
+	EndIf
+	nMant	:= ArredExc(nVal/(10^nExp),5)
+	If Abs(nMant)>=10
+		nMant	:= nMant/10
+		nExp++
+	EndIf
+Return oM:NumLoc(nMant)+"E"+If(nExp<0,"-","+")+StrZero(Abs(nExp),2)
+
+/*/{Protheus.doc} FmtNum
+Formata número com os tokens (dígitos, decimais, milhar, percentual, científico e fração)
+/*/
+Static Function FmtNum(oM As Object, nVal As Numeric, aTok As Array)
+	Local nCont As Numeric
+	Local nPosDec := 0 As Numeric
+	Local nPosE := 0 As Numeric
+	Local nPosBarra := 0 As Numeric
+	Local lMilhar := .F. As Logical
+	Local nEscala := 0 As Numeric
+	Local nUltDigInt := 0 As Numeric
+	Local nPrimDig := 0 As Numeric
+	Local nDecs := 0 As Numeric
+	Local aIntPh := {} As Array
+	Local aDecPh := {} As Array
+	Local aExpPh := {} As Array
+	Local nFim As Numeric
+	Local cTipo As Character
+	For nCont:=1 to Len(aTok)
+		cTipo	:= aTok[nCont][1]
+		If cTipo=="%"
+			nVal	:= nVal*100
+		ElseIf cTipo=="." .AND. nPosDec==0 .AND. nPosE==0 .AND. nPosBarra==0
+			nPosDec	:= nCont
+		ElseIf cTipo=="E" .AND. nPosE==0
+			nPosE	:= nCont
+		ElseIf cTipo=="/" .AND. nPosBarra==0 .AND. nPosE==0
+			nPosBarra	:= nCont
+		EndIf
+	Next
+	If nPosBarra>0
+		Return FmtFracao(oM,nVal,aTok,nPosBarra)
+	EndIf
+	nFim	:= If(nPosE>0,nPosE,Len(aTok)+1)
+	//Placeholders da parte inteira, decimal e expoente; milhar e escala
+	For nCont:=1 to Len(aTok)
+		cTipo	:= aTok[nCont][1]
+		If cTipo $ "0#?"
+			If nPrimDig==0
+				nPrimDig	:= nCont
+			EndIf
+			If nCont>nFim
+				AADD(aExpPh,nCont)
+			ElseIf nPosDec>0 .AND. nCont>nPosDec
+				AADD(aDecPh,nCont)
+			Else
+				AADD(aIntPh,nCont)
+				nUltDigInt	:= nCont
+			EndIf
+		EndIf
+	Next
+	For nCont:=1 to Len(aTok)
+		If aTok[nCont][1]==","
+			If nCont>nUltDigInt .AND. (nPosDec==0 .OR. nCont<nPosDec) .AND. nCont<nFim .AND. nUltDigInt>0
+				nEscala++	//Vírgulas após o último dígito: divide por 1000
+			ElseIf nCont>nPrimDig .AND. nCont<nUltDigInt
+				lMilhar	:= .T.
+			EndIf
+		EndIf
+	Next
+	nVal	:= nVal/(1000^nEscala)
+	nDecs	:= Len(aDecPh)
+	If nPosE>0
+		Return FmtCient(oM,nVal,aTok,aIntPh,aDecPh,aExpPh,nPosE,nPosDec)
+	EndIf
+Return Monta(oM,nVal,aTok,aIntPh,aDecPh,lMilhar,nPosDec,nDecs)
+
+//Monta o texto distribuindo os dígitos nos placeholders
+Static Function Monta(oM As Object, nVal As Numeric, aTok As Array, aIntPh As Array, aDecPh As Array, lMilhar As Logical, nPosDec As Numeric, nDecs As Numeric)
+	Local cInt As Character
+	Local cDec := "" As Character
+	Local nInt As Numeric
+	Local nFrac As Numeric
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local nIdxInt := 0 As Numeric
+	Local nIdxDec := 0 As Numeric
+	Local nSobra As Numeric
+	Local cTipo As Character
+	Local cDig As Character
+	Local nMinInt := 0 As Numeric
+	Local lUsouInt := .F. As Logical
+	nVal	:= ArredExc(Abs(nVal),nDecs)
+	nInt	:= Int(nVal)
+	cInt	:= DigInt(nInt)
+	If nDecs>0
+		nFrac	:= Round((nVal-nInt)*(10^nDecs),0)
+		If nFrac>=10^nDecs
+			nFrac	:= 0
+			cInt	:= DigInt(nInt+1)
+		EndIf
+		cDec	:= PadL(DigInt(nFrac),nDecs,"0")
+		//Zeros finais em # ficam vazios e em ? viram espaço
+		For nCont:=nDecs to 1 Step -1
+			If SubStr(cDec,nCont,1)!="0"
+				Exit
+			EndIf
+			If aTok[aDecPh[nCont]][1]=="#"
+				cDec	:= Left(cDec,nCont-1)+Chr(1)+SubStr(cDec,nCont+1)
+			ElseIf aTok[aDecPh[nCont]][1]=="?"
+				cDec	:= Left(cDec,nCont-1)+Chr(2)+SubStr(cDec,nCont+1)
+			Else
+				Exit
+			EndIf
+		Next
+	EndIf
+	aEval(aIntPh,{|n| If(aTok[n][1]=="0",nMinInt++,nil) })
+	If cInt=="0" .AND. nMinInt==0
+		cInt	:= ""
+	EndIf
+	//Completa à esquerda conforme os placeholders
+	While Len(cInt)<Len(aIntPh)
+		cTipo	:= aTok[aIntPh[Len(aIntPh)-Len(cInt)]][1]
+		cInt	:= If(cTipo=="0","0",If(cTipo=="?",Chr(2),Chr(1)))+cInt
+	EndDo
+	If lMilhar
+		cInt	:= AgrupaPh(cInt,oM:cSepMil)
+	EndIf
+	nSobra	:= Len(cInt)-Len(aIntPh)
+	For nCont:=1 to Len(aTok)
+		cTipo	:= aTok[nCont][1]
+		If cTipo $ "0#?" .AND. (nPosDec==0 .OR. nCont<nPosDec)
+			nIdxInt++
+			If lMilhar
+				If !lUsouInt
+					cRet		+= cInt
+					lUsouInt	:= .T.
+				EndIf
+				Loop
+			EndIf
+			If nIdxInt==1
+				cRet	+= Left(cInt,nSobra+1)
+			Else
+				cRet	+= SubStr(cInt,nSobra+nIdxInt,1)
+			EndIf
+		ElseIf cTipo $ "0#?"
+			nIdxDec++
+			cRet	+= SubStr(cDec,nIdxDec,1)
+		ElseIf cTipo=="."
+			cRet	+= oM:cSepDec
+		ElseIf cTipo==","
+			//Milhar ou escala: não imprime
+		ElseIf cTipo=="%"
+			cRet	+= "%"
+		ElseIf cTipo=="L"
+			cRet	+= aTok[nCont][2]
+		ElseIf cTipo=="@"
+			cRet	+= ""
+		Else
+			cRet	+= aTok[nCont][2]
+		EndIf
+	Next
+	cRet	:= StrTran(cRet,Chr(1),"")
+	cRet	:= StrTran(cRet,Chr(2)," ")
+Return cRet
+
+//Separador de milhar mantendo marcadores de dígito vazio
+Static Function AgrupaPh(cInt As Character, cSep As Character)
+	Local cDig := "" As Character
+	Local cPre := "" As Character
+	Local nCont As Numeric
+	For nCont:=1 to Len(cInt)
+		If SubStr(cInt,nCont,1)==Chr(1) .OR. SubStr(cInt,nCont,1)==Chr(2)
+			cPre	+= SubStr(cInt,nCont,1)
+		Else
+			cDig	:= SubStr(cInt,nCont)
+			Exit
+		EndIf
+	Next
+Return cPre+Agrupa(cDig,cSep)
+
+//Notação científica 0.00E+00
+Static Function FmtCient(oM As Object, nVal As Numeric, aTok As Array, aIntPh As Array, aDecPh As Array, aExpPh As Array, nPosE As Numeric, nPosDec As Numeric)
+	Local nExp := 0 As Numeric
+	Local nMant As Numeric
+	Local nIntPh := Max(Len(aIntPh),1) As Numeric
+	Local cRet As Character
+	Local aTokM As Array
+	Local nCont As Numeric
+	Local cExp As Character
+	Local nMinExp := 0 As Numeric
+	Local nAbs := Abs(nVal) As Numeric
+	If nAbs!=0
+		nExp	:= Int(Log10(nAbs))
+		If 10^nExp>nAbs
+			nExp--
+		EndIf
+		If nIntPh>1 .AND. aScan(aIntPh,{|n| aTok[n][1]=="#" })>0	//Engenharia: expoente múltiplo da quantidade de dígitos
+			nExp	:= nExp-Mod(nExp,nIntPh)
+			If nExp>Int(Log10(nAbs))
+				nExp	-= nIntPh
+			EndIf
+		Else
+			nExp	:= nExp-(nIntPh-1)
+		EndIf
+		nMant	:= nAbs/(10^nExp)
+		If ArredExc(nMant,Len(aDecPh))>=10^nIntPh .AND. !(nIntPh>1 .AND. aScan(aIntPh,{|n| aTok[n][1]=="#" })>0)
+			nExp++
+			nMant	:= nAbs/(10^nExp)
+		EndIf
+	Else
+		nMant	:= 0
+	EndIf
+	aTokM	:= {}
+	For nCont:=1 to nPosE-1
+		AADD(aTokM,aTok[nCont])
+	Next
+	cRet	:= Monta(oM,nMant,aTokM,aIntPh,aDecPh,.F.,nPosDec,Len(aDecPh))
+	aEval(aExpPh,{|n| If(aTok[n][1]=="0",nMinExp++,nil) })
+	cExp	:= DigInt(Abs(nExp))
+	If Len(cExp)<nMinExp
+		cExp	:= Replicate("0",nMinExp-Len(cExp))+cExp
+	EndIf
+	cRet	+= "E"+If(nExp<0,"-",If(aTok[nPosE][2]=="+","+",""))+cExp
+	For nCont:=nPosE+1 to Len(aTok)	//Literais após o expoente
+		If aTok[nCont][1]=="L"
+			cRet	+= aTok[nCont][2]
+		EndIf
+	Next
+Return cRet
+
+//Fração "# ?/?" ou "?/8"
+Static Function FmtFracao(oM As Object, nVal As Numeric, aTok As Array, nPosBarra As Numeric)
+	Local nCont As Numeric
+	Local aNumPh := {} As Array
+	Local aIntPh := {} As Array
+	Local nDenFixo := 0 As Numeric
+	Local nDenDig := 0 As Numeric
+	Local nIniNum := 0 As Numeric
+	Local nInt As Numeric
+	Local nFrac As Numeric
+	Local nMelhorN := 0 As Numeric
+	Local nMelhorD := 1 As Numeric
+	Local nMelhorErr := 2 As Numeric
+	Local nD As Numeric
+	Local nN As Numeric
+	Local nMaxD As Numeric
+	Local cRet := "" As Character
+	Local lTemInt As Logical
+	Local cDen := "" As Character
+	Local nCont2 As Numeric
+	//Denominador: dígitos fixos ou placeholders após a barra
+	For nCont:=nPosBarra+1 to Len(aTok)
+		If aTok[nCont][1] $ "#?"
+			nDenDig++
+		ElseIf aTok[nCont][1]=="0" .OR. (aTok[nCont][1]=="L" .AND. IsDigit(aTok[nCont][2]))
+			cDen	+= If(aTok[nCont][1]=="0","0",aTok[nCont][2])
+		Else
+			Exit
+		EndIf
+	Next
+	If !Empty(cDen) .AND. nDenDig==0
+		nDenFixo	:= Val(cDen)
+	ElseIf !Empty(cDen)
+		nDenDig	+= Len(cDen)
+	EndIf
+	//Numerador: placeholders imediatamente antes da barra; parte inteira: placeholders antes do numerador
+	nCont	:= nPosBarra-1
+	While nCont>=1 .AND. aTok[nCont][1] $ "0#?"
+		AADD(aNumPh,nCont)
+		nCont--
+	EndDo
+	nIniNum	:= nCont+1
+	For nCont2:=1 to nCont
+		If aTok[nCont2][1] $ "0#?"
+			AADD(aIntPh,nCont2)
+		EndIf
+	Next
+	lTemInt	:= !Empty(aIntPh)
+	nVal	:= Abs(nVal)
+	nInt	:= If(lTemInt,Int(nVal),0)
+	nFrac	:= nVal-nInt
+	If nDenFixo>0
+		nMelhorD	:= nDenFixo
+		nMelhorN	:= Round(nFrac*nDenFixo,0)
+	Else
+		nMaxD	:= 10^Max(nDenDig,1)-1
+		For nD:=1 to nMaxD
+			nN		:= Round(nFrac*nD,0)
+			If Abs(nFrac-nN/nD)<nMelhorErr-0.000000000001
+				nMelhorErr	:= Abs(nFrac-nN/nD)
+				nMelhorN	:= nN
+				nMelhorD	:= nD
+			EndIf
+			If nMelhorErr==0
+				Exit
+			EndIf
+		Next
+	EndIf
+	If lTemInt .AND. nMelhorN==nMelhorD
+		nInt++
+		nMelhorN	:= 0
+	EndIf
+	For nCont:=1 to nIniNum-1	//Parte inteira e literais antes do numerador
+		If aTok[nCont][1] $ "0#?"
+			If nCont==aIntPh[1]
+				cRet	+= If(nInt==0,If(aTok[nCont][1]=="0","0",If(nMelhorN==0,"0","")),DigInt(nInt))
+			EndIf
+		ElseIf aTok[nCont][1]=="L"
+			If nMelhorN!=0 .OR. !lTemInt
+				cRet	+= aTok[nCont][2]
+			EndIf
+		EndIf
+	Next
+	If nMelhorN==0 .AND. lTemInt
+		Return RTrim(cRet)+Space(0)
+	EndIf
+	cRet	+= DigInt(nMelhorN)+"/"+DigInt(nMelhorD)
+	For nCont:=nPosBarra+1 to Len(aTok)	//Literais após o denominador
+		If aTok[nCont][1]=="L" .AND. !IsDigit(aTok[nCont][2])
+			cRet	+= aTok[nCont][2]
+		EndIf
+	Next
+	If !lTemInt .AND. nMelhorN==0 .AND. nVal==0
+		Return "0/"+DigInt(nMelhorD)
+	EndIf
+Return cRet
+
+/*/{Protheus.doc} FmtData
+Formata data/hora serial com os tokens (d, m, y, h, s, AM/PM, tempo decorrido)
+/*/
+Static Function FmtData(oM As Object, nVal As Numeric, aTok As Array)
+	Local aData As Array
+	Local nSeg As Numeric
+	Local nH As Numeric
+	Local nMin As Numeric
+	Local nS As Numeric
+	Local nFracDig := 0 As Numeric
+	Local nFracSeg As Numeric
+	Local lAmPm := .F. As Logical
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local cTipo As Character
+	Local nTam As Numeric
+	Local lMinuto As Logical
+	Local nAnt As Numeric
+	Local nProx As Numeric
+	Local nH12 As Numeric
+	Local nDiaSem As Numeric
+	Local nTotal As Numeric
+	Local lFracSeg As Logical
+	Local nDias As Numeric
+	aEval(aTok,{|x| If(x[1]=="AMPM" .OR. x[1]=="AP",lAmPm:=.T.,nil) })
+	//Frações de segundo: ".0" após s
+	For nCont:=1 to Len(aTok)
+		If aTok[nCont][1]=="." .AND. nCont>1 .AND. (aTok[nCont-1][1]=="s" .OR. aTok[nCont-1][1]=="[s]")
+			nTam	:= nCont+1
+			While nTam<=Len(aTok) .AND. aTok[nTam][1]=="0"
+				nFracDig++
+				nTam++
+			EndDo
+		EndIf
+	Next
+	nDias	:= Int(nVal)
+	nSeg	:= Round((nVal-nDias)*86400,nFracDig)
+	If nSeg>=86400
+		nDias++
+		nSeg	-= 86400
+	EndIf
+	aData	:= oM:SerialData(nDias)
+	nDiaSem	:= oM:DiaSemana(nDias)
+	nH		:= Int(nSeg/3600)
+	nMin	:= Int((nSeg-nH*3600)/60)
+	nS		:= Int(nSeg-nH*3600-nMin*60)
+	nFracSeg	:= nSeg-Int(nSeg)
+	nTotal	:= nDias*86400+nSeg
+	lFracSeg	:= .F.
+	For nCont:=1 to Len(aTok)
+		cTipo	:= aTok[nCont][1]
+		nTam	:= If(Len(aTok[nCont])>=3,aTok[nCont][3],1)
+		Do Case
+			Case cTipo=="y"
+				cRet	+= If(nTam<=2,Right(StrZero(aData[1],4),2),StrZero(aData[1],4))
+			Case cTipo=="m"
+				//Minuto quando vem depois de h ou antes de s
+				nAnt	:= TokAnt(aTok,nCont)
+				nProx	:= TokProx(aTok,nCont)
+				lMinuto	:= nTam<=2 .AND. ((nAnt>0 .AND. (aTok[nAnt][1]=="h" .OR. aTok[nAnt][1]=="[h]")) .OR. (nProx>0 .AND. (aTok[nProx][1]=="s" .OR. aTok[nProx][1]=="[s]")))
+				If lMinuto
+					cRet	+= If(nTam==2,StrZero(nMin,2),cValToChar(nMin))
+				Else
+					Do Case
+						Case nTam==1
+							cRet	+= cValToChar(aData[2])
+						Case nTam==2
+							cRet	+= StrZero(aData[2],2)
+						Case nTam==3
+							cRet	+= NomeMes(oM,aData[2],.T.)
+						Case nTam==5
+							cRet	+= Left(NomeMes(oM,aData[2],.F.),1)
+						Otherwise
+							cRet	+= NomeMes(oM,aData[2],.F.)
+					EndCase
+				EndIf
+			Case cTipo=="d"
+				Do Case
+					Case nTam==1
+						cRet	+= cValToChar(aData[3])
+					Case nTam==2
+						cRet	+= StrZero(aData[3],2)
+					Case nTam==3
+						cRet	+= NomeDia(oM,nDiaSem,.T.)
+					Otherwise
+						cRet	+= NomeDia(oM,nDiaSem,.F.)
+				EndCase
+			Case cTipo=="h"
+				nH12	:= If(lAmPm,If(Mod(nH,12)==0,12,Mod(nH,12)),nH)
+				cRet	+= If(nTam>=2,StrZero(nH12,2),cValToChar(nH12))
+			Case cTipo=="s"
+				cRet	+= If(nTam>=2,StrZero(nS,2),cValToChar(nS))
+			Case cTipo=="[h]"
+				cRet	+= ZeroEsq(DigInt(Int(nTotal/3600)),nTam)
+			Case cTipo=="[m]"
+				cRet	+= ZeroEsq(DigInt(Int(nTotal/60)),nTam)
+			Case cTipo=="[s]"
+				cRet	+= ZeroEsq(DigInt(Int(nTotal)),nTam)
+			Case cTipo=="AMPM"
+				cRet	+= If(nH<12,If(aTok[nCont][2]=="am/pm","am","AM"),If(aTok[nCont][2]=="am/pm","pm","PM"))
+			Case cTipo=="AP"
+				cRet	+= If(nH<12,If(Left(aTok[nCont][2],1)=="a","a","A"),If(Left(aTok[nCont][2],1)=="a","p","P"))
+			Case cTipo=="." .AND. nFracDig>0 .AND. nCont>1 .AND. (aTok[nCont-1][1]=="s" .OR. aTok[nCont-1][1]=="[s]")
+				cRet	+= oM:cSepDec+PadL(DigInt(Round(nFracSeg*(10^nFracDig),0)),nFracDig,"0")
+				lFracSeg	:= .T.
+			Case cTipo=="0" .AND. lFracSeg
+				//Dígitos das frações de segundo já impressos
+			Case cTipo=="L" .OR. cTipo=="/" .OR. cTipo=="." .OR. cTipo==","
+				cRet	+= aTok[nCont][2]
+				lFracSeg	:= .F.
+			OtherWise
+				cRet	+= aTok[nCont][2]
+		EndCase
+	Next
+Return cRet
+
+//Completa com zeros à esquerda sem truncar
+Static Function ZeroEsq(cTxt As Character, nTam As Numeric)
+	If Len(cTxt)<nTam
+		Return Replicate("0",nTam-Len(cTxt))+cTxt
+	EndIf
+Return cTxt
+
+//Token de data/hora anterior (ignora literais)
+Static Function TokAnt(aTok As Array, nPos As Numeric)
+	Local nCont As Numeric
+	For nCont:=nPos-1 to 1 Step -1
+		If aTok[nCont][1] $ "y|m|d|h|s|[h]|[m]|[s]"
+			Return nCont
+		EndIf
+	Next
+Return 0
+
+//Token de data/hora seguinte (ignora literais)
+Static Function TokProx(aTok As Array, nPos As Numeric)
+	Local nCont As Numeric
+	For nCont:=nPos+1 to Len(aTok)
+		If aTok[nCont][1] $ "y|m|d|h|s|[h]|[m]|[s]"
+			Return nCont
+		EndIf
+	Next
+Return 0
+
+Static Function NomeMes(oM As Object, nMes As Numeric, lAbrev As Logical)
+	Local aPt := {"janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"} As Array
+	Local aEn := {"January","February","March","April","May","June","July","August","September","October","November","December"} As Array
+	Local cRet As Character
+	cRet	:= If(oM:cLocal=="pt-BR",aPt[nMes],aEn[nMes])
+	FwFreeArray(aPt)
+	FwFreeArray(aEn)
+Return If(lAbrev,Left(cRet,3),cRet)
+
+Static Function NomeDia(oM As Object, nDia As Numeric, lAbrev As Logical)
+	Local aPt := {"domingo","segunda-feira","terça-feira","quarta-feira","quinta-feira","sexta-feira","sábado"} As Array
+	Local aEn := {"Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"} As Array
+	Local cRet As Character
+	cRet	:= If(oM:cLocal=="pt-BR",aPt[nDia],aEn[nDia])
+	FwFreeArray(aPt)
+	FwFreeArray(aEn)
+Return If(lAbrev,Left(cRet,3),cRet)
