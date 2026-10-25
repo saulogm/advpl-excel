@@ -801,3 +801,58 @@ Static Function CasosPtBr()
 	AADD(aRet,{'COUNTIF({1.5,2.5},">2")',1})
 	AADD(aRet,{'TEXT(0.5,"0,0%")',"50,0%"})
 Return aRet
+
+/*/{Protheus.doc} XCALCPERF
+Desempenho: 20 mil linhas em bulk (modo arquivo) com fórmula por linha, PROCV em outra planilha e total.
+Resultado em \xcalc_perf.log
+@type user function
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+User Function XCALCPERF()
+	Local oExcel As Object
+	Local aCampos := {} As Array
+	Local nCont As Numeric
+	Local nQtd := 20000 As Numeric
+	Local nIni As Numeric
+	Local nGerar As Numeric
+	Local cLog As Character
+	Local oLer As Object
+	FErase("\xcalc\xcalc_perf.xlsx")
+	nIni	:= Seconds()
+	oExcel	:= custom.excel.Xlsx():New("xcalc_perf")
+	oExcel:ADDPlan("Dados")
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 1, cTipo = "N"))
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 2, cTipo = "N"))
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 3, cTipo = "N", lFormula = .T.))
+	AADD(aCampos,oExcel:BulkNewField(nColuna = 4, cTipo = "C", lFormula = .T.))
+	oExcel:DefBulkLine(aCampos)
+	oExcel:nLinha	:= 1
+	For nCont:=1 to nQtd
+		oExcel:SetValueBulk(nCont)
+		oExcel:SetValueBulk(nCont*2)
+		oExcel:SetValueBulk(nil,"A"+cValToChar(nCont)+"*B"+cValToChar(nCont))
+		oExcel:SetValueBulk(nil,"VLOOKUP(MOD(A"+cValToChar(nCont)+",100),Tab!A:B,2,FALSE)")
+		oExcel:SetBulkLine()
+	Next
+	oExcel:FlushBulk()
+	oExcel:Cell(nQtd+1,3,nil,"SUM(C1:C"+cValToChar(nQtd)+")")
+	oExcel:ADDPlan("Tab")
+	For nCont:=0 to 99
+		oExcel:Cell(nCont+1,1,nCont)
+		oExcel:Cell(nCont+1,2,"cod"+cValToChar(nCont))
+	Next
+	nGerar	:= Seconds()-nIni
+	nIni	:= Seconds()
+	oExcel:Save("\xcalc")
+	cLog	:= "Gerar: "+cValToChar(nGerar)+"s Save(com calculo): "+cValToChar(Seconds()-nIni)+"s"+Chr(13)+Chr(10)
+	oExcel:Close()
+	FreeObj(oExcel)
+	oLer	:= custom.excel.Xlsx():New(,"\xcalc\xcalc_perf.xlsx")
+	oLer:SetPlanAt(1)
+	cLog	+= "C"+cValToChar(nQtd+1)+"="+cValToChar(oLer:GetValue(nQtd+1,3))+" D150="+cValToChar(oLer:GetValue(150,4))+" C10="+cValToChar(oLer:GetValue(10,3))+Chr(13)+Chr(10)
+	oLer:Close()
+	FreeObj(oLer)
+	MemoWrite("\xcalc_perf.log",cLog)
+	FwFreeArray(aCampos)
+Return 0

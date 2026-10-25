@@ -11,7 +11,7 @@ Namespace custom.excel.calc
 #define N_STR		2	//{2,cValor}
 #define N_LOG		3	//{3,lValor}
 #define N_ERR		4	//{4,cCodigo}
-#define N_REF		5	//{5,cPlanilha,nLin1,nCol1,nLin2,nCol2,cPlanilha2}
+#define N_REF		5	//{5,cPlanilha,nLin1,nCol1,nLin2,nCol2,cPlanilha2,lAbsL1,lAbsC1,lAbsL2,lAbsC2}
 #define N_NOME		6	//{6,cNome,cPlanilha}
 #define N_FUNC		7	//{7,cNome,aArgs}
 #define N_BIN		8	//{8,cOperador,aEsq,aDir}
@@ -149,6 +149,8 @@ Class Lambda
 	Public Data aCorpo		As Array
 	Public Data aEscopos	As Array
 	Public Data cFunc		As Character	//Função nativa usada como valor (ex.: GROUPBY(...,SUM))
+	Public Data nDLin		As Numeric		//Deslocamento das referências da fórmula onde foi criada
+	Public Data nDCol		As Numeric
 	Public Method New()		As Object
 EndClass
 
@@ -159,6 +161,8 @@ Method New(aParams As Array, aCorpo As Array, aEscopos As Array, cFunc As Charac
 	::aCorpo	:= aCorpo
 	::aEscopos	:= aEscopos
 	::cFunc		:= cFunc
+	::nDLin		:= 0
+	::nDCol		:= 0
 Return self
 
 /*/{Protheus.doc} Err
@@ -479,7 +483,7 @@ Method Numero() Class Parser
 			::nPos++
 		EndDo
 		nL2		:= Val(SubStr(::cTxt,nIni,::nPos-nIni))
-		Return {N_REF,"",nL1,1,nL2,MAX_COL,""}
+		Return {N_REF,"",nL1,1,nL2,MAX_COL,"",.T.,.T.,.T.,.T.}
 	EndIf
 	If ::Car()=="."
 		::nPos++
@@ -623,13 +627,13 @@ Method Palavra() Class Parser
 			cPal2	:= PalavraEm(::cTxt,::nPos)
 			::nPos	+= Len(cPal2)
 			aRef2	:= RefCel(cPal2)
-			Return {N_REF,"",aRef[1],aRef[2],aRef2[1],aRef2[2],""}
+			Return {N_REF,"",aRef[1],aRef[2],aRef2[1],aRef2[2],"",aRef[3],aRef[4],aRef2[3],aRef2[4]}
 		Case cCar==":" .AND. RefColuna(cPal)>0 .AND. RefColuna(PalavraEm(::cTxt,::nPos+1))>0
 			//Intervalo de colunas A:C
 			::nPos++
 			cPal2	:= PalavraEm(::cTxt,::nPos)
 			::nPos	+= Len(cPal2)
-			Return {N_REF,"",1,RefColuna(cPal),MAX_LIN,RefColuna(cPal2),""}
+			Return {N_REF,"",1,RefColuna(cPal),MAX_LIN,RefColuna(cPal2),"",.T.,.T.,.T.,.T.}
 		Case cCar==":" .AND. !("$" $ cPal)
 			//Referência 3D: Plan1:Plan3!A1
 			nSalva	:= ::nPos
@@ -656,7 +660,7 @@ Method Palavra() Class Parser
 	EndIf
 	aRef	:= RefCel(cPal)
 	If !Empty(aRef)
-		Return {N_REF,"",aRef[1],aRef[2],aRef[1],aRef[2],""}
+		Return {N_REF,"",aRef[1],aRef[2],aRef[1],aRef[2],"",aRef[3],aRef[4],aRef[3],aRef[4]}
 	EndIf
 Return {N_NOME,cPal,""}
 
@@ -690,7 +694,7 @@ Method RefPlan(cPlan As Character) Class Parser
 		While IsDigit(::Car())
 			::nPos++
 		EndDo
-		Return {N_REF,cPlan,nL1,1,Val(SubStr(::cTxt,nIni,::nPos-nIni)),MAX_COL,""}
+		Return {N_REF,cPlan,nL1,1,Val(SubStr(::cTxt,nIni,::nPos-nIni)),MAX_COL,"",.T.,.T.,.T.,.T.}
 	EndIf
 	cPal	:= PalavraEm(::cTxt,::nPos)
 	If Empty(cPal)
@@ -707,15 +711,15 @@ Method RefPlan(cPlan As Character) Class Parser
 			cPal	:= PalavraEm(::cTxt,::nPos)
 			::nPos	+= Len(cPal)
 			aRef2	:= RefCel(cPal)
-			Return {N_REF,cPlan,aRef[1],aRef[2],aRef2[1],aRef2[2],""}
+			Return {N_REF,cPlan,aRef[1],aRef[2],aRef2[1],aRef2[2],"",aRef[3],aRef[4],aRef2[3],aRef2[4]}
 		EndIf
-		Return {N_REF,cPlan,aRef[1],aRef[2],aRef[1],aRef[2],""}
+		Return {N_REF,cPlan,aRef[1],aRef[2],aRef[1],aRef[2],"",aRef[3],aRef[4],aRef[3],aRef[4]}
 	EndIf
 	If RefColuna(cPal)>0 .AND. ::Car()==":"
 		::nPos++
 		cPal2	:= PalavraEm(::cTxt,::nPos)
 		::nPos	+= Len(cPal2)
-		Return {N_REF,cPlan,1,RefColuna(cPal),MAX_LIN,RefColuna(cPal2),""}
+		Return {N_REF,cPlan,1,RefColuna(cPal),MAX_LIN,RefColuna(cPal2),"",.T.,.T.,.T.,.T.}
 	EndIf
 Return {N_NOME,cPal,cPlan}
 
@@ -842,6 +846,8 @@ Class Motor
 	Public Data oEstado		As Object	//Células em cálculo (referência circular)
 	Public Data oAst		As Object	//Cache da árvore por texto da fórmula
 	Public Data oMatCache	As Object	//Cache das áreas lidas (referência -> Mat) e índices de busca
+	Public Data nDLin		As Numeric	//Deslocamento das referências relativas (fórmula de modelo em cache)
+	Public Data nDCol		As Numeric
 	Public Data nPla		As Numeric	//Célula em cálculo
 	Public Data nLin		As Numeric
 	Public Data nCol		As Numeric
@@ -858,6 +864,8 @@ Class Motor
 	Public Method Var()
 	Public Method Funcoes()
 	Public Method Arvore()
+	Public Method ArvoreRel()
+	Public Method AvaliarAbs()
 	Public Method Calcular()
 	Public Method CalcCelula()
 	Public Method Avaliar()
@@ -921,6 +929,8 @@ Method New(oProv As Object) As Object Class Motor
 	::oEstado	:= tHashMap():New()
 	::oAst		:= tHashMap():New()
 	::oMatCache	:= tHashMap():New()
+	::nDLin		:= 0
+	::nDCol		:= 0
 	::nPla		:= 1
 	::nLin		:= 1
 	::nCol		:= 1
@@ -1008,8 +1018,16 @@ Avalia uma fórmula no contexto de uma célula
 /*/
 Method Calcular(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As Numeric, lIncompleto As Logical) Class Motor
 	Local xRet As Variant
-	Local aSalva := {::nPla,::nLin,::nCol,::lIncompleto} As Array
+	Local nSPla := ::nPla As Numeric
+	Local nSLin := ::nLin As Numeric
+	Local nSCol := ::nCol As Numeric
+	Local lSInc := ::lIncompleto As Logical
+	Local nSDL := ::nDLin As Numeric
+	Local nSDC := ::nDCol As Numeric
 	Local oErro As Object
+	Local aAst As Array
+	Local nDL := 0 As Numeric
+	Local nDC := 0 As Numeric
 	Default nPla	:= 1
 	Default nLin	:= 1
 	Default nCol	:= 1
@@ -1018,7 +1036,10 @@ Method Calcular(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As
 	::nCol			:= nCol
 	::lIncompleto	:= .F.
 	Try
-		xRet	:= ::Avaliar(::Arvore(cFormula))
+		aAst	:= ::ArvoreRel(cFormula,nLin,nCol,@nDL,@nDC)
+		::nDLin	:= nDL
+		::nDCol	:= nDC
+		xRet	:= ::Avaliar(aAst)
 		xRet	:= ::Valor(xRet)
 		If ValType(xRet)=="O" .AND. xRet:nTipoV==V_MAT	//Matriz: valor da primeira célula (âncora do spill)
 			xRet	:= xRet:aV[1][1]
@@ -1034,11 +1055,12 @@ Method Calcular(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As
 		xRet			:= Err("#NAME?")
 	EndTry
 	lIncompleto		:= ::lIncompleto
-	::nPla			:= aSalva[1]
-	::nLin			:= aSalva[2]
-	::nCol			:= aSalva[3]
-	::lIncompleto	:= aSalva[4] .OR. lIncompleto
-	FwFreeArray(aSalva)
+	::nPla			:= nSPla
+	::nLin			:= nSLin
+	::nCol			:= nSCol
+	::lIncompleto	:= lSInc .OR. lIncompleto
+	::nDLin			:= nSDL
+	::nDCol			:= nSDC
 Return xRet
 
 //Valor de uma célula com fórmula pendente (calcula uma vez, detecta referência circular)
@@ -1492,6 +1514,9 @@ Method RefNo(aNo As Array) Class Motor
 			Return Err("#REF!")
 		EndIf
 	EndIf
+If Len(aNo)>=8 .AND. (::nDLin!=0 .OR. ::nDCol!=0)	//Fórmula de modelo: desloca as partes relativas
+	Return RefDesloc(aNo,nPla,nPla2,::nDLin,::nDCol)
+EndIf
 Return Ref():New(nPla,aNo[3],aNo[4],aNo[5],aNo[6],nPla2)
 
 //Variável de LET/LAMBDA ou nome definido
@@ -1524,7 +1549,7 @@ Method Nome(cNome As Character, cPlan As Character) Class Motor
 	EndIf
 	aSalva	:= ::aEscopos
 	::aEscopos	:= {}
-	xRet	:= ::Avaliar(::Arvore(cForm))
+	xRet	:= ::AvaliarAbs(::Arvore(cForm))
 	::aEscopos	:= aSalva
 Return xRet
 
@@ -1772,6 +1797,8 @@ Method ChamarLambda(oLam As Object, aArgs As Array, lAval As Logical) Class Moto
 	Local aSalva := ::aEscopos As Array
 	Local xRet As Variant
 	Local aVals As Array
+	Local nDL As Numeric
+	Local nDC As Numeric
 	If !Empty(oLam:cFunc)
 		aVals	:= Array(Len(aArgs))
 		For nCont:=1 to Len(aArgs)
@@ -1792,7 +1819,13 @@ Method ChamarLambda(oLam As Object, aArgs As Array, lAval As Logical) Class Moto
 	Next
 	::aEscopos	:= aClone(oLam:aEscopos)
 	AADD(::aEscopos,oVar)
+	nDL		:= ::nDLin
+	nDC		:= ::nDCol
+	::nDLin	:= oLam:nDLin
+	::nDCol	:= oLam:nDCol
 	xRet	:= ::Avaliar(oLam:aCorpo)
+	::nDLin	:= nDL
+	::nDCol	:= nDC
 	::aEscopos	:= aSalva
 Return xRet
 
@@ -2151,7 +2184,7 @@ Static Function PalavraEm(cTxt As Character, nPos As Numeric)
 Return SubStr(cTxt,nIni,nPos-nIni)
 
 /*/{Protheus.doc} RefCel
-Converte "A1"/"$A$1" em {nLin,nCol}; {} se não for referência de célula
+Converte "A1"/"$A$1" em {nLin,nCol,lLinhaAbsoluta,lColunaAbsoluta}; {} se não for referência de célula
 /*/
 Static Function RefCel(cRef As Character)
 	Local nCont As Numeric
@@ -2161,12 +2194,17 @@ Static Function RefCel(cRef As Character)
 	Local nCol As Numeric
 	Local nLin As Numeric
 	Local nEtapa := 0 As Numeric	//0=coluna 1=linha
+	Local lAbsCol := .F. As Logical
+	Local lAbsLin := .F. As Logical
 	For nCont:=1 to Len(cRef)
 		cCar	:= SubStr(cRef,nCont,1)
 		If cCar=="$"
-			If (nEtapa==0 .AND. !Empty(cCol))
+			If nEtapa==0 .AND. Empty(cCol)
+				lAbsCol	:= .T.
+			ElseIf nEtapa==0 .AND. !Empty(cCol)
 				nEtapa	:= 1
-			ElseIf nEtapa==1
+				lAbsLin	:= .T.
+			Else
 				Return {}
 			EndIf
 			Loop
@@ -2188,7 +2226,7 @@ Static Function RefCel(cRef As Character)
 	If nCol<1 .OR. nCol>MAX_COL .OR. nLin<1 .OR. nLin>MAX_LIN
 		Return {}
 	EndIf
-Return {nLin,nCol}
+Return {nLin,nCol,lAbsLin,lAbsCol}
 
 /*/{Protheus.doc} RefColuna
 Converte "A"/"$A" em número da coluna; 0 se não for coluna
@@ -2261,7 +2299,10 @@ Method NovaRef(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric, 
 Return Ref():New(nPla,nL1,nC1,nL2,nC2)
 
 Method NovaLambda(aParams As Array, aCorpo As Array) Class Motor
-Return Lambda():New(aParams,aCorpo,aClone(::aEscopos))
+	Local oLam := Lambda():New(aParams,aCorpo,aClone(::aEscopos)) As Object
+	oLam:nDLin	:= ::nDLin	//Captura o deslocamento da fórmula onde foi criada
+	oLam:nDCol	:= ::nDCol
+Return oLam
 
 Method ColNum(cCol As Character) Class Motor
 Return ColNum(Upper(cCol))
@@ -2437,11 +2478,13 @@ Method Precisa(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As 
 	Local aSalva := {::nPla,::nLin,::nCol} As Array
 	Local lRet As Logical
 	Local oErro As Object
+	Local nDL := 0 As Numeric
+	Local nDC := 0 As Numeric
 	::nPla	:= nPla
 	::nLin	:= nLin
 	::nCol	:= nCol
 	Try
-		lRet	:= PrecisaNo(self,::Arvore(cFormula),@aAreas,0)
+		lRet	:= PrecisaNo(self,::ArvoreRel(cFormula,nLin,nCol,@nDL,@nDC),@aAreas,0,nDL,nDC)
 	Catch oErro
 		lRet	:= .T.	//Fórmula inválida não lê células
 	EndTry
@@ -2451,12 +2494,15 @@ Method Precisa(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As 
 	FwFreeArray(aSalva)
 Return lRet
 
-Static Function PrecisaNo(oM As Object, aNo As Array, aAreas As Array, nNivel As Numeric)
+Static Function PrecisaNo(oM As Object, aNo As Array, aAreas As Array, nNivel As Numeric, nDL As Numeric, nDC As Numeric)
 	Local nCont As Numeric
+	Local oRef As Variant
 	Local xRef As Variant
 	Local nPla As Numeric
 	Local nPla2 As Numeric
 	Local cForm As Character
+	Default nDL	:= 0
+	Default nDC	:= 0
 	If nNivel>50	//Nomes recursivos
 		Return .F.
 	EndIf
@@ -2470,11 +2516,14 @@ Static Function PrecisaNo(oM As Object, aNo As Array, aAreas As Array, nNivel As
 			If !Empty(aNo[7])
 				nPla2	:= oM:oProv:CalcPlan(aNo[7])
 			EndIf
-			For nCont:=nPla to nPla2
-				If nCont>0
-					AADD(aAreas,{nCont,Min(aNo[3],aNo[5]),Min(aNo[4],aNo[6]),Max(aNo[3],aNo[5]),Max(aNo[4],aNo[6])})
-				EndIf
-			Next
+			oRef	:= If(Len(aNo)>=8 .AND. (nDL!=0 .OR. nDC!=0),RefDesloc(aNo,Max(nPla,1),Max(nPla2,1),nDL,nDC),Ref():New(Max(nPla,1),aNo[3],aNo[4],aNo[5],aNo[6]))
+			If ValType(oRef)=="O" .AND. oRef:nTipoV==V_REF
+				For nCont:=nPla to nPla2
+					If nCont>0
+						AADD(aAreas,{nCont,oRef:nL1,oRef:nC1,oRef:nL2,oRef:nC2})
+					EndIf
+				Next
+			EndIf
 		Case aNo[1]==N_ESTR
 			xRef	:= oM:Estrut(aNo)
 			If oM:EhRef(xRef)
@@ -2487,29 +2536,29 @@ Static Function PrecisaNo(oM As Object, aNo As Array, aAreas As Array, nNivel As
 			EndIf
 			cForm	:= oM:oProv:CalcNome(aNo[2],nPla)
 			If !Empty(cForm)
-				Return PrecisaNo(oM,oM:Arvore(cForm),@aAreas,nNivel+1)
+				Return PrecisaNo(oM,oM:Arvore(cForm),@aAreas,nNivel+1,0,0)
 			EndIf
 		Case aNo[1]==N_FUNC
 			If aNo[2]=="INDIRECT" .OR. aNo[2]=="OFFSET"
 				Return .F.
 			EndIf
 			For nCont:=1 to Len(aNo[3])
-				If !PrecisaNo(oM,aNo[3][nCont],@aAreas,nNivel)
+				If !PrecisaNo(oM,aNo[3][nCont],@aAreas,nNivel,nDL,nDC)
 					Return .F.
 				EndIf
 			Next
 		Case aNo[1]==N_BIN
-			If !PrecisaNo(oM,aNo[3],@aAreas,nNivel) .OR. !PrecisaNo(oM,aNo[4],@aAreas,nNivel)
+			If !PrecisaNo(oM,aNo[3],@aAreas,nNivel,nDL,nDC) .OR. !PrecisaNo(oM,aNo[4],@aAreas,nNivel,nDL,nDC)
 				Return .F.
 			EndIf
 		Case aNo[1]==N_UN .OR. aNo[1]==N_SPILL
-			Return PrecisaNo(oM,aNo[If(aNo[1]==N_UN,3,2)],@aAreas,nNivel)
+			Return PrecisaNo(oM,aNo[If(aNo[1]==N_UN,3,2)],@aAreas,nNivel,nDL,nDC)
 		Case aNo[1]==N_CHAMA
-			If !PrecisaNo(oM,aNo[2],@aAreas,nNivel)
+			If !PrecisaNo(oM,aNo[2],@aAreas,nNivel,nDL,nDC)
 				Return .F.
 			EndIf
 			For nCont:=1 to Len(aNo[3])
-				If !PrecisaNo(oM,aNo[3][nCont],@aAreas,nNivel)
+				If !PrecisaNo(oM,aNo[3][nCont],@aAreas,nNivel,nDL,nDC)
 					Return .F.
 				EndIf
 			Next
@@ -2897,3 +2946,130 @@ Method NumData(xVal As Variant) Class Motor
 		Return nRet
 	EndIf
 Return ::Num(xVal)
+
+/*/{Protheus.doc} Motor::ArvoreRel
+Árvore da fórmula reaproveitando o modelo: fórmulas que só diferem pelas referências relativas
+(ex.: =A2*B2, =A3*B3) compartilham a árvore, e as referências são deslocadas na avaliação
+@type method
+@param cFormula, character, Fórmula
+@param nLin, numeric, Linha da célula
+@param nCol, numeric, Coluna da célula
+@param nDL, numeric, (referência) deslocamento de linhas
+@param nDC, numeric, (referência) deslocamento de colunas
+@return array, árvore
+/*/
+Method ArvoreRel(cFormula As Character, nLin As Numeric, nCol As Numeric, nDL As Numeric, nDC As Numeric) Class Motor
+	Local cCel := "F|"+cValToChar(nLin)+"|"+cValToChar(nCol)+"|"+cFormula As Character
+	Local cChave As Character
+	Local aMod As Array
+	If ::oAst:Get(cCel,@aMod)	//Mesma fórmula na mesma célula (análise e depois cálculo)
+		nDL	:= nLin-aMod[2]
+		nDC	:= nCol-aMod[3]
+		Return aMod[1]
+	EndIf
+	cChave	:= "R|"+ModeloChave(cFormula,nLin,nCol)
+	If ::oAst:Get(cChave,@aMod)
+		nDL	:= nLin-aMod[2]
+		nDC	:= nCol-aMod[3]
+		::oAst:Set(cCel,aMod)
+		Return aMod[1]
+	EndIf
+	aMod	:= {::Arvore(cFormula),nLin,nCol}
+	::oAst:Set(cChave,aMod)
+	::oAst:Set(cCel,aMod)
+	nDL	:= 0
+	nDC	:= 0
+Return aMod[1]
+
+//Avalia sem deslocamento de referências (nomes definidos e INDIRECT)
+Method AvaliarAbs(aAst As Array) Class Motor
+	Local nDL := ::nDLin As Numeric
+	Local nDC := ::nDCol As Numeric
+	Local xRet As Variant
+	::nDLin	:= 0
+	::nDCol	:= 0
+	xRet	:= ::Avaliar(aAst)
+	::nDLin	:= nDL
+	::nDCol	:= nDC
+Return xRet
+
+//Referência com as partes relativas deslocadas (Erro #REF! se sair da planilha)
+Static Function RefDesloc(aNo As Array, nPla As Numeric, nPla2 As Numeric, nDL As Numeric, nDC As Numeric)
+	Local nL1 := aNo[3]+If(aNo[8],0,nDL) As Numeric
+	Local nC1 := aNo[4]+If(aNo[9],0,nDC) As Numeric
+	Local nL2 := aNo[5]+If(aNo[10],0,nDL) As Numeric
+	Local nC2 := aNo[6]+If(aNo[11],0,nDC) As Numeric
+	If nL1<1 .OR. nC1<1 .OR. nL2<1 .OR. nC2<1 .OR. nL1>MAX_LIN .OR. nL2>MAX_LIN .OR. nC1>MAX_COL .OR. nC2>MAX_COL
+		Return Err("#REF!")
+	EndIf
+Return Ref():New(nPla,nL1,nC1,nL2,nC2,nPla2)
+
+/*/{Protheus.doc} ModeloChave
+Chave do modelo da fórmula: referências de célula relativas viram deslocamentos em relação à célula
+(como no estilo L1C1); textos, nomes e referências absolutas ficam como estão
+/*/
+Static Function ModeloChave(cFormula As Character, nLin As Numeric, nCol As Numeric)
+	Local cRet := "" As Character
+	Local nPos := 1 As Numeric
+	Local nLen := Len(cFormula) As Numeric
+	Local cCar As Character
+	Local nIni As Numeric
+	Local cPal As Character
+	Local aRef As Array
+	Local cAnt := "" As Character
+	While nPos<=nLen
+		cCar	:= SubStr(cFormula,nPos,1)
+		If cCar=='"' .OR. cCar=="'"	//Texto ou nome de planilha entre aspas
+			nIni	:= nPos
+			nPos++
+			While nPos<=nLen
+				If SubStr(cFormula,nPos,1)==cCar
+					If SubStr(cFormula,nPos+1,1)==cCar
+						nPos	+= 2
+						Loop
+					EndIf
+					Exit
+				EndIf
+				nPos++
+			EndDo
+			cRet	+= SubStr(cFormula,nIni,nPos-nIni+1)
+			nPos++
+			cAnt	:= cCar
+			Loop
+		EndIf
+		If cCar=="["	//Referência estruturada
+			nIni	:= nPos
+			nPos	:= At("]",cFormula,nPos)
+			While nPos>0 .AND. SubStr(cFormula,nPos+1,1)=="]"
+				nPos++
+			EndDo
+			If nPos==0
+				nPos	:= nLen
+			EndIf
+			cRet	+= SubStr(cFormula,nIni,nPos-nIni+1)
+			nPos++
+			Loop
+		EndIf
+		If IsAlpha(cCar) .OR. cCar=="$" .OR. cCar=="_" .OR. IsDigit(cCar) .OR. cCar=="."
+			nIni	:= nPos
+			While nPos<=nLen .AND. (IsAlpha(SubStr(cFormula,nPos,1)) .OR. IsDigit(SubStr(cFormula,nPos,1)) .OR. SubStr(cFormula,nPos,1) $ "$_.\")
+				nPos++
+			EndDo
+			cPal	:= SubStr(cFormula,nIni,nPos-nIni)
+			aRef	:= {}
+			If !IsDigit(Left(cPal,1)) .AND. SubStr(cFormula,nPos,1)!="(" .AND. SubStr(cFormula,nPos,1)!="!" .AND. !(IsAlpha(cAnt) .OR. IsDigit(cAnt))
+				aRef	:= RefCel(cPal)
+			EndIf
+			If Empty(aRef)
+				cRet	+= cPal
+			Else
+				cRet	+= Chr(1)+If(aRef[3],"L"+cValToChar(aRef[1]),"l"+cValToChar(aRef[1]-nLin))+If(aRef[4],"C"+cValToChar(aRef[2]),"c"+cValToChar(aRef[2]-nCol))
+			EndIf
+			cAnt	:= Right(cPal,1)
+			Loop
+		EndIf
+		cRet	+= cCar
+		cAnt	:= cCar
+		nPos++
+	EndDo
+Return cRet

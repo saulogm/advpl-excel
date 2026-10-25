@@ -466,7 +466,7 @@ Static Function fIndirect(oM As Object, aArgs As Array)
 	EndIf
 	If lA1
 		Try
-			xRet	:= oM:Avaliar(oM:Arvore(cRef))
+			xRet	:= oM:AvaliarAbs(oM:Arvore(cRef))
 		Catch oErro
 			xRet	:= oM:Err("#REF!")
 		EndTry
