@@ -842,6 +842,8 @@ Avaliador de fórmulas do Excel. Lê as células através de um provedor (objeto com
 Class Motor
 	Public Data oProv		As Object
 	Public Data oFunc		As Object	//Registro de funções: NOME -> {bBloco,nMin,nMax,cFlags}
+	Public Data aCatalogo	As Array	//Funções registradas {cNome,cCategoria,cFlags} (tabela de cobertura)
+	Public Data cCatAtual	As Character	//Categoria em registro
 	Public Data oCache		As Object	//Resultado das células calculadas "pla|lin|col" -> {xValor,lIncompleto}
 	Public Data oEstado		As Object	//Células em cálculo (referência circular)
 	Public Data oAst		As Object	//Cache da árvore por texto da fórmula
@@ -920,11 +922,15 @@ Class Motor
 	Public Method ChaveBusca()
 	Public Method CopiaMat()
 	Public Method NumData()
+	Public Method MenorIg()
+	Public Method Zero()
 EndClass
 
 Method New(oProv As Object) As Object Class Motor
 	::oProv		:= oProv
 	::oFunc		:= tHashMap():New()
+	::aCatalogo	:= {}
+	::cCatAtual	:= "Usuário"
 	::oCache	:= tHashMap():New()
 	::oEstado	:= tHashMap():New()
 	::oAst		:= tHashMap():New()
@@ -955,6 +961,9 @@ Method Registrar(cNome As Character, bBloco As CodeBlock, nMin As Numeric, nMax 
 	Default nMin	:= 0
 	Default nMax	:= -1
 	Default cFlags	:= ""
+	If ::Funcao(cNome)==nil
+		AADD(::aCatalogo,{Upper(cNome),::cCatAtual,cFlags})
+	EndIf
 	::oFunc:Set(Upper(cNome),{bBloco,nMin,nMax,cFlags})
 Return
 
@@ -986,11 +995,16 @@ Return .F.
 Method Funcoes() Class Motor
 	Local aCat As Array
 	Local nCont As Numeric
-	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New(),FuncTxt():New(),FuncDat():New(),FuncRef():New(),FuncDist():New()}
+	aCat	:= {{"Lógica e informação",FuncLog():New()},{"Matemática e trigonometria",FuncMat():New()},{"Estatística",FuncEst():New()},;
+				{"Texto",FuncTxt():New()},{"Data e hora",FuncDat():New()},{"Pesquisa, referência e matriz dinâmica",FuncRef():New()},;
+				{"Estatística (distribuições e testes)",FuncDist():New()},{"Financeira",FuncFin():New()},{"Engenharia",FuncEng():New()},;
+				{"Banco de dados, web e ambiente do Excel",FuncBd():New()}}
 	For nCont:=1 to Len(aCat)
-		aCat[nCont]:Registrar(self)
-		FreeObj(aCat[nCont])
+		::cCatAtual	:= aCat[nCont][1]
+		aCat[nCont][2]:Registrar(self)
+		FreeObj(aCat[nCont][2])
 	Next
+	::cCatAtual	:= "Usuário"
 	FwFreeArray(aCat)
 Return
 
@@ -1926,7 +1940,7 @@ Method OperaEsc(cOp As Character, xA As Variant, xB As Variant) Class Motor
 		Case cOp=="*"
 			Return nA*nB
 		Case cOp=="/"
-			If nB==0
+			If Zero(nB)
 				Return Err("#DIV/0!")
 			EndIf
 			Return nA/nB
@@ -1937,10 +1951,10 @@ Return Err("#VALUE!")
 
 //Potência com as regras do Excel
 Method Elevar(nA As Numeric, nB As Numeric) Class Motor
-	If nA==0 .AND. nB==0
+	If Zero(nA) .AND. Zero(nB)
 		Return Err("#NUM!")
 	EndIf
-	If nA==0 .AND. nB<0
+	If Zero(nA) .AND. nB<0
 		Return Err("#DIV/0!")
 	EndIf
 	If nA<0 .AND. nB!=Int(nB)
@@ -1990,11 +2004,12 @@ Static Function Compara(xA As Variant, xB As Variant)
 	If nOa!=nOb
 		Return If(nOa<nOb,-1,1)
 	EndIf
-	If cTa=="N"
-		If Abs(xA-xB)<=Abs(xA)*0.000000000000001
+	If cTa=="N"	//Diferença escalada: a comparação direta do AdvPL ignora diferenças menores que ~1e-8
+		nOa	:= (xA-xB)*100000000
+		If nOa==0
 			Return 0
 		EndIf
-		Return If(xA<xB,-1,1)
+		Return If(nOa<0,-1,1)
 	EndIf
 	If cTa=="L"
 		If xA==xB
@@ -3073,3 +3088,20 @@ Static Function ModeloChave(cFormula As Character, nLin As Numeric, nCol As Nume
 		nPos++
 	EndDo
 Return cRet
+
+/*/{Protheus.doc} MenorIg
+a <= b com precisão total: os operadores de comparação do AdvPL consideram iguais números com diferença
+menor que ~1e-8; a diferença escalada (a-b)*1e8 recupera a precisão até ~1e-15
+/*/
+Static Function MenorIg(nA As Numeric, nB As Numeric)
+Return (nA-nB)*100000000<=0
+
+//Número igual a zero com precisão total
+Static Function Zero(nA As Numeric)
+Return nA*100000000==0
+
+Method MenorIg(nA As Numeric, nB As Numeric) Class Motor
+Return MenorIg(nA,nB)
+
+Method Zero(nA As Numeric) Class Motor
+Return Zero(nA)

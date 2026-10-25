@@ -193,7 +193,7 @@ Static Function GamaSerie(nA As Numeric, nX As Numeric)
 		nAp++
 		nDel	*= nX/nAp
 		nSoma	+= nDel
-		If Abs(nDel)<Abs(nSoma)*XEPS
+		If MenorIg(Abs(nDel),Abs(nSoma)*XEPS)
 			Exit
 		EndIf
 	Next
@@ -211,17 +211,17 @@ Static Function GamaFC(nA As Numeric, nX As Numeric)
 		nAn	:= -nCont*(nCont-nA)
 		nB	+= 2
 		nD	:= nAn*nD+nB
-		If Abs(nD)<FPMin()
+		If MenorIg(Abs(nD),FPMin())
 			nD	:= FPMin()
 		EndIf
 		nC	:= nB+nAn/nC
-		If Abs(nC)<FPMin()
+		If MenorIg(Abs(nC),FPMin())
 			nC	:= FPMin()
 		EndIf
 		nD	:= 1/nD
 		nDel	:= nD*nC
 		nH	*= nDel
-		If Abs(nDel-1)<XEPS
+		If MenorIg(Abs(nDel-1),XEPS)
 			Exit
 		EndIf
 	Next
@@ -255,7 +255,7 @@ Static Function BetaCF(nA As Numeric, nB As Numeric, nX As Numeric)
 	Local nM2 As Numeric
 	Local nAa As Numeric
 	Local nDel As Numeric
-	If Abs(nD)<FPMin()
+	If MenorIg(Abs(nD),FPMin())
 		nD	:= FPMin()
 	EndIf
 	nD	:= 1/nD
@@ -264,28 +264,28 @@ Static Function BetaCF(nA As Numeric, nB As Numeric, nX As Numeric)
 		nM2	:= 2*nM
 		nAa	:= nM*(nB-nM)*nX/((nQam+nM2)*(nA+nM2))
 		nD	:= 1+nAa*nD
-		If Abs(nD)<FPMin()
+		If MenorIg(Abs(nD),FPMin())
 			nD	:= FPMin()
 		EndIf
 		nC	:= 1+nAa/nC
-		If Abs(nC)<FPMin()
+		If MenorIg(Abs(nC),FPMin())
 			nC	:= FPMin()
 		EndIf
 		nD	:= 1/nD
 		nH	*= nD*nC
 		nAa	:= -(nA+nM)*(nQab+nM)*nX/((nA+nM2)*(nQap+nM2))
 		nD	:= 1+nAa*nD
-		If Abs(nD)<FPMin()
+		If MenorIg(Abs(nD),FPMin())
 			nD	:= FPMin()
 		EndIf
 		nC	:= 1+nAa/nC
-		If Abs(nC)<FPMin()
+		If MenorIg(Abs(nC),FPMin())
 			nC	:= FPMin()
 		EndIf
 		nD	:= 1/nD
 		nDel	:= nD*nC
 		nH	*= nDel
-		If Abs(nDel-1)<XEPS
+		If MenorIg(Abs(nDel-1),XEPS)
 			Exit
 		EndIf
 	Next
@@ -368,6 +368,18 @@ Static Function FCdf(nX As Numeric, nD1 As Numeric, nD2 As Numeric)
 	EndIf
 Return BetaI(nD1/2,nD2/2,nD1*nX/(nD1*nX+nD2))
 
+//Cauda superior da F calculada diretamente (sem cancelamento de 1-acumulada)
+Static Function FSup(nX As Numeric, nD1 As Numeric, nD2 As Numeric)
+	If nX<=0
+		Return 1
+	EndIf
+Return BetaI(nD2/2,nD1/2,nD2/(nD2+nD1*nX))
+
+//Cauda superior da t: P(T>t)
+Static Function TSup(nT As Numeric, nV As Numeric)
+	Local nCauda := 0.5*BetaI(nV/2,0.5,nV/(nV+nT*nT)) As Numeric
+Return If(nT>0,nCauda,1-nCauda)
+
 /*/{Protheus.doc} Brent
 Raiz de f(x)-p no intervalo [a,b] (método de Brent); expande b enquanto não houver troca de sinal
 @param bF, codeblock, Função {|x| valor}
@@ -387,15 +399,16 @@ Static Function Brent(bF As CodeBlock, nP As Numeric, nA As Numeric, nB As Numer
 	Local nR As Numeric
 	Local nCont As Numeric
 	Default lExpande	:= .T.
+	//Todas as comparações usam Sinal/Menor (precisão total; o AdvPL iguala diferenças < 1e-8)
 	nFa	:= Eval(bF,nA)-nP
 	nFb	:= Eval(bF,nB)-nP
 	nCont	:= 0
-	While lExpande .AND. nFa*nFb>0 .AND. nCont<200
+	While lExpande .AND. Sinal(nFa)*Sinal(nFb)>0 .AND. nCont<200
 		nB	:= nB*2+1
 		nFb	:= Eval(bF,nB)-nP
 		nCont++
 	EndDo
-	If nFa*nFb>0
+	If Sinal(nFa)*Sinal(nFb)>0
 		Return nil
 	EndIf
 	nC	:= nB
@@ -403,13 +416,13 @@ Static Function Brent(bF As CodeBlock, nP As Numeric, nA As Numeric, nB As Numer
 	nD	:= nB-nA
 	nE	:= nD
 	For nCont:=1 to 300
-		If (nFb>0 .AND. nFc>0) .OR. (nFb<0 .AND. nFc<0)
+		If Sinal(nFb)*Sinal(nFc)>0
 			nC	:= nA
 			nFc	:= nFa
 			nD	:= nB-nA
 			nE	:= nD
 		EndIf
-		If Abs(nFc)<Abs(nFb)
+		If Menor(Abs(nFc),Abs(nFb))
 			nA	:= nB
 			nB	:= nC
 			nC	:= nA
@@ -419,12 +432,12 @@ Static Function Brent(bF As CodeBlock, nP As Numeric, nA As Numeric, nB As Numer
 		EndIf
 		nTol	:= 2*XEPS*Abs(nB)+0.0000000000000001
 		nM		:= 0.5*(nC-nB)
-		If Abs(nM)<=nTol .OR. nFb==0
+		If MenorIg(Abs(nM),nTol) .OR. Sinal(nFb)==0
 			Return nB
 		EndIf
-		If Abs(nE)>=nTol .AND. Abs(nFa)>Abs(nFb)
+		If !Menor(Abs(nE),nTol) .AND. Menor(Abs(nFb),Abs(nFa))
 			nS	:= nFb/nFa
-			If nA==nC
+			If Sinal(nA-nC)==0
 				nPp	:= 2*nM*nS
 				nQq	:= 1-nS
 			Else
@@ -433,12 +446,12 @@ Static Function Brent(bF As CodeBlock, nP As Numeric, nA As Numeric, nB As Numer
 				nPp	:= nS*(2*nM*nQq*(nQq-nR)-(nB-nA)*(nR-1))
 				nQq	:= (nQq-1)*(nR-1)*(nS-1)
 			EndIf
-			If nPp>0
+			If Sinal(nPp)>0
 				nQq	:= -nQq
 			Else
 				nPp	:= -nPp
 			EndIf
-			If 2*nPp<Min(3*nM*nQq-Abs(nTol*nQq),Abs(nE*nQq))
+			If Menor(2*nPp,Min(3*nM*nQq-Abs(nTol*nQq),Abs(nE*nQq)))
 				nE	:= nD
 				nD	:= nPp/nQq
 			Else
@@ -451,14 +464,26 @@ Static Function Brent(bF As CodeBlock, nP As Numeric, nA As Numeric, nB As Numer
 		EndIf
 		nA	:= nB
 		nFa	:= nFb
-		If Abs(nD)>nTol
+		If Menor(nTol,Abs(nD))
 			nB	+= nD
 		Else
-			nB	+= If(nM>0,nTol,-nTol)
+			nB	+= If(Sinal(nM)>0,nTol,-nTol)
 		EndIf
 		nFb	:= Eval(bF,nB)-nP
 	Next
 Return nB
+
+//Sinal com precisão total (-1, 0, 1)
+Static Function Sinal(nX As Numeric)
+	Local nE := nX*100000000 As Numeric
+	If nE==0
+		Return 0
+	EndIf
+Return If(nE>0,1,-1)
+
+//a < b com precisão total
+Static Function Menor(nA As Numeric, nB As Numeric)
+Return (nA-nB)*100000000<0
 
 /* =====================================================================================
    Funções
@@ -632,12 +657,12 @@ Static Function fTDist(oM As Object, aArgs As Array, nModo As Numeric)
 			EndIf
 			Return Exp(GLn((nV+1)/2)-GLn(nV/2)-(nV+1)/2*Log(1+nX*nX/nV))/Sqrt(nV*XPI)
 		Case nModo==1
-			Return 1-TCdf(nX,nV)
+			Return TSup(nX,nV)
 		Case nModo==2
 			If nX<0
 				Return oM:Err("#NUM!")
 			EndIf
-			Return 2*(1-TCdf(nX,nV))
+			Return 2*TSup(nX,nV)
 	EndCase
 	xTerc	:= oM:Num(aArgs[3])	//TDIST: caudas 1 ou 2
 	If oM:EhErro(xTerc)
@@ -646,11 +671,11 @@ Static Function fTDist(oM As Object, aArgs As Array, nModo As Numeric)
 	If nX<0 .OR. (Int(xTerc)!=1 .AND. Int(xTerc)!=2)
 		Return oM:Err("#NUM!")
 	EndIf
-Return Int(xTerc)*(1-TCdf(nX,nV))
+Return Int(xTerc)*TSup(nX,nV)
 
 //Inversa bicaudal da t: t tal que P(|T|>t)=p
 Static Function TInvBi(nP As Numeric, nV As Numeric)
-	Local xRet := Brent({|t| 2*(1-TCdf(t,nV)) },nP,0,10) As Variant
+	Local xRet := Brent({|t| -2*TSup(t,nV) },-nP,0,10) As Variant
 Return xRet
 
 //T.INV(p,gl) cauda inferior / T.INV.2T(p,gl)
@@ -723,8 +748,12 @@ Static Function fChiInv(oM As Object, aArgs As Array, lCauda As Logical)
 	If nP<0 .OR. nP>1 .OR. nK<1 .OR. (lCauda .AND. nP==0) .OR. (!lCauda .AND. nP==1)
 		Return oM:Err("#NUM!")
 	EndIf
-	If lCauda
-		nP	:= 1-nP
+	If lCauda	//Cauda superior resolvida diretamente
+		xRet	:= Brent({|x| -GamaQ(nK/2,x/2) },-nP,0,nK+10)
+		If xRet==nil
+			Return oM:Err("#NUM!")
+		EndIf
+		Return xRet
 	EndIf
 	If nP==0
 		Return 0
@@ -753,7 +782,7 @@ Static Function fFDist(oM As Object, aArgs As Array, lCauda As Logical)
 		Return oM:Err("#NUM!")
 	EndIf
 	If lCauda
-		Return 1-FCdf(nX,nD1,nD2)
+		Return FSup(nX,nD1,nD2)
 	EndIf
 	lAcum	:= Acum(oM,aArgs[4])
 	If oM:EhErro(lAcum)
@@ -783,8 +812,12 @@ Static Function fFInv(oM As Object, aArgs As Array, lCauda As Logical)
 	If nP<0 .OR. nP>1 .OR. nD1<1 .OR. nD2<1 .OR. (lCauda .AND. nP==0) .OR. (!lCauda .AND. nP==1)
 		Return oM:Err("#NUM!")
 	EndIf
-	If lCauda
-		nP	:= 1-nP
+	If lCauda	//Cauda superior resolvida diretamente
+		xRet	:= Brent({|x| -FSup(x,nD1,nD2) },-nP,0,10)
+		If xRet==nil
+			Return oM:Err("#NUM!")
+		EndIf
+		Return xRet
 	EndIf
 	If nP==0
 		Return 0
@@ -1402,3 +1435,14 @@ Static Function fProb(oM As Object, aArgs As Array)
 		Return oM:Err("#NUM!")
 	EndIf
 Return nRet
+
+/*/{Protheus.doc} MenorIg
+a <= b com precisão total: os operadores de comparação do AdvPL consideram iguais números com diferença
+menor que ~1e-8; a diferença escalada (a-b)*1e8 recupera a precisão até ~1e-15
+/*/
+Static Function MenorIg(nA As Numeric, nB As Numeric)
+Return (nA-nB)*100000000<=0
+
+//Número igual a zero com precisão total
+Static Function Zero(nA As Numeric)
+Return nA*100000000==0

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Cálculo automático de fórmulas
+
+- `SetValue(, cFormula)` sem valor: a classe calcula a fórmula no `Save`/`Save2Html` e grava o valor em cache (`<v>`), nos modos A (arquivo), M (memória) e B (banco). `GetValue` e o html passam a mostrar o resultado.
+- Novo motor de fórmulas em AdvPL (`src/custom.excel.calc*.tlpp`, namespace `custom.excel.calc`): parser com precedência do Excel, referências entre planilhas, nomes definidos, referências estruturadas de tabela, matrizes, LET/LAMBDA e 539 funções do Excel (504 calculadas; as dependentes do ambiente, como CUBE*/RTD/WEBSERVICE, ficam para o Excel).
+- Fórmulas não calculáveis ficam sem valor e o workbook recebe `calcPr fullCalcOnLoad="1"`.
+- Novos métodos: `SetCalcFormula`, `AddFuncFormula`, `SetCalcLocal`.
+- Correções: subtotais MAX/MIN/MULT/STDEV/VAR do `Alias2Tab`; `LocRef` aceita o prefixo `Plan!`; no modo B, células só com fórmula não são mais descartadas no `Save`.
+- Documentação: `skills/advpl-excel-xlsx/references/formulas.md`.
+
 ### Migração para TLPP — `src/custom.tools.excel.tlpp`
 
 Criado novo fonte TLPP com migração completa da biblioteca de geração de planilhas Excel XLSX.

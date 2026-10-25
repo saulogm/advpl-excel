@@ -1,0 +1,1011 @@
+// Funções de engenharia do Excel (motor custom.excel.calc): bases numéricas, bits, números complexos,
+// Bessel, CONVERT, DELTA e GESTEP
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define XPI			3.14159265358979323846
+
+/*/{Protheus.doc} FuncEng
+Registro das funções de engenharia
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncEng
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncEng
+Return self
+
+Method Registrar(oM As Object) Class FuncEng
+	//Bases numéricas
+	oM:Registrar("BIN2DEC"		,{|o,a| fBase2Dec(o,a,2) }			,1,1,"E")
+	oM:Registrar("OCT2DEC"		,{|o,a| fBase2Dec(o,a,8) }			,1,1,"E")
+	oM:Registrar("HEX2DEC"		,{|o,a| fBase2Dec(o,a,16) }			,1,1,"E")
+	oM:Registrar("DEC2BIN"		,{|o,a| fDec2Base(o,a,2) }			,1,2,"E")
+	oM:Registrar("DEC2OCT"		,{|o,a| fDec2Base(o,a,8) }			,1,2,"E")
+	oM:Registrar("DEC2HEX"		,{|o,a| fDec2Base(o,a,16) }			,1,2,"E")
+	oM:Registrar("BIN2OCT"		,{|o,a| fBase2Base(o,a,2,8) }		,1,2,"E")
+	oM:Registrar("BIN2HEX"		,{|o,a| fBase2Base(o,a,2,16) }		,1,2,"E")
+	oM:Registrar("OCT2BIN"		,{|o,a| fBase2Base(o,a,8,2) }		,1,2,"E")
+	oM:Registrar("OCT2HEX"		,{|o,a| fBase2Base(o,a,8,16) }		,1,2,"E")
+	oM:Registrar("HEX2BIN"		,{|o,a| fBase2Base(o,a,16,2) }		,1,2,"E")
+	oM:Registrar("HEX2OCT"		,{|o,a| fBase2Base(o,a,16,8) }		,1,2,"E")
+	//Bits
+	oM:Registrar("BITAND"		,{|o,a| fBit(o,a,1) }				,2,2,"E")
+	oM:Registrar("BITOR"		,{|o,a| fBit(o,a,2) }				,2,2,"E")
+	oM:Registrar("BITXOR"		,{|o,a| fBit(o,a,3) }				,2,2,"E")
+	oM:Registrar("BITLSHIFT"	,{|o,a| fBitShift(o,a,.T.) }		,2,2,"E")
+	oM:Registrar("BITRSHIFT"	,{|o,a| fBitShift(o,a,.F.) }		,2,2,"E")
+	//Comparação
+	oM:Registrar("DELTA"		,{|o,a| fDelta(o,a,.T.) }			,1,2,"E")
+	oM:Registrar("GESTEP"		,{|o,a| fDelta(o,a,.F.) }			,1,2,"E")
+	//Bessel
+	oM:Registrar("BESSELJ"		,{|o,a| fBessel(o,a,"J") }			,2,2,"E")
+	oM:Registrar("BESSELY"		,{|o,a| fBessel(o,a,"Y") }			,2,2,"E")
+	oM:Registrar("BESSELI"		,{|o,a| fBessel(o,a,"I") }			,2,2,"E")
+	oM:Registrar("BESSELK"		,{|o,a| fBessel(o,a,"K") }			,2,2,"E")
+	//Conversão de unidades
+	oM:Registrar("CONVERT"		,{|o,a| fConvert(o,a) }				,3,3,"E")
+	//Números complexos
+	oM:Registrar("COMPLEX"		,{|o,a| fComplex(o,a) }				,2,3,"E")
+	oM:Registrar("IMREAL"		,{|o,a| Cx1(o,a,"REAL") }			,1,1,"E")
+	oM:Registrar("IMAGINARY"	,{|o,a| Cx1(o,a,"IMAG") }			,1,1,"E")
+	oM:Registrar("IMABS"		,{|o,a| Cx1(o,a,"ABS") }			,1,1,"E")
+	oM:Registrar("IMARGUMENT"	,{|o,a| Cx1(o,a,"ARG") }			,1,1,"E")
+	oM:Registrar("IMCONJUGATE"	,{|o,a| Cx1(o,a,"CONJ") }			,1,1,"E")
+	oM:Registrar("IMEXP"		,{|o,a| Cx1(o,a,"EXP") }			,1,1,"E")
+	oM:Registrar("IMLN"			,{|o,a| Cx1(o,a,"LN") }				,1,1,"E")
+	oM:Registrar("IMLOG10"		,{|o,a| Cx1(o,a,"LOG10") }			,1,1,"E")
+	oM:Registrar("IMLOG2"		,{|o,a| Cx1(o,a,"LOG2") }			,1,1,"E")
+	oM:Registrar("IMSQRT"		,{|o,a| Cx1(o,a,"SQRT") }			,1,1,"E")
+	oM:Registrar("IMSIN"		,{|o,a| Cx1(o,a,"SIN") }			,1,1,"E")
+	oM:Registrar("IMCOS"		,{|o,a| Cx1(o,a,"COS") }			,1,1,"E")
+	oM:Registrar("IMTAN"		,{|o,a| Cx1(o,a,"TAN") }			,1,1,"E")
+	oM:Registrar("IMCOT"		,{|o,a| Cx1(o,a,"COT") }			,1,1,"E")
+	oM:Registrar("IMSEC"		,{|o,a| Cx1(o,a,"SEC") }			,1,1,"E")
+	oM:Registrar("IMCSC"		,{|o,a| Cx1(o,a,"CSC") }			,1,1,"E")
+	oM:Registrar("IMSINH"		,{|o,a| Cx1(o,a,"SINH") }			,1,1,"E")
+	oM:Registrar("IMCOSH"		,{|o,a| Cx1(o,a,"COSH") }			,1,1,"E")
+	oM:Registrar("IMSECH"		,{|o,a| Cx1(o,a,"SECH") }			,1,1,"E")
+	oM:Registrar("IMCSCH"		,{|o,a| Cx1(o,a,"CSCH") }			,1,1,"E")
+	oM:Registrar("IMPOWER"		,{|o,a| fImPower(o,a) }				,2,2,"E")
+	oM:Registrar("IMDIV"		,{|o,a| fImDivSub(o,a,.T.) }		,2,2,"E")
+	oM:Registrar("IMSUB"		,{|o,a| fImDivSub(o,a,.F.) }		,2,2,"E")
+	oM:Registrar("IMSUM"		,{|o,a| fImSumProd(o,a,.T.) }		,1,255)
+	oM:Registrar("IMPRODUCT"	,{|o,a| fImSumProd(o,a,.F.) }		,1,255)
+Return
+
+//Primeiro erro da lista (nil se nenhum)
+Static Function PrimErro(oM As Object, aVals As Array)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aVals)
+		If oM:EhErro(aVals[nCont])
+			Return aVals[nCont]
+		EndIf
+	Next
+Return nil
+
+/* =====================================================================================
+   Bases numéricas (complemento de dois com 10 dígitos na base de origem)
+   ===================================================================================== */
+
+//Texto do número na base (sem sinal), dígitos maiúsculos
+Static Function NumBase(nNum As Numeric, nBase As Numeric)
+	Local cRet := "" As Character
+	Local nDig As Numeric
+	If nNum==0
+		Return "0"
+	EndIf
+	While nNum>0
+		nDig	:= nNum-nBase*Int(nNum/nBase)
+		cRet	:= SubStr("0123456789ABCDEF",nDig+1,1)+cRet
+		nNum	:= Int(nNum/nBase)
+	EndDo
+Return cRet
+
+//Valor do texto na base: número ou Erro (10 dígitos, negativo em complemento de dois)
+Static Function TxtBase(oM As Object, xVal As Variant, nBase As Numeric)
+	Local cTxt As Variant
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	Local nDig As Numeric
+	If ValType(xVal)=="N"
+		cTxt	:= oM:NumTxt(xVal)
+	Else
+		cTxt	:= oM:Txt(xVal)
+	EndIf
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	cTxt	:= Upper(AllTrim(cTxt))
+	If Len(cTxt)>10
+		Return oM:Err("#NUM!")
+	EndIf
+	For nCont:=1 to Len(cTxt)
+		nDig	:= At(SubStr(cTxt,nCont,1),"0123456789ABCDEF")-1
+		If nDig<0 .OR. nDig>=nBase
+			Return oM:Err("#NUM!")
+		EndIf
+		nRet	:= nRet*nBase+nDig
+	Next
+	If Len(cTxt)==10 .AND. nRet>=(nBase^10)/2	//Negativo em complemento de dois
+		nRet	:= nRet-(nBase^10)
+	EndIf
+Return nRet
+
+Static Function fBase2Dec(oM As Object, aArgs As Array, nBase As Numeric)
+Return TxtBase(oM,aArgs[1],nBase)
+
+//Número para a base com casas e limites do Excel
+Static Function DecBase(oM As Object, nNum As Numeric, nBase As Numeric, xCasas As Variant)
+	Local nLim := (nBase^10)/2 As Numeric
+	Local cRet As Character
+	Local nCasas As Variant
+	nNum	:= Int(nNum)
+	If nNum<-nLim .OR. nNum>=nLim
+		Return oM:Err("#NUM!")
+	EndIf
+	If nNum<0	//Complemento de dois em 10 dígitos (casas ignoradas)
+		Return NumBase(nBase^10+nNum,nBase)
+	EndIf
+	cRet	:= NumBase(nNum,nBase)
+	If ValType(xCasas)!="U"
+		nCasas	:= oM:Num(xCasas)
+		If oM:EhErro(nCasas)
+			Return nCasas
+		EndIf
+		nCasas	:= Int(nCasas)
+		If nCasas<1 .OR. nCasas>10 .OR. nCasas<Len(cRet)
+			Return oM:Err("#NUM!")
+		EndIf
+		cRet	:= Replicate("0",nCasas-Len(cRet))+cRet
+	EndIf
+Return cRet
+
+Static Function fDec2Base(oM As Object, aArgs As Array, nBase As Numeric)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+Return DecBase(oM,nNum,nBase,If(Len(aArgs)>=2,aArgs[2],nil))
+
+Static Function fBase2Base(oM As Object, aArgs As Array, nDe As Numeric, nPara As Numeric)
+	Local nNum := TxtBase(oM,aArgs[1],nDe) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+Return DecBase(oM,nNum,nPara,If(Len(aArgs)>=2,aArgs[2],nil))
+
+/* =====================================================================================
+   Operações de bits (inteiros de 0 a 2^48-1)
+   ===================================================================================== */
+
+Static Function BitArg(oM As Object, xVal As Variant)
+	Local nNum := oM:Num(xVal) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If nNum<0 .OR. nNum!=Int(nNum) .OR. nNum>=281474976710656
+		Return oM:Err("#NUM!")
+	EndIf
+Return nNum
+
+//nTipo 1=AND 2=OR 3=XOR
+Static Function fBit(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local nA := BitArg(oM,aArgs[1]) As Variant
+	Local nB := BitArg(oM,aArgs[2]) As Variant
+	Local nRet := 0 As Numeric
+	Local nPeso := 1 As Numeric
+	Local nBa As Numeric
+	Local nBb As Numeric
+	Local nBit As Numeric
+	If PrimErro(oM,{nA,nB})!=nil
+		Return PrimErro(oM,{nA,nB})
+	EndIf
+	While nA>0 .OR. nB>0
+		nBa	:= nA-2*Int(nA/2)
+		nBb	:= nB-2*Int(nB/2)
+		Do Case
+			Case nTipo==1
+				nBit	:= If(nBa==1 .AND. nBb==1,1,0)
+			Case nTipo==2
+				nBit	:= If(nBa==1 .OR. nBb==1,1,0)
+			Otherwise
+				nBit	:= If(nBa!=nBb,1,0)
+		EndCase
+		nRet	+= nBit*nPeso
+		nPeso	*= 2
+		nA		:= Int(nA/2)
+		nB		:= Int(nB/2)
+	EndDo
+Return nRet
+
+Static Function fBitShift(oM As Object, aArgs As Array, lEsq As Logical)
+	Local nNum := BitArg(oM,aArgs[1]) As Variant
+	Local nDesl := oM:Num(aArgs[2]) As Variant
+	Local nRet As Numeric
+	If PrimErro(oM,{nNum,nDesl})!=nil
+		Return PrimErro(oM,{nNum,nDesl})
+	EndIf
+	nDesl	:= Int(nDesl)
+	If Abs(nDesl)>53
+		Return oM:Err("#NUM!")
+	EndIf
+	If !lEsq
+		nDesl	:= -nDesl
+	EndIf
+	If nDesl>=0
+		nRet	:= nNum*(2^nDesl)
+	Else
+		nRet	:= Int(nNum/(2^(-nDesl)))
+	EndIf
+	If nRet>=281474976710656
+		Return oM:Err("#NUM!")
+	EndIf
+Return nRet
+
+//DELTA(a,[b=0]) / GESTEP(número,[passo=0])
+Static Function fDelta(oM As Object, aArgs As Array, lDelta As Logical)
+	Local nA := oM:Num(aArgs[1]) As Variant
+	Local nB := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Num(aArgs[2]),0) As Variant
+	If PrimErro(oM,{nA,nB})!=nil
+		Return PrimErro(oM,{nA,nB})
+	EndIf
+	If ValType(aArgs[1])=="C" .AND. oM:TxtLoc(aArgs[1])==nil
+		Return oM:Err("#VALUE!")
+	EndIf
+	If lDelta
+		Return If(nA==nB,1,0)
+	EndIf
+Return If(nA>=nB,1,0)
+
+/* =====================================================================================
+   Bessel (séries para J e I; aproximações polinomiais de Numerical Recipes para Y e K)
+   ===================================================================================== */
+
+Static Function fBessel(oM As Object, aArgs As Array, cTipo As Character)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	Local nN := oM:Num(aArgs[2]) As Variant
+	If PrimErro(oM,{nX,nN})!=nil
+		Return PrimErro(oM,{nX,nN})
+	EndIf
+	nN	:= Int(nN)
+	If nN<0 .OR. ((cTipo=="Y" .OR. cTipo=="K") .AND. nX<=0)
+		Return oM:Err("#NUM!")
+	EndIf
+	Do Case
+		Case cTipo=="J"
+			Return BesselJ(nX,nN)
+		Case cTipo=="I"
+			Return BesselI(nX,nN)
+		Case cTipo=="Y"
+			Return BesselY(nX,nN)
+	EndCase
+Return BesselK(nX,nN)
+
+Static Function Fat(nN As Numeric)
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	For nCont:=2 to nN
+		nRet	*= nCont
+	Next
+Return nRet
+
+//J_n(x): série de potências para |x| até 25; acima, aproximação assintótica com recorrência
+Static Function BesselJ(nX As Numeric, nN As Numeric)
+	Local nSoma := 0 As Numeric
+	Local nTermo As Numeric
+	Local nK As Numeric
+	Local nJ0 As Numeric
+	Local nJ1 As Numeric
+	Local nJ As Numeric
+	If Abs(nX)<=25
+		nTermo	:= ((nX/2)^nN)/Fat(nN)
+		nSoma	:= nTermo
+		For nK:=1 to 300
+			nTermo	:= -nTermo*(nX/2)*(nX/2)/(nK*(nK+nN))
+			nSoma	+= nTermo
+			If MenorIg(Abs(nTermo),Abs(nSoma)*0.0000000000000001)
+				Exit
+			EndIf
+		Next
+		Return nSoma
+	EndIf
+	nJ0	:= J0Asin(nX)
+	If nN==0
+		Return nJ0
+	EndIf
+	nJ1	:= J1Asin(nX)
+	For nK:=1 to nN-1	//Recorrência para cima (estável para x grande)
+		nJ	:= 2*nK/nX*nJ1-nJ0
+		nJ0	:= nJ1
+		nJ1	:= nJ
+	Next
+Return nJ1
+
+//J0 e J1 assintóticos (Numerical Recipes, |x|>=8)
+Static Function J0Asin(nX As Numeric)
+	Local nAx := Abs(nX) As Numeric
+	Local nZ := 8/nAx As Numeric
+	Local nY := nZ*nZ As Numeric
+	Local nXx := nAx-0.785398164 As Numeric
+	Local nA1 := 1+nY*(-0.001098628627+nY*(0.00002734510407+nY*(-0.000002073370639+nY*0.0000002093887211))) As Numeric
+	Local nA2 := -0.01562499995+nY*(0.0001430488765+nY*(-0.000006911147651+nY*(0.0000007621095161-nY*0.0000000934935152))) As Numeric
+Return Sqrt(0.636619772/nAx)*(Cos(nXx)*nA1-nZ*Sin(nXx)*nA2)
+
+Static Function J1Asin(nX As Numeric)
+	Local nAx := Abs(nX) As Numeric
+	Local nZ := 8/nAx As Numeric
+	Local nY := nZ*nZ As Numeric
+	Local nXx := nAx-2.356194491 As Numeric
+	Local nA1 := 1+nY*(0.00183105+nY*(-0.00003516396496+nY*(0.000002457520174+nY*(-0.000000240337019)))) As Numeric
+	Local nA2 := 0.04687499995+nY*(-0.0002002690873+nY*(0.000008449199096+nY*(-0.00000088228987+nY*0.000000105787412))) As Numeric
+	Local nRet := Sqrt(0.636619772/nAx)*(Cos(nXx)*nA1-nZ*Sin(nXx)*nA2) As Numeric
+Return If(nX<0,-nRet,nRet)
+
+//I_n(x): série de potências
+Static Function BesselI(nX As Numeric, nN As Numeric)
+	Local nTermo := ((nX/2)^nN)/Fat(nN) As Numeric
+	Local nSoma := nTermo As Numeric
+	Local nK As Numeric
+	For nK:=1 to 500
+		nTermo	:= nTermo*(nX/2)*(nX/2)/(nK*(nK+nN))
+		nSoma	+= nTermo
+		If MenorIg(Abs(nTermo),Abs(nSoma)*0.0000000000000001)
+			Exit
+		EndIf
+	Next
+Return nSoma
+
+//Y0, Y1 (Numerical Recipes) e recorrência
+Static Function BesselY(nX As Numeric, nN As Numeric)
+	Local nY0 := Y0(nX) As Numeric
+	Local nY1 As Numeric
+	Local nY As Numeric
+	Local nK As Numeric
+	If nN==0
+		Return nY0
+	EndIf
+	nY1	:= Y1(nX)
+	For nK:=1 to nN-1
+		nY	:= 2*nK/nX*nY1-nY0
+		nY0	:= nY1
+		nY1	:= nY
+	Next
+Return nY1
+
+Static Function Y0(nX As Numeric)
+	Local nY As Numeric
+	Local nA1 As Numeric
+	Local nA2 As Numeric
+	If nX<8
+		nY	:= nX*nX
+		nA1	:= -2957821389+nY*(7062834065+nY*(-512359803.6+nY*(10879881.29+nY*(-86327.92757+nY*228.4622733))))
+		nA2	:= 40076544269+nY*(745249964.8+nY*(7189466.438+nY*(47447.2647+nY*(226.1030244+nY*1))))
+		Return nA1/nA2+0.636619772*BesselJ(nX,0)*Log(nX)
+	EndIf
+Return Y0Asin(nX)
+
+Static Function Y0Asin(nX As Numeric)
+	Local nZ := 8/nX As Numeric
+	Local nY := nZ*nZ As Numeric
+	Local nXx := nX-0.785398164 As Numeric
+	Local nA1 := 1+nY*(-0.001098628627+nY*(0.00002734510407+nY*(-0.000002073370639+nY*0.0000002093887211))) As Numeric
+	Local nA2 := -0.01562499995+nY*(0.0001430488765+nY*(-0.000006911147651+nY*(0.0000007621095161-nY*0.0000000934935152))) As Numeric
+Return Sqrt(0.636619772/nX)*(Sin(nXx)*nA1+nZ*Cos(nXx)*nA2)
+
+Static Function Y1(nX As Numeric)
+	Local nY As Numeric
+	Local nA1 As Numeric
+	Local nA2 As Numeric
+	Local nZ As Numeric
+	Local nXx As Numeric
+	If nX<8
+		nY	:= nX*nX
+		nA1	:= nX*(-4900604943000+nY*(1275274390000+nY*(-51534381390+nY*(734926455.1+nY*(-4237922.726+nY*8511.937935)))))
+		nA2	:= 24995805700000+nY*(424441966400+nY*(3733650367+nY*(22459040.02+nY*(102042.605+nY*(354.9632885+nY)))))
+		Return nA1/nA2+0.636619772*(BesselJ(nX,1)*Log(nX)-1/nX)
+	EndIf
+	nZ	:= 8/nX
+	nY	:= nZ*nZ
+	nXx	:= nX-2.356194491
+	nA1	:= 1+nY*(0.00183105+nY*(-0.00003516396496+nY*(0.000002457520174+nY*(-0.000000240337019))))
+	nA2	:= 0.04687499995+nY*(-0.0002002690873+nY*(0.000008449199096+nY*(-0.00000088228987+nY*0.000000105787412)))
+Return Sqrt(0.636619772/nX)*(Sin(nXx)*nA1+nZ*Cos(nXx)*nA2)
+
+//K0, K1 (Numerical Recipes) e recorrência
+Static Function BesselK(nX As Numeric, nN As Numeric)
+	Local nK0 := K0(nX) As Numeric
+	Local nK1 As Numeric
+	Local nK As Numeric
+	Local nCont As Numeric
+	If nN==0
+		Return nK0
+	EndIf
+	nK1	:= K1(nX)
+	For nCont:=1 to nN-1
+		nK	:= nK0+2*nCont/nX*nK1
+		nK0	:= nK1
+		nK1	:= nK
+	Next
+Return nK1
+
+Static Function K0(nX As Numeric)
+	Local nY As Numeric
+	If nX<=2
+		nY	:= nX*nX/4
+		Return (-Log(nX/2)*BesselI(nX,0))+(-0.57721566+nY*(0.42278420+nY*(0.23069756+nY*(0.3488590/10+nY*(0.262698/100+nY*(0.10750/1000+nY*0.74/100000))))))
+	EndIf
+	nY	:= 2/nX
+Return (Exp(-nX)/Sqrt(nX))*(1.25331414+nY*(-0.7832358/10+nY*(0.2189568/10+nY*(-0.1062446/10+nY*(0.587872/100+nY*(-0.251540/100+nY*0.53208/1000))))))
+
+Static Function K1(nX As Numeric)
+	Local nY As Numeric
+	If nX<=2
+		nY	:= nX*nX/4
+		Return (Log(nX/2)*BesselI(nX,1))+(1/nX)*(1+nY*(0.15443144+nY*(-0.67278579+nY*(-0.18156897+nY*(-0.1919402/10+nY*(-0.110404/100+nY*(-0.4686/10000)))))))
+	EndIf
+	nY	:= 2/nX
+Return (Exp(-nX)/Sqrt(nX))*(1.25331414+nY*(0.23498619+nY*(-0.3655620/10+nY*(0.1504268/10+nY*(-0.780353/100+nY*(0.325614/100+nY*(-0.68245/1000)))))))
+
+/* =====================================================================================
+   CONVERT
+   ===================================================================================== */
+
+/*/{Protheus.doc} Unidades
+Tabela de unidades do CONVERT: {símbolo,categoria,fator para a unidade base,aceita prefixo (P=decimal B=binário)}
+/*/
+Static Function Unidades()
+	Local aRet := {} As Array
+	//Massa (base: grama)
+	AADD(aRet,{"g","massa",1,"P"})
+	AADD(aRet,{"sg","massa",14593.90293720636,""})
+	AADD(aRet,{"lbm","massa",453.59237,""})
+	AADD(aRet,{"u","massa",Exp(Log(1.6605390666)-24*Log(10)),"P"})
+	AADD(aRet,{"ozm","massa",28.349523125,""})
+	AADD(aRet,{"grain","massa",0.06479891,""})
+	AADD(aRet,{"cwt","massa",45359.237,""})
+	AADD(aRet,{"shweight","massa",45359.237,""})
+	AADD(aRet,{"uk_cwt","massa",50802.34544,""})
+	AADD(aRet,{"lcwt","massa",50802.34544,""})
+	AADD(aRet,{"hweight","massa",50802.34544,""})
+	AADD(aRet,{"stone","massa",6350.29318,""})
+	AADD(aRet,{"ton","massa",907184.74,""})
+	AADD(aRet,{"uk_ton","massa",1016046.9088,""})
+	AADD(aRet,{"LTON","massa",1016046.9088,""})
+	AADD(aRet,{"brton","massa",1016046.9088,""})
+	//Distância (base: metro)
+	AADD(aRet,{"m","distancia",1,"P"})
+	AADD(aRet,{"mi","distancia",1609.344,""})
+	AADD(aRet,{"Nmi","distancia",1852,""})
+	AADD(aRet,{"in","distancia",0.0254,""})
+	AADD(aRet,{"ft","distancia",0.3048,""})
+	AADD(aRet,{"yd","distancia",0.9144,""})
+	AADD(aRet,{"ang","distancia",0.0000000001,"P"})
+	AADD(aRet,{"ell","distancia",1.143,""})
+	AADD(aRet,{"ly","distancia",9460730472580800,"P"})
+	AADD(aRet,{"parsec","distancia",30856775812815500,"P"})
+	AADD(aRet,{"pc","distancia",30856775812815500,"P"})
+	AADD(aRet,{"Pica","distancia",0.0254/72,""})
+	AADD(aRet,{"Picapt","distancia",0.0254/72,""})
+	AADD(aRet,{"pica","distancia",0.0254/6,""})
+	AADD(aRet,{"survey_mi","distancia",1609.347218694437,""})
+	//Tempo (base: segundo)
+	AADD(aRet,{"yr","tempo",31557600,""})
+	AADD(aRet,{"day","tempo",86400,""})
+	AADD(aRet,{"d","tempo",86400,""})
+	AADD(aRet,{"hr","tempo",3600,""})
+	AADD(aRet,{"mn","tempo",60,""})
+	AADD(aRet,{"min","tempo",60,""})
+	AADD(aRet,{"sec","tempo",1,"P"})
+	AADD(aRet,{"s","tempo",1,"P"})
+	//Pressão (base: pascal)
+	AADD(aRet,{"Pa","pressao",1,"P"})
+	AADD(aRet,{"p","pressao",1,"P"})
+	AADD(aRet,{"atm","pressao",101325,"P"})
+	AADD(aRet,{"at","pressao",101325,"P"})
+	AADD(aRet,{"mmHg","pressao",133.322,"P"})
+	AADD(aRet,{"psi","pressao",6894.757293168361,""})
+	AADD(aRet,{"Torr","pressao",133.3223684210526,""})
+	//Força (base: newton)
+	AADD(aRet,{"N","forca",1,"P"})
+	AADD(aRet,{"dyn","forca",0.00001,"P"})
+	AADD(aRet,{"dy","forca",0.00001,"P"})
+	AADD(aRet,{"lbf","forca",4.4482216152605,""})
+	AADD(aRet,{"pond","forca",0.00980665,"P"})
+	//Energia (base: joule)
+	AADD(aRet,{"J","energia",1,"P"})
+	AADD(aRet,{"e","energia",0.0000001,"P"})
+	AADD(aRet,{"c","energia",4.184,"P"})
+	AADD(aRet,{"cal","energia",4.1868,"P"})
+	AADD(aRet,{"eV","energia",Exp(Log(1.602176634)-19*Log(10)),"P"})
+	AADD(aRet,{"ev","energia",Exp(Log(1.602176634)-19*Log(10)),"P"})
+	AADD(aRet,{"HPh","energia",2684519.537696173,""})
+	AADD(aRet,{"hh","energia",2684519.537696173,""})
+	AADD(aRet,{"Wh","energia",3600,"P"})
+	AADD(aRet,{"wh","energia",3600,"P"})
+	AADD(aRet,{"flb","energia",0.0421401100938048,""})
+	AADD(aRet,{"BTU","energia",1055.05585262,""})
+	AADD(aRet,{"btu","energia",1055.05585262,""})
+	//Potência (base: watt)
+	AADD(aRet,{"HP","potencia",745.69987158227,""})
+	AADD(aRet,{"h","potencia",745.69987158227,""})
+	AADD(aRet,{"PS","potencia",735.49875,""})
+	AADD(aRet,{"W","potencia",1,"P"})
+	AADD(aRet,{"w","potencia",1,"P"})
+	//Magnetismo (base: tesla)
+	AADD(aRet,{"T","magnetismo",1,"P"})
+	AADD(aRet,{"ga","magnetismo",0.0001,"P"})
+	//Volume (base: metro cúbico)
+	AADD(aRet,{"tsp","volume",0.00000492892159375,""})
+	AADD(aRet,{"tspm","volume",0.000005,""})
+	AADD(aRet,{"tbs","volume",0.00001478676478125,""})
+	AADD(aRet,{"oz","volume",0.0000295735295625,""})
+	AADD(aRet,{"cup","volume",0.0002365882365,""})
+	AADD(aRet,{"pt","volume",0.000473176473,""})
+	AADD(aRet,{"us_pt","volume",0.000473176473,""})
+	AADD(aRet,{"uk_pt","volume",0.00056826125,""})
+	AADD(aRet,{"qt","volume",0.000946352946,""})
+	AADD(aRet,{"uk_qt","volume",0.0011365225,""})
+	AADD(aRet,{"gal","volume",0.003785411784,""})
+	AADD(aRet,{"uk_gal","volume",0.00454609,""})
+	AADD(aRet,{"l","volume",0.001,"P"})
+	AADD(aRet,{"L","volume",0.001,"P"})
+	AADD(aRet,{"lt","volume",0.001,"P"})
+	AADD(aRet,{"ang3","volume",10^(-30),"P"})
+	AADD(aRet,{"ang^3","volume",10^(-30),"P"})
+	AADD(aRet,{"barrel","volume",0.158987294928,""})
+	AADD(aRet,{"bushel","volume",0.03523907016688,""})
+	AADD(aRet,{"ft3","volume",0.028316846592,""})
+	AADD(aRet,{"ft^3","volume",0.028316846592,""})
+	AADD(aRet,{"in3","volume",0.000016387064,""})
+	AADD(aRet,{"in^3","volume",0.000016387064,""})
+	AADD(aRet,{"ly3","volume",846786664623715000000000000000000000000000000000,""})
+	AADD(aRet,{"ly^3","volume",846786664623715000000000000000000000000000000000,""})
+	AADD(aRet,{"m3","volume",1,"P"})
+	AADD(aRet,{"m^3","volume",1,"P"})
+	AADD(aRet,{"mi3","volume",4168181825.440579584,""})
+	AADD(aRet,{"mi^3","volume",4168181825.440579584,""})
+	AADD(aRet,{"yd3","volume",0.764554857984,""})
+	AADD(aRet,{"yd^3","volume",0.764554857984,""})
+	AADD(aRet,{"Nmi3","volume",6352182208,""})
+	AADD(aRet,{"Nmi^3","volume",6352182208,""})
+	AADD(aRet,{"Pica3","volume",0.0000000000465029141994675,""})
+	AADD(aRet,{"Pica^3","volume",0.0000000000465029141994675,""})
+	AADD(aRet,{"Picapt3","volume",0.0000000000465029141994675,""})
+	AADD(aRet,{"Picapt^3","volume",0.0000000000465029141994675,""})
+	AADD(aRet,{"GRT","volume",2.8316846592,""})
+	AADD(aRet,{"regton","volume",2.8316846592,""})
+	AADD(aRet,{"MTON","volume",1.13267386368,""})
+	//Área (base: metro quadrado)
+	AADD(aRet,{"uk_acre","area",4046.8564224,""})
+	AADD(aRet,{"us_acre","area",4046.872609874252,""})
+	AADD(aRet,{"ang2","area",10^(-20),"P"})
+	AADD(aRet,{"ang^2","area",10^(-20),"P"})
+	AADD(aRet,{"ar","area",100,"P"})
+	AADD(aRet,{"ft2","area",0.09290304,""})
+	AADD(aRet,{"ft^2","area",0.09290304,""})
+	AADD(aRet,{"ha","area",10000,""})
+	AADD(aRet,{"in2","area",0.00064516,""})
+	AADD(aRet,{"in^2","area",0.00064516,""})
+	AADD(aRet,{"ly2","area",89505421074818800000000000000000,""})
+	AADD(aRet,{"ly^2","area",89505421074818800000000000000000,""})
+	AADD(aRet,{"m2","area",1,"P"})
+	AADD(aRet,{"m^2","area",1,"P"})
+	AADD(aRet,{"Morgen","area",2500,""})
+	AADD(aRet,{"mi2","area",2589988.110336,""})
+	AADD(aRet,{"mi^2","area",2589988.110336,""})
+	AADD(aRet,{"Nmi2","area",3429904,""})
+	AADD(aRet,{"Nmi^2","area",3429904,""})
+	AADD(aRet,{"Pica2","area",0.000000124452160493827,""})
+	AADD(aRet,{"Pica^2","area",0.000000124452160493827,""})
+	AADD(aRet,{"Picapt2","area",0.000000124452160493827,""})
+	AADD(aRet,{"Picapt^2","area",0.000000124452160493827,""})
+	AADD(aRet,{"yd2","area",0.83612736,""})
+	AADD(aRet,{"yd^2","area",0.83612736,""})
+	//Informação (base: bit)
+	AADD(aRet,{"bit","informacao",1,"PB"})
+	AADD(aRet,{"byte","informacao",8,"PB"})
+	//Velocidade (base: m/s)
+	AADD(aRet,{"admkn","velocidade",0.514773333333333,""})
+	AADD(aRet,{"kn","velocidade",0.514444444444444,""})
+	AADD(aRet,{"m/h","velocidade",1/3600,"P"})
+	AADD(aRet,{"m/hr","velocidade",1/3600,"P"})
+	AADD(aRet,{"m/s","velocidade",1,"P"})
+	AADD(aRet,{"m/sec","velocidade",1,"P"})
+	AADD(aRet,{"mph","velocidade",0.44704,""})
+	//Temperatura (conversão especial)
+	AADD(aRet,{"C","temperatura",0,"P"})
+	AADD(aRet,{"cel","temperatura",0,"P"})
+	AADD(aRet,{"F","temperatura",0,""})
+	AADD(aRet,{"fah","temperatura",0,""})
+	AADD(aRet,{"K","temperatura",0,"P"})
+	AADD(aRet,{"kel","temperatura",0,"P"})
+	AADD(aRet,{"Rank","temperatura",0,""})
+	AADD(aRet,{"Reau","temperatura",0,""})
+Return aRet
+
+//Prefixos {símbolo,fator}
+Static Function Prefixos(lBinario As Logical)
+	If lBinario
+		Return {{"yi",2^80},{"zi",2^70},{"ei",2^60},{"pi",2^50},{"ti",2^40},{"gi",2^30},{"mi",2^20},{"ki",2^10}}
+	EndIf
+Return {{"Y",10^24},{"Z",10^21},{"E",10^18},{"P",10^15},{"T",10^12},{"G",10^9},{"M",10^6},{"k",1000},{"h",100},{"da",10},{"e",10},{"d",0.1},{"c",0.01},{"m",0.001},{"u",0.000001},{"n",0.000000001},{"p",0.000000000001},{"f",0.000000000000001},{"a",10^(-18)},{"z",10^(-21)},{"y",10^(-24)}}
+
+/*/{Protheus.doc} AchaUnidade
+Localiza a unidade (com prefixo opcional): {categoria,fator,cBase} ou nil
+/*/
+Static Function AchaUnidade(cUni As Character)
+	Local aUni := Unidades() As Array
+	Local nPos As Numeric
+	Local aPre As Array
+	Local nCont As Numeric
+	Local cResto As Character
+	Local aRet As Variant
+	nPos	:= aScan(aUni,{|x| x[1]==cUni })
+	If nPos>0
+		aRet	:= {aUni[nPos][2],aUni[nPos][3],aUni[nPos][1]}
+		FwFreeArray(aUni)
+		Return aRet
+	EndIf
+	aPre	:= Prefixos(.T.)	//Prefixos binários (ki, Mi...) para bit e byte
+	For nCont:=1 to Len(aPre)
+		If Left(cUni,2)==Left(aPre[nCont][1],1)+"i" .AND. Lower(Left(cUni,1))==Left(aPre[nCont][1],1)
+			cResto	:= SubStr(cUni,3)
+			nPos	:= aScan(aUni,{|x| x[1]==cResto .AND. "B" $ x[4] })
+			If nPos>0
+				aRet	:= {aUni[nPos][2],aUni[nPos][3]*aPre[nCont][2],aUni[nPos][1]}
+				FwFreeArray(aUni)
+				Return aRet
+			EndIf
+		EndIf
+	Next
+	aPre	:= Prefixos(.F.)
+	For nCont:=1 to Len(aPre)
+		If Left(cUni,Len(aPre[nCont][1]))==aPre[nCont][1]
+			cResto	:= SubStr(cUni,Len(aPre[nCont][1])+1)
+			nPos	:= aScan(aUni,{|x| x[1]==cResto .AND. "P" $ x[4] })
+			If nPos>0
+				//Unidades de área/volume com prefixo: o prefixo também é elevado (km2 = 1000^2 m2)
+				aRet	:= {aUni[nPos][2],aUni[nPos][3]*(aPre[nCont][2]^Potencia(cResto)),aUni[nPos][1]}
+				FwFreeArray(aUni)
+				Return aRet
+			EndIf
+		EndIf
+	Next
+	FwFreeArray(aUni)
+Return nil
+
+//Expoente da unidade (m2 / m^2 = 2, m3 = 3)
+Static Function Potencia(cUni As Character)
+	If Right(cUni,1)=="2"
+		Return 2
+	ElseIf Right(cUni,1)=="3"
+		Return 3
+	EndIf
+Return 1
+
+//Temperatura para Kelvin e de Kelvin
+Static Function ParaKelvin(cUni As Character, nVal As Numeric)
+	Do Case
+		Case cUni $ "C|cel"
+			Return nVal+273.15
+		Case cUni $ "F|fah"
+			Return (nVal-32)*5/9+273.15
+		Case cUni=="Rank"
+			Return nVal*5/9
+		Case cUni=="Reau"
+			Return nVal*1.25+273.15
+	EndCase
+Return nVal
+
+Static Function DeKelvin(cUni As Character, nVal As Numeric)
+	Do Case
+		Case cUni $ "C|cel"
+			Return nVal-273.15
+		Case cUni $ "F|fah"
+			Return (nVal-273.15)*9/5+32
+		Case cUni=="Rank"
+			Return nVal*9/5
+		Case cUni=="Reau"
+			Return (nVal-273.15)*0.8
+	EndCase
+Return nVal
+
+Static Function fConvert(oM As Object, aArgs As Array)
+	Local nVal := oM:Num(aArgs[1]) As Variant
+	Local cDe := oM:Txt(aArgs[2]) As Variant
+	Local cPara := oM:Txt(aArgs[3]) As Variant
+	Local aDe As Variant
+	Local aPara As Variant
+	If PrimErro(oM,{nVal,cDe,cPara})!=nil
+		Return PrimErro(oM,{nVal,cDe,cPara})
+	EndIf
+	aDe		:= AchaUnidade(cDe)
+	aPara	:= AchaUnidade(cPara)
+	If aDe==nil .OR. aPara==nil .OR. aDe[1]!=aPara[1]
+		Return oM:Err("#N/A")
+	EndIf
+	If aDe[1]=="temperatura"
+		Return DeKelvin(aPara[3],ParaKelvin(aDe[3],nVal))
+	EndIf
+Return nVal*aDe[2]/aPara[2]
+
+/* =====================================================================================
+   Números complexos (texto "a+bi" ou "a+bj")
+   ===================================================================================== */
+
+/*/{Protheus.doc} CxLe
+Lê o número complexo: {nReal,nImag,cSufixo} ou Erro
+/*/
+Static Function CxLe(oM As Object, xVal As Variant)
+	Local cTxt As Variant
+	Local cSuf := "i" As Character
+	Local nPos As Numeric
+	Local nCont As Numeric
+	Local cCar As Character
+	Local cReal As Character
+	Local cImag As Character
+	Local nR As Variant
+	Local nI As Variant
+	xVal	:= oM:Esc(xVal)
+	If ValType(xVal)=="N"
+		Return {xVal,0,"i"}
+	EndIf
+	If ValType(xVal)=="L" .OR. oM:EhErro(xVal)
+		Return If(oM:EhErro(xVal),xVal,oM:Err("#VALUE!"))
+	EndIf
+	cTxt	:= AllTrim(oM:Txt(xVal))
+	If Empty(cTxt)
+		Return {0,0,"i"}
+	EndIf
+	If Right(cTxt,1)=="i" .OR. Right(cTxt,1)=="j"
+		cSuf	:= Right(cTxt,1)
+		cTxt	:= Left(cTxt,Len(cTxt)-1)
+		//Separa a parte real: último + ou - que não é expoente nem o primeiro caractere
+		nPos	:= 0
+		For nCont:=Len(cTxt) to 2 Step -1
+			cCar	:= SubStr(cTxt,nCont,1)
+			If (cCar=="+" .OR. cCar=="-") .AND. Upper(SubStr(cTxt,nCont-1,1))!="E"
+				nPos	:= nCont
+				Exit
+			EndIf
+		Next
+		cReal	:= If(nPos>0,Left(cTxt,nPos-1),"0")
+		cImag	:= If(nPos>0,SubStr(cTxt,nPos),cTxt)
+		If cImag=="" .OR. cImag=="+"
+			cImag	:= "1"
+		ElseIf cImag=="-"
+			cImag	:= "-1"
+		EndIf
+		nR	:= oM:TxtNum(cReal)
+		nI	:= oM:TxtNum(cImag)
+	Else
+		nR	:= oM:TxtNum(cTxt)
+		nI	:= 0
+	EndIf
+	If nR==nil .OR. nI==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return {nR,nI,cSuf}
+
+//Formata o complexo como o Excel ("3+4i", "i", "-2i", "5")
+Static Function CxTxt(oM As Object, nR As Numeric, nI As Numeric, cSuf As Character)
+	Local cRet := "" As Character
+	nR	:= Round(nR,14)
+	nI	:= Round(nI,14)
+	If nI==0
+		Return oM:NumTxt(nR)
+	EndIf
+	If nR!=0
+		cRet	:= oM:NumTxt(nR)
+	EndIf
+	If nI==1
+		cRet	+= If(nR!=0,"+","")+cSuf
+	ElseIf nI==-1
+		cRet	+= "-"+cSuf
+	Else
+		cRet	+= If(nI>0 .AND. nR!=0,"+","")+oM:NumTxt(nI)+cSuf
+	EndIf
+Return cRet
+
+Static Function fComplex(oM As Object, aArgs As Array)
+	Local nR := oM:Num(aArgs[1]) As Variant
+	Local nI := oM:Num(aArgs[2]) As Variant
+	Local cSuf := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Txt(aArgs[3]),"i") As Variant
+	If PrimErro(oM,{nR,nI,cSuf})!=nil
+		Return PrimErro(oM,{nR,nI,cSuf})
+	EndIf
+	If Empty(cSuf)
+		cSuf	:= "i"
+	EndIf
+	If !(cSuf=="i" .OR. cSuf=="j")
+		Return oM:Err("#VALUE!")
+	EndIf
+Return CxTxt(oM,nR,nI,cSuf)
+
+//Operações de um argumento
+Static Function Cx1(oM As Object, aArgs As Array, cOp As Character)
+	Local aZ := CxLe(oM,aArgs[1]) As Variant
+	Local nR As Numeric
+	Local nI As Numeric
+	Local nMod As Numeric
+	Local nArg As Numeric
+	Local aW As Array
+	If oM:EhErro(aZ)
+		Return aZ
+	EndIf
+	nR		:= aZ[1]
+	nI		:= aZ[2]
+	nMod	:= Sqrt(nR*nR+nI*nI)
+	nArg	:= Atan2(nI,nR)
+	Do Case
+		Case cOp=="REAL"
+			Return nR
+		Case cOp=="IMAG"
+			Return nI
+		Case cOp=="ABS"
+			Return nMod
+		Case cOp=="ARG"
+			If nR==0 .AND. nI==0
+				Return oM:Err("#DIV/0!")
+			EndIf
+			Return nArg
+		Case cOp=="CONJ"
+			Return CxTxt(oM,nR,-nI,aZ[3])
+		Case cOp=="EXP"
+			Return CxTxt(oM,Exp(nR)*Cos(nI),Exp(nR)*Sin(nI),aZ[3])
+		Case cOp=="LN" .OR. cOp=="LOG10" .OR. cOp=="LOG2"
+			If nMod==0
+				Return oM:Err("#NUM!")
+			EndIf
+			aW	:= {Log(nMod),nArg}
+			If cOp=="LOG10"
+				aW	:= {aW[1]/Log(10),aW[2]/Log(10)}
+			ElseIf cOp=="LOG2"
+				aW	:= {aW[1]/Log(2),aW[2]/Log(2)}
+			EndIf
+			Return CxTxt(oM,aW[1],aW[2],aZ[3])
+		Case cOp=="SQRT"
+			Return CxTxt(oM,Sqrt(nMod)*Cos(nArg/2),Sqrt(nMod)*Sin(nArg/2),aZ[3])
+		Case cOp=="SIN"
+			Return CxTxt(oM,Sin(nR)*CosH(nI),Cos(nR)*SinH(nI),aZ[3])
+		Case cOp=="COS"
+			Return CxTxt(oM,Cos(nR)*CosH(nI),-Sin(nR)*SinH(nI),aZ[3])
+		Case cOp=="SINH"
+			Return CxTxt(oM,SinH(nR)*Cos(nI),CosH(nR)*Sin(nI),aZ[3])
+		Case cOp=="COSH"
+			Return CxTxt(oM,CosH(nR)*Cos(nI),SinH(nR)*Sin(nI),aZ[3])
+	EndCase
+	//Funções derivadas por divisão: tan=sin/cos, cot=cos/sin, sec=1/cos, csc=1/sin, sech=1/cosh, csch=1/sinh
+	Do Case
+		Case cOp=="TAN"
+			aW	:= CxDiv({Sin(nR)*CosH(nI),Cos(nR)*SinH(nI)},{Cos(nR)*CosH(nI),-Sin(nR)*SinH(nI)})
+		Case cOp=="COT"
+			aW	:= CxDiv({Cos(nR)*CosH(nI),-Sin(nR)*SinH(nI)},{Sin(nR)*CosH(nI),Cos(nR)*SinH(nI)})
+		Case cOp=="SEC"
+			aW	:= CxDiv({1,0},{Cos(nR)*CosH(nI),-Sin(nR)*SinH(nI)})
+		Case cOp=="CSC"
+			aW	:= CxDiv({1,0},{Sin(nR)*CosH(nI),Cos(nR)*SinH(nI)})
+		Case cOp=="SECH"
+			aW	:= CxDiv({1,0},{CosH(nR)*Cos(nI),SinH(nR)*Sin(nI)})
+		Otherwise	//CSCH
+			aW	:= CxDiv({1,0},{SinH(nR)*Cos(nI),CosH(nR)*Sin(nI)})
+	EndCase
+	If aW==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return CxTxt(oM,aW[1],aW[2],aZ[3])
+
+Static Function SinH(nX As Numeric)
+Return (Exp(nX)-Exp(-nX))/2
+
+Static Function CosH(nX As Numeric)
+Return (Exp(nX)+Exp(-nX))/2
+
+Static Function Atan2(nY As Numeric, nX As Numeric)
+	If nX>0
+		Return ATan(nY/nX)
+	ElseIf nX<0
+		Return ATan(nY/nX)+If(nY>=0,XPI,-XPI)
+	EndIf
+	If nY>0
+		Return XPI/2
+	ElseIf nY<0
+		Return -XPI/2
+	EndIf
+Return 0
+
+Static Function CxDiv(aA As Array, aB As Array)
+	Local nDen := aB[1]*aB[1]+aB[2]*aB[2] As Numeric
+	If nDen==0
+		Return nil
+	EndIf
+Return {(aA[1]*aB[1]+aA[2]*aB[2])/nDen,(aA[2]*aB[1]-aA[1]*aB[2])/nDen}
+
+Static Function fImPower(oM As Object, aArgs As Array)
+	Local aZ := CxLe(oM,aArgs[1]) As Variant
+	Local nP := oM:Num(aArgs[2]) As Variant
+	Local nMod As Numeric
+	Local nArg As Numeric
+	If oM:EhErro(aZ)
+		Return aZ
+	EndIf
+	If oM:EhErro(nP)
+		Return nP
+	EndIf
+	nMod	:= Sqrt(aZ[1]*aZ[1]+aZ[2]*aZ[2])
+	If nMod==0
+		Return If(nP>0,"0",oM:Err("#NUM!"))
+	EndIf
+	nArg	:= Atan2(aZ[2],aZ[1])
+Return CxTxt(oM,(nMod^nP)*Cos(nP*nArg),(nMod^nP)*Sin(nP*nArg),aZ[3])
+
+Static Function fImDivSub(oM As Object, aArgs As Array, lDiv As Logical)
+	Local aA := CxLe(oM,aArgs[1]) As Variant
+	Local aB := CxLe(oM,aArgs[2]) As Variant
+	Local aW As Variant
+	If oM:EhErro(aA)
+		Return aA
+	EndIf
+	If oM:EhErro(aB)
+		Return aB
+	EndIf
+	If aA[2]!=0 .AND. aB[2]!=0 .AND. aA[3]!=aB[3]
+		Return oM:Err("#VALUE!")
+	EndIf
+	If lDiv
+		aW	:= CxDiv({aA[1],aA[2]},{aB[1],aB[2]})
+		If aW==nil
+			Return oM:Err("#NUM!")
+		EndIf
+		Return CxTxt(oM,aW[1],aW[2],If(aA[2]!=0,aA[3],aB[3]))
+	EndIf
+Return CxTxt(oM,aA[1]-aB[1],aA[2]-aB[2],If(aA[2]!=0,aA[3],aB[3]))
+
+Static Function fImSumProd(oM As Object, aArgs As Array, lSoma As Logical)
+	Local aVals := oM:Lista(aArgs) As Array
+	Local nR := If(lSoma,0,1) As Numeric
+	Local nI := 0 As Numeric
+	Local cSuf := "" As Character
+	Local nCont As Numeric
+	Local aZ As Variant
+	Local nTmp As Numeric
+	For nCont:=1 to Len(aVals)
+		aZ	:= CxLe(oM,aVals[nCont])
+		If oM:EhErro(aZ)
+			Return aZ
+		EndIf
+		If aZ[2]!=0
+			If !Empty(cSuf) .AND. cSuf!=aZ[3]
+				Return oM:Err("#VALUE!")
+			EndIf
+			cSuf	:= aZ[3]
+		EndIf
+		If lSoma
+			nR	+= aZ[1]
+			nI	+= aZ[2]
+		Else
+			nTmp	:= nR*aZ[1]-nI*aZ[2]
+			nI		:= nR*aZ[2]+nI*aZ[1]
+			nR		:= nTmp
+		EndIf
+	Next
+	FwFreeArray(aVals)
+Return CxTxt(oM,nR,nI,If(Empty(cSuf),"i",cSuf))
+
+/*/{Protheus.doc} MenorIg
+a <= b com precisão total: os operadores de comparação do AdvPL consideram iguais números com diferença
+menor que ~1e-8; a diferença escalada (a-b)*1e8 recupera a precisão até ~1e-15
+/*/
+Static Function MenorIg(nA As Numeric, nB As Numeric)
+Return (nA-nB)*100000000<=0
+
+//Número igual a zero com precisão total
+Static Function Zero(nA As Numeric)
+Return nA*100000000==0

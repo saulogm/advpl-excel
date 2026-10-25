@@ -1,0 +1,1439 @@
+// Funções financeiras do Excel (motor custom.excel.calc)
+// Bases de contagem de dias: 0=30/360 americano 1=real/real 2=real/360 3=real/365 4=30/360 europeu
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+/*/{Protheus.doc} FuncFin
+Registro das funções financeiras
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncFin
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncFin
+Return self
+
+Method Registrar(oM As Object) Class FuncFin
+	//Valor do dinheiro no tempo
+	oM:Registrar("PMT"			,{|o,a| fTvm(o,a,"PMT") }		,3,5,"E")
+	oM:Registrar("FV"			,{|o,a| fTvm(o,a,"FV") }		,3,5,"E")
+	oM:Registrar("PV"			,{|o,a| fTvm(o,a,"PV") }		,3,5,"E")
+	oM:Registrar("NPER"			,{|o,a| fTvm(o,a,"NPER") }		,3,5,"E")
+	oM:Registrar("RATE"			,{|o,a| fRate(o,a) }			,3,6,"E")
+	oM:Registrar("IPMT"			,{|o,a| fIPmt(o,a,.T.) }		,4,6,"E")
+	oM:Registrar("PPMT"			,{|o,a| fIPmt(o,a,.F.) }		,4,6,"E")
+	oM:Registrar("CUMIPMT"		,{|o,a| fCum(o,a,.T.) }			,6,6,"E")
+	oM:Registrar("CUMPRINC"		,{|o,a| fCum(o,a,.F.) }			,6,6,"E")
+	oM:Registrar("ISPMT"		,{|o,a| fIsPmt(o,a) }			,4,4,"E")
+	oM:Registrar("NPV"			,{|o,a| fNpv(o,a) }				,2,255)
+	oM:Registrar("XNPV"			,{|o,a| fXNpv(o,a) }			,3,3)
+	oM:Registrar("IRR"			,{|o,a| fIrr(o,a) }				,1,2)
+	oM:Registrar("XIRR"			,{|o,a| fXIrr(o,a) }			,2,3)
+	oM:Registrar("MIRR"			,{|o,a| fMirr(o,a) }			,3,3)
+	oM:Registrar("FVSCHEDULE"	,{|o,a| fFvSchedule(o,a) }		,2,2)
+	oM:Registrar("RRI"			,{|o,a| fRri(o,a) }				,3,3,"E")
+	oM:Registrar("PDURATION"	,{|o,a| fPDuration(o,a) }		,3,3,"E")
+	oM:Registrar("EFFECT"		,{|o,a| fEffect(o,a,.T.) }		,2,2,"E")
+	oM:Registrar("NOMINAL"		,{|o,a| fEffect(o,a,.F.) }		,2,2,"E")
+	//Depreciação
+	oM:Registrar("SLN"			,{|o,a| fSln(o,a) }				,3,3,"E")
+	oM:Registrar("SYD"			,{|o,a| fSyd(o,a) }				,4,4,"E")
+	oM:Registrar("DB"			,{|o,a| fDb(o,a) }				,4,5,"E")
+	oM:Registrar("DDB"			,{|o,a| fDdb(o,a) }				,4,5,"E")
+	oM:Registrar("VDB"			,{|o,a| fVdb(o,a) }				,5,7,"E")
+	oM:Registrar("AMORLINC"		,{|o,a| fAmor(o,a,.T.) }		,6,7,"E")
+	oM:Registrar("AMORDEGRC"	,{|o,a| fAmor(o,a,.F.) }		,6,7,"E")
+	//Fração de moeda
+	oM:Registrar("DOLLARDE"		,{|o,a| fDollarDeFr(o,a,.T.) }	,2,2,"E")
+	oM:Registrar("DOLLARFR"		,{|o,a| fDollarDeFr(o,a,.F.) }	,2,2,"E")
+	//Títulos descontados e no vencimento
+	oM:Registrar("DISC"			,{|o,a| fDesc(o,a,1) }			,4,5,"E")
+	oM:Registrar("INTRATE"		,{|o,a| fDesc(o,a,2) }			,4,5,"E")
+	oM:Registrar("RECEIVED"		,{|o,a| fDesc(o,a,3) }			,4,5,"E")
+	oM:Registrar("PRICEDISC"	,{|o,a| fDesc(o,a,4) }			,4,5,"E")
+	oM:Registrar("YIELDDISC"	,{|o,a| fDesc(o,a,5) }			,4,5,"E")
+	oM:Registrar("PRICEMAT"		,{|o,a| fMat(o,a,.T.) }			,5,6,"E")
+	oM:Registrar("YIELDMAT"		,{|o,a| fMat(o,a,.F.) }			,5,6,"E")
+	oM:Registrar("ACCRINT"		,{|o,a| fAccrInt(o,a) }			,6,8,"E")
+	oM:Registrar("ACCRINTM"		,{|o,a| fAccrIntM(o,a) }		,4,5,"E")
+	oM:Registrar("TBILLPRICE"	,{|o,a| fTBill(o,a,1) }			,3,3,"E")
+	oM:Registrar("TBILLYIELD"	,{|o,a| fTBill(o,a,2) }			,3,3,"E")
+	oM:Registrar("TBILLEQ"		,{|o,a| fTBill(o,a,3) }			,3,3,"E")
+	//Cupons e títulos com juros periódicos
+	oM:Registrar("COUPPCD"		,{|o,a| fCoup(o,a,1) }			,3,4,"E")
+	oM:Registrar("COUPNCD"		,{|o,a| fCoup(o,a,2) }			,3,4,"E")
+	oM:Registrar("COUPNUM"		,{|o,a| fCoup(o,a,3) }			,3,4,"E")
+	oM:Registrar("COUPDAYBS"	,{|o,a| fCoup(o,a,4) }			,3,4,"E")
+	oM:Registrar("COUPDAYS"		,{|o,a| fCoup(o,a,5) }			,3,4,"E")
+	oM:Registrar("COUPDAYSNC"	,{|o,a| fCoup(o,a,6) }			,3,4,"E")
+	oM:Registrar("PRICE"		,{|o,a| fPrice(o,a) }			,6,7,"E")
+	oM:Registrar("YIELD"		,{|o,a| fYield(o,a) }			,6,7,"E")
+	oM:Registrar("DURATION"		,{|o,a| fDuration(o,a,.F.) }	,5,6,"E")
+	oM:Registrar("MDURATION"	,{|o,a| fDuration(o,a,.T.) }	,5,6,"E")
+	oM:Registrar("ODDFPRICE"	,{|o,a| fOddF(o,a,.T.) }		,8,9,"E")
+	oM:Registrar("ODDFYIELD"	,{|o,a| fOddF(o,a,.F.) }		,8,9,"E")
+	oM:Registrar("ODDLPRICE"	,{|o,a| fOddL(o,a,.T.) }		,7,8,"E")
+	oM:Registrar("ODDLYIELD"	,{|o,a| fOddL(o,a,.F.) }		,7,8,"E")
+Return
+
+/* =====================================================================================
+   Auxiliares
+   ===================================================================================== */
+
+//Converte argumentos em números (xErro recebe o primeiro erro); nil vira o padrão de aPadrao
+Static Function Nums(oM As Object, aArgs As Array, aPadrao As Array, xErro As Variant)
+	Local aRet := Array(Len(aPadrao)) As Array
+	Local nCont As Numeric
+	For nCont:=1 to Len(aPadrao)
+		If nCont>Len(aArgs) .OR. ValType(aArgs[nCont])=="U"
+			aRet[nCont]	:= aPadrao[nCont]
+			If aRet[nCont]==nil .AND. xErro==nil
+				xErro	:= oM:Err("#VALUE!")
+			EndIf
+			Loop
+		EndIf
+		If ValType(aArgs[nCont])=="L"
+			aRet[nCont]	:= If(aArgs[nCont],1,0)
+			Loop
+		EndIf
+		aRet[nCont]	:= oM:NumData(aArgs[nCont])
+		If oM:EhErro(aRet[nCont]) .AND. xErro==nil
+			xErro	:= aRet[nCont]
+		EndIf
+	Next
+Return aRet
+
+Static Function Bissexto(nAno As Numeric)
+Return (Mod(nAno,4)==0 .AND. Mod(nAno,100)!=0) .OR. Mod(nAno,400)==0
+
+Static Function DiasMes(nAno As Numeric, nMes As Numeric)
+	Local aDias := {31,28,31,30,31,30,31,31,30,31,30,31} As Array
+	Local nRet := aDias[nMes] As Numeric
+	FwFreeArray(aDias)
+	If nMes==2 .AND. Bissexto(nAno)
+		nRet	:= 29
+	EndIf
+Return nRet
+
+//Soma meses mantendo o fim de mês quando lFimMes
+Static Function SomaMeses(oM As Object, nSerial As Numeric, nMeses As Numeric, lFimMes As Logical)
+	Local aData := oM:SerialData(nSerial) As Array
+	Local nTot := aData[1]*12+aData[2]-1+nMeses As Numeric
+	Local nAno := Int(nTot/12) As Numeric
+	Local nMes := nTot-nAno*12+1 As Numeric
+	Local nDia As Numeric
+	nDia	:= If(lFimMes,DiasMes(nAno,nMes),Min(aData[3],DiasMes(nAno,nMes)))
+Return oM:DataSerial(nAno,nMes,nDia)
+
+//Dias entre datas pela base (30/360 nas bases 0 e 4)
+Static Function DiasBase(oM As Object, nD1 As Numeric, nD2 As Numeric, nBase As Numeric)
+	Local aA As Array
+	Local aB As Array
+	Local nDia1 As Numeric
+	Local nDia2 As Numeric
+	If nBase==1 .OR. nBase==2 .OR. nBase==3
+		Return nD2-nD1
+	EndIf
+	aA		:= oM:SerialData(nD1)
+	aB		:= oM:SerialData(nD2)
+	nDia1	:= aA[3]
+	nDia2	:= aB[3]
+	If nBase==4
+		nDia1	:= Min(nDia1,30)
+		nDia2	:= Min(nDia2,30)
+	Else	//30/360 americano (NASD)
+		If aA[2]==2 .AND. nDia1==DiasMes(aA[1],2)
+			If aB[2]==2 .AND. nDia2==DiasMes(aB[1],2)
+				nDia2	:= 30
+			EndIf
+			nDia1	:= 30
+		EndIf
+		If nDia2==31 .AND. nDia1>=30
+			nDia2	:= 30
+		EndIf
+		If nDia1==31
+			nDia1	:= 30
+		EndIf
+	EndIf
+Return (aB[1]-aA[1])*360+(aB[2]-aA[2])*30+(nDia2-nDia1)
+
+//Fração de ano entre datas (mesma regra do YEARFRAC)
+Static Function FracAno(oM As Object, nIni As Numeric, nFim As Numeric, nBase As Numeric)
+	Local aIni As Array
+	Local aFim As Array
+	Local nAno As Numeric
+	Local nDiasAnos := 0 As Numeric
+	Local nTmp As Numeric
+	Local nFev As Numeric
+	Local lFev := .F. As Logical
+	If nIni>nFim
+		nTmp	:= nIni
+		nIni	:= nFim
+		nFim	:= nTmp
+	EndIf
+	Do Case
+		Case nBase==0 .OR. nBase==4
+			Return DiasBase(oM,nIni,nFim,nBase)/360
+		Case nBase==2
+			Return (nFim-nIni)/360
+		Case nBase==3
+			Return (nFim-nIni)/365
+	EndCase
+	aIni	:= oM:SerialData(nIni)
+	aFim	:= oM:SerialData(nFim)
+	If aIni[1]==aFim[1]
+		Return (nFim-nIni)/If(Bissexto(aIni[1]),366,365)
+	EndIf
+	If aFim[1]==aIni[1]+1 .AND. (aIni[2]>aFim[2] .OR. (aIni[2]==aFim[2] .AND. aIni[3]>=aFim[3]))
+		For nAno:=aIni[1] to aFim[1]
+			If Bissexto(nAno)
+				nFev	:= oM:DataSerial(nAno,2,29)
+				If nFev>=nIni .AND. nFev<=nFim
+					lFev	:= .T.
+				EndIf
+			EndIf
+		Next
+		Return (nFim-nIni)/If(lFev,366,365)
+	EndIf
+	For nAno:=aIni[1] to aFim[1]
+		nDiasAnos	+= If(Bissexto(nAno),366,365)
+	Next
+Return (nFim-nIni)/(nDiasAnos/(aFim[1]-aIni[1]+1))
+
+//Validação comum de títulos: frequência 1/2/4, base 0-4, liquidação < vencimento
+Static Function ValTitulo(oM As Object, nLiq As Numeric, nVenc As Numeric, nFreq As Numeric, nBase As Numeric)
+	If nLiq>=nVenc .OR. (nFreq!=1 .AND. nFreq!=2 .AND. nFreq!=4) .OR. nBase<0 .OR. nBase>4
+		Return oM:Err("#NUM!")
+	EndIf
+Return nil
+
+/*/{Protheus.doc} Cupons
+Datas de cupom anterior e seguinte à liquidação (a partir do vencimento, mantendo fim de mês)
+@return array, {nAnterior,nSeguinte,nQuantidade}
+/*/
+Static Function Cupons(oM As Object, nLiq As Numeric, nVenc As Numeric, nFreq As Numeric)
+	Local nMeses := 12/nFreq As Numeric
+	Local aV := oM:SerialData(nVenc) As Array
+	Local lFimMes := aV[3]==DiasMes(aV[1],aV[2]) As Logical
+	Local nAnt := nVenc As Numeric
+	Local nSeg := nVenc As Numeric
+	Local nQtd := 0 As Numeric
+	Local nK := 0 As Numeric
+	While nAnt>nLiq
+		nSeg	:= nAnt
+		nK++
+		nAnt	:= SomaMeses(oM,nVenc,-nK*nMeses,lFimMes)
+		nQtd++
+	EndDo
+Return {nAnt,nSeg,nQtd}
+
+//Dias do período de cupom pela base
+Static Function DiasPeriodo(oM As Object, nAnt As Numeric, nSeg As Numeric, nFreq As Numeric, nBase As Numeric)
+	Do Case
+		Case nBase==1
+			Return nSeg-nAnt
+		Case nBase==3
+			Return 365/nFreq
+	EndCase
+Return 360/nFreq
+
+/* =====================================================================================
+   Valor do dinheiro no tempo
+   ===================================================================================== */
+
+Static Function VF(nTaxa As Numeric, nPer As Numeric, nPgto As Numeric, nVp As Numeric, nTipo As Numeric)
+	If nTaxa==0
+		Return -(nVp+nPgto*nPer)
+	EndIf
+Return -(nVp*((1+nTaxa)^nPer)+nPgto*(1+nTaxa*nTipo)*(((1+nTaxa)^nPer)-1)/nTaxa)
+
+Static Function Pgto(nTaxa As Numeric, nPer As Numeric, nVp As Numeric, nVf As Numeric, nTipo As Numeric)
+	If nTaxa==0
+		Return -(nVp+nVf)/nPer
+	EndIf
+Return -(nTaxa*(nVf+nVp*((1+nTaxa)^nPer)))/((1+nTaxa*nTipo)*(((1+nTaxa)^nPer)-1))
+
+/*/{Protheus.doc} fTvm
+PMT(taxa,nper,vp,[vf],[tipo]) FV(taxa,nper,pgto,[vp],[tipo]) PV(taxa,nper,pgto,[vf],[tipo]) NPER(taxa,pgto,vp,[vf],[tipo])
+/*/
+Static Function fTvm(oM As Object, aArgs As Array, cFunc As Character)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,0,0},@xErro) As Array
+	Local nR As Numeric
+	Local nT As Numeric
+	Local nA As Numeric
+	Local nB As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nR	:= aN[1]
+	nT	:= If(aN[5]!=0,1,0)
+	Do Case
+		Case cFunc=="PMT"
+			If aN[2]==0
+				Return oM:Err("#NUM!")
+			EndIf
+			Return Pgto(nR,aN[2],aN[3],aN[4],nT)
+		Case cFunc=="FV"
+			Return VF(nR,aN[2],aN[3],aN[4],nT)
+		Case cFunc=="PV"
+			If nR==0
+				Return -(aN[4]+aN[3]*aN[2])
+			EndIf
+			Return -(aN[4]+aN[3]*(1+nR*nT)*(((1+nR)^aN[2])-1)/nR)/((1+nR)^aN[2])
+	EndCase
+	//NPER(taxa,pgto,vp,vf,tipo)
+	If nR==0
+		If aN[2]==0
+			Return oM:Err("#NUM!")
+		EndIf
+		Return -(aN[3]+aN[4])/aN[2]
+	EndIf
+	nA	:= aN[2]*(1+nR*nT)-aN[4]*nR
+	nB	:= aN[2]*(1+nR*nT)+aN[3]*nR
+	If nB==0 .OR. nA/nB<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return Log(nA/nB)/Log(1+nR)
+
+/*/{Protheus.doc} fRate
+RATE(nper,pgto,vp,[vf],[tipo],[estimativa]) - Newton com derivada numérica
+/*/
+Static Function fRate(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,0,0,0.1},@xErro) As Array
+	Local nR As Numeric
+	Local nCont As Numeric
+	Local nF As Numeric
+	Local nF2 As Numeric
+	Local nH As Numeric
+	Local nNovo As Numeric
+	Local nT As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nR	:= aN[6]
+	nT	:= If(aN[5]!=0,1,0)
+	For nCont:=1 to 100
+		nF	:= FuncTaxa(nR,aN[1],aN[2],aN[3],aN[4],nT)
+		nH	:= Max(Abs(nR)*0.000001,0.0000001)
+		nF2	:= FuncTaxa(nR+nH,aN[1],aN[2],aN[3],aN[4],nT)
+		If nF2==nF
+			Exit
+		EndIf
+		nNovo	:= nR-nF*nH/(nF2-nF)
+		If nNovo<=-1
+			nNovo	:= (nR-1)/2
+		EndIf
+		If MenorIg(Abs(nNovo-nR),0.0000000001)
+			Return nNovo
+		EndIf
+		nR	:= nNovo
+	Next
+Return oM:Err("#NUM!")
+
+Static Function FuncTaxa(nR As Numeric, nPer As Numeric, nPgto As Numeric, nVp As Numeric, nVf As Numeric, nT As Numeric)
+	If Abs(nR)<0.0000000001
+		Return nVp+nPgto*nPer+nVf
+	EndIf
+Return nVp*((1+nR)^nPer)+nPgto*(1+nR*nT)*(((1+nR)^nPer)-1)/nR+nVf
+
+//Juros do período (IPMT); principal = PMT - IPMT
+Static Function Juros(nR As Numeric, nPer As Numeric, nN As Numeric, nVp As Numeric, nVf As Numeric, nT As Numeric)
+	Local nPgto := Pgto(nR,nN,nVp,nVf,nT) As Numeric
+	Local nJ As Numeric
+	If nPer==1
+		nJ	:= If(nT==1,0,-nVp)
+	ElseIf nT==1
+		nJ	:= VF(nR,nPer-2,nPgto,nVp,1)-nPgto
+	Else
+		nJ	:= VF(nR,nPer-1,nPgto,nVp,0)
+	EndIf
+Return nJ*nR
+
+//IPMT/PPMT(taxa,período,nper,vp,[vf],[tipo])
+Static Function fIPmt(oM As Object, aArgs As Array, lJuros As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,0,0},@xErro) As Array
+	Local nT As Numeric
+	Local nJ As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nT	:= If(aN[6]!=0,1,0)
+	If aN[2]<1 .OR. aN[2]>aN[3]
+		Return oM:Err("#NUM!")
+	EndIf
+	nJ	:= Juros(aN[1],aN[2],aN[3],aN[4],aN[5],nT)
+	If lJuros
+		Return nJ
+	EndIf
+Return Pgto(aN[1],aN[3],aN[4],aN[5],nT)-nJ
+
+//CUMIPMT/CUMPRINC(taxa,nper,vp,início,fim,tipo)
+Static Function fCum(oM As Object, aArgs As Array, lJuros As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,nil},@xErro) As Array
+	Local nRet := 0 As Numeric
+	Local nPer As Numeric
+	Local nIni As Numeric
+	Local nFim As Numeric
+	Local nT As Numeric
+	Local nJ As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nIni	:= Int(aN[4])
+	nFim	:= Int(aN[5])
+	nT		:= aN[6]
+	If aN[1]<=0 .OR. aN[2]<=0 .OR. aN[3]<=0 .OR. nIni<1 .OR. nFim<nIni .OR. nFim>aN[2] .OR. (nT!=0 .AND. nT!=1)
+		Return oM:Err("#NUM!")
+	EndIf
+	For nPer:=nIni to nFim
+		nJ	:= Juros(aN[1],nPer,aN[2],aN[3],0,nT)
+		nRet	+= If(lJuros,nJ,Pgto(aN[1],aN[2],aN[3],0,nT)-nJ)
+	Next
+Return nRet
+
+Static Function fIsPmt(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+Return aN[4]*aN[1]*(aN[2]/aN[3]-1)
+
+//NPV(taxa,valor1,...)
+Static Function fNpv(oM As Object, aArgs As Array)
+	Local nTaxa := oM:Num(aArgs[1]) As Variant
+	Local aVals := {} As Array
+	Local aRest := {} As Array
+	Local xErro As Variant
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	If oM:EhErro(nTaxa)
+		Return nTaxa
+	EndIf
+	For nCont:=2 to Len(aArgs)
+		AADD(aRest,aArgs[nCont])
+	Next
+	xErro	:= oM:Numeros(aRest,@aVals)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If nTaxa==-1
+		Return oM:Err("#DIV/0!")
+	EndIf
+	For nCont:=1 to Len(aVals)
+		nRet	+= aVals[nCont]/((1+nTaxa)^nCont)
+	Next
+	FwFreeArray(aVals)
+	FwFreeArray(aRest)
+Return nRet
+
+//Valores e datas pareados (XNPV/XIRR)
+Static Function FluxoDatas(oM As Object, xVal As Variant, xDat As Variant, aV As Array, aD As Array)
+	Local oV := oM:ParaMat(xVal) As Object
+	Local oD := oM:ParaMat(xDat) As Object
+	Local aLv As Array
+	Local aLd As Array
+	Local nCont As Numeric
+	Local xD As Variant
+	aLv	:= oM:Lista({oV},.T.)
+	aLd	:= oM:Lista({oD},.T.)
+	If Len(aLv)!=Len(aLd)
+		Return oM:Err("#NUM!")
+	EndIf
+	For nCont:=1 to Len(aLv)
+		If oM:EhErro(aLv[nCont])
+			Return aLv[nCont]
+		EndIf
+		If ValType(aLv[nCont])!="N"
+			Return oM:Err("#VALUE!")
+		EndIf
+		xD	:= oM:NumData(aLd[nCont])
+		If oM:EhErro(xD)
+			Return xD
+		EndIf
+		If Int(xD)<Int(oM:NumData(aLd[1]))
+			Return oM:Err("#NUM!")
+		EndIf
+		AADD(aV,aLv[nCont])
+		AADD(aD,Int(xD))
+	Next
+	FwFreeArray(aLv)
+	FwFreeArray(aLd)
+Return nil
+
+Static Function VplDatas(nTaxa As Numeric, aV As Array, aD As Array)
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to Len(aV)
+		nRet	+= aV[nCont]/((1+nTaxa)^((aD[nCont]-aD[1])/365))
+	Next
+Return nRet
+
+Static Function fXNpv(oM As Object, aArgs As Array)
+	Local nTaxa := oM:Num(aArgs[1]) As Variant
+	Local aV := {} As Array
+	Local aD := {} As Array
+	Local xErro As Variant
+	If oM:EhErro(nTaxa)
+		Return nTaxa
+	EndIf
+	xErro	:= FluxoDatas(oM,aArgs[2],aArgs[3],@aV,@aD)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If nTaxa<=-1
+		Return oM:Err("#NUM!")
+	EndIf
+Return VplDatas(nTaxa,aV,aD)
+
+//Raiz por Newton (derivada numérica) a partir da estimativa
+Static Function RaizNewton(bF As CodeBlock, nX As Numeric)
+	Local nCont As Numeric
+	Local nF As Numeric
+	Local nF2 As Numeric
+	Local nH As Numeric
+	Local nNovo As Numeric
+	For nCont:=1 to 200
+		nF	:= Eval(bF,nX)
+		nH	:= Max(Abs(nX)*0.000001,0.0000001)
+		nF2	:= Eval(bF,nX+nH)
+		If nF2==nF
+			Exit
+		EndIf
+		nNovo	:= nX-nF*nH/(nF2-nF)
+		If nNovo<=-1
+			nNovo	:= (nX-1)/2
+		EndIf
+		If MenorIg(Abs(nNovo-nX),0.00000000001)
+			Return nNovo
+		EndIf
+		nX	:= nNovo
+	Next
+Return nil
+
+//IRR(valores,[estimativa])
+Static Function fIrr(oM As Object, aArgs As Array)
+	Local aV := {} As Array
+	Local xErro := oM:Numeros({aArgs[1]},@aV) As Variant
+	Local nEst := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Num(aArgs[2]),0.1) As Variant
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(nEst)
+		Return nEst
+	EndIf
+	If aScan(aV,{|n| n>0 })==0 .OR. aScan(aV,{|n| n<0 })==0
+		Return oM:Err("#NUM!")
+	EndIf
+	xRet	:= RaizNewton({|r| Vpl(r,aV) },nEst)
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet
+
+Static Function Vpl(nR As Numeric, aV As Array)
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to Len(aV)
+		nRet	+= aV[nCont]/((1+nR)^(nCont-1))
+	Next
+Return nRet
+
+Static Function fXIrr(oM As Object, aArgs As Array)
+	Local aV := {} As Array
+	Local aD := {} As Array
+	Local xErro := FluxoDatas(oM,aArgs[1],aArgs[2],@aV,@aD) As Variant
+	Local nEst := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),0.1) As Variant
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(nEst)
+		Return nEst
+	EndIf
+	If aScan(aV,{|n| n>0 })==0 .OR. aScan(aV,{|n| n<0 })==0
+		Return oM:Err("#NUM!")
+	EndIf
+	xRet	:= RaizNewton({|r| VplDatas(r,aV,aD) },nEst)
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet
+
+//MIRR(valores,taxa_financiamento,taxa_reinvestimento)
+Static Function fMirr(oM As Object, aArgs As Array)
+	Local aV := {} As Array
+	Local xErro := oM:Numeros({aArgs[1]},@aV) As Variant
+	Local nFin := oM:Num(aArgs[2]) As Variant
+	Local nRein := oM:Num(aArgs[3]) As Variant
+	Local nN As Numeric
+	Local nVfPos := 0 As Numeric
+	Local nVpNeg := 0 As Numeric
+	Local nCont As Numeric
+	If xErro==nil .AND. oM:EhErro(nFin)
+		xErro	:= nFin
+	EndIf
+	If xErro==nil .AND. oM:EhErro(nRein)
+		xErro	:= nRein
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nN	:= Len(aV)
+	For nCont:=1 to nN
+		If aV[nCont]>0
+			nVfPos	+= aV[nCont]*((1+nRein)^(nN-nCont))
+		ElseIf aV[nCont]<0
+			nVpNeg	+= aV[nCont]/((1+nFin)^(nCont-1))
+		EndIf
+	Next
+	If nVpNeg==0 .OR. nVfPos==0 .OR. nN<2
+		Return oM:Err("#DIV/0!")
+	EndIf
+Return ((-nVfPos/nVpNeg)^(1/(nN-1)))-1
+
+Static Function fFvSchedule(oM As Object, aArgs As Array)
+	Local nVp := oM:Num(aArgs[1]) As Variant
+	Local aTaxas := oM:Lista({aArgs[2]},.T.) As Array
+	Local nCont As Numeric
+	Local nTx As Variant
+	If oM:EhErro(nVp)
+		Return nVp
+	EndIf
+	For nCont:=1 to Len(aTaxas)
+		nTx	:= If(ValType(aTaxas[nCont])=="U",0,oM:Num(aTaxas[nCont]))
+		If oM:EhErro(nTx)
+			Return nTx
+		EndIf
+		nVp	:= nVp*(1+nTx)
+	Next
+	FwFreeArray(aTaxas)
+Return nVp
+
+Static Function fRri(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<=0 .OR. aN[2]==0
+		Return oM:Err("#NUM!")
+	EndIf
+Return ((aN[3]/aN[2])^(1/aN[1]))-1
+
+Static Function fPDuration(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<=0 .OR. aN[2]<=0 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return (Log(aN[3])-Log(aN[2]))/Log(1+aN[1])
+
+//EFFECT(nominal,períodos) / NOMINAL(efetiva,períodos)
+Static Function fEffect(oM As Object, aArgs As Array, lEfetiva As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil},@xErro) As Array
+	Local nP As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nP	:= Int(aN[2])
+	If aN[1]<=0 .OR. nP<1
+		Return oM:Err("#NUM!")
+	EndIf
+	If lEfetiva
+		Return ((1+aN[1]/nP)^nP)-1
+	EndIf
+Return nP*(((1+aN[1])^(1/nP))-1)
+
+/* =====================================================================================
+   Depreciação
+   ===================================================================================== */
+
+Static Function fSln(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+Return (aN[1]-aN[2])/aN[3]
+
+Static Function fSyd(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]<=0 .OR. aN[4]<=0 .OR. aN[4]>aN[3]
+		Return oM:Err("#NUM!")
+	EndIf
+Return (aN[1]-aN[2])*(aN[3]-aN[4]+1)*2/(aN[3]*(aN[3]+1))
+
+//DB(custo,residual,vida,período,[meses=12]) saldo decrescente fixo
+Static Function fDb(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,12},@xErro) As Array
+	Local nCusto As Numeric
+	Local nTaxa As Numeric
+	Local nPrim As Numeric
+	Local nSoma As Numeric
+	Local nDep := 0 As Numeric
+	Local nCont As Numeric
+	Local nMeses As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nCusto	:= aN[1]
+	nMeses	:= aN[5]
+	If nCusto<0 .OR. aN[2]<0 .OR. aN[3]<=0 .OR. aN[4]<=0 .OR. aN[4]>aN[3]+1 .OR. nMeses<1 .OR. nMeses>12 .OR. (aN[4]>aN[3] .AND. nMeses==12)
+		Return oM:Err("#NUM!")
+	EndIf
+	If nCusto==0
+		Return 0
+	EndIf
+	nTaxa	:= 1-((aN[2]/nCusto)^(1/aN[3]))
+	nTaxa	:= Int(nTaxa*1000+0.5)/1000
+	nPrim	:= nCusto*nTaxa*nMeses/12
+	If Int(aN[4])==1
+		Return nPrim
+	EndIf
+	nSoma	:= nPrim
+	For nCont:=2 to Int(Min(aN[3],aN[4]))
+		nDep	:= (nCusto-nSoma)*nTaxa
+		nSoma	+= nDep
+	Next
+	If aN[4]>aN[3]
+		nDep	:= ((nCusto-nSoma)*nTaxa*(12-nMeses))/12
+	EndIf
+Return nDep
+
+//Depreciação de um período pelo saldo decrescente duplo
+Static Function GetDdb(nCusto As Numeric, nResid As Numeric, nVida As Numeric, nPer As Numeric, nFator As Numeric)
+	Local nTaxa := nFator/nVida As Numeric
+	Local nAnt As Numeric
+	Local nNovo As Numeric
+	Local nDdb As Numeric
+	If nTaxa>=1
+		nTaxa	:= 1
+		nAnt	:= If(nPer==1,nCusto,0)
+	Else
+		nAnt	:= nCusto*((1-nTaxa)^(nPer-1))
+	EndIf
+	nNovo	:= nCusto*((1-nTaxa)^nPer)
+	If nNovo<nResid
+		nDdb	:= nAnt-nResid
+	Else
+		nDdb	:= nAnt-nNovo
+	EndIf
+Return Max(nDdb,0)
+
+Static Function fDdb(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,2},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<0 .OR. aN[2]<0 .OR. aN[3]<=0 .OR. aN[4]<=0 .OR. aN[4]>aN[3] .OR. aN[5]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return GetDdb(aN[1],aN[2],aN[3],aN[4],aN[5])
+
+//Depreciação acumulada até fPeriodo com troca para linear (algoritmo do LibreOffice)
+Static Function InterVdb(nCusto As Numeric, nResid As Numeric, nVida As Numeric, nVida1 As Numeric, nPeriodo As Numeric, nFator As Numeric)
+	Local nVdb := 0 As Numeric
+	Local nFimInt := Teto(nPeriodo) As Numeric
+	Local nTermo As Numeric
+	Local nSln := 0 As Numeric
+	Local nValor := nCusto-nResid As Numeric
+	Local lLinear := .F. As Logical
+	Local nDdb As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to nFimInt
+		If !lLinear
+			nDdb	:= GetDdb(nCusto,nResid,nVida,nCont,nFator)
+			nSln	:= nValor/(nVida1-(nCont-1))
+			If nSln>nDdb
+				nTermo	:= nSln
+				lLinear	:= .T.
+			Else
+				nTermo	:= nDdb
+				nValor	-= nDdb
+			EndIf
+		Else
+			nTermo	:= nSln
+		EndIf
+		If nCont==nFimInt
+			nTermo	*= (nPeriodo+1-nFimInt)
+		EndIf
+		nVdb	+= nTermo
+	Next
+Return nVdb
+
+Static Function Teto(nNum As Numeric)
+	Local nInt := Int(nNum) As Numeric
+	If nNum>nInt .AND. Abs(nNum-nInt)>0.000000001
+		nInt++
+	EndIf
+Return nInt
+
+Static Function Piso(nNum As Numeric)
+	Local nInt := Int(nNum) As Numeric
+	If nNum<0 .AND. nInt!=nNum
+		nInt--
+	EndIf
+	If Abs(nNum-(nInt+1))<0.000000001
+		nInt++
+	EndIf
+Return nInt
+
+/*/{Protheus.doc} fVdb
+VDB(custo,residual,vida,início,fim,[fator=2],[sem_troca=FALSO])
+/*/
+Static Function fVdb(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,2,0},@xErro) As Array
+	Local nCusto As Numeric
+	Local nResid As Numeric
+	Local nVida As Numeric
+	Local nIni As Numeric
+	Local nFim As Numeric
+	Local nFator As Numeric
+	Local nIniInt As Numeric
+	Local nFimInt As Numeric
+	Local nVdb := 0 As Numeric
+	Local nParte := 0 As Numeric
+	Local nCont As Numeric
+	Local nTermo As Numeric
+	Local nTmpVal As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nCusto	:= aN[1]
+	nResid	:= aN[2]
+	nVida	:= aN[3]
+	nIni	:= aN[4]
+	nFim	:= aN[5]
+	nFator	:= aN[6]
+	If nIni<0 .OR. nFim<nIni .OR. nFim>nVida .OR. nCusto<0 .OR. nResid>nCusto .OR. nFator<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	nIniInt	:= Piso(nIni)
+	nFimInt	:= Teto(nFim)
+	If aN[7]!=0	//Sem troca para linear
+		For nCont:=nIniInt+1 to nFimInt
+			nTermo	:= GetDdb(nCusto,nResid,nVida,nCont,nFator)
+			If nCont==nIniInt+1
+				nTermo	*= (Min(nFim,nIniInt+1)-nIni)
+			ElseIf nCont==nFimInt
+				nTermo	*= (nFim+1-nFimInt)
+			EndIf
+			nVdb	+= nTermo
+		Next
+		Return nVdb
+	EndIf
+	If nIni!=nIniInt	//Parte fracionária no início
+		nTmpVal	:= nCusto-InterVdb(nCusto,nResid,nVida,nVida,nIniInt,nFator)
+		nParte	+= (nIni-nIniInt)*InterVdb(nTmpVal,nResid,nVida,nVida-nIniInt,1,nFator)
+	EndIf
+	If nFim!=nFimInt	//Parte fracionária no fim
+		nTmpVal	:= nCusto-InterVdb(nCusto,nResid,nVida,nVida,nFimInt-1,nFator)
+		nParte	+= (nFimInt-nFim)*InterVdb(nTmpVal,nResid,nVida,nVida-(nFimInt-1),1,nFator)
+	EndIf
+	nCusto	-= InterVdb(nCusto,nResid,nVida,nVida,nIniInt,nFator)
+	nVdb	:= InterVdb(nCusto,nResid,nVida,nVida-nIniInt,nFimInt-nIniInt,nFator)
+Return nVdb-nParte
+
+/*/{Protheus.doc} fAmor
+AMORLINC/AMORDEGRC(custo,data_compra,primeiro_período,residual,período,taxa,[base]) - depreciação francesa
+/*/
+Static Function fAmor(oM As Object, aArgs As Array, lLinear As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,nil,0},@xErro) As Array
+	Local nCusto As Numeric
+	Local nResid As Numeric
+	Local nPer As Numeric
+	Local nTaxa As Numeric
+	Local nBase As Numeric
+	Local nUmaTaxa As Numeric
+	Local nTaxa0 As Numeric
+	Local nPerCheios As Numeric
+	Local nUso As Numeric
+	Local nCoef As Numeric
+	Local nNTaxa As Numeric
+	Local nResto As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nCusto	:= aN[1]
+	nResid	:= aN[4]
+	nPer	:= Int(aN[5])
+	nTaxa	:= aN[6]
+	nBase	:= Int(aN[7])
+	If nTaxa<=0 .OR. nBase<0 .OR. nBase>4 .OR. nBase==2 .OR. nPer<0 .OR. aN[2]>aN[3] .OR. nResid>nCusto
+		Return oM:Err("#NUM!")
+	EndIf
+	If lLinear
+		nUmaTaxa	:= nCusto*nTaxa
+		nTaxa0		:= FracAno(oM,aN[2],aN[3],nBase)*nTaxa*nCusto
+		nPerCheios	:= Int((nCusto-nResid-nTaxa0)/nUmaTaxa)
+		Do Case
+			Case nPer==0
+				Return nTaxa0
+			Case nPer<=nPerCheios
+				Return nUmaTaxa
+			Case nPer==nPerCheios+1
+				Return nCusto-nResid-nUmaTaxa*nPerCheios-nTaxa0
+		EndCase
+		Return 0
+	EndIf
+	nUso	:= 1/nTaxa
+	Do Case
+		Case nUso<3
+			nCoef	:= 1
+		Case nUso<5
+			nCoef	:= 1.5
+		Case nUso<=6
+			nCoef	:= 2
+		Otherwise
+			nCoef	:= 2.5
+	EndCase
+	nTaxa	*= nCoef
+	nNTaxa	:= Round(FracAno(oM,aN[2],aN[3],nBase)*nTaxa*nCusto,0)
+	nCusto	-= nNTaxa
+	nResto	:= nCusto-nResid
+	For nCont:=0 to nPer-1
+		nNTaxa	:= Round(nTaxa*nCusto,0)
+		nResto	-= nNTaxa
+		If nResto<0
+			If nPer-nCont<=1
+				Return Round(nCusto*0.5,0)
+			EndIf
+			Return 0
+		EndIf
+		nCusto	-= nNTaxa
+	Next
+Return nNTaxa
+
+//DOLLARDE(moeda_fracionária,fração) / DOLLARFR(moeda_decimal,fração)
+Static Function fDollarDeFr(oM As Object, aArgs As Array, lDe As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil},@xErro) As Array
+	Local nFrac As Numeric
+	Local nInt As Numeric
+	Local nPot As Numeric
+	Local nSinal As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nFrac	:= Int(aN[2])
+	If nFrac<0
+		Return oM:Err("#NUM!")
+	EndIf
+	If nFrac==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+	nSinal	:= If(aN[1]<0,-1,1)
+	nInt	:= Int(Abs(aN[1]))
+	nPot	:= 10^Teto(Log10(nFrac))
+	If lDe
+		Return nSinal*(nInt+(Abs(aN[1])-nInt)*nPot/nFrac)
+	EndIf
+Return nSinal*(nInt+(Abs(aN[1])-nInt)*nFrac/nPot)
+
+/* =====================================================================================
+   Títulos
+   ===================================================================================== */
+
+/*/{Protheus.doc} fDesc
+1=DISC(liq,venc,preço,resgate) 2=INTRATE(liq,venc,investimento,resgate) 3=RECEIVED(liq,venc,investimento,desconto)
+4=PRICEDISC(liq,venc,desconto,resgate) 5=YIELDDISC(liq,venc,preço,resgate) - [base]
+/*/
+Static Function fDesc(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,0},@xErro) As Array
+	Local nFa As Numeric
+	Local nBase As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nBase	:= Int(aN[5])
+	If Int(aN[1])>=Int(aN[2]) .OR. aN[3]<=0 .OR. aN[4]<=0 .OR. nBase<0 .OR. nBase>4
+		Return oM:Err("#NUM!")
+	EndIf
+	nFa	:= FracAno(oM,Int(aN[1]),Int(aN[2]),nBase)
+	Do Case
+		Case nTipo==1
+			Return (aN[4]-aN[3])/aN[4]/nFa
+		Case nTipo==2
+			Return (aN[4]-aN[3])/aN[3]/nFa
+		Case nTipo==3
+			If 1-aN[4]*nFa<=0
+				Return oM:Err("#NUM!")
+			EndIf
+			Return aN[3]/(1-aN[4]*nFa)
+		Case nTipo==4
+			Return aN[4]*(1-aN[3]*nFa)
+	EndCase
+Return (aN[4]/aN[3]-1)/nFa
+
+//PRICEMAT(liq,venc,emissão,taxa,rendimento,[base]) / YIELDMAT(liq,venc,emissão,taxa,preço,[base])
+Static Function fMat(oM As Object, aArgs As Array, lPreco As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,0},@xErro) As Array
+	Local nBase As Numeric
+	Local nEmVen As Numeric
+	Local nEmLiq As Numeric
+	Local nLiqVen As Numeric
+	Local nY As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nBase	:= Int(aN[6])
+	If Int(aN[1])>=Int(aN[2]) .OR. aN[4]<0 .OR. aN[5]<0 .OR. nBase<0 .OR. nBase>4
+		Return oM:Err("#NUM!")
+	EndIf
+	nEmVen	:= FracAno(oM,Int(aN[3]),Int(aN[2]),nBase)
+	nEmLiq	:= FracAno(oM,Int(aN[3]),Int(aN[1]),nBase)
+	nLiqVen	:= FracAno(oM,Int(aN[1]),Int(aN[2]),nBase)
+	If lPreco
+		Return ((1+nEmVen*aN[4])/(1+nLiqVen*aN[5])-nEmLiq*aN[4])*100
+	EndIf
+	nY	:= (1+nEmVen*aN[4])/(aN[5]/100+nEmLiq*aN[4])
+Return (nY-1)/nLiqVen
+
+//ACCRINT(emissão,primeiro_juro,liquidação,taxa,valor_nominal,frequência,[base],[cálculo]) - juros acumulados desde a emissão
+Static Function fAccrInt(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,1000,nil,0,1},@xErro) As Array
+	Local nBase As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nBase	:= Int(aN[7])
+	If aN[4]<=0 .OR. aN[5]<=0 .OR. (aN[6]!=1 .AND. aN[6]!=2 .AND. aN[6]!=4) .OR. nBase<0 .OR. nBase>4 .OR. Int(aN[1])>=Int(aN[3])
+		Return oM:Err("#NUM!")
+	EndIf
+Return aN[5]*aN[4]*FracAno(oM,Int(aN[1]),Int(aN[3]),nBase)
+
+//ACCRINTM(emissão,liquidação,taxa,valor_nominal,[base])
+Static Function fAccrIntM(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,1000,0},@xErro) As Array
+	Local nBase As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nBase	:= Int(aN[5])
+	If aN[3]<=0 .OR. aN[4]<=0 .OR. nBase<0 .OR. nBase>4 .OR. Int(aN[1])>=Int(aN[2])
+		Return oM:Err("#NUM!")
+	EndIf
+Return aN[4]*aN[3]*FracAno(oM,Int(aN[1]),Int(aN[2]),nBase)
+
+//1=TBILLPRICE(liq,venc,desconto) 2=TBILLYIELD(liq,venc,preço) 3=TBILLEQ(liq,venc,desconto)
+Static Function fTBill(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil},@xErro) As Array
+	Local nDias As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nDias	:= Int(aN[2])-Int(aN[1])
+	If nDias<=0 .OR. nDias>366 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	Do Case
+		Case nTipo==1
+			Return 100*(1-aN[3]*nDias/360)
+		Case nTipo==2
+			Return (100-aN[3])/aN[3]*360/nDias
+	EndCase
+Return 365*aN[3]/(360-aN[3]*nDias)
+
+//COUPPCD COUPNCD COUPNUM COUPDAYBS COUPDAYS COUPDAYSNC(liquidação,vencimento,frequência,[base])
+Static Function fCoup(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,0},@xErro) As Array
+	Local nLiq As Numeric
+	Local nVenc As Numeric
+	Local nFreq As Numeric
+	Local nBase As Numeric
+	Local aC As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nLiq	:= Int(aN[1])
+	nVenc	:= Int(aN[2])
+	nFreq	:= Int(aN[3])
+	nBase	:= Int(aN[4])
+	xErro	:= ValTitulo(oM,nLiq,nVenc,nFreq,nBase)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	aC	:= Cupons(oM,nLiq,nVenc,nFreq)
+	Do Case
+		Case nTipo==1
+			Return aC[1]
+		Case nTipo==2
+			Return aC[2]
+		Case nTipo==3
+			Return aC[3]
+		Case nTipo==4
+			Return DiasBase(oM,aC[1],nLiq,nBase)
+		Case nTipo==5
+			Return DiasPeriodo(oM,aC[1],aC[2],nFreq,nBase)
+	EndCase
+	If nBase==0 .OR. nBase==4	//30/360: período menos dias decorridos
+		Return DiasPeriodo(oM,aC[1],aC[2],nFreq,nBase)-DiasBase(oM,aC[1],nLiq,nBase)
+	EndIf
+Return aC[2]-nLiq
+
+/*/{Protheus.doc} Preco
+Preço do título por 100 de valor de face (fórmula do PRICE)
+/*/
+Static Function Preco(oM As Object, nLiq As Numeric, nVenc As Numeric, nTaxa As Numeric, nRend As Numeric, nResg As Numeric, nFreq As Numeric, nBase As Numeric)
+	Local aC := Cupons(oM,nLiq,nVenc,nFreq) As Array
+	Local nN := aC[3] As Numeric
+	Local nE := DiasPeriodo(oM,aC[1],aC[2],nFreq,nBase) As Numeric
+	Local nA := DiasBase(oM,aC[1],nLiq,nBase) As Numeric
+	Local nDsc As Numeric
+	Local nCup := 100*nTaxa/nFreq As Numeric
+	Local nRet := 0 As Numeric
+	Local nK As Numeric
+	nDsc	:= If(nBase==0 .OR. nBase==4,nE-nA,aC[2]-nLiq)
+	If nN==1
+		Return (nResg+nCup)/(1+nDsc/nE*nRend/nFreq)-nCup*nA/nE
+	EndIf
+	nRet	:= nResg/((1+nRend/nFreq)^(nN-1+nDsc/nE))
+	For nK:=1 to nN
+		nRet	+= nCup/((1+nRend/nFreq)^(nK-1+nDsc/nE))
+	Next
+Return nRet-nCup*nA/nE
+
+//PRICE(liq,venc,taxa,rendimento,resgate,frequência,[base])
+Static Function fPrice(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,nil,0},@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	xErro	:= ValTitulo(oM,Int(aN[1]),Int(aN[2]),Int(aN[6]),Int(aN[7]))
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]<0 .OR. aN[4]<0 .OR. aN[5]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return Preco(oM,Int(aN[1]),Int(aN[2]),aN[3],aN[4],aN[5],Int(aN[6]),Int(aN[7]))
+
+//YIELD(liq,venc,taxa,preço,resgate,frequência,[base])
+Static Function fYield(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,nil,0},@xErro) As Array
+	Local nLiq As Numeric
+	Local nVenc As Numeric
+	Local nFreq As Numeric
+	Local nBase As Numeric
+	Local aC As Array
+	Local nE As Numeric
+	Local nA As Numeric
+	Local nDsr As Numeric
+	Local nCup As Numeric
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nLiq	:= Int(aN[1])
+	nVenc	:= Int(aN[2])
+	nFreq	:= Int(aN[6])
+	nBase	:= Int(aN[7])
+	xErro	:= ValTitulo(oM,nLiq,nVenc,nFreq,nBase)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]<0 .OR. aN[4]<=0 .OR. aN[5]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	aC	:= Cupons(oM,nLiq,nVenc,nFreq)
+	If aC[3]==1	//Um cupom: fórmula fechada
+		nE		:= DiasPeriodo(oM,aC[1],aC[2],nFreq,nBase)
+		nA		:= DiasBase(oM,aC[1],nLiq,nBase)
+		nDsr	:= nE-nA
+		nCup	:= 100*aN[3]/nFreq
+		Return ((aN[5]/100+aN[3]/nFreq)-(aN[4]/100+nA/nE*aN[3]/nFreq))/(aN[4]/100+nA/nE*aN[3]/nFreq)*nFreq*nE/nDsr
+	EndIf
+	xRet	:= RaizNewton({|y| Preco(oM,nLiq,nVenc,aN[3],y,aN[5],nFreq,nBase)-aN[4] },Max(aN[3],0.05))
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet
+
+//DURATION/MDURATION(liq,venc,cupom,rendimento,frequência,[base]) - Macaulay sobre os fluxos de cupom
+Static Function fDuration(oM As Object, aArgs As Array, lMod As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,0},@xErro) As Array
+	Local nLiq As Numeric
+	Local nVenc As Numeric
+	Local nFreq As Numeric
+	Local nBase As Numeric
+	Local aC As Array
+	Local nN As Numeric
+	Local nE As Numeric
+	Local nDsc As Numeric
+	Local nCup As Numeric
+	Local nY As Numeric
+	Local nDur := 0 As Numeric
+	Local nP := 0 As Numeric
+	Local nK As Numeric
+	Local nT As Numeric
+	Local nFluxo As Numeric
+	Local nVp As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nLiq	:= Int(aN[1])
+	nVenc	:= Int(aN[2])
+	nFreq	:= Int(aN[5])
+	nBase	:= Int(aN[6])
+	xErro	:= ValTitulo(oM,nLiq,nVenc,nFreq,nBase)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]<0 .OR. aN[4]<0
+		Return oM:Err("#NUM!")
+	EndIf
+	aC		:= Cupons(oM,nLiq,nVenc,nFreq)
+	nN		:= aC[3]
+	nE		:= DiasPeriodo(oM,aC[1],aC[2],nFreq,nBase)
+	nDsc	:= If(nBase==0 .OR. nBase==4,nE-DiasBase(oM,aC[1],nLiq,nBase),aC[2]-nLiq)
+	nCup	:= aN[3]*100/nFreq
+	nY		:= 1+aN[4]/nFreq
+	For nK:=1 to nN
+		nT		:= nK-1+nDsc/nE	//Tempo em períodos de cupom
+		nFluxo	:= nCup+If(nK==nN,100,0)
+		nVp		:= nFluxo/(nY^nT)
+		nDur	+= nT*nVp
+		nP		+= nVp
+	Next
+	nDur	:= nDur/nP/nFreq
+	If lMod
+		nDur	:= nDur/nY
+	EndIf
+Return nDur
+
+/*/{Protheus.doc} QuasiCupons
+Períodos quase-cupom do período irregular: datas de nIni (exclusive) a nFim, contadas a partir de nRef em passos de 12/freq meses
+@return array, {{nInicioQuase,nFimQuase},...} do mais antigo ao mais recente
+/*/
+Static Function QuasiCupons(oM As Object, nIni As Numeric, nFim As Numeric, nFreq As Numeric, lParaTras As Logical)
+	Local aRet := {} As Array
+	Local nMeses := 12/nFreq As Numeric
+	Local aR := oM:SerialData(nFim) As Array
+	Local lFimMes As Logical
+	Local nK := 0 As Numeric
+	Local nA As Numeric
+	Local nB As Numeric
+	If lParaTras	//A partir do primeiro cupom para trás até a emissão
+		lFimMes	:= aR[3]==DiasMes(aR[1],aR[2])
+		nB		:= nFim
+		While .T.
+			nK++
+			nA	:= SomaMeses(oM,nFim,-nK*nMeses,lFimMes)
+			aRet	:= InsereInicio(aRet,{nA,nB})
+			If nA<=nIni
+				Exit
+			EndIf
+			nB	:= nA
+		EndDo
+		Return aRet
+	EndIf
+	aR		:= oM:SerialData(nIni)	//A partir do último cupom para frente até o vencimento
+	lFimMes	:= aR[3]==DiasMes(aR[1],aR[2])
+	nA		:= nIni
+	While .T.
+		nK++
+		nB	:= SomaMeses(oM,nIni,nK*nMeses,lFimMes)
+		AADD(aRet,{nA,nB})
+		If nB>=nFim
+			Exit
+		EndIf
+		nA	:= nB
+	EndDo
+Return aRet
+
+Static Function InsereInicio(aLista As Array, aItem As Array)
+	Local aRet := {aItem} As Array
+	Local nCont As Numeric
+	For nCont:=1 to Len(aLista)
+		If ValType(aLista[nCont])=="A"
+			AADD(aRet,aLista[nCont])
+		EndIf
+	Next
+Return aRet
+
+/*/{Protheus.doc} PrecoOddF
+Preço com primeiro período irregular (fórmulas da documentação do ODDFPRICE: curto e longo)
+/*/
+Static Function PrecoOddF(oM As Object, nLiq As Numeric, nVenc As Numeric, nEmis As Numeric, nPrim As Numeric, nTaxa As Numeric, nRend As Numeric, nResg As Numeric, nFreq As Numeric, nBase As Numeric)
+	Local aQ := QuasiCupons(oM,nEmis,nPrim,nFreq,.T.) As Array
+	Local nCup := 100*nTaxa/nFreq As Numeric
+	Local aV := oM:SerialData(nVenc) As Array
+	Local nN As Numeric
+	Local nNq := 0 As Numeric
+	Local nSomaDC := 0 As Numeric
+	Local nSomaA := 0 As Numeric
+	Local nDsc As Numeric
+	Local nE As Numeric
+	Local nRet As Numeric
+	Local nK As Numeric
+	Local nI As Numeric
+	Local nNL As Numeric
+	Local nIniDC As Numeric
+	Local nQLiq := 0 As Numeric
+	nN	:= 0
+	nK	:= nPrim
+	While nK<nVenc	//Cupons depois do primeiro até o vencimento
+		nN++
+		nK	:= SomaMeses(oM,nPrim,nN*12/nFreq,aV[3]==DiasMes(aV[1],aV[2]))
+	EndDo
+	nN++	//Inclui o primeiro cupom
+	For nI:=1 to Len(aQ)
+		nNL		:= DiasPeriodo(oM,aQ[nI][1],aQ[nI][2],nFreq,nBase)
+		nIniDC	:= Max(aQ[nI][1],nEmis)
+		nSomaDC	+= DiasBase(oM,nIniDC,aQ[nI][2],nBase)/nNL
+		If nLiq>aQ[nI][1]
+			nSomaA	+= DiasBase(oM,nIniDC,Min(nLiq,aQ[nI][2]),nBase)/nNL
+		EndIf
+		If nLiq>=aQ[nI][2]
+			nQLiq++
+		EndIf
+		If nLiq>=aQ[nI][1] .AND. nLiq<aQ[nI][2]
+			nE		:= nNL
+			nDsc	:= If(nBase==0 .OR. nBase==4,nNL-DiasBase(oM,aQ[nI][1],nLiq,nBase),aQ[nI][2]-nLiq)
+		EndIf
+	Next
+	nNq	:= Len(aQ)-nQLiq-1	//Períodos quase-cupom inteiros entre a liquidação e o primeiro cupom
+	nRet	:= nResg/((1+nRend/nFreq)^(nN-1+nNq+nDsc/nE))
+	nRet	+= nCup*nSomaDC/((1+nRend/nFreq)^(nNq+nDsc/nE))
+	For nK:=2 to nN
+		nRet	+= nCup/((1+nRend/nFreq)^(nK-1+nNq+nDsc/nE))
+	Next
+	FwFreeArray(aQ)
+Return nRet-nCup*nSomaA
+
+//ODDFPRICE(liq,venc,emissão,primeiro_cupom,taxa,rendimento,resgate,frequência,[base]) / ODDFYIELD(...,taxa,preço,...)
+Static Function fOddF(oM As Object, aArgs As Array, lPreco As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,nil,nil,nil,0},@xErro) As Array
+	Local nLiq As Numeric
+	Local nVenc As Numeric
+	Local nEmis As Numeric
+	Local nPrim As Numeric
+	Local nFreq As Numeric
+	Local nBase As Numeric
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nLiq	:= Int(aN[1])
+	nVenc	:= Int(aN[2])
+	nEmis	:= Int(aN[3])
+	nPrim	:= Int(aN[4])
+	nFreq	:= Int(aN[8])
+	nBase	:= Int(aN[9])
+	If !(nVenc>nPrim .AND. nPrim>nLiq .AND. nLiq>nEmis) .OR. aN[5]<0 .OR. aN[6]<0 .OR. aN[7]<=0 .OR. (nFreq!=1 .AND. nFreq!=2 .AND. nFreq!=4) .OR. nBase<0 .OR. nBase>4
+		Return oM:Err("#NUM!")
+	EndIf
+	If lPreco
+		Return PrecoOddF(oM,nLiq,nVenc,nEmis,nPrim,aN[5],aN[6],aN[7],nFreq,nBase)
+	EndIf
+	xRet	:= RaizNewton({|y| PrecoOddF(oM,nLiq,nVenc,nEmis,nPrim,aN[5],y,aN[7],nFreq,nBase)-aN[6] },Max(aN[5],0.05))
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet
+
+//Somas dos períodos quase-cupom do último período irregular {DC/NL, A/NL, DSC/NL}
+Static Function SomasOddL(oM As Object, nLiq As Numeric, nVenc As Numeric, nUlt As Numeric, nFreq As Numeric, nBase As Numeric)
+	Local aQ := QuasiCupons(oM,nUlt,nVenc,nFreq,.F.) As Array
+	Local nDC := 0 As Numeric
+	Local nA := 0 As Numeric
+	Local nDsc := 0 As Numeric
+	Local nI As Numeric
+	Local nNL As Numeric
+	Local nFimQ As Numeric
+	For nI:=1 to Len(aQ)
+		nNL		:= DiasPeriodo(oM,aQ[nI][1],aQ[nI][2],nFreq,nBase)
+		nFimQ	:= Min(aQ[nI][2],nVenc)
+		nDC		+= DiasBase(oM,aQ[nI][1],nFimQ,nBase)/nNL
+		If nLiq>aQ[nI][1]
+			nA	+= DiasBase(oM,aQ[nI][1],Min(nLiq,nFimQ),nBase)/nNL
+		EndIf
+		If nLiq<nFimQ
+			nDsc	+= DiasBase(oM,Max(nLiq,aQ[nI][1]),nFimQ,nBase)/nNL
+		EndIf
+	Next
+	FwFreeArray(aQ)
+Return {nDC,nA,nDsc}
+
+//ODDLPRICE(liq,venc,último_cupom,taxa,rendimento,resgate,frequência,[base]) / ODDLYIELD(...,taxa,preço,...)
+Static Function fOddL(oM As Object, aArgs As Array, lPreco As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,{nil,nil,nil,nil,nil,nil,nil,0},@xErro) As Array
+	Local nLiq As Numeric
+	Local nVenc As Numeric
+	Local nUlt As Numeric
+	Local nFreq As Numeric
+	Local nBase As Numeric
+	Local aSom As Array
+	Local nCup As Numeric
+	Local nPar As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nLiq	:= Int(aN[1])
+	nVenc	:= Int(aN[2])
+	nUlt	:= Int(aN[3])
+	nFreq	:= Int(aN[7])
+	nBase	:= Int(aN[8])
+	If !(nVenc>nLiq .AND. nLiq>nUlt) .OR. aN[4]<0 .OR. aN[5]<0 .OR. aN[6]<=0 .OR. (nFreq!=1 .AND. nFreq!=2 .AND. nFreq!=4) .OR. nBase<0 .OR. nBase>4
+		Return oM:Err("#NUM!")
+	EndIf
+	aSom		:= SomasOddL(oM,nLiq,nVenc,nUlt,nFreq,nBase)
+	nCup	:= 100*aN[4]/nFreq
+	If lPreco
+		Return (aN[6]+aSom[1]*nCup)/(1+aSom[3]*aN[5]/nFreq)-aSom[2]*nCup
+	EndIf
+	nPar	:= aN[5]+aSom[2]*nCup
+Return ((aN[6]+aSom[1]*nCup)-nPar)/nPar*(nFreq/aSom[3])
+
+/*/{Protheus.doc} MenorIg
+a <= b com precisão total: os operadores de comparação do AdvPL consideram iguais números com diferença
+menor que ~1e-8; a diferença escalada (a-b)*1e8 recupera a precisão até ~1e-15
+/*/
+Static Function MenorIg(nA As Numeric, nB As Numeric)
+Return (nA-nB)*100000000<=0
+
+//Número igual a zero com precisão total
+Static Function Zero(nA As Numeric)
+Return nA*100000000==0

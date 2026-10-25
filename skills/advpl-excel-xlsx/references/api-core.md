@@ -70,11 +70,12 @@ oExcel:Pos(2,3):SetValue(.T.)
 oExcel:Pos(2,4):SetValue(Date())
 oExcel:Pos(2,5):SetValue(oExcel:GetDateTime(dData = Date(), cTime = Time()))	//data e hora
 oExcel:Pos(2,6):SetValue(oExcel:GetDateTime(dData = Date(), cTime = Time()) + 10)	//DateTime aceita + - * /
-oExcel:Pos(4,1):SetValue(xValor = 30, cFormula = "SUM(A2:A3)")	//inglês, vírgula, sem "="
-oExcel:Pos(5,1):SetValue(xValor = 0, cFormula = oExcel:Ref(2,1) + "+" + oExcel:Ref(3,1))
-oExcel:Pos(6,1):SetValue(xValor = 600, cFormula = "SUM(VALORES)")	//nome criado antes com AddNome
+oExcel:Pos(4,1):SetValue(, "SUM(A2:A3)")	//inglês, vírgula, sem "="; o valor é calculado no Save
+oExcel:Pos(5,1):SetValue(, oExcel:Ref(2,1) + "+" + oExcel:Ref(3,1))
+oExcel:Pos(6,1):SetValue(xValor = 600, cFormula = "SUM(VALORES)")	//xValor informado é mantido; VALORES criado antes com AddNome
 ```
 
+- **Fórmulas sem valor são calculadas pela classe** no `Save`/`Save2Html`, nos modos A, M e B (motor AdvPL com as funções do Excel). O que não for calculável fica sem valor e o workbook é marcado para o Excel recalcular ao abrir. `SetCalcFormula(.F.)` desliga o cálculo, `AddFuncFormula(cNome, bBloco, nMin, nMax, cFlags)` registra uma função própria e `SetCalcLocal("en-US")` muda a localidade de TEXT/VALUE/DATEVALUE (padrão pt-BR). Veja [formulas.md](formulas.md).
 - `SetDateTime(dDate, cTime)` → self: equivale a `SetValue(GetDateTime(...))`.
 - `GetDateTime(dData, cTime, nData)` → um objeto `custom.excel.DateTime`, com `GetDate()`, `GetTime()`, `GetStrNumber()` e operadores `+ - * /` e de comparação.
 - Uma célula com data e hora precisa de um formato de exibição. Crie um estilo com `AddFmt("dd/mm/yyyy hh:mm:ss;@")` (ver estilos.md) ou use o id nativo 22.

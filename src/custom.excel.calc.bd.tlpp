@@ -1,0 +1,312 @@
+// Funções de banco de dados (D*), web e demais funções do Excel (motor custom.excel.calc)
+// Funções que dependem do ambiente do Excel (cubo, RTD, cotações, Python, Copilot, suplementos)
+// são registradas como não calculáveis: a célula fica sem valor e o Excel calcula ao abrir
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+/*/{Protheus.doc} FuncBd
+Registro das funções de banco de dados, web e demais
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncBd
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncBd
+Return self
+
+Method Registrar(oM As Object) Class FuncBd
+	//Banco de dados
+	oM:Registrar("DSUM"				,{|o,a| fBd(o,a,"SUM") }			,2,3)
+	oM:Registrar("DAVERAGE"			,{|o,a| fBd(o,a,"AVERAGE") }		,2,3)
+	oM:Registrar("DCOUNT"			,{|o,a| fBd(o,a,"COUNT") }			,2,3)
+	oM:Registrar("DCOUNTA"			,{|o,a| fBd(o,a,"COUNTA") }			,2,3)
+	oM:Registrar("DGET"				,{|o,a| fBd(o,a,"GET") }			,2,3)
+	oM:Registrar("DMAX"				,{|o,a| fBd(o,a,"MAX") }			,2,3)
+	oM:Registrar("DMIN"				,{|o,a| fBd(o,a,"MIN") }			,2,3)
+	oM:Registrar("DPRODUCT"			,{|o,a| fBd(o,a,"PRODUCT") }		,2,3)
+	oM:Registrar("DSTDEV"			,{|o,a| fBd(o,a,"STDEV") }			,2,3)
+	oM:Registrar("DSTDEVP"			,{|o,a| fBd(o,a,"STDEVP") }			,2,3)
+	oM:Registrar("DVAR"				,{|o,a| fBd(o,a,"VAR") }			,2,3)
+	oM:Registrar("DVARP"			,{|o,a| fBd(o,a,"VARP") }			,2,3)
+	//Web
+	oM:Registrar("ENCODEURL"		,{|o,a| fEncodeUrl(o,a) }			,1,1,"E")
+	oM:Registrar("FILTERXML"		,{|o,a| fFilterXml(o,a) }			,2,2,"E")
+	oM:Registrar("WEBSERVICE"		,{|o,a| o:Err("#VALUE!") }			,1,1,"X")
+	//Matriz dinâmica/compatibilidade
+	oM:Registrar("SINGLE"			,{|o,a| o:Esc(a[1]) }				,1,1)
+	oM:Registrar("ANCHORARRAY"		,{|o,a| a[1] }						,1,1)
+	oM:Registrar("ROUNDBAHTDOWN"	,{|o,a| fBaht(o,a,.F.) }			,1,1,"E")
+	oM:Registrar("ROUNDBAHTUP"		,{|o,a| fBaht(o,a,.T.) }			,1,1,"E")
+	//Dependem do ambiente do Excel (dados externos, suplementos, idioma tailandês/chinês, IA)
+	oM:Registrar("CUBEKPIMEMBER"	,{|o,a| o:Err("#NAME?") }			,3,4,"X")
+	oM:Registrar("CUBEMEMBER"		,{|o,a| o:Err("#NAME?") }			,2,3,"X")
+	oM:Registrar("CUBEMEMBERPROPERTY",{|o,a| o:Err("#NAME?") }			,3,3,"X")
+	oM:Registrar("CUBERANKEDMEMBER"	,{|o,a| o:Err("#NAME?") }			,3,4,"X")
+	oM:Registrar("CUBESET"			,{|o,a| o:Err("#NAME?") }			,2,5,"X")
+	oM:Registrar("CUBESETCOUNT"		,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("CUBEVALUE"		,{|o,a| o:Err("#NAME?") }			,1,255,"X")
+	oM:Registrar("STOCKHISTORY"		,{|o,a| o:Err("#BLOCKED!") }		,2,255,"X")
+	oM:Registrar("FIELDVALUE"		,{|o,a| o:Err("#FIELD!") }			,2,2,"X")
+	oM:Registrar("CALL"				,{|o,a| o:Err("#NAME?") }			,1,255,"X")
+	oM:Registrar("REGISTER.ID"		,{|o,a| o:Err("#NAME?") }			,2,3,"X")
+	oM:Registrar("EUROCONVERT"		,{|o,a| o:Err("#NAME?") }			,3,5,"X")
+	oM:Registrar("PY"				,{|o,a| o:Err("#NAME?") }			,0,255,"X")
+	oM:Registrar("COPILOT"			,{|o,a| o:Err("#NAME?") }			,1,255,"X")
+	oM:Registrar("NUMBERSTRING"		,{|o,a| o:Err("#NAME?") }			,2,2,"X")
+	oM:Registrar("DATESTRING"		,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("ISTHAIDIGIT"		,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAIDAYOFWEEK"	,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAIDIGIT"		,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAIMONTHOFYEAR"	,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAINUMSOUND"		,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAINUMSTRING"	,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAISTRINGLENGTH"	,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+	oM:Registrar("THAIYEAR"			,{|o,a| o:Err("#NAME?") }			,1,1,"X")
+Return
+
+/*/{Protheus.doc} fBd
+Funções D*: (banco_de_dados,campo,critérios) - critérios com cabeçalho; linhas são OU, colunas são E
+/*/
+Static Function fBd(oM As Object, aArgs As Array, cFunc As Character)
+	Local oBd := oM:ParaMat(aArgs[1]) As Object
+	Local xCampo := If(Len(aArgs)>=2,oM:Esc(aArgs[2]),nil) As Variant
+	Local oCrit As Object
+	Local nCol := 0 As Numeric
+	Local aVals := {} As Array
+	Local nLin As Numeric
+	Local aConds As Array
+	Local xVal As Variant
+	Local nRet := 0 As Numeric
+	Local nMedia As Numeric
+	Local nQ As Numeric
+	Local nCont As Numeric
+	If oM:EhErro(xCampo)
+		Return xCampo
+	EndIf
+	If Len(aArgs)<3
+		Return oM:Err("#VALUE!")
+	EndIf
+	oCrit	:= oM:ParaMat(aArgs[3])
+	If oBd:nL<1 .OR. oCrit:nL<1
+		Return oM:Err("#VALUE!")
+	EndIf
+	If ValType(xCampo)=="N"
+		nCol	:= Int(xCampo)
+	ElseIf ValType(xCampo)=="C"
+		nCol	:= ColBd(oM,oBd,xCampo)
+	EndIf
+	If (nCol<1 .OR. nCol>oBd:nC) .AND. !(ValType(xCampo)=="U" .AND. (cFunc=="COUNT" .OR. cFunc=="COUNTA"))
+		Return oM:Err("#VALUE!")
+	EndIf
+	aConds	:= CondBd(oM,oBd,oCrit)
+	For nLin:=2 to oBd:nL
+		If !PassaBd(oM,oBd,nLin,aConds)
+			Loop
+		EndIf
+		If nCol==0	//DCOUNT/DCOUNTA sem campo: conta registros
+			AADD(aVals,1)
+			Loop
+		EndIf
+		xVal	:= oBd:aV[nLin][nCol]
+		If oM:EhErro(xVal) .AND. cFunc!="COUNTA" .AND. cFunc!="GET"
+			Return xVal
+		EndIf
+		Do Case
+			Case cFunc=="COUNTA" .OR. cFunc=="GET"
+				If ValType(xVal)!="U" .OR. cFunc=="GET"
+					AADD(aVals,xVal)
+				EndIf
+			Case ValType(xVal)=="N"
+				AADD(aVals,xVal)
+		EndCase
+	Next
+	Do Case
+		Case cFunc=="COUNT" .OR. cFunc=="COUNTA"
+			Return Len(aVals)
+		Case cFunc=="GET"
+			If Len(aVals)==0
+				Return oM:Err("#VALUE!")
+			ElseIf Len(aVals)>1
+				Return oM:Err("#NUM!")
+			EndIf
+			Return aVals[1]
+		Case cFunc=="SUM"
+			aEval(aVals,{|n| nRet+=n })
+			Return nRet
+		Case cFunc=="PRODUCT"
+			If Empty(aVals)
+				Return 0
+			EndIf
+			nRet	:= 1
+			aEval(aVals,{|n| nRet*=n })
+			Return nRet
+		Case cFunc=="MAX" .OR. cFunc=="MIN"
+			If Empty(aVals)
+				Return 0
+			EndIf
+			nRet	:= aVals[1]
+			aEval(aVals,{|n| nRet:=If(cFunc=="MAX",Max(nRet,n),Min(nRet,n)) })
+			Return nRet
+	EndCase
+	If Empty(aVals) .OR. (Len(aVals)<2 .AND. (cFunc=="STDEV" .OR. cFunc=="VAR"))
+		Return oM:Err("#DIV/0!")
+	EndIf
+	nMedia	:= 0
+	aEval(aVals,{|n| nMedia+=n })
+	nMedia	:= nMedia/Len(aVals)
+	If cFunc=="AVERAGE"
+		Return nMedia
+	EndIf
+	nQ	:= 0
+	For nCont:=1 to Len(aVals)
+		nQ	+= (aVals[nCont]-nMedia)*(aVals[nCont]-nMedia)
+	Next
+	nQ	:= nQ/If(cFunc=="STDEVP" .OR. cFunc=="VARP",Len(aVals),Len(aVals)-1)
+	FwFreeArray(aVals)
+Return If(cFunc=="STDEV" .OR. cFunc=="STDEVP",Sqrt(nQ),nQ)
+
+//Coluna do banco pelo nome do cabeçalho (0 se não existe)
+Static Function ColBd(oM As Object, oBd As Object, cNome As Character)
+	Local nCont As Numeric
+	For nCont:=1 to oBd:nC
+		If ValType(oBd:aV[1][nCont])!="U" .AND. oM:Maius(AllTrim(oM:Txt(oBd:aV[1][nCont])))==oM:Maius(AllTrim(cNome))
+			Return nCont
+		EndIf
+	Next
+Return 0
+
+/*/{Protheus.doc} CondBd
+Condições dos critérios: cada linha {{nColunaBd,aCriterio},...}; texto sem operador procura pelo início
+/*/
+Static Function CondBd(oM As Object, oBd As Object, oCrit As Object)
+	Local aRet := {} As Array
+	Local aLin As Array
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xC As Variant
+	Local nCol As Numeric
+	Local aCrit As Array
+	For nI:=2 to oCrit:nL
+		aLin	:= {}
+		For nJ:=1 to oCrit:nC
+			xC	:= oCrit:aV[nI][nJ]
+			If ValType(xC)=="U" .OR. (ValType(xC)=="C" .AND. Empty(xC))
+				Loop
+			EndIf
+			nCol	:= If(ValType(oCrit:aV[1][nJ])=="U",0,ColBd(oM,oBd,oM:Txt(oCrit:aV[1][nJ])))
+			If nCol==0	//Critério calculado (fórmula): não suportado
+				oM:lIncompleto	:= .T.
+				Loop
+			EndIf
+			aCrit	:= oM:Criterio(xC)
+			If ValType(xC)=="C" .AND. !aCrit[3] .AND. !aCrit[4] .AND. aCrit[1]=="=" .AND. Left(xC,1)!="=" .AND. ValType(aCrit[2])=="C"
+				aCrit	:= {"=",aCrit[2]+"*",.T.,.F.}	//"abc" seleciona textos que começam com abc
+			EndIf
+			AADD(aLin,{nCol,aCrit})
+		Next
+		AADD(aRet,aLin)
+	Next
+	If Empty(aRet)
+		AADD(aRet,{})
+	EndIf
+Return aRet
+
+Static Function PassaBd(oM As Object, oBd As Object, nLin As Numeric, aConds As Array)
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local lOk As Logical
+	For nI:=1 to Len(aConds)
+		lOk	:= .T.
+		For nJ:=1 to Len(aConds[nI])
+			If !oM:TestaCrit(aConds[nI][nJ][2],oBd:aV[nLin][aConds[nI][nJ][1]])
+				lOk	:= .F.
+				Exit
+			EndIf
+		Next
+		If lOk
+			Return .T.
+		EndIf
+	Next
+Return .F.
+
+//ENCODEURL: codifica em UTF-8 com %XX, mantendo letras, dígitos e - _ . ~
+Static Function fEncodeUrl(oM As Object, aArgs As Array)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local cUtf As Variant
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local cCar As Character
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	cUtf	:= EncodeUTF8(cTxt)
+	If ValType(cUtf)!="C"
+		cUtf	:= cTxt
+	EndIf
+	For nCont:=1 to Len(cUtf)
+		cCar	:= SubStr(cUtf,nCont,1)
+		If (Asc(cCar)>=48 .AND. Asc(cCar)<=57) .OR. (Asc(cCar)>=65 .AND. Asc(cCar)<=90) .OR. (Asc(cCar)>=97 .AND. Asc(cCar)<=122) .OR. cCar $ "-_.~"
+			cRet	+= cCar
+		Else
+			cRet	+= "%"+Right("0"+Upper(DecToHex(Asc(cCar))),2)
+		EndIf
+	Next
+Return cRet
+
+Static Function DecToHex(nNum As Numeric)
+	Local cRet := "" As Character
+	Local nDig As Numeric
+	If nNum==0
+		Return "0"
+	EndIf
+	While nNum>0
+		nDig	:= nNum-16*Int(nNum/16)
+		cRet	:= SubStr("0123456789ABCDEF",nDig+1,1)+cRet
+		nNum	:= Int(nNum/16)
+	EndDo
+Return cRet
+
+//FILTERXML(xml,xpath): valor do primeiro nó encontrado
+Static Function fFilterXml(oM As Object, aArgs As Array)
+	Local cXml := oM:Txt(aArgs[1]) As Variant
+	Local cPath := oM:Txt(aArgs[2]) As Variant
+	Local oXml As Object
+	Local cRet As Variant
+	Local xNum As Variant
+	If oM:EhErro(cXml)
+		Return cXml
+	EndIf
+	If oM:EhErro(cPath)
+		Return cPath
+	EndIf
+	oXml	:= TXMLManager():New()
+	If !oXml:Parse(cXml) .OR. !oXml:XPathHasNode(cPath)
+		FreeObj(oXml)
+		Return oM:Err("#VALUE!")
+	EndIf
+	cRet	:= oXml:XPathGetNodeValue(cPath)
+	FreeObj(oXml)
+	xNum	:= oM:TxtNum(AllTrim(cRet))
+	If xNum!=nil
+		Return xNum
+	EndIf
+Return cRet
+
+//ROUNDBAHTDOWN/UP: arredonda para múltiplos de 0,25
+Static Function fBaht(oM As Object, aArgs As Array, lCima As Logical)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nX As Numeric
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	nX	:= Round(nNum*4,9)
+	If lCima
+		Return If(nX==Int(nX),nX,Int(nX)+If(nX>0,1,0))/4
+	EndIf
+Return If(nX==Int(nX),nX,Int(nX)-If(nX<0,1,0))/4
