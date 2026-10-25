@@ -1,0 +1,1720 @@
+// Funções de pesquisa e referência, matrizes dinâmicas e auxiliares de LAMBDA (motor custom.excel.calc)
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define MAX_LIN		1048576
+#define MAX_COL		16384
+
+/*/{Protheus.doc} FuncRef
+Registro das funções de pesquisa/referência e de matrizes dinâmicas
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncRef
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncRef
+Return self
+
+Method Registrar(oM As Object) Class FuncRef
+	oM:Registrar("ROW"				,{|o,a| fRowCol(o,a,.T.) }			,0,1)
+	oM:Registrar("COLUMN"			,{|o,a| fRowCol(o,a,.F.) }			,0,1)
+	oM:Registrar("ROWS"				,{|o,a| fRowsCols(o,a,.T.) }		,1,1)
+	oM:Registrar("COLUMNS"			,{|o,a| fRowsCols(o,a,.F.) }		,1,1)
+	oM:Registrar("AREAS"			,{|o,a| fAreas(o,a) }				,1,1)
+	oM:Registrar("ADDRESS"			,{|o,a| fAddress(o,a) }				,2,5,"E")
+	oM:Registrar("FORMULATEXT"		,{|o,a| fFormulaText(o,a) }			,1,1)
+	oM:Registrar("HYPERLINK"		,{|o,a| If(Len(a)>=2 .AND. ValType(a[2])!="U",o:Valor(a[2]),o:Valor(a[1])) }	,1,2)
+	oM:Registrar("CHOOSE"			,{|o,a| fChoose(o,a) }				,2,255)
+	oM:Registrar("INDEX"			,{|o,a| fIndex(o,a) }				,2,4)
+	oM:Registrar("OFFSET"			,{|o,a| fOffset(o,a) }				,3,5)
+	oM:Registrar("INDIRECT"			,{|o,a| fIndirect(o,a) }			,1,2)
+	oM:Registrar("MATCH"			,{|o,a| fMatch(o,a) }				,2,3)
+	oM:Registrar("XMATCH"			,{|o,a| fXMatch(o,a) }				,2,4)
+	oM:Registrar("VLOOKUP"			,{|o,a| fVHLookup(o,a,.T.) }		,3,4)
+	oM:Registrar("HLOOKUP"			,{|o,a| fVHLookup(o,a,.F.) }		,3,4)
+	oM:Registrar("LOOKUP"			,{|o,a| fLookup(o,a) }				,2,3)
+	oM:Registrar("XLOOKUP"			,{|o,a| fXLookup(o,a) }				,3,6)
+	oM:Registrar("TRANSPOSE"		,{|o,a| fTranspose(o,a) }			,1,1)
+	oM:Registrar("FILTER"			,{|o,a| fFilter(o,a) }				,2,3)
+	oM:Registrar("SORT"				,{|o,a| fSort(o,a) }				,1,4)
+	oM:Registrar("SORTBY"			,{|o,a| fSortBy(o,a) }				,2,255)
+	oM:Registrar("UNIQUE"			,{|o,a| fUnique(o,a) }				,1,3)
+	oM:Registrar("TAKE"				,{|o,a| fTakeDrop(o,a,.T.) }		,2,3)
+	oM:Registrar("DROP"				,{|o,a| fTakeDrop(o,a,.F.) }		,2,3)
+	oM:Registrar("CHOOSEROWS"		,{|o,a| fChooseRC(o,a,.T.) }		,2,255)
+	oM:Registrar("CHOOSECOLS"		,{|o,a| fChooseRC(o,a,.F.) }		,2,255)
+	oM:Registrar("EXPAND"			,{|o,a| fExpand(o,a) }				,2,4)
+	oM:Registrar("VSTACK"			,{|o,a| fStack(o,a,.T.) }			,1,254)
+	oM:Registrar("HSTACK"			,{|o,a| fStack(o,a,.F.) }			,1,254)
+	oM:Registrar("TOCOL"			,{|o,a| fToColRow(o,a,.T.) }		,1,3)
+	oM:Registrar("TOROW"			,{|o,a| fToColRow(o,a,.F.) }		,1,3)
+	oM:Registrar("WRAPROWS"			,{|o,a| fWrap(o,a,.T.) }			,2,3)
+	oM:Registrar("WRAPCOLS"			,{|o,a| fWrap(o,a,.F.) }			,2,3)
+	oM:Registrar("TRIMRANGE"		,{|o,a| fTrimRange(o,a) }			,1,3)
+	oM:Registrar("PERCENTOF"		,{|o,a| fPercentOf(o,a) }			,2,2)
+	oM:Registrar("GROUPBY"			,{|o,a| fGroupBy(o,a) }				,3,8)
+	oM:Registrar("PIVOTBY"			,{|o,a| fPivotBy(o,a) }				,4,11)
+	oM:Registrar("MAP"				,{|o,a| fMap(o,a) }					,2,254)
+	oM:Registrar("REDUCE"			,{|o,a| fReduce(o,a,.F.) }			,2,3)
+	oM:Registrar("SCAN"				,{|o,a| fReduce(o,a,.T.) }			,2,3)
+	oM:Registrar("BYROW"			,{|o,a| fByRowCol(o,a,.T.) }		,2,2)
+	oM:Registrar("BYCOL"			,{|o,a| fByRowCol(o,a,.F.) }		,2,2)
+	oM:Registrar("MAKEARRAY"		,{|o,a| fMakeArray(o,a) }			,3,3)
+	oM:Registrar("GETPIVOTDATA"		,{|o,a| o:Err("#REF!") }			,2,254,"X")
+	oM:Registrar("RTD"				,{|o,a| o:Err("#N/A") }				,3,254,"X")
+	oM:Registrar("IMAGE"			,{|o,a| o:Err("#VALUE!") }			,1,5,"X")
+Return
+
+//Primeiro erro da lista (nil se nenhum)
+Static Function PrimErro(oM As Object, aVals As Array)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aVals)
+		If oM:EhErro(aVals[nCont])
+			Return aVals[nCont]
+		EndIf
+	Next
+Return nil
+
+//Argumento numérico opcional
+Static Function NumOpc(oM As Object, aArgs As Array, nPos As Numeric, nPadrao As Numeric)
+	If Len(aArgs)<nPos .OR. ValType(aArgs[nPos])=="U"
+		Return nPadrao
+	EndIf
+Return oM:Num(aArgs[nPos])
+
+//Matriz do argumento (referência, matriz ou escalar)
+Static Function MatArg(oM As Object, xArg As Variant)
+Return oM:ParaMat(xArg)
+
+//Chave de cache da referência ("" para matrizes calculadas)
+Static Function ChaveArg(oM As Object, xArg As Variant)
+	If oM:EhRef(xArg) .AND. xArg:aAreas==nil
+		Return cValToChar(xArg:nPla)+"|"+cValToChar(xArg:nL1)+"|"+cValToChar(xArg:nC1)+"|"+cValToChar(xArg:nL2)+"|"+cValToChar(xArg:nC2)
+	EndIf
+Return ""
+
+//Vetor de valores de uma linha ou coluna da matriz
+Static Function Vetor(oMat As Object, nPos As Numeric, lColuna As Logical)
+	Local aRet As Array
+	Local nCont As Numeric
+	If lColuna
+		aRet	:= Array(oMat:nL)
+		For nCont:=1 to oMat:nL
+			aRet[nCont]	:= oMat:aV[nCont][nPos]
+		Next
+	Else
+		aRet	:= aClone(oMat:aV[nPos])
+	EndIf
+Return aRet
+
+/*/{Protheus.doc} Procura
+Procura o valor no vetor
+@param nModo, numeric, 0=exato 2=exato com curingas -1=exato ou próximo menor 1=exato ou próximo maior
+	10=aproximado menor (MATCH 1, ordem crescente) -10=aproximado maior (MATCH -1, ordem decrescente)
+@param nBusca, numeric, 1=início ao fim -1=fim ao início 2=binária crescente -2=binária decrescente
+@param oIdx, object, Índice hash para busca exata (opcional)
+@return numeric, posição (0 se não encontrou)
+/*/
+Static Function Procura(oM As Object, xProc As Variant, aVet As Array, nModo As Numeric, nBusca As Numeric, oIdx As Variant)
+	Local nCont As Numeric
+	Local nIni As Numeric
+	Local nFim As Numeric
+	Local nPasso As Numeric
+	Local nMelhor := 0 As Numeric
+	Local nCmp As Numeric
+	Local nPos As Numeric
+	Local lCuringa As Logical
+	Local xVal As Variant
+	Local nMeio As Numeric
+	Local aCrit As Array
+	If nModo==10 .OR. nModo==-10 .OR. nBusca==2 .OR. nBusca==-2	//Busca binária
+		nIni	:= 1
+		nFim	:= Len(aVet)
+		While nIni<=nFim
+			nMeio	:= Int((nIni+nFim)/2)
+			xVal	:= aVet[nMeio]
+			nCmp	:= If(ValType(xVal)=="U" .OR. ValType(xVal)!=ValType(xProc),If(ValType(xVal)=="U",-1,oM:Compara(xVal,xProc)),oM:Compara(xVal,xProc))
+			If nModo==-10 .OR. nBusca==-2
+				nCmp	:= -nCmp
+			EndIf
+			If nCmp==0 .AND. (nModo==0 .OR. nModo==2 .OR. nModo==-1 .OR. nModo==1)
+				Return nMeio
+			EndIf
+			If nCmp<=0
+				If nModo==10 .OR. nModo==-10 .OR. nModo==-1 .OR. (nModo==1 .AND. nBusca==-2)
+					nMelhor	:= nMeio
+				EndIf
+				nIni	:= nMeio+1
+			Else
+				If nModo==1 .OR. (nModo==-1 .AND. nBusca==-2)
+					nMelhor	:= nMeio
+				EndIf
+				nFim	:= nMeio-1
+			EndIf
+		EndDo
+		If nModo==0 .OR. nModo==2
+			Return 0
+		EndIf
+		Return nMelhor
+	EndIf
+	lCuringa	:= nModo==2 .AND. ValType(xProc)=="C" .AND. ("*" $ xProc .OR. "?" $ xProc .OR. "~" $ xProc)
+	If (nModo==0 .OR. (nModo==2 .AND. !lCuringa)) .AND. nBusca==1 .AND. ValType(oIdx)=="O"	//Índice hash
+		If oIdx:Get(oM:ChaveBusca(xProc),@nPos)
+			Return nPos
+		EndIf
+		Return 0
+	EndIf
+	If lCuringa
+		aCrit	:= {"=",xProc,.T.,.F.}
+	EndIf
+	nIni	:= If(nBusca==-1,Len(aVet),1)
+	nFim	:= If(nBusca==-1,1,Len(aVet))
+	nPasso	:= If(nBusca==-1,-1,1)
+	For nCont:=nIni to nFim Step nPasso
+		xVal	:= aVet[nCont]
+		If lCuringa
+			If ValType(xVal)=="C" .AND. oM:TestaCrit(aCrit,xVal)
+				Return nCont
+			EndIf
+			Loop
+		EndIf
+		If ValType(xVal)!=ValType(xProc) .OR. ValType(xVal)=="O"
+			Loop
+		EndIf
+		nCmp	:= oM:Compara(xVal,xProc)
+		If nCmp==0
+			Return nCont
+		EndIf
+		If nModo==-1 .AND. nCmp<0 .AND. (nMelhor==0 .OR. oM:Compara(xVal,aVet[nMelhor])>0)
+			nMelhor	:= nCont
+		ElseIf nModo==1 .AND. nCmp>0 .AND. (nMelhor==0 .OR. oM:Compara(xVal,aVet[nMelhor])<0)
+			nMelhor	:= nCont
+		EndIf
+	Next
+Return nMelhor
+
+//Modo de comparação de texto do critério com curingas (MATCH/VLOOKUP exatos usam curingas)
+Static Function TemCuringa(xProc As Variant)
+Return ValType(xProc)=="C" .AND. ("*" $ xProc .OR. "?" $ xProc .OR. "~" $ xProc)
+
+Static Function fRowCol(oM As Object, aArgs As Array, lLinha As Logical)
+	Local xRef As Variant
+	Local oRes As Object
+	Local nCont As Numeric
+	Local nQtd As Numeric
+	If Len(aArgs)==0 .OR. ValType(aArgs[1])=="U"
+		Return If(lLinha,oM:nLin,oM:nCol)
+	EndIf
+	xRef	:= aArgs[1]
+	If !oM:EhRef(xRef)
+		Return oM:Err("#VALUE!")
+	EndIf
+	nQtd	:= If(lLinha,xRef:nL2-xRef:nL1+1,xRef:nC2-xRef:nC1+1)
+	If nQtd==1
+		Return If(lLinha,xRef:nL1,xRef:nC1)
+	EndIf
+	nQtd	:= Min(nQtd,If(lLinha,oM:Dim(xRef)[1],oM:Dim(xRef)[2]))
+	oRes	:= oM:NovaMat(nil,If(lLinha,nQtd,1),If(lLinha,1,nQtd))
+	For nCont:=1 to nQtd
+		If lLinha
+			oRes:aV[nCont][1]	:= xRef:nL1+nCont-1
+		Else
+			oRes:aV[1][nCont]	:= xRef:nC1+nCont-1
+		EndIf
+	Next
+Return oRes
+
+Static Function fRowsCols(oM As Object, aArgs As Array, lLinha As Logical)
+	Local xArg := aArgs[1] As Variant
+	If oM:EhRef(xArg)
+		If xArg:aAreas!=nil
+			Return oM:Err("#REF!")
+		EndIf
+		Return If(lLinha,xArg:nL2-xArg:nL1+1,xArg:nC2-xArg:nC1+1)
+	EndIf
+	If oM:EhMat(xArg)
+		Return If(lLinha,xArg:nL,xArg:nC)
+	EndIf
+	If oM:EhErro(xArg)
+		Return xArg
+	EndIf
+Return 1
+
+Static Function fAreas(oM As Object, aArgs As Array)
+	If !oM:EhRef(aArgs[1])
+		Return oM:Err("#VALUE!")
+	EndIf
+Return If(aArgs[1]:aAreas==nil,1,Len(aArgs[1]:aAreas))
+
+/*/{Protheus.doc} fAddress
+ADDRESS(linha,coluna,[abs 1-4],[a1],[planilha])
+/*/
+Static Function fAddress(oM As Object, aArgs As Array)
+	Local nLin := oM:Num(aArgs[1]) As Variant
+	Local nCol := oM:Num(aArgs[2]) As Variant
+	Local nAbs := NumOpc(oM,aArgs,3,1) As Variant
+	Local lA1 := If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Log(aArgs[4]),.T.) As Variant
+	Local cPlan := If(Len(aArgs)>=5 .AND. ValType(aArgs[5])!="U",oM:Txt(aArgs[5]),"") As Variant
+	Local cRet As Character
+	If PrimErro(oM,{nLin,nCol,nAbs,lA1,cPlan})!=nil
+		Return PrimErro(oM,{nLin,nCol,nAbs,lA1,cPlan})
+	EndIf
+	nLin	:= Int(nLin)
+	nCol	:= Int(nCol)
+	nAbs	:= Int(nAbs)
+	If nLin<1 .OR. nCol<1 .OR. nLin>MAX_LIN .OR. nCol>MAX_COL .OR. nAbs<1 .OR. nAbs>4
+		Return oM:Err("#VALUE!")
+	EndIf
+	If lA1
+		cRet	:= If(nAbs==1 .OR. nAbs==3,"$","")+oM:ColLetra(nCol)+If(nAbs==1 .OR. nAbs==2,"$","")+cValToChar(nLin)
+	Else
+		cRet	:= "R"+If(nAbs==1 .OR. nAbs==2,cValToChar(nLin),"["+cValToChar(nLin)+"]")+"C"+If(nAbs==1 .OR. nAbs==3,cValToChar(nCol),"["+cValToChar(nCol)+"]")
+	EndIf
+	If !Empty(cPlan)
+		If At(" ",cPlan)>0 .OR. At("-",cPlan)>0 .OR. At("'",cPlan)>0
+			cPlan	:= "'"+StrTran(cPlan,"'","''")+"'"
+		EndIf
+		cRet	:= cPlan+"!"+cRet
+	EndIf
+Return cRet
+
+Static Function fFormulaText(oM As Object, aArgs As Array)
+	Local aCel As Variant
+	If !oM:EhRef(aArgs[1])
+		Return oM:Err("#N/A")
+	EndIf
+	aCel	:= oM:oProv:CalcCel(aArgs[1]:nPla,aArgs[1]:nL1,aArgs[1]:nC1)
+	If ValType(aCel)!="A" .OR. Empty(aCel[2])
+		Return oM:Err("#N/A")
+	EndIf
+Return "="+StrTran(StrTran(StrTran(aCel[2],"&lt;","<"),"&gt;",">"),"&amp;","&")
+
+Static Function fChoose(oM As Object, aArgs As Array)
+	Local xIdx := oM:Valor(aArgs[1]) As Variant
+	Local nIdx As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xEsc As Variant
+	If oM:EhMat(xIdx)	//Índice matricial
+		oRes	:= oM:NovaMat(nil,xIdx:nL,xIdx:nC)
+		For nI:=1 to xIdx:nL
+			For nJ:=1 to xIdx:nC
+				nIdx	:= oM:Num(xIdx:aV[nI][nJ])
+				If oM:EhErro(nIdx)
+					oRes:aV[nI][nJ]	:= nIdx
+				ElseIf Int(nIdx)<1 .OR. Int(nIdx)>Len(aArgs)-1
+					oRes:aV[nI][nJ]	:= oM:Err("#VALUE!")
+				Else
+					xEsc	:= oM:Valor(aArgs[Int(nIdx)+1])
+					oRes:aV[nI][nJ]	:= If(oM:EhMat(xEsc),xEsc:Get(nI,nJ),xEsc)
+				EndIf
+			Next
+		Next
+		Return oRes
+	EndIf
+	nIdx	:= oM:Num(xIdx)
+	If oM:EhErro(nIdx)
+		Return nIdx
+	EndIf
+	nIdx	:= Int(nIdx)
+	If nIdx<1 .OR. nIdx>Len(aArgs)-1
+		Return oM:Err("#VALUE!")
+	EndIf
+Return aArgs[nIdx+1]
+
+/*/{Protheus.doc} fIndex
+INDEX(matriz|referência,linha,[coluna],[área]) - retorna referência quando recebe referência
+/*/
+Static Function fIndex(oM As Object, aArgs As Array)
+	Local xArg := aArgs[1] As Variant
+	Local nLin := oM:Num(aArgs[2]) As Variant
+	Local nCol := NumOpc(oM,aArgs,3,0) As Variant
+	Local nArea := NumOpc(oM,aArgs,4,1) As Variant
+	Local oRef As Object
+	Local oMat As Object
+	Local nL As Numeric
+	Local nC As Numeric
+	Local oRes As Object
+	Local nCont As Numeric
+	If PrimErro(oM,{nLin,nCol,nArea})!=nil
+		Return PrimErro(oM,{nLin,nCol,nArea})
+	EndIf
+	If oM:EhErro(xArg)
+		Return xArg
+	EndIf
+	nLin	:= Int(nLin)
+	nCol	:= Int(nCol)
+	nArea	:= Int(nArea)
+	If nLin<0 .OR. nCol<0
+		Return oM:Err("#VALUE!")
+	EndIf
+	If oM:EhRef(xArg)
+		oRef	:= xArg
+		If xArg:aAreas!=nil
+			If nArea<1 .OR. nArea>Len(xArg:aAreas)
+				Return oM:Err("#REF!")
+			EndIf
+			oRef	:= xArg:aAreas[nArea]
+		EndIf
+		nL	:= oRef:nL2-oRef:nL1+1
+		nC	:= oRef:nC2-oRef:nC1+1
+		If (nL==1 .OR. nC==1) .AND. Len(aArgs)<3	//Vetor com um índice
+			If nL==1
+				nCol	:= nLin
+				nLin	:= 1
+			EndIf
+		ElseIf nL==1 .AND. nLin>1 .AND. nCol==0
+			nCol	:= nLin
+			nLin	:= 1
+		EndIf
+		If nLin>nL .OR. nCol>nC
+			Return oM:Err("#REF!")
+		EndIf
+		Return oM:NovaRef(oRef:nPla,If(nLin==0,oRef:nL1,oRef:nL1+nLin-1),If(nCol==0,oRef:nC1,oRef:nC1+nCol-1),If(nLin==0,oRef:nL2,oRef:nL1+nLin-1),If(nCol==0,oRef:nC2,oRef:nC1+nCol-1))
+	EndIf
+	oMat	:= oM:ParaMat(xArg)
+	If (oMat:nL==1 .OR. oMat:nC==1) .AND. Len(aArgs)<3 .AND. oMat:nL==1
+		nCol	:= nLin
+		nLin	:= 1
+	EndIf
+	If nLin>oMat:nL .OR. nCol>oMat:nC
+		Return oM:Err("#REF!")
+	EndIf
+	If nLin>0 .AND. nCol>0
+		Return oMat:aV[nLin][nCol]
+	EndIf
+	If nLin>0 .AND. nCol==0 .AND. oMat:nC==1
+		Return oMat:aV[nLin][1]
+	EndIf
+	If nLin>0	//Linha inteira
+		Return oM:NovaMat({aClone(oMat:aV[nLin])})
+	EndIf
+	If nCol>0	//Coluna inteira
+		oRes	:= oM:NovaMat(nil,oMat:nL,1)
+		For nCont:=1 to oMat:nL
+			oRes:aV[nCont][1]	:= oMat:aV[nCont][nCol]
+		Next
+		Return oRes
+	EndIf
+Return oMat
+
+/*/{Protheus.doc} fOffset
+OFFSET(referência,linhas,colunas,[altura],[largura])
+/*/
+Static Function fOffset(oM As Object, aArgs As Array)
+	Local oRef := aArgs[1] As Variant
+	Local nLin := oM:Num(aArgs[2]) As Variant
+	Local nCol := oM:Num(aArgs[3]) As Variant
+	Local nAlt As Variant
+	Local nLarg As Variant
+	Local nL1 As Numeric
+	Local nC1 As Numeric
+	If !oM:EhRef(oRef)
+		Return oM:Err("#VALUE!")
+	EndIf
+	nAlt	:= NumOpc(oM,aArgs,4,oRef:nL2-oRef:nL1+1)
+	nLarg	:= NumOpc(oM,aArgs,5,oRef:nC2-oRef:nC1+1)
+	If PrimErro(oM,{nLin,nCol,nAlt,nLarg})!=nil
+		Return PrimErro(oM,{nLin,nCol,nAlt,nLarg})
+	EndIf
+	nAlt	:= Int(nAlt)
+	nLarg	:= Int(nLarg)
+	If nAlt==0 .OR. nLarg==0
+		Return oM:Err("#REF!")
+	EndIf
+	nL1	:= oRef:nL1+Int(nLin)
+	nC1	:= oRef:nC1+Int(nCol)
+	If nAlt<0	//Altura negativa: cresce para cima
+		nL1		:= nL1+nAlt+1
+		nAlt	:= -nAlt
+	EndIf
+	If nLarg<0
+		nC1		:= nC1+nLarg+1
+		nLarg	:= -nLarg
+	EndIf
+	If nL1<1 .OR. nC1<1 .OR. nL1+nAlt-1>MAX_LIN .OR. nC1+nLarg-1>MAX_COL
+		Return oM:Err("#REF!")
+	EndIf
+Return oM:NovaRef(oRef:nPla,nL1,nC1,nL1+nAlt-1,nC1+nLarg-1)
+
+/*/{Protheus.doc} fIndirect
+INDIRECT(texto,[a1]) - referência A1 ou L1C1 (R1C1, R[1]C[-1], Plan!R1C1:R2C2) ou nome
+/*/
+Static Function fIndirect(oM As Object, aArgs As Array)
+	Local cRef := oM:Txt(aArgs[1]) As Variant
+	Local lA1 := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Log(aArgs[2]),.T.) As Variant
+	Local xRet As Variant
+	Local oErro As Object
+	Local cPlan := "" As Character
+	Local nPla As Numeric
+	Local aPartes As Array
+	Local aR1 As Variant
+	Local aR2 As Variant
+	If PrimErro(oM,{cRef,lA1})!=nil
+		Return PrimErro(oM,{cRef,lA1})
+	EndIf
+	cRef	:= AllTrim(cRef)
+	If Empty(cRef)
+		Return oM:Err("#REF!")
+	EndIf
+	If lA1
+		Try
+			xRet	:= oM:Avaliar(oM:Arvore(cRef))
+		Catch oErro
+			xRet	:= oM:Err("#REF!")
+		EndTry
+		If !oM:EhRef(xRet)
+			Return oM:Err("#REF!")
+		EndIf
+		Return xRet
+	EndIf
+	nPla	:= oM:nPla
+	If "!" $ cRef
+		cPlan	:= Left(cRef,Rat("!",cRef)-1)
+		cRef	:= SubStr(cRef,Rat("!",cRef)+1)
+		If Left(cPlan,1)=="'"
+			cPlan	:= StrTran(SubStr(cPlan,2,Len(cPlan)-2),"''","'")
+		EndIf
+		nPla	:= oM:oProv:CalcPlan(cPlan)
+		If nPla==0
+			Return oM:Err("#REF!")
+		EndIf
+	EndIf
+	aPartes	:= StrTokArr2(Upper(cRef),":",.F.)
+	aR1		:= RefL1C1(oM,aPartes[1])
+	aR2		:= If(Len(aPartes)>=2,RefL1C1(oM,aPartes[2]),aR1)
+	If aR1==nil .OR. aR2==nil
+		Return oM:Err("#REF!")
+	EndIf
+Return oM:NovaRef(nPla,aR1[1],aR1[2],aR2[1],aR2[2])
+
+//R1C1 absoluto ou relativo à célula da fórmula: {nLin,nCol} ou nil
+Static Function RefL1C1(oM As Object, cRef As Character)
+	Local nPosC := At("C",cRef) As Numeric
+	Local cL As Character
+	Local cC As Character
+	Local nLin As Numeric
+	Local nCol As Numeric
+	If Left(cRef,1)!="R" .OR. nPosC==0
+		Return nil
+	EndIf
+	cL	:= SubStr(cRef,2,nPosC-2)
+	cC	:= SubStr(cRef,nPosC+1)
+	If Empty(cL)
+		nLin	:= oM:nLin
+	ElseIf Left(cL,1)=="["
+		nLin	:= oM:nLin+Val(SubStr(cL,2,Len(cL)-2))
+	Else
+		nLin	:= Val(cL)
+	EndIf
+	If Empty(cC)
+		nCol	:= oM:nCol
+	ElseIf Left(cC,1)=="["
+		nCol	:= oM:nCol+Val(SubStr(cC,2,Len(cC)-2))
+	Else
+		nCol	:= Val(cC)
+	EndIf
+	If nLin<1 .OR. nCol<1 .OR. nLin>MAX_LIN .OR. nCol>MAX_COL
+		Return nil
+	EndIf
+Return {nLin,nCol}
+
+//Vetor (linha ou coluna única) da matriz de pesquisa e se é coluna
+Static Function VetorPesq(oMat As Object, lColuna As Logical)
+	If oMat:nC==1
+		lColuna	:= .T.
+		Return Vetor(oMat,1,.T.)
+	EndIf
+	If oMat:nL==1
+		lColuna	:= .F.
+		Return Vetor(oMat,1,.F.)
+	EndIf
+Return nil
+
+/*/{Protheus.doc} fMatch
+MATCH(valor,matriz,[tipo 1|0|-1])
+/*/
+Static Function fMatch(oM As Object, aArgs As Array)
+	Local xProc := oM:Esc(aArgs[1]) As Variant
+	Local oMat := MatArg(oM,aArgs[2]) As Object
+	Local nTipo := NumOpc(oM,aArgs,3,1) As Variant
+	Local aVet As Variant
+	Local lColuna := .T. As Logical
+	Local nPos As Numeric
+	Local oIdx As Variant
+	If PrimErro(oM,{xProc,nTipo})!=nil
+		Return PrimErro(oM,{xProc,nTipo})
+	EndIf
+	aVet	:= VetorPesq(oMat,@lColuna)
+	If aVet==nil
+		Return oM:Err("#N/A")
+	EndIf
+	nTipo	:= Int(nTipo)
+	If ValType(xProc)=="U"
+		xProc	:= 0
+	EndIf
+	If nTipo==0
+		If !TemCuringa(xProc) .AND. !Empty(ChaveArg(oM,aArgs[2]))
+			oIdx	:= oM:Indice(oMat,1,lColuna,ChaveArg(oM,aArgs[2]))
+		EndIf
+		nPos	:= Procura(oM,xProc,aVet,2,1,oIdx)
+	Else
+		nPos	:= Procura(oM,xProc,aVet,If(nTipo>0,10,-10),1)
+	EndIf
+	FwFreeArray(aVet)
+	If nPos==0
+		Return oM:Err("#N/A")
+	EndIf
+Return nPos
+
+/*/{Protheus.doc} fXMatch
+XMATCH(valor,matriz,[correspondência 0|-1|1|2],[pesquisa 1|-1|2|-2])
+/*/
+Static Function fXMatch(oM As Object, aArgs As Array)
+	Local xProc := aArgs[1] As Variant
+	Local oMat := MatArg(oM,aArgs[2]) As Object
+	Local nModo := NumOpc(oM,aArgs,3,0) As Variant
+	Local nBusca := NumOpc(oM,aArgs,4,1) As Variant
+	Local aVet As Variant
+	Local lColuna := .T. As Logical
+	Local oRes As Object
+	Local oProc As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nPos As Numeric
+	Local oIdx As Variant
+	If PrimErro(oM,{nModo,nBusca})!=nil
+		Return PrimErro(oM,{nModo,nBusca})
+	EndIf
+	aVet	:= VetorPesq(oMat,@lColuna)
+	If aVet==nil
+		Return oM:Err("#VALUE!")
+	EndIf
+	nModo	:= Int(nModo)
+	nBusca	:= Int(nBusca)
+	If nModo==0 .AND. nBusca==1 .AND. !Empty(ChaveArg(oM,aArgs[2]))
+		oIdx	:= oM:Indice(oMat,1,lColuna,ChaveArg(oM,aArgs[2]))
+	EndIf
+	xProc	:= oM:Valor(xProc)
+	If oM:EhMat(xProc)	//Vários valores procurados
+		oRes	:= oM:NovaMat(nil,xProc:nL,xProc:nC)
+		For nI:=1 to xProc:nL
+			For nJ:=1 to xProc:nC
+				nPos	:= Procura(oM,xProc:aV[nI][nJ],aVet,nModo,nBusca,oIdx)
+				oRes:aV[nI][nJ]	:= If(nPos==0,oM:Err("#N/A"),nPos)
+			Next
+		Next
+		Return oRes
+	EndIf
+	If oM:EhErro(xProc)
+		Return xProc
+	EndIf
+	nPos	:= Procura(oM,xProc,aVet,nModo,nBusca,oIdx)
+	FwFreeArray(aVet)
+Return If(nPos==0,oM:Err("#N/A"),nPos)
+
+/*/{Protheus.doc} fVHLookup
+VLOOKUP/HLOOKUP(valor,tabela,índice,[aproximado=VERDADEIRO])
+/*/
+Static Function fVHLookup(oM As Object, aArgs As Array, lVertical As Logical)
+	Local xProc := oM:Esc(aArgs[1]) As Variant
+	Local oMat := MatArg(oM,aArgs[2]) As Object
+	Local nIdx := oM:Num(aArgs[3]) As Variant
+	Local lAprox := If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Log(aArgs[4]),.T.) As Variant
+	Local aVet As Array
+	Local nPos As Numeric
+	Local oIdx As Variant
+	If PrimErro(oM,{xProc,nIdx,lAprox})!=nil
+		Return PrimErro(oM,{xProc,nIdx,lAprox})
+	EndIf
+	nIdx	:= Int(nIdx)
+	If nIdx<1
+		Return oM:Err("#VALUE!")
+	EndIf
+	If nIdx>If(lVertical,oMat:nC,oMat:nL)
+		Return oM:Err("#REF!")
+	EndIf
+	If ValType(xProc)=="U"
+		xProc	:= 0
+	EndIf
+	aVet	:= Vetor(oMat,1,lVertical)
+	If lAprox
+		nPos	:= Procura(oM,xProc,aVet,10,1)
+	Else
+		If !TemCuringa(xProc) .AND. !Empty(ChaveArg(oM,aArgs[2]))
+			oIdx	:= oM:Indice(oMat,1,lVertical,ChaveArg(oM,aArgs[2]))
+		EndIf
+		nPos	:= Procura(oM,xProc,aVet,2,1,oIdx)
+	EndIf
+	FwFreeArray(aVet)
+	If nPos==0
+		Return oM:Err("#N/A")
+	EndIf
+	If lVertical
+		Return oMat:aV[nPos][nIdx]
+	EndIf
+Return oMat:aV[nIdx][nPos]
+
+/*/{Protheus.doc} fLookup
+LOOKUP(valor,vetor,[resultado]) e forma matricial LOOKUP(valor,matriz)
+/*/
+Static Function fLookup(oM As Object, aArgs As Array)
+	Local xProc := oM:Esc(aArgs[1]) As Variant
+	Local oMat := MatArg(oM,aArgs[2]) As Object
+	Local oRes As Object
+	Local aVet As Array
+	Local lColuna As Logical
+	Local nPos As Numeric
+	If oM:EhErro(xProc)
+		Return xProc
+	EndIf
+	If Len(aArgs)>=3
+		aVet	:= VetorPesq(oMat,@lColuna)
+		If aVet==nil
+			Return oM:Err("#N/A")
+		EndIf
+		nPos	:= Procura(oM,xProc,aVet,10,1)
+		If nPos==0
+			Return oM:Err("#N/A")
+		EndIf
+		oRes	:= MatArg(oM,aArgs[3])
+		If oRes:nC==1 .AND. nPos<=oRes:nL
+			Return oRes:aV[nPos][1]
+		ElseIf oRes:nL==1 .AND. nPos<=oRes:nC
+			Return oRes:aV[1][nPos]
+		EndIf
+		Return oM:Err("#REF!")
+	EndIf
+	lColuna	:= oMat:nL>=oMat:nC	//Mais linhas que colunas: procura na primeira coluna
+	aVet	:= Vetor(oMat,1,lColuna)
+	nPos	:= Procura(oM,xProc,aVet,10,1)
+	If nPos==0
+		Return oM:Err("#N/A")
+	EndIf
+	If lColuna
+		Return oMat:aV[nPos][oMat:nC]
+	EndIf
+Return oMat:aV[oMat:nL][nPos]
+
+/*/{Protheus.doc} fXLookup
+XLOOKUP(valor,matriz_procura,matriz_retorno,[se_não_encontrado],[correspondência],[pesquisa])
+/*/
+Static Function fXLookup(oM As Object, aArgs As Array)
+	Local xProc := oM:Valor(aArgs[1]) As Variant
+	Local oPesq := MatArg(oM,aArgs[2]) As Object
+	Local xRet := aArgs[3] As Variant
+	Local nModo := NumOpc(oM,aArgs,5,0) As Variant
+	Local nBusca := NumOpc(oM,aArgs,6,1) As Variant
+	Local aVet As Variant
+	Local lColuna := .T. As Logical
+	Local oIdx As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xItem As Variant
+	If PrimErro(oM,{nModo,nBusca})!=nil
+		Return PrimErro(oM,{nModo,nBusca})
+	EndIf
+	aVet	:= VetorPesq(oPesq,@lColuna)
+	If aVet==nil
+		Return oM:Err("#VALUE!")
+	EndIf
+	nModo	:= Int(nModo)
+	nBusca	:= Int(nBusca)
+	If nModo==0 .AND. nBusca==1 .AND. !Empty(ChaveArg(oM,aArgs[2]))
+		oIdx	:= oM:Indice(oPesq,1,lColuna,ChaveArg(oM,aArgs[2]))
+	EndIf
+	If oM:EhMat(xProc)	//Vários valores: resultado de uma célula para cada
+		oRes	:= oM:NovaMat(nil,xProc:nL,xProc:nC)
+		For nI:=1 to xProc:nL
+			For nJ:=1 to xProc:nC
+				xItem	:= XLookUm(oM,xProc:aV[nI][nJ],aVet,lColuna,xRet,aArgs,nModo,nBusca,oIdx)
+				oRes:aV[nI][nJ]	:= oM:Esc(xItem)
+			Next
+		Next
+		Return oRes
+	EndIf
+	If oM:EhErro(xProc)
+		Return xProc
+	EndIf
+Return XLookUm(oM,xProc,aVet,lColuna,xRet,aArgs,nModo,nBusca,oIdx)
+
+Static Function XLookUm(oM As Object, xProc As Variant, aVet As Array, lColuna As Logical, xRet As Variant, aArgs As Array, nModo As Numeric, nBusca As Numeric, oIdx As Variant)
+	Local nPos := Procura(oM,xProc,aVet,nModo,nBusca,oIdx) As Numeric
+	Local oMat As Object
+	If nPos==0
+		If Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U"
+			Return aArgs[4]
+		EndIf
+		Return oM:Err("#N/A")
+	EndIf
+	If oM:EhRef(xRet)	//Retorna referência (linha ou coluna correspondente)
+		If lColuna
+			Return oM:NovaRef(xRet:nPla,xRet:nL1+nPos-1,xRet:nC1,xRet:nL1+nPos-1,xRet:nC2)
+		EndIf
+		Return oM:NovaRef(xRet:nPla,xRet:nL1,xRet:nC1+nPos-1,xRet:nL2,xRet:nC1+nPos-1)
+	EndIf
+	oMat	:= oM:ParaMat(xRet)
+	If lColuna
+		If nPos>oMat:nL
+			Return oM:Err("#VALUE!")
+		EndIf
+		If oMat:nC==1
+			Return oMat:aV[nPos][1]
+		EndIf
+		Return oM:NovaMat({aClone(oMat:aV[nPos])})
+	EndIf
+	If nPos>oMat:nC
+		Return oM:Err("#VALUE!")
+	EndIf
+Return Coluna(oM,oMat,nPos)
+
+//Coluna da matriz como matriz n×1 (valor se n=1)
+Static Function Coluna(oM As Object, oMat As Object, nCol As Numeric)
+	Local oRes As Object
+	Local nCont As Numeric
+	If oMat:nL==1
+		Return oMat:aV[1][nCol]
+	EndIf
+	oRes	:= oM:NovaMat(nil,oMat:nL,1)
+	For nCont:=1 to oMat:nL
+		oRes:aV[nCont][1]	:= oMat:aV[nCont][nCol]
+	Next
+Return oRes
+
+Static Function fTranspose(oM As Object, aArgs As Array)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local oRes := oM:NovaMat(nil,oMat:nC,oMat:nL) As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	For nI:=1 to oMat:nL
+		For nJ:=1 to oMat:nC
+			oRes:aV[nJ][nI]	:= oMat:aV[nI][nJ]
+		Next
+	Next
+Return oRes
+
+/*/{Protheus.doc} fFilter
+FILTER(matriz,incluir,[se_vazio])
+/*/
+Static Function fFilter(oM As Object, aArgs As Array)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local oInc := MatArg(oM,aArgs[2]) As Object
+	Local lLinhas As Logical
+	Local aSel := {} As Array
+	Local nCont As Numeric
+	Local xInc As Variant
+	Local lInc As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	If oInc:nC==1 .AND. oInc:nL==oMat:nL
+		lLinhas	:= .T.
+	ElseIf oInc:nL==1 .AND. oInc:nC==oMat:nC
+		lLinhas	:= .F.
+	Else
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nCont:=1 to If(lLinhas,oInc:nL,oInc:nC)
+		xInc	:= If(lLinhas,oInc:aV[nCont][1],oInc:aV[1][nCont])
+		If oM:EhErro(xInc)
+			Return xInc
+		EndIf
+		lInc	:= oM:Log(xInc)
+		If oM:EhErro(lInc)
+			Return lInc
+		EndIf
+		If lInc
+			AADD(aSel,nCont)
+		EndIf
+	Next
+	If Empty(aSel)
+		If Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U"
+			Return aArgs[3]
+		EndIf
+		Return oM:Err("#CALC!")
+	EndIf
+	If lLinhas
+		oRes	:= oM:NovaMat(nil,Len(aSel),oMat:nC)
+		For nI:=1 to Len(aSel)
+			oRes:aV[nI]	:= aClone(oMat:aV[aSel[nI]])
+		Next
+	Else
+		oRes	:= oM:NovaMat(nil,oMat:nL,Len(aSel))
+		For nI:=1 to oMat:nL
+			For nCont:=1 to Len(aSel)
+				oRes:aV[nI][nCont]	:= oMat:aV[nI][aSel[nCont]]
+			Next
+		Next
+	EndIf
+	FwFreeArray(aSel)
+Return oRes
+
+//Compara para ordenação (vazios por último, como o SORT do Excel)
+Static Function CmpOrdem(oM As Object, xA As Variant, xB As Variant)
+	If ValType(xA)=="U" .AND. ValType(xB)=="U"
+		Return 0
+	EndIf
+	If ValType(xA)=="U"
+		Return 1
+	EndIf
+	If ValType(xB)=="U"
+		Return -1
+	EndIf
+	If oM:EhErro(xA) .OR. oM:EhErro(xB)
+		Return If(oM:EhErro(xA),If(oM:EhErro(xB),0,1),-1)
+	EndIf
+Return oM:Compara(xA,xB)
+
+/*/{Protheus.doc} OrdenaIdx
+Ordena índices de linhas (ou colunas) por chaves {aValores,nOrdem} - ordenação estável
+/*/
+Static Function OrdenaIdx(oM As Object, nQtd As Numeric, aChaves As Array)
+	Local aIdx := Array(nQtd) As Array
+	Local nCont As Numeric
+	For nCont:=1 to nQtd
+		aIdx[nCont]	:= nCont
+	Next
+	aSort(aIdx,,,{|x,y| MenorOrdem(oM,x,y,aChaves) })
+Return aIdx
+
+Static Function MenorOrdem(oM As Object, nA As Numeric, nB As Numeric, aChaves As Array)
+	Local nCont As Numeric
+	Local nCmp As Numeric
+	For nCont:=1 to Len(aChaves)
+		nCmp	:= CmpOrdem(oM,aChaves[nCont][1][nA],aChaves[nCont][1][nB])
+		If nCmp!=0
+			If ValType(aChaves[nCont][1][nA])=="U" .OR. ValType(aChaves[nCont][1][nB])=="U"
+				Return nCmp<0	//Vazios sempre no fim
+			EndIf
+			Return If(aChaves[nCont][2]<0,nCmp>0,nCmp<0)
+		EndIf
+	Next
+Return nA<nB	//Estável
+
+//Matriz com as linhas (ou colunas) na ordem dos índices
+Static Function Reordena(oM As Object, oMat As Object, aIdx As Array, lColunas As Logical)
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If !lColunas
+		oRes	:= oM:NovaMat(nil,oMat:nL,oMat:nC)
+		For nI:=1 to Len(aIdx)
+			oRes:aV[nI]	:= aClone(oMat:aV[aIdx[nI]])
+		Next
+		Return oRes
+	EndIf
+	oRes	:= oM:NovaMat(nil,oMat:nL,oMat:nC)
+	For nI:=1 to oMat:nL
+		For nJ:=1 to Len(aIdx)
+			oRes:aV[nI][nJ]	:= oMat:aV[nI][aIdx[nJ]]
+		Next
+	Next
+Return oRes
+
+/*/{Protheus.doc} fSort
+SORT(matriz,[índice],[ordem 1|-1],[por_coluna])
+/*/
+Static Function fSort(oM As Object, aArgs As Array)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local oIdx := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",MatArg(oM,aArgs[2]),oM:NovaMat({{1}})) As Object
+	Local oOrd := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",MatArg(oM,aArgs[3]),oM:NovaMat({{1}})) As Object
+	Local lPorCol := If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Log(aArgs[4]),.F.) As Variant
+	Local aChaves := {} As Array
+	Local aIdxOrd As Array
+	Local nCont As Numeric
+	Local nIdx As Variant
+	Local nOrd As Variant
+	Local aI As Array
+	Local aO As Array
+	If oM:EhErro(lPorCol)
+		Return lPorCol
+	EndIf
+	aI	:= oM:Lista({oIdx},.T.)
+	aO	:= oM:Lista({oOrd},.T.)
+	For nCont:=1 to Len(aI)
+		nIdx	:= oM:Num(aI[nCont])
+		nOrd	:= oM:Num(aO[Min(nCont,Len(aO))])
+		If PrimErro(oM,{nIdx,nOrd})!=nil
+			Return PrimErro(oM,{nIdx,nOrd})
+		EndIf
+		nIdx	:= Int(nIdx)
+		If nIdx<1 .OR. nIdx>If(lPorCol,oMat:nL,oMat:nC) .OR. (Abs(nOrd)!=1)
+			Return oM:Err("#VALUE!")
+		EndIf
+		AADD(aChaves,{Vetor(oMat,nIdx,!lPorCol),nOrd})
+	Next
+	aIdxOrd	:= OrdenaIdx(oM,If(lPorCol,oMat:nC,oMat:nL),aChaves)
+	FwFreeArray(aI)
+	FwFreeArray(aO)
+Return Reordena(oM,oMat,aIdxOrd,lPorCol)
+
+/*/{Protheus.doc} fSortBy
+SORTBY(matriz,por_matriz1,[ordem1],por_matriz2,[ordem2],...)
+/*/
+Static Function fSortBy(oM As Object, aArgs As Array)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local aChaves := {} As Array
+	Local nCont := 2 As Numeric
+	Local oPor As Object
+	Local nOrd As Variant
+	Local lCol := .F. As Logical
+	While nCont<=Len(aArgs)
+		oPor	:= MatArg(oM,aArgs[nCont])
+		nOrd	:= 1
+		If nCont+1<=Len(aArgs) .AND. !oM:EhRef(aArgs[nCont+1]) .AND. !oM:EhMat(aArgs[nCont+1])
+			nOrd	:= If(ValType(aArgs[nCont+1])=="U",1,oM:Num(aArgs[nCont+1]))
+			If oM:EhErro(nOrd)
+				Return nOrd
+			EndIf
+			nCont++
+		EndIf
+		If oPor:nC==1 .AND. oPor:nL==oMat:nL
+			AADD(aChaves,{Vetor(oPor,1,.T.),nOrd})
+		ElseIf oPor:nL==1 .AND. oPor:nC==oMat:nC
+			lCol	:= .T.
+			AADD(aChaves,{Vetor(oPor,1,.F.),nOrd})
+		Else
+			Return oM:Err("#VALUE!")
+		EndIf
+		nCont++
+	EndDo
+Return Reordena(oM,oMat,OrdenaIdx(oM,If(lCol,oMat:nC,oMat:nL),aChaves),lCol)
+
+/*/{Protheus.doc} fUnique
+UNIQUE(matriz,[por_coluna],[exatamente_uma_vez])
+/*/
+Static Function fUnique(oM As Object, aArgs As Array)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local lPorCol := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Log(aArgs[2]),.F.) As Variant
+	Local lUmaVez := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Log(aArgs[3]),.F.) As Variant
+	Local oCont := tHashMap():New() As Object
+	Local aChaves := {} As Array
+	Local aSel := {} As Array
+	Local nCont As Numeric
+	Local nQtd As Numeric
+	Local cChave As Character
+	Local nVezes As Numeric
+	If PrimErro(oM,{lPorCol,lUmaVez})!=nil
+		Return PrimErro(oM,{lPorCol,lUmaVez})
+	EndIf
+	nQtd	:= If(lPorCol,oMat:nC,oMat:nL)
+	For nCont:=1 to nQtd
+		cChave	:= ChaveLinha(oM,oMat,nCont,lPorCol)
+		AADD(aChaves,cChave)
+		If !oCont:Get(cChave,@nVezes)
+			nVezes	:= 0
+		EndIf
+		oCont:Set(cChave,nVezes+1)
+	Next
+	For nCont:=1 to nQtd
+		oCont:Get(aChaves[nCont],@nVezes)
+		If lUmaVez
+			If nVezes==1
+				AADD(aSel,nCont)
+			EndIf
+		ElseIf nVezes>0
+			AADD(aSel,nCont)
+			oCont:Set(aChaves[nCont],0)	//Só a primeira ocorrência
+		EndIf
+	Next
+	oCont:Clean()
+	FreeObj(oCont)
+	FwFreeArray(aChaves)
+	If Empty(aSel)
+		Return oM:Err("#CALC!")
+	EndIf
+Return Seleciona(oM,oMat,aSel,lPorCol)
+
+//Chave de uma linha/coluna inteira
+Static Function ChaveLinha(oM As Object, oMat As Object, nPos As Numeric, lColuna As Logical)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local xVal As Variant
+	For nCont:=1 to If(lColuna,oMat:nL,oMat:nC)
+		xVal	:= If(lColuna,oMat:aV[nCont][nPos],oMat:aV[nPos][nCont])
+		cRet	+= If(oM:EhErro(xVal),"E"+xVal:cCod,If(ValType(xVal)=="U","U",oM:ChaveBusca(xVal)))+Chr(1)
+	Next
+Return cRet
+
+//Seleciona linhas (ou colunas) pelos índices
+Static Function Seleciona(oM As Object, oMat As Object, aSel As Array, lColunas As Logical)
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If !lColunas
+		oRes	:= oM:NovaMat(nil,Len(aSel),oMat:nC)
+		For nI:=1 to Len(aSel)
+			oRes:aV[nI]	:= aClone(oMat:aV[aSel[nI]])
+		Next
+		Return oRes
+	EndIf
+	oRes	:= oM:NovaMat(nil,oMat:nL,Len(aSel))
+	For nI:=1 to oMat:nL
+		For nJ:=1 to Len(aSel)
+			oRes:aV[nI][nJ]	:= oMat:aV[nI][aSel[nJ]]
+		Next
+	Next
+Return oRes
+
+/*/{Protheus.doc} fTakeDrop
+TAKE/DROP(matriz,linhas,[colunas]) - negativo conta a partir do fim
+/*/
+Static Function fTakeDrop(oM As Object, aArgs As Array, lTake As Logical)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local nL := If(ValType(aArgs[2])=="U",If(lTake,oMat:nL,0),oM:Num(aArgs[2])) As Variant
+	Local nC := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),If(lTake,oMat:nC,0)) As Variant
+	Local aLin As Array
+	Local aCol As Array
+	If PrimErro(oM,{nL,nC})!=nil
+		Return PrimErro(oM,{nL,nC})
+	EndIf
+	aLin	:= Faixa(Int(nL),oMat:nL,lTake)
+	aCol	:= Faixa(Int(nC),oMat:nC,lTake)
+	If Empty(aLin) .OR. Empty(aCol)
+		Return oM:Err("#CALC!")
+	EndIf
+Return SubMat(oM,oMat,aLin,aCol)
+
+//Índices mantidos por TAKE (lTake) ou DROP
+Static Function Faixa(nQtd As Numeric, nTot As Numeric, lTake As Logical)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Local nIni As Numeric
+	Local nFim As Numeric
+	If lTake
+		If nQtd>=0
+			nIni	:= 1
+			nFim	:= Min(nQtd,nTot)
+		Else
+			nIni	:= Max(nTot+nQtd+1,1)
+			nFim	:= nTot
+		EndIf
+	Else
+		If nQtd>=0
+			nIni	:= nQtd+1
+			nFim	:= nTot
+		Else
+			nIni	:= 1
+			nFim	:= nTot+nQtd
+		EndIf
+	EndIf
+	For nCont:=nIni to nFim
+		AADD(aRet,nCont)
+	Next
+Return aRet
+
+//Submatriz pelos índices de linhas e colunas
+Static Function SubMat(oM As Object, oMat As Object, aLin As Array, aCol As Array)
+	Local oRes := oM:NovaMat(nil,Len(aLin),Len(aCol)) As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	For nI:=1 to Len(aLin)
+		For nJ:=1 to Len(aCol)
+			oRes:aV[nI][nJ]	:= oMat:aV[aLin[nI]][aCol[nJ]]
+		Next
+	Next
+Return oRes
+
+/*/{Protheus.doc} fChooseRC
+CHOOSEROWS/CHOOSECOLS(matriz,n1,[n2],...) - negativo conta a partir do fim
+/*/
+Static Function fChooseRC(oM As Object, aArgs As Array, lLinhas As Logical)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local aSel := {} As Array
+	Local aNums As Array
+	Local nCont As Numeric
+	Local nN As Variant
+	Local nTot := If(lLinhas,oMat:nL,oMat:nC) As Numeric
+	Local aTodos := {} As Array
+	For nCont:=2 to Len(aArgs)
+		AADD(aTodos,aArgs[nCont])
+	Next
+	aNums	:= oM:Lista(aTodos,.T.)
+	For nCont:=1 to Len(aNums)
+		nN	:= oM:Num(aNums[nCont])
+		If oM:EhErro(nN)
+			Return nN
+		EndIf
+		nN	:= Int(nN)
+		If nN==0 .OR. Abs(nN)>nTot
+			Return oM:Err("#VALUE!")
+		EndIf
+		AADD(aSel,If(nN<0,nTot+nN+1,nN))
+	Next
+	FwFreeArray(aNums)
+	FwFreeArray(aTodos)
+Return Seleciona(oM,oMat,aSel,!lLinhas)
+
+Static Function fExpand(oM As Object, aArgs As Array)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local nL := If(ValType(aArgs[2])=="U",oMat:nL,oM:Num(aArgs[2])) As Variant
+	Local nC := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),oMat:nC) As Variant
+	Local xPad := If(Len(aArgs)>=4,oM:Esc(aArgs[4]),oM:Err("#N/A")) As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If PrimErro(oM,{nL,nC})!=nil
+		Return PrimErro(oM,{nL,nC})
+	EndIf
+	nL	:= Int(nL)
+	nC	:= Int(nC)
+	If nL<oMat:nL .OR. nC<oMat:nC
+		Return oM:Err("#VALUE!")
+	EndIf
+	oRes	:= oM:NovaMat(nil,nL,nC)
+	For nI:=1 to nL
+		For nJ:=1 to nC
+			oRes:aV[nI][nJ]	:= If(nI<=oMat:nL .AND. nJ<=oMat:nC,oMat:aV[nI][nJ],xPad)
+		Next
+	Next
+Return oRes
+
+/*/{Protheus.doc} fStack
+VSTACK/HSTACK(matriz1,...) - completa com #N/A
+/*/
+Static Function fStack(oM As Object, aArgs As Array, lVertical As Logical)
+	Local aMats := {} As Array
+	Local nCont As Numeric
+	Local nL := 0 As Numeric
+	Local nC := 0 As Numeric
+	Local oRes As Object
+	Local nPos := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local oMat As Object
+	For nCont:=1 to Len(aArgs)
+		oMat	:= MatArg(oM,aArgs[nCont])
+		AADD(aMats,oMat)
+		If lVertical
+			nL	+= oMat:nL
+			nC	:= Max(nC,oMat:nC)
+		Else
+			nC	+= oMat:nC
+			nL	:= Max(nL,oMat:nL)
+		EndIf
+	Next
+	oRes	:= oM:NovaMat(nil,nL,nC)
+	For nCont:=1 to Len(aMats)
+		oMat	:= aMats[nCont]
+		For nI:=1 to If(lVertical,oMat:nL,nL)
+			For nJ:=1 to If(lVertical,nC,oMat:nC)
+				If lVertical
+					oRes:aV[nPos+nI][nJ]	:= If(nJ<=oMat:nC,oMat:aV[nI][nJ],oM:Err("#N/A"))
+				Else
+					oRes:aV[nI][nPos+nJ]	:= If(nI<=oMat:nL,oMat:aV[nI][nJ],oM:Err("#N/A"))
+				EndIf
+			Next
+		Next
+		nPos	+= If(lVertical,oMat:nL,oMat:nC)
+	Next
+	FwFreeArray(aMats)
+Return oRes
+
+/*/{Protheus.doc} fToColRow
+TOCOL/TOROW(matriz,[ignorar 0-3],[por_coluna])
+/*/
+Static Function fToColRow(oM As Object, aArgs As Array, lCol As Logical)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local nIgn := NumOpc(oM,aArgs,2,0) As Variant
+	Local lPorCol := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Log(aArgs[3]),.F.) As Variant
+	Local aVals := {} As Array
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xVal As Variant
+	Local oRes As Object
+	Local nCont As Numeric
+	If PrimErro(oM,{nIgn,lPorCol})!=nil
+		Return PrimErro(oM,{nIgn,lPorCol})
+	EndIf
+	nIgn	:= Int(nIgn)
+	For nI:=1 to If(lPorCol,oMat:nC,oMat:nL)
+		For nJ:=1 to If(lPorCol,oMat:nL,oMat:nC)
+			xVal	:= If(lPorCol,oMat:aV[nJ][nI],oMat:aV[nI][nJ])
+			If (nIgn==1 .OR. nIgn==3) .AND. ValType(xVal)=="U"
+				Loop
+			EndIf
+			If (nIgn==2 .OR. nIgn==3) .AND. oM:EhErro(xVal)
+				Loop
+			EndIf
+			AADD(aVals,xVal)
+		Next
+	Next
+	If Empty(aVals)
+		Return oM:Err("#CALC!")
+	EndIf
+	oRes	:= oM:NovaMat(nil,If(lCol,Len(aVals),1),If(lCol,1,Len(aVals)))
+	For nCont:=1 to Len(aVals)
+		If lCol
+			oRes:aV[nCont][1]	:= aVals[nCont]
+		Else
+			oRes:aV[1][nCont]	:= aVals[nCont]
+		EndIf
+	Next
+	FwFreeArray(aVals)
+Return oRes
+
+/*/{Protheus.doc} fWrap
+WRAPROWS/WRAPCOLS(vetor,quantidade,[preencher])
+/*/
+Static Function fWrap(oM As Object, aArgs As Array, lLinhas As Logical)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local nQtd := oM:Num(aArgs[2]) As Variant
+	Local xPad := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Esc(aArgs[3]),oM:Err("#N/A")) As Variant
+	Local aVals As Array
+	Local nOutro As Numeric
+	Local oRes As Object
+	Local nCont As Numeric
+	If oM:EhErro(nQtd)
+		Return nQtd
+	EndIf
+	If oMat:nL>1 .AND. oMat:nC>1
+		Return oM:Err("#VALUE!")
+	EndIf
+	nQtd	:= Int(nQtd)
+	If nQtd<1
+		Return oM:Err("#NUM!")
+	EndIf
+	aVals	:= oM:Lista({oMat},.T.)
+	nOutro	:= Int((Len(aVals)+nQtd-1)/nQtd)
+	oRes	:= oM:NovaMat(nil,If(lLinhas,nOutro,nQtd),If(lLinhas,nQtd,nOutro))
+	For nCont:=1 to nOutro*nQtd
+		If lLinhas
+			oRes:aV[Int((nCont-1)/nQtd)+1][Mod(nCont-1,nQtd)+1]	:= If(nCont<=Len(aVals),aVals[nCont],xPad)
+		Else
+			oRes:aV[Mod(nCont-1,nQtd)+1][Int((nCont-1)/nQtd)+1]	:= If(nCont<=Len(aVals),aVals[nCont],xPad)
+		EndIf
+	Next
+	FwFreeArray(aVals)
+Return oRes
+
+/*/{Protheus.doc} fTrimRange
+TRIMRANGE(referência,[linhas 0-3],[colunas 0-3]) - retira linhas/colunas vazias das bordas
+/*/
+Static Function fTrimRange(oM As Object, aArgs As Array)
+	Local oRef := aArgs[1] As Variant
+	Local nTL := NumOpc(oM,aArgs,2,3) As Variant
+	Local nTC := NumOpc(oM,aArgs,3,3) As Variant
+	Local aCel As Array
+	Local nL1 := MAX_LIN As Numeric
+	Local nL2 := 0 As Numeric
+	Local nC1 := MAX_COL As Numeric
+	Local nC2 := 0 As Numeric
+	Local nCont As Numeric
+	If !oM:EhRef(oRef)
+		Return oM:Err("#VALUE!")
+	EndIf
+	aCel	:= oM:Celulas(oRef)
+	For nCont:=1 to Len(aCel)
+		If ValType(aCel[nCont][4])!="U"
+			nL1	:= Min(nL1,aCel[nCont][2])
+			nL2	:= Max(nL2,aCel[nCont][2])
+			nC1	:= Min(nC1,aCel[nCont][3])
+			nC2	:= Max(nC2,aCel[nCont][3])
+		EndIf
+	Next
+	FwFreeArray(aCel)
+	If nL2==0
+		Return oM:Err("#REF!")
+	EndIf
+	nTL	:= Int(nTL)
+	nTC	:= Int(nTC)
+Return oM:NovaRef(oRef:nPla,If(nTL==1 .OR. nTL==3,nL1,oRef:nL1),If(nTC==1 .OR. nTC==3,nC1,oRef:nC1),If(nTL==2 .OR. nTL==3,nL2,oRef:nL2),If(nTC==2 .OR. nTC==3,nC2,oRef:nC2))
+
+Static Function fPercentOf(oM As Object, aArgs As Array)
+	Local aParte := {} As Array
+	Local aTodo := {} As Array
+	Local xErro As Variant
+	Local nParte := 0 As Numeric
+	Local nTodo := 0 As Numeric
+	xErro	:= oM:Numeros({aArgs[1]},@aParte)
+	If xErro==nil
+		xErro	:= oM:Numeros({aArgs[2]},@aTodo)
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	aEval(aParte,{|n| nParte+=n })
+	aEval(aTodo,{|n| nTodo+=n })
+	FwFreeArray(aParte)
+	FwFreeArray(aTodo)
+	If nTodo==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+Return nParte/nTodo
+
+//Executa LAMBDA (ou função nativa usada como valor) com valores
+Static Function ExecLambda(oM As Object, xLam As Variant, aVals As Array)
+	If !oM:EhLambda(xLam)
+		Return oM:Err("#VALUE!")
+	EndIf
+Return oM:ChamarLambda(xLam,aVals,.T.)
+
+/*/{Protheus.doc} fMap
+MAP(matriz1,[matriz2,...],lambda)
+/*/
+Static Function fMap(oM As Object, aArgs As Array)
+	Local xLam := aArgs[Len(aArgs)] As Variant
+	Local aMats := {} As Array
+	Local nL := 1 As Numeric
+	Local nC := 1 As Numeric
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nCont As Numeric
+	Local aVals As Array
+	For nCont:=1 to Len(aArgs)-1
+		AADD(aMats,MatArg(oM,aArgs[nCont]))
+		nL	:= Max(nL,aMats[nCont]:nL)
+		nC	:= Max(nC,aMats[nCont]:nC)
+	Next
+	oRes	:= oM:NovaMat(nil,nL,nC)
+	For nI:=1 to nL
+		For nJ:=1 to nC
+			aVals	:= {}
+			For nCont:=1 to Len(aMats)
+				AADD(aVals,aMats[nCont]:Get(nI,nJ))
+			Next
+			oRes:aV[nI][nJ]	:= oM:Esc(ExecLambda(oM,xLam,aVals))
+		Next
+	Next
+	FwFreeArray(aMats)
+Return oRes
+
+/*/{Protheus.doc} fReduce
+REDUCE/SCAN([valor_inicial],matriz,lambda(acumulador,valor))
+/*/
+Static Function fReduce(oM As Object, aArgs As Array, lScan As Logical)
+	Local xAcum := If(Len(aArgs)==3,oM:Valor(aArgs[1]),nil) As Variant
+	Local oMat := MatArg(oM,aArgs[Len(aArgs)-1]) As Object
+	Local xLam := aArgs[Len(aArgs)] As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If lScan
+		oRes	:= oM:NovaMat(nil,oMat:nL,oMat:nC)
+	EndIf
+	For nI:=1 to oMat:nL
+		For nJ:=1 to oMat:nC
+			xAcum	:= oM:Valor(ExecLambda(oM,xLam,{xAcum,oMat:aV[nI][nJ]}))
+			If lScan
+				oRes:aV[nI][nJ]	:= oM:Esc(xAcum)
+			EndIf
+		Next
+	Next
+	If lScan
+		Return oRes
+	EndIf
+Return xAcum
+
+/*/{Protheus.doc} fByRowCol
+BYROW/BYCOL(matriz,lambda(linha|coluna))
+/*/
+Static Function fByRowCol(oM As Object, aArgs As Array, lLinha As Logical)
+	Local oMat := MatArg(oM,aArgs[1]) As Object
+	Local xLam := aArgs[2] As Variant
+	Local nQtd := If(lLinha,oMat:nL,oMat:nC) As Numeric
+	Local oRes As Object
+	Local nCont As Numeric
+	Local xItem As Variant
+	Local xRes As Variant
+	oRes	:= oM:NovaMat(nil,If(lLinha,nQtd,1),If(lLinha,1,nQtd))
+	For nCont:=1 to nQtd
+		If lLinha
+			xItem	:= oM:NovaMat({aClone(oMat:aV[nCont])})
+		Else
+			xItem	:= oM:NovaMat(nil,oMat:nL,1)
+			aEval(oMat:aV,{|aLin,nPos| xItem:aV[nPos][1]:=aLin[nCont] })
+		EndIf
+		xRes	:= oM:Valor(ExecLambda(oM,xLam,{xItem}))
+		If oM:EhMat(xRes)
+			xRes	:= If(xRes:nL==1 .AND. xRes:nC==1,xRes:aV[1][1],oM:Err("#CALC!"))
+		EndIf
+		If lLinha
+			oRes:aV[nCont][1]	:= xRes
+		Else
+			oRes:aV[1][nCont]	:= xRes
+		EndIf
+	Next
+Return oRes
+
+Static Function fMakeArray(oM As Object, aArgs As Array)
+	Local nL := oM:Num(aArgs[1]) As Variant
+	Local nC := oM:Num(aArgs[2]) As Variant
+	Local xLam := aArgs[3] As Variant
+	Local oRes As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	If PrimErro(oM,{nL,nC})!=nil
+		Return PrimErro(oM,{nL,nC})
+	EndIf
+	nL	:= Int(nL)
+	nC	:= Int(nC)
+	If nL<1 .OR. nC<1
+		Return oM:Err("#VALUE!")
+	EndIf
+	oRes	:= oM:NovaMat(nil,nL,nC)
+	For nI:=1 to nL
+		For nJ:=1 to nC
+			oRes:aV[nI][nJ]	:= oM:Esc(ExecLambda(oM,xLam,{nI,nJ}))
+		Next
+	Next
+Return oRes
+
+/*/{Protheus.doc} Agrupa
+Agrupa linhas por chave e aplica a função de agregação (GROUPBY/PIVOTBY)
+@return array, {{cChave,aValoresCampos,aLinhas},...} na ordem de primeira ocorrência
+/*/
+Static Function Agrupa(oM As Object, oCampos As Object, aLinhas As Array)
+	Local oIdx := tHashMap():New() As Object
+	Local aGrupos := {} As Array
+	Local nCont As Numeric
+	Local cChave As Character
+	Local nPos As Numeric
+	For nCont:=1 to Len(aLinhas)
+		cChave	:= ChaveLinha(oM,oCampos,aLinhas[nCont],.F.)
+		If !oIdx:Get(cChave,@nPos)
+			AADD(aGrupos,{cChave,aClone(oCampos:aV[aLinhas[nCont]]),{}})
+			nPos	:= Len(aGrupos)
+			oIdx:Set(cChave,nPos)
+		EndIf
+		AADD(aGrupos[nPos][3],aLinhas[nCont])
+	Next
+	oIdx:Clean()
+	FreeObj(oIdx)
+Return aGrupos
+
+//Aplica a função (LAMBDA ou eta como SUM) aos valores das linhas na coluna
+Static Function Aplica(oM As Object, xLam As Variant, oVal As Object, aLinhas As Array, nCol As Numeric)
+	Local oSub := oM:NovaMat(nil,Len(aLinhas),1) As Object
+	Local nCont As Numeric
+	Local xRes As Variant
+	For nCont:=1 to Len(aLinhas)
+		oSub:aV[nCont][1]	:= oVal:aV[aLinhas[nCont]][nCol]
+	Next
+	xRes	:= oM:Valor(ExecLambda(oM,xLam,{oSub}))
+	If oM:EhMat(xRes)
+		xRes	:= xRes:aV[1][1]
+	EndIf
+Return xRes
+
+//Linhas de dados aplicando filtro e cabeçalho
+Static Function LinhasDados(oM As Object, nQtd As Numeric, lCab As Logical, xFiltro As Variant)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Local oFil As Object
+	Local lInc As Variant
+	If ValType(xFiltro)!="U"
+		oFil	:= oM:ParaMat(xFiltro)
+	EndIf
+	For nCont:=If(lCab,2,1) to nQtd
+		If ValType(oFil)=="O"
+			lInc	:= oM:Log(oFil:aV[Min(nCont,oFil:nL)][1])
+			If oM:EhErro(lInc) .OR. !lInc
+				Loop
+			EndIf
+		EndIf
+		AADD(aRet,nCont)
+	Next
+Return aRet
+
+//Cabeçalhos: 0 não, 1 sim sem exibir, 2 não mas gera, 3 sim e exibe; automático pelo tipo da primeira linha
+Static Function TemCab(oM As Object, xArg As Variant, oVal As Object, lExibe As Logical)
+	Local nCab As Variant
+	If ValType(xArg)=="U"
+		lExibe	:= oVal:nL>1 .AND. ValType(oVal:aV[1][1])=="C" .AND. ValType(oVal:aV[2][1])=="N"
+		Return lExibe
+	EndIf
+	nCab	:= Int(oM:Num(xArg))
+	lExibe	:= nCab==2 .OR. nCab==3
+Return nCab==1 .OR. nCab==3
+
+/*/{Protheus.doc} fGroupBy
+GROUPBY(campos_linha,valores,função,[cabeçalhos],[total],[ordem],[filtro],[relação])
+/*/
+Static Function fGroupBy(oM As Object, aArgs As Array)
+	Local oCampos := MatArg(oM,aArgs[1]) As Object
+	Local oVal := MatArg(oM,aArgs[2]) As Object
+	Local xLam := aArgs[3] As Variant
+	Local lExibe := .F. As Logical
+	Local lCab := TemCab(oM,If(Len(aArgs)>=4,aArgs[4],nil),oVal,@lExibe) As Logical
+	Local nTotal := NumOpc(oM,aArgs,5,1) As Variant
+	Local nOrdem := NumOpc(oM,aArgs,6,1) As Variant
+	Local aLinhas As Array
+	Local aGrupos As Array
+	Local aSaida := {} As Array
+	Local aLin As Array
+	Local nCont As Numeric
+	Local nCol As Numeric
+	Local nKf := oCampos:nC As Numeric
+	Local nKv := oVal:nC As Numeric
+	Local aTot As Array
+	Local aChaves As Array
+	Local aIdx As Array
+	Local oRes As Object
+	If oCampos:nL!=oVal:nL
+		Return oM:Err("#VALUE!")
+	EndIf
+	If !oM:EhLambda(xLam)
+		Return oM:Err("#VALUE!")
+	EndIf
+	If PrimErro(oM,{nTotal,nOrdem})!=nil
+		Return PrimErro(oM,{nTotal,nOrdem})
+	EndIf
+	aLinhas	:= LinhasDados(oM,oVal:nL,lCab,If(Len(aArgs)>=7,aArgs[7],nil))
+	aGrupos	:= Agrupa(oM,oCampos,aLinhas)
+	//Ordenação pela coluna de saída (campo ou valor), negativo decrescente
+	If Int(nOrdem)!=0
+		nCol	:= Abs(Int(nOrdem))
+		aChaves	:= {{Array(Len(aGrupos)),If(nOrdem<0,-1,1)}}
+		For nCont:=1 to Len(aGrupos)
+			aChaves[1][1][nCont]	:= If(nCol<=nKf,aGrupos[nCont][2][nCol],Aplica(oM,xLam,oVal,aGrupos[nCont][3],nCol-nKf))
+		Next
+		aIdx	:= OrdenaIdx(oM,Len(aGrupos),aChaves)
+	Else
+		aIdx	:= Array(Len(aGrupos))
+		aEval(aIdx,{|x,n| aIdx[n]:=n })
+	EndIf
+	If lExibe
+		aLin	:= {}
+		For nCol:=1 to nKf
+			AADD(aLin,If(lCab,oCampos:aV[1][nCol],""))
+		Next
+		For nCol:=1 to nKv
+			AADD(aLin,If(lCab,oVal:aV[1][nCol],""))
+		Next
+		AADD(aSaida,aLin)
+	EndIf
+	For nCont:=1 to Len(aIdx)
+		aLin	:= aClone(aGrupos[aIdx[nCont]][2])
+		For nCol:=1 to nKv
+			AADD(aLin,Aplica(oM,xLam,oVal,aGrupos[aIdx[nCont]][3],nCol))
+		Next
+		AADD(aSaida,aLin)
+	Next
+	If Int(nTotal)!=0	//Total geral
+		aTot	:= {"Total"}
+		For nCol:=2 to nKf
+			AADD(aTot,nil)
+		Next
+		For nCol:=1 to nKv
+			AADD(aTot,Aplica(oM,xLam,oVal,aLinhas,nCol))
+		Next
+		If nTotal<0
+			aSize(aSaida,Len(aSaida)+1)
+			aIns(aSaida,If(lExibe,2,1))
+			aSaida[If(lExibe,2,1)]	:= aTot
+		Else
+			AADD(aSaida,aTot)
+		EndIf
+	EndIf
+	oRes	:= oM:NovaMat(aSaida)
+	FwFreeArray(aLinhas)
+	FwFreeArray(aIdx)
+Return oRes
+
+/*/{Protheus.doc} fPivotBy
+PIVOTBY(campos_linha,campos_coluna,valores,função,[cabeçalhos],[total_linhas],[ordem_linhas],[total_colunas],[ordem_colunas],[filtro],[relativo])
+/*/
+Static Function fPivotBy(oM As Object, aArgs As Array)
+	Local oLin := MatArg(oM,aArgs[1]) As Object
+	Local oCol := MatArg(oM,aArgs[2]) As Object
+	Local oVal := MatArg(oM,aArgs[3]) As Object
+	Local xLam := aArgs[4] As Variant
+	Local lExibe := .F. As Logical
+	Local lCab := TemCab(oM,If(Len(aArgs)>=5,aArgs[5],nil),oVal,@lExibe) As Logical
+	Local nTotL := NumOpc(oM,aArgs,6,1) As Variant
+	Local nOrdL := NumOpc(oM,aArgs,7,1) As Variant
+	Local nTotC := NumOpc(oM,aArgs,8,1) As Variant
+	Local nOrdC := NumOpc(oM,aArgs,9,1) As Variant
+	Local aLinhas As Array
+	Local aGL As Array
+	Local aGC As Array
+	Local aIdxL As Array
+	Local aIdxC As Array
+	Local aSaida := {} As Array
+	Local aLin As Array
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nV As Numeric
+	Local aComum As Array
+	Local nKl := oLin:nC As Numeric
+	Local nKv := oVal:nC As Numeric
+	If oLin:nL!=oVal:nL .OR. oCol:nL!=oVal:nL .OR. !oM:EhLambda(xLam)
+		Return oM:Err("#VALUE!")
+	EndIf
+	If PrimErro(oM,{nTotL,nOrdL,nTotC,nOrdC})!=nil
+		Return PrimErro(oM,{nTotL,nOrdL,nTotC,nOrdC})
+	EndIf
+	aLinhas	:= LinhasDados(oM,oVal:nL,lCab,If(Len(aArgs)>=10,aArgs[10],nil))
+	aGL		:= Agrupa(oM,oLin,aLinhas)
+	aGC		:= Agrupa(oM,oCol,aLinhas)
+	aIdxL	:= OrdenaIdx(oM,Len(aGL),{{GrupoVals(aGL),If(nOrdL<0,-1,1)}})
+	aIdxC	:= OrdenaIdx(oM,Len(aGC),{{GrupoVals(aGC),If(nOrdC<0,-1,1)}})
+	//Cabeçalho: colunas agrupadas (uma por valor quando há vários)
+	aLin	:= Array(nKl)
+	For nJ:=1 to Len(aIdxC)
+		For nV:=1 to nKv
+			AADD(aLin,aGC[aIdxC[nJ]][2][1])
+		Next
+	Next
+	If Int(nTotC)!=0
+		For nV:=1 to nKv
+			AADD(aLin,"Total")
+		Next
+	EndIf
+	AADD(aSaida,aLin)
+	For nI:=1 to Len(aIdxL)
+		aLin	:= aClone(aGL[aIdxL[nI]][2])
+		For nJ:=1 to Len(aIdxC)
+			aComum	:= Intersecao(aGL[aIdxL[nI]][3],aGC[aIdxC[nJ]][3])
+			For nV:=1 to nKv
+				AADD(aLin,If(Empty(aComum),nil,Aplica(oM,xLam,oVal,aComum,nV)))
+			Next
+		Next
+		If Int(nTotC)!=0
+			For nV:=1 to nKv
+				AADD(aLin,Aplica(oM,xLam,oVal,aGL[aIdxL[nI]][3],nV))
+			Next
+		EndIf
+		AADD(aSaida,aLin)
+	Next
+	If Int(nTotL)!=0
+		aLin	:= Array(nKl)
+		aLin[1]	:= "Total"
+		For nJ:=1 to Len(aIdxC)
+			For nV:=1 to nKv
+				AADD(aLin,Aplica(oM,xLam,oVal,aGC[aIdxC[nJ]][3],nV))
+			Next
+		Next
+		If Int(nTotC)!=0
+			For nV:=1 to nKv
+				AADD(aLin,Aplica(oM,xLam,oVal,aLinhas,nV))
+			Next
+		EndIf
+		AADD(aSaida,aLin)
+	EndIf
+Return oM:NovaMat(aSaida)
+
+//Valores do primeiro campo de cada grupo (para ordenar)
+Static Function GrupoVals(aGrupos As Array)
+	Local aRet := Array(Len(aGrupos)) As Array
+	aEval(aGrupos,{|x,n| aRet[n]:=x[2][1] })
+Return aRet
+
+//Linhas comuns a dois grupos
+Static Function Intersecao(aA As Array, aB As Array)
+	Local oIdx := tHashMap():New() As Object
+	Local aRet := {} As Array
+	Local lTem As Logical
+	aEval(aB,{|n| oIdx:Set(n,.T.) })
+	aEval(aA,{|n| If(oIdx:Get(n,@lTem),AADD(aRet,n),nil) })
+	oIdx:Clean()
+	FreeObj(oIdx)
+Return aRet

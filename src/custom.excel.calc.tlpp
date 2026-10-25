@@ -21,6 +21,7 @@ Namespace custom.excel.calc
 #define N_VAZIO		12	//{12} argumento omitido
 #define N_SPILL		13	//{13,aNoRef} referência A1#
 #define N_CHAMA		14	//{14,aNoFuncao,aArgs} chamada de LAMBDA
+#define N_VAL		15	//{15,xValor} valor já avaliado
 
 //Tipos de valor (objetos)
 #define V_ERRO		1
@@ -147,14 +148,17 @@ Class Lambda
 	Public Data aParams		As Array
 	Public Data aCorpo		As Array
 	Public Data aEscopos	As Array
+	Public Data cFunc		As Character	//Função nativa usada como valor (ex.: GROUPBY(...,SUM))
 	Public Method New()		As Object
 EndClass
 
-Method New(aParams As Array, aCorpo As Array, aEscopos As Array) As Object Class Lambda
+Method New(aParams As Array, aCorpo As Array, aEscopos As Array, cFunc As Character) As Object Class Lambda
+	Default cFunc	:= ""
 	::nTipoV	:= V_LAMBDA
 	::aParams	:= aParams
 	::aCorpo	:= aCorpo
 	::aEscopos	:= aEscopos
+	::cFunc		:= cFunc
 Return self
 
 /*/{Protheus.doc} Err
@@ -837,6 +841,7 @@ Class Motor
 	Public Data oCache		As Object	//Resultado das células calculadas "pla|lin|col" -> {xValor,lIncompleto}
 	Public Data oEstado		As Object	//Células em cálculo (referência circular)
 	Public Data oAst		As Object	//Cache da árvore por texto da fórmula
+	Public Data oMatCache	As Object	//Cache das áreas lidas (referência -> Mat) e índices de busca
 	Public Data nPla		As Numeric	//Célula em cálculo
 	Public Data nLin		As Numeric
 	Public Data nCol		As Numeric
@@ -857,6 +862,7 @@ Class Motor
 	Public Method CalcCelula()
 	Public Method Avaliar()
 	Public Method Chamar()
+	Public Method ChamarVal()
 	Public Method ChamarLambda()
 	Public Method Elevar()
 	Public Method Valor()
@@ -902,6 +908,10 @@ Class Motor
 	Public Method DataSerial()
 	Public Method DiaSemana()
 	Public Method TxtData()
+	Public Method Indice()
+	Public Method ChaveBusca()
+	Public Method CopiaMat()
+	Public Method NumData()
 EndClass
 
 Method New(oProv As Object) As Object Class Motor
@@ -910,6 +920,7 @@ Method New(oProv As Object) As Object Class Motor
 	::oCache	:= tHashMap():New()
 	::oEstado	:= tHashMap():New()
 	::oAst		:= tHashMap():New()
+	::oMatCache	:= tHashMap():New()
 	::nPla		:= 1
 	::nLin		:= 1
 	::nCol		:= 1
@@ -965,7 +976,7 @@ Return .F.
 Method Funcoes() Class Motor
 	Local aCat As Array
 	Local nCont As Numeric
-	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New(),FuncTxt():New()}
+	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New(),FuncTxt():New(),FuncDat():New(),FuncRef():New()}
 	For nCont:=1 to Len(aCat)
 		aCat[nCont]:Registrar(self)
 		FreeObj(aCat[nCont])
@@ -1150,6 +1161,9 @@ Method ParaMat(xVal As Variant) Class Motor
 		If xVal:aAreas!=nil .OR. xVal:nPla!=xVal:nPla2
 			Return Mat():New({{Err("#VALUE!")}})
 		EndIf
+		If ::oMatCache:Get(ChaveRef(xVal),@oMat)	//Matriz em cache: não deve ser alterada por quem usa
+			Return oMat
+		EndIf
 		aDim	:= ::Dim(xVal)
 		oMat	:= Mat():New(nil,aDim[1],aDim[2])
 		aCel	:= ::Celulas(xVal)
@@ -1162,9 +1176,14 @@ Method ParaMat(xVal As Variant) Class Motor
 		Next
 		FwFreeArray(aCel)
 		FwFreeArray(aDim)
+		::oMatCache:Set(ChaveRef(xVal),oMat)
 		Return oMat
 	EndIf
 Return Mat():New({{xVal}})
+
+//Chave de cache de uma referência
+Static Function ChaveRef(oRef As Object)
+Return "M|"+cValToChar(oRef:nPla)+"|"+cValToChar(oRef:nL1)+"|"+cValToChar(oRef:nC1)+"|"+cValToChar(oRef:nL2)+"|"+cValToChar(oRef:nC2)
 
 //Remove a referência: célula única vira valor, intervalo vira matriz
 Method Valor(xVal As Variant) Class Motor
@@ -1442,6 +1461,8 @@ Method Avaliar(aNo As Array) Class Motor
 			Return ::Estrut(aNo)
 		Case aNo[1]==N_VAZIO
 			Return nil
+		Case aNo[1]==N_VAL
+			Return aNo[2]
 		Case aNo[1]==N_SPILL
 			//Sem matriz dinâmica gravada: devolve a própria célula
 			Return ::Avaliar(aNo[2])
@@ -1484,6 +1505,9 @@ Method Nome(cNome As Character, cPlan As Character) Class Motor
 	If Left(cUp,6)=="_XLPM."
 		cUp	:= SubStr(cUp,7)
 	EndIf
+	If Left(cUp,7)=="_XLETA."	//Função usada como valor
+		Return Lambda():New({},nil,{},SubStr(cUp,8))
+	EndIf
 	If Empty(cPlan)
 		If ::Var(cUp,@xRet)
 			Return xRet
@@ -1493,6 +1517,9 @@ Method Nome(cNome As Character, cPlan As Character) Class Motor
 	EndIf
 	cForm	:= ::oProv:CalcNome(cNome,nPla)
 	If Empty(cForm)
+		If Empty(cPlan) .AND. ::Funcao(cUp)!=nil	//Função usada como valor: GROUPBY(...,SUM)
+			Return Lambda():New({},nil,{},cUp)
+		EndIf
 		Return Err("#NAME?")
 	EndIf
 	aSalva	:= ::aEscopos
@@ -1653,6 +1680,45 @@ Method Chamar(cNome As Character, aNos As Array) Class Motor
 	For nCont:=1 to Len(aNos)
 		aArgs[nCont]	:= ::Avaliar(aNos[nCont])
 	Next
+Return ::ChamarVal(cNome,aArgs,aFunc)
+
+/*/{Protheus.doc} Motor::ChamarVal
+Chama a função com os argumentos já avaliados
+@type method
+@param cNome, character, Nome da função
+@param aArgs, array, Valores dos argumentos
+@param aFunc, array, Definição (opcional)
+/*/
+Method ChamarVal(cNome As Character, aArgs As Array, aFunc As Variant) Class Motor
+	Local cFlags As Character
+	Local nCont As Numeric
+	Local lMat := .F. As Logical
+	Local nL := 1 As Numeric
+	Local nC := 1 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local aEsc As Array
+	Local oRes As Object
+	Local xArg As Variant
+	Local aNos As Array
+	If aFunc==nil
+		aFunc	:= ::Funcao(cNome)
+		If aFunc==nil
+			::lIncompleto	:= .T.
+			Return Err("#NAME?")
+		EndIf
+		If Len(aArgs)<aFunc[2] .OR. (aFunc[3]>=0 .AND. Len(aArgs)>aFunc[3])
+			Return Err("#VALUE!")
+		EndIf
+	EndIf
+	cFlags	:= aFunc[4]
+	If "L" $ cFlags	//Função lazy com valores: passa nós constantes
+		aNos	:= Array(Len(aArgs))
+		For nCont:=1 to Len(aArgs)
+			aNos[nCont]	:= {N_VAL,aArgs[nCont]}
+		Next
+		Return Eval(aFunc[1],self,aNos)
+	EndIf
 	If "E" $ cFlags	//Argumentos escalares: expande elemento a elemento quando recebe matriz
 		For nCont:=1 to Len(aArgs)
 			xArg	:= aArgs[nCont]
@@ -1705,6 +1771,15 @@ Method ChamarLambda(oLam As Object, aArgs As Array, lAval As Logical) Class Moto
 	Local nCont As Numeric
 	Local aSalva := ::aEscopos As Array
 	Local xRet As Variant
+	Local aVals As Array
+	If !Empty(oLam:cFunc)
+		aVals	:= Array(Len(aArgs))
+		For nCont:=1 to Len(aArgs)
+			aVals[nCont]	:= If(lAval,aArgs[nCont],::Avaliar(aArgs[nCont]))
+		Next
+		FreeObj(oVar)
+		Return ::ChamarVal(oLam:cFunc,aVals)
+	EndIf
 	If Len(aArgs)>Len(oLam:aParams)
 		Return Err("#VALUE!")
 	EndIf
@@ -1848,6 +1923,8 @@ Method Limpar() Class Motor
 	::oCache:Clean()
 	::oEstado:Clean()
 	::oAst:Clean()
+	::oMatCache:Clean()
+	FreeObj(::oMatCache)
 	FreeObj(::oCache)
 	FreeObj(::oEstado)
 	FreeObj(::oAst)
@@ -2748,3 +2825,75 @@ Static Function MesNome(cNome As Character)
 	FwFreeArray(aPt)
 	FwFreeArray(aEn)
 Return nPos
+
+/*/{Protheus.doc} Motor::Indice
+Índice (hash) de busca exata de uma linha/coluna de matriz para PROCV/CORRESP/PROCX em áreas grandes
+@type method
+@param oMat, object, Matriz
+@param nPos, numeric, Coluna (lColuna) ou linha
+@param lColuna, logical, .T. indexa a coluna nPos
+@param cChaveMat, character, Chave de cache da matriz ("" não usa cache)
+@return object, tHashMap valor -> primeira posição
+/*/
+Method Indice(oMat As Object, nPos As Numeric, lColuna As Logical, cChaveMat As Character) Class Motor
+	Local oIdx As Object
+	Local cChave := "I|"+cChaveMat+"|"+cValToChar(nPos)+If(lColuna,"C","L") As Character
+	Local nCont As Numeric
+	Local nQtd := If(lColuna,oMat:nL,oMat:nC) As Numeric
+	Local cVal As Character
+	Local nExiste As Numeric
+	If !Empty(cChaveMat) .AND. ::oMatCache:Get(cChave,@oIdx)
+		Return oIdx
+	EndIf
+	oIdx	:= tHashMap():New()
+	For nCont:=1 to nQtd
+		cVal	:= ::ChaveBusca(If(lColuna,oMat:aV[nCont][nPos],oMat:aV[nPos][nCont]))
+		If !Empty(cVal) .AND. !oIdx:Get(cVal,@nExiste)
+			oIdx:Set(cVal,nCont)
+		EndIf
+	Next
+	If !Empty(cChaveMat)
+		::oMatCache:Set(cChave,oIdx)
+	EndIf
+Return oIdx
+
+//Chave de comparação exata (tipo + valor, texto sem diferenciar maiúsculas); "" para vazio/erro
+Method ChaveBusca(xVal As Variant) Class Motor
+	Local cTipo := ValType(xVal) As Character
+	Do Case
+		Case cTipo=="N"
+			Return "N"+NumTxt(xVal)
+		Case cTipo=="C"
+			Return "C"+Maius(xVal)
+		Case cTipo=="L"
+			Return "L"+If(xVal,"1","0")
+	EndCase
+Return ""
+
+//Cópia da matriz (para funções que alteram valores)
+Method CopiaMat(oMat As Object) Class Motor
+	Local aV := Array(oMat:nL) As Array
+	Local nCont As Numeric
+	For nCont:=1 to oMat:nL
+		aV[nCont]	:= aClone(oMat:aV[nCont])
+	Next
+Return Mat():New(aV)
+
+/*/{Protheus.doc} Motor::NumData
+Número de data/hora: aceita texto de data ("31/12/2024") além de número
+@type method
+/*/
+Method NumData(xVal As Variant) Class Motor
+	Local nRet As Variant
+	xVal	:= ::Esc(xVal)
+	If ValType(xVal)=="C"
+		nRet	:= TxtParaNum(xVal,::cSepDec)
+		If nRet==nil
+			nRet	:= ::TxtData(xVal)
+		EndIf
+		If nRet==nil
+			Return Err("#VALUE!")
+		EndIf
+		Return nRet
+	EndIf
+Return ::Num(xVal)

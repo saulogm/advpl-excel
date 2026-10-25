@@ -1,0 +1,636 @@
+// Funções de data e hora do Excel (motor custom.excel.calc) - datas seriais do sistema 1900
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+/*/{Protheus.doc} FuncDat
+Registro das funções de data e hora
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncDat
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncDat
+Return self
+
+Method Registrar(oM As Object) Class FuncDat
+	oM:Registrar("DATE"				,{|o,a| fDate(o,a) }					,3,3,"E")
+	oM:Registrar("TIME"				,{|o,a| fTime(o,a) }					,3,3,"E")
+	oM:Registrar("YEAR"				,{|o,a| ParteData(o,a,1) }				,1,1,"E")
+	oM:Registrar("MONTH"			,{|o,a| ParteData(o,a,2) }				,1,1,"E")
+	oM:Registrar("DAY"				,{|o,a| ParteData(o,a,3) }				,1,1,"E")
+	oM:Registrar("HOUR"				,{|o,a| ParteHora(o,a,1) }				,1,1,"E")
+	oM:Registrar("MINUTE"			,{|o,a| ParteHora(o,a,2) }				,1,1,"E")
+	oM:Registrar("SECOND"			,{|o,a| ParteHora(o,a,3) }				,1,1,"E")
+	oM:Registrar("TODAY"			,{|o,a| Agora(o,.F.) }					,0,0,"V")
+	oM:Registrar("NOW"				,{|o,a| Agora(o,.T.) }					,0,0,"V")
+	oM:Registrar("DATEVALUE"		,{|o,a| fDateValue(o,a,.T.) }			,1,1,"E")
+	oM:Registrar("TIMEVALUE"		,{|o,a| fDateValue(o,a,.F.) }			,1,1,"E")
+	oM:Registrar("WEEKDAY"			,{|o,a| fWeekday(o,a) }					,1,2,"E")
+	oM:Registrar("WEEKNUM"			,{|o,a| fWeekNum(o,a) }					,1,2,"E")
+	oM:Registrar("ISOWEEKNUM"		,{|o,a| fIsoWeekNum(o,a) }				,1,1,"E")
+	oM:Registrar("EDATE"			,{|o,a| fEDate(o,a,.F.) }				,2,2,"E")
+	oM:Registrar("EOMONTH"			,{|o,a| fEDate(o,a,.T.) }				,2,2,"E")
+	oM:Registrar("DAYS"				,{|o,a| fDays(o,a) }					,2,2,"E")
+	oM:Registrar("DAYS360"			,{|o,a| fDays360(o,a) }					,2,3,"E")
+	oM:Registrar("DATEDIF"			,{|o,a| fDateDif(o,a) }					,3,3,"E")
+	oM:Registrar("YEARFRAC"			,{|o,a| fYearFrac(o,a) }				,2,3,"E")
+	oM:Registrar("NETWORKDAYS"		,{|o,a| fNetWorkDays(o,a,.F.) }			,2,3)
+	oM:Registrar("NETWORKDAYS.INTL"	,{|o,a| fNetWorkDays(o,a,.T.) }			,2,4)
+	oM:Registrar("WORKDAY"			,{|o,a| fWorkDay(o,a,.F.) }				,2,3)
+	oM:Registrar("WORKDAY.INTL"		,{|o,a| fWorkDay(o,a,.T.) }				,2,4)
+Return
+
+//Primeiro erro da lista (nil se nenhum)
+Static Function PrimErro(oM As Object, aVals As Array)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aVals)
+		If oM:EhErro(aVals[nCont])
+			Return aVals[nCont]
+		EndIf
+	Next
+Return nil
+
+//Ano bissexto (o Excel considera 1900 bissexto)
+Static Function Bissexto(nAno As Numeric)
+Return (Mod(nAno,4)==0 .AND. Mod(nAno,100)!=0) .OR. Mod(nAno,400)==0 .OR. nAno==1900
+
+//Dias do mês
+Static Function DiasMes(nAno As Numeric, nMes As Numeric)
+	Local aDias := {31,28,31,30,31,30,31,31,30,31,30,31} As Array
+	Local nRet := aDias[nMes] As Numeric
+	FwFreeArray(aDias)
+	If nMes==2 .AND. Bissexto(nAno)
+		nRet	:= 29
+	EndIf
+Return nRet
+
+//Serial de data válido (inteiro, 0 a 2958465)
+Static Function DataArg(oM As Object, xVal As Variant)
+	Local nRet := oM:NumData(xVal) As Variant
+	If oM:EhErro(nRet)
+		Return nRet
+	EndIf
+	If nRet<0 .OR. nRet>=2958466
+		Return oM:Err("#NUM!")
+	EndIf
+Return nRet
+
+Static Function fDate(oM As Object, aArgs As Array)
+	Local nAno := oM:Num(aArgs[1]) As Variant
+	Local nMes := oM:Num(aArgs[2]) As Variant
+	Local nDia := oM:Num(aArgs[3]) As Variant
+	Local xErro := PrimErro(oM,{nAno,nMes,nDia}) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If nAno<0 .OR. nAno>=10000
+		Return oM:Err("#NUM!")
+	EndIf
+Return oM:DataSerial(nAno,nMes,nDia)
+
+Static Function fTime(oM As Object, aArgs As Array)
+	Local nH := oM:Num(aArgs[1]) As Variant
+	Local nM := oM:Num(aArgs[2]) As Variant
+	Local nS := oM:Num(aArgs[3]) As Variant
+	Local xErro := PrimErro(oM,{nH,nM,nS}) As Variant
+	Local nSeg As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nSeg	:= Int(nH)*3600+Int(nM)*60+Int(nS)
+	If nSeg<0 .OR. nH>32767 .OR. nM>32767 .OR. nS>32767
+		Return oM:Err("#NUM!")
+	EndIf
+	nSeg	:= Mod(nSeg,86400)
+Return nSeg/86400
+
+//nParte 1=ano 2=mês 3=dia
+Static Function ParteData(oM As Object, aArgs As Array, nParte As Numeric)
+	Local nSerial := DataArg(oM,aArgs[1]) As Variant
+	If oM:EhErro(nSerial)
+		Return nSerial
+	EndIf
+Return oM:SerialData(nSerial)[nParte]
+
+//nParte 1=hora 2=minuto 3=segundo (arredonda ao segundo como o Excel)
+Static Function ParteHora(oM As Object, aArgs As Array, nParte As Numeric)
+	Local nVal := oM:NumData(aArgs[1]) As Variant
+	Local nSeg As Numeric
+	If oM:EhErro(nVal)
+		Return nVal
+	EndIf
+	If nVal<0
+		Return oM:Err("#NUM!")
+	EndIf
+	nSeg	:= Round((nVal-Int(nVal))*86400,0)
+	If nSeg>=86400
+		nSeg	:= 0
+	EndIf
+	Do Case
+		Case nParte==1
+			Return Int(nSeg/3600)
+		Case nParte==2
+			Return Int(Mod(nSeg,3600)/60)
+	EndCase
+Return Mod(nSeg,60)
+
+//Data/hora atual do servidor (fixa durante o cálculo)
+Static Function Agora(oM As Object, lHora As Logical)
+	Local nSerial As Numeric
+	Local cHora As Character
+	If oM:nVolatil==nil
+		cHora	:= Time()
+		nSerial	:= Date()-STOD("18991230")
+		oM:nVolatil	:= nSerial+(Val(Left(cHora,2))*3600+Val(SubStr(cHora,4,2))*60+Val(Right(cHora,2)))/86400
+	EndIf
+	If lHora
+		Return oM:nVolatil
+	EndIf
+Return Int(oM:nVolatil)
+
+Static Function fDateValue(oM As Object, aArgs As Array, lData As Logical)
+	Local cTxt := oM:Txt(aArgs[1]) As Variant
+	Local nRet As Variant
+	If oM:EhErro(cTxt)
+		Return cTxt
+	EndIf
+	nRet	:= oM:TxtData(cTxt)
+	If nRet==nil
+		Return oM:Err("#VALUE!")
+	EndIf
+	If lData
+		Return Int(nRet)
+	EndIf
+Return nRet-Int(nRet)
+
+/*/{Protheus.doc} fWeekday
+WEEKDAY(data,[tipo]) tipos 1, 2, 3 e 11 a 17
+/*/
+Static Function fWeekday(oM As Object, aArgs As Array)
+	Local nSerial := DataArg(oM,aArgs[1]) As Variant
+	Local nTipo := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Num(aArgs[2]),1) As Variant
+	Local nDia As Numeric
+	If oM:EhErro(nSerial)
+		Return nSerial
+	EndIf
+	If oM:EhErro(nTipo)
+		Return nTipo
+	EndIf
+	nTipo	:= Int(nTipo)
+	nDia	:= oM:DiaSemana(nSerial)	//1=domingo
+	Do Case
+		Case nTipo==1 .OR. nTipo==17
+			Return nDia
+		Case nTipo==2 .OR. nTipo==11
+			Return Mod(nDia+5,7)+1
+		Case nTipo==3
+			Return Mod(nDia+5,7)
+		Case nTipo>=12 .AND. nTipo<=16	//12=terça ... 16=sábado é o dia 1
+			Return Mod(nDia-(nTipo-9)+7,7)+1
+	EndCase
+Return oM:Err("#NUM!")
+
+/*/{Protheus.doc} fWeekNum
+WEEKNUM(data,[tipo]) - semana que contém 1º de janeiro é a 1; tipo 21 = ISO
+/*/
+Static Function fWeekNum(oM As Object, aArgs As Array)
+	Local nSerial := DataArg(oM,aArgs[1]) As Variant
+	Local nTipo := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Num(aArgs[2]),1) As Variant
+	Local nIniSem As Numeric
+	Local nJan1 As Numeric
+	Local nDiaJan1 As Numeric
+	Local nDesloc As Numeric
+	If oM:EhErro(nSerial)
+		Return nSerial
+	EndIf
+	If oM:EhErro(nTipo)
+		Return nTipo
+	EndIf
+	nTipo	:= Int(nTipo)
+	Do Case
+		Case nTipo==21
+			Return IsoSemana(oM,nSerial)
+		Case nTipo==1 .OR. nTipo==17
+			nIniSem	:= 1
+		Case nTipo==2 .OR. nTipo==11
+			nIniSem	:= 2
+		Case nTipo>=12 .AND. nTipo<=16
+			nIniSem	:= nTipo-9
+		Otherwise
+			Return oM:Err("#NUM!")
+	EndCase
+	nJan1		:= oM:DataSerial(oM:SerialData(nSerial)[1],1,1)
+	nDiaJan1	:= oM:DiaSemana(nJan1)
+	nDesloc		:= Mod(nDiaJan1-nIniSem+7,7)	//Dias da primeira semana antes de 1º de janeiro
+Return Int((Int(nSerial)-nJan1+nDesloc)/7)+1
+
+Static Function fIsoWeekNum(oM As Object, aArgs As Array)
+	Local nSerial := DataArg(oM,aArgs[1]) As Variant
+	If oM:EhErro(nSerial)
+		Return nSerial
+	EndIf
+Return IsoSemana(oM,nSerial)
+
+//Semana ISO 8601 (semana começa na segunda; semana 1 contém a primeira quinta-feira)
+Static Function IsoSemana(oM As Object, nSerial As Numeric)
+	Local nDiaIso := Mod(oM:DiaSemana(nSerial)+5,7)+1 As Numeric	//1=segunda
+	Local nQuinta := Int(nSerial)-nDiaIso+4 As Numeric
+	Local nAno := oM:SerialData(nQuinta)[1] As Numeric
+	Local nJan1 := oM:DataSerial(nAno,1,1) As Numeric
+Return Int((nQuinta-nJan1)/7)+1
+
+//EDATE e EOMONTH
+Static Function fEDate(oM As Object, aArgs As Array, lFimMes As Logical)
+	Local nSerial := DataArg(oM,aArgs[1]) As Variant
+	Local nMeses := oM:Num(aArgs[2]) As Variant
+	Local aData As Array
+	Local nAno As Numeric
+	Local nMes As Numeric
+	Local nDia As Numeric
+	Local nTotal As Numeric
+	If oM:EhErro(nSerial)
+		Return nSerial
+	EndIf
+	If oM:EhErro(nMeses)
+		Return nMeses
+	EndIf
+	aData	:= oM:SerialData(nSerial)
+	nTotal	:= aData[1]*12+(aData[2]-1)+Int(nMeses)
+	nAno	:= Int(nTotal/12)
+	nMes	:= nTotal-nAno*12+1
+	If nAno<1900 .OR. nAno>9999
+		Return oM:Err("#NUM!")
+	EndIf
+	nDia	:= If(lFimMes,DiasMes(nAno,nMes),Min(aData[3],DiasMes(nAno,nMes)))
+Return oM:DataSerial(nAno,nMes,nDia)
+
+Static Function fDays(oM As Object, aArgs As Array)
+	Local nFim := DataArg(oM,aArgs[1]) As Variant
+	Local nIni := DataArg(oM,aArgs[2]) As Variant
+	If oM:EhErro(nFim)
+		Return nFim
+	EndIf
+	If oM:EhErro(nIni)
+		Return nIni
+	EndIf
+Return Int(nFim)-Int(nIni)
+
+/*/{Protheus.doc} fDays360
+DAYS360(início,fim,[europeu]) - método americano (NASD) ou europeu
+/*/
+Static Function fDays360(oM As Object, aArgs As Array)
+	Local nIni := DataArg(oM,aArgs[1]) As Variant
+	Local nFim := DataArg(oM,aArgs[2]) As Variant
+	Local lEuro := .F. As Variant
+	If Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U"
+		lEuro	:= oM:Log(aArgs[3])
+	EndIf
+	If PrimErro(oM,{nIni,nFim,lEuro})!=nil
+		Return PrimErro(oM,{nIni,nFim,lEuro})
+	EndIf
+Return Dias360(oM,nIni,nFim,lEuro)
+
+Static Function Dias360(oM As Object, nIni As Numeric, nFim As Numeric, lEuro As Logical)
+	Local aIni := oM:SerialData(nIni) As Array
+	Local aFim := oM:SerialData(nFim) As Array
+	Local nD1 := aIni[3] As Numeric
+	Local nD2 := aFim[3] As Numeric
+	Local nM2 := aFim[2] As Numeric
+	Local nA2 := aFim[1] As Numeric
+	If lEuro
+		nD1	:= Min(nD1,30)
+		nD2	:= Min(nD2,30)
+	Else
+		If nD1==DiasMes(aIni[1],aIni[2])	//Último dia do mês inicial vira 30
+			nD1	:= 30
+		EndIf
+		If nD2==31
+			If nD1<30
+				nD2	:= 1
+				nM2++
+				If nM2>12
+					nM2	:= 1
+					nA2++
+				EndIf
+			Else
+				nD2	:= 30
+			EndIf
+		EndIf
+	EndIf
+Return (nA2-aIni[1])*360+(nM2-aIni[2])*30+(nD2-nD1)
+
+/*/{Protheus.doc} fDateDif
+DATEDIF(início,fim,unidade) Y M D MD YM YD
+/*/
+Static Function fDateDif(oM As Object, aArgs As Array)
+	Local nIni := DataArg(oM,aArgs[1]) As Variant
+	Local nFim := DataArg(oM,aArgs[2]) As Variant
+	Local cUni := oM:Txt(aArgs[3]) As Variant
+	Local aIni As Array
+	Local aFim As Array
+	Local nMeses As Numeric
+	Local nRet As Numeric
+	Local nAnoRef As Numeric
+	Local nMesRef As Numeric
+	If PrimErro(oM,{nIni,nFim,cUni})!=nil
+		Return PrimErro(oM,{nIni,nFim,cUni})
+	EndIf
+	nIni	:= Int(nIni)
+	nFim	:= Int(nFim)
+	If nIni>nFim
+		Return oM:Err("#NUM!")
+	EndIf
+	aIni	:= oM:SerialData(nIni)
+	aFim	:= oM:SerialData(nFim)
+	nMeses	:= (aFim[1]-aIni[1])*12+(aFim[2]-aIni[2])
+	If aFim[3]<aIni[3]
+		nMeses--
+	EndIf
+	cUni	:= Upper(AllTrim(cUni))
+	Do Case
+		Case cUni=="Y"
+			Return Int(nMeses/12)
+		Case cUni=="M"
+			Return nMeses
+		Case cUni=="D"
+			Return nFim-nIni
+		Case cUni=="YM"
+			Return Mod(nMeses,12)
+		Case cUni=="MD"
+			If aFim[3]>=aIni[3]
+				Return aFim[3]-aIni[3]
+			EndIf
+			nAnoRef	:= aFim[1]
+			nMesRef	:= aFim[2]-1
+			If nMesRef<1
+				nMesRef	:= 12
+				nAnoRef--
+			EndIf
+			Return DiasMes(nAnoRef,nMesRef)-aIni[3]+aFim[3]
+		Case cUni=="YD"
+			nRet	:= oM:DataSerial(aFim[1],aIni[2],aIni[3])
+			If nRet>nFim
+				nRet	:= oM:DataSerial(aFim[1]-1,aIni[2],aIni[3])
+			EndIf
+			Return nFim-nRet
+	EndCase
+Return oM:Err("#NUM!")
+
+/*/{Protheus.doc} fYearFrac
+YEARFRAC(início,fim,[base 0-4])
+/*/
+Static Function fYearFrac(oM As Object, aArgs As Array)
+	Local nIni := DataArg(oM,aArgs[1]) As Variant
+	Local nFim := DataArg(oM,aArgs[2]) As Variant
+	Local nBase := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),0) As Variant
+	Local nTmp As Numeric
+	If PrimErro(oM,{nIni,nFim,nBase})!=nil
+		Return PrimErro(oM,{nIni,nFim,nBase})
+	EndIf
+	nBase	:= Int(nBase)
+	If nBase<0 .OR. nBase>4
+		Return oM:Err("#NUM!")
+	EndIf
+	nIni	:= Int(nIni)
+	nFim	:= Int(nFim)
+	If nIni>nFim
+		nTmp	:= nIni
+		nIni	:= nFim
+		nFim	:= nTmp
+	EndIf
+Return FracAno(oM,nIni,nFim,nBase)
+
+Static Function FracAno(oM As Object, nIni As Numeric, nFim As Numeric, nBase As Numeric)
+	Local aIni := oM:SerialData(nIni) As Array
+	Local aFim := oM:SerialData(nFim) As Array
+	Local nD1 := aIni[3] As Numeric
+	Local nD2 := aFim[3] As Numeric
+	Local nAno As Numeric
+	Local nDiasAnos := 0 As Numeric
+	Local lFev1 As Logical
+	Local lFev2 As Logical
+	Do Case
+		Case nBase==0	//30/360 americano
+			lFev1	:= aIni[2]==2 .AND. nD1==DiasMes(aIni[1],2)
+			lFev2	:= aFim[2]==2 .AND. nD2==DiasMes(aFim[1],2)
+			If lFev1 .AND. lFev2
+				nD2	:= 30
+			EndIf
+			If lFev1
+				nD1	:= 30
+			EndIf
+			If nD2==31 .AND. nD1>=30
+				nD2	:= 30
+			EndIf
+			If nD1==31
+				nD1	:= 30
+			EndIf
+			Return ((aFim[1]-aIni[1])*360+(aFim[2]-aIni[2])*30+(nD2-nD1))/360
+		Case nBase==1	//Real/real
+			If aIni[1]==aFim[1]
+				Return (nFim-nIni)/If(Bissexto(aIni[1]),366,365)
+			EndIf
+			If AteUmAno(oM,aIni,aFim,nIni,nFim)
+				Return (nFim-nIni)/If(TemFev29(oM,aIni,aFim,nIni,nFim),366,365)
+			EndIf
+			For nAno:=aIni[1] to aFim[1]
+				nDiasAnos	+= If(Bissexto(nAno),366,365)
+			Next
+			Return (nFim-nIni)/(nDiasAnos/(aFim[1]-aIni[1]+1))
+		Case nBase==2
+			Return (nFim-nIni)/360
+		Case nBase==3
+			Return (nFim-nIni)/365
+	EndCase
+	//4: 30/360 europeu
+Return ((aFim[1]-aIni[1])*360+(aFim[2]-aIni[2])*30+(Min(nD2,30)-Min(nD1,30)))/360
+
+//Intervalo de no máximo um ano
+Static Function AteUmAno(oM As Object, aIni As Array, aFim As Array, nIni As Numeric, nFim As Numeric)
+	If aFim[1]==aIni[1]
+		Return .T.
+	EndIf
+	If aFim[1]==aIni[1]+1
+		Return aIni[2]>aFim[2] .OR. (aIni[2]==aFim[2] .AND. aIni[3]>=aFim[3])
+	EndIf
+Return .F.
+
+//O intervalo contém um 29 de fevereiro
+Static Function TemFev29(oM As Object, aIni As Array, aFim As Array, nIni As Numeric, nFim As Numeric)
+	Local nAno As Numeric
+	Local nFev As Numeric
+	For nAno:=aIni[1] to aFim[1]
+		If Bissexto(nAno) .AND. nAno!=1900
+			nFev	:= oM:DataSerial(nAno,2,29)
+			If nFev>=nIni .AND. nFev<=nFim
+				Return .T.
+			EndIf
+		EndIf
+	Next
+Return .F.
+
+/*/{Protheus.doc} FimSemana
+Dias de fim de semana: número (1-7, 11-17) ou texto "0000011" (segunda a domingo, 1 = folga)
+@return array, 7 lógicos (domingo a sábado) ou Erro
+/*/
+Static Function FimSemana(oM As Object, xFim As Variant)
+	Local aRet := {.F.,.F.,.F.,.F.,.F.,.F.,.F.} As Array
+	Local nCont As Numeric
+	Local nTipo As Numeric
+	Local aPares := {{1,7},{1,2},{2,3},{3,4},{4,5},{5,6},{6,7}} As Array
+	xFim	:= oM:Esc(xFim)
+	If ValType(xFim)=="U"
+		xFim	:= 1
+	EndIf
+	If ValType(xFim)=="C"
+		If Len(xFim)!=7 .OR. xFim=="1111111"
+			Return oM:Err("#VALUE!")
+		EndIf
+		For nCont:=1 to 7
+			If !(SubStr(xFim,nCont,1) $ "01")
+				Return oM:Err("#VALUE!")
+			EndIf
+			aRet[Mod(nCont,7)+1]	:= SubStr(xFim,nCont,1)=="1"	//texto começa na segunda
+		Next
+		Return aRet
+	EndIf
+	nTipo	:= oM:Num(xFim)
+	If oM:EhErro(nTipo)
+		Return nTipo
+	EndIf
+	nTipo	:= Int(nTipo)
+	If nTipo>=1 .AND. nTipo<=7	//1=sábado/domingo 2=domingo/segunda ...
+		aRet[aPares[nTipo][1]]	:= .T.
+		aRet[aPares[nTipo][2]]	:= .T.
+		If nTipo==1
+			aRet[1]	:= .T.
+			aRet[7]	:= .T.
+		Else
+			aRet	:= {.F.,.F.,.F.,.F.,.F.,.F.,.F.}
+			aRet[nTipo-1]	:= .T.
+			aRet[nTipo]		:= .T.
+		EndIf
+		Return aRet
+	EndIf
+	If nTipo>=11 .AND. nTipo<=17	//Um dia: 11=domingo 12=segunda ... 17=sábado
+		aRet[nTipo-10]	:= .T.
+		Return aRet
+	EndIf
+Return oM:Err("#NUM!")
+
+//Feriados como índice de seriais (xErro recebe o erro, se houver)
+Static Function Feriados(oM As Object, xFer As Variant, xErro As Variant)
+	Local oIdx := tHashMap():New() As Object
+	Local aVals As Array
+	Local nCont As Numeric
+	Local nSerial As Variant
+	If ValType(xFer)=="U"
+		Return oIdx
+	EndIf
+	aVals	:= oM:Lista({xFer})
+	For nCont:=1 to Len(aVals)
+		nSerial	:= oM:NumData(aVals[nCont])
+		If oM:EhErro(nSerial)
+			xErro	:= nSerial
+			Return oIdx
+		EndIf
+		oIdx:Set(cValToChar(Int(nSerial)),.T.)
+	Next
+	FwFreeArray(aVals)
+Return oIdx
+
+Static Function DiaUtil(oM As Object, nSerial As Numeric, aFim As Array, oFer As Object)
+	Local lFer As Logical
+	If aFim[oM:DiaSemana(nSerial)]
+		Return .F.
+	EndIf
+Return !oFer:Get(cValToChar(nSerial),@lFer)
+
+/*/{Protheus.doc} fNetWorkDays
+NETWORKDAYS(início,fim,[feriados]) / NETWORKDAYS.INTL(início,fim,[fim_semana],[feriados])
+/*/
+Static Function fNetWorkDays(oM As Object, aArgs As Array, lIntl As Logical)
+	Local nIni := DataArg(oM,aArgs[1]) As Variant
+	Local nFim := DataArg(oM,aArgs[2]) As Variant
+	Local aFim As Variant
+	Local oFer As Variant
+	Local xErro As Variant
+	Local nSinal := 1 As Numeric
+	Local nTmp As Numeric
+	Local nRet := 0 As Numeric
+	Local nDia As Numeric
+	If PrimErro(oM,{nIni,nFim})!=nil
+		Return PrimErro(oM,{nIni,nFim})
+	EndIf
+	aFim	:= FimSemana(oM,If(lIntl .AND. Len(aArgs)>=3,aArgs[3],1))
+	If oM:EhErro(aFim)
+		Return aFim
+	EndIf
+	oFer	:= Feriados(oM,If(lIntl,If(Len(aArgs)>=4,aArgs[4],nil),If(Len(aArgs)>=3,aArgs[3],nil)),@xErro)
+	If xErro!=nil
+		oFer:Clean()
+		FreeObj(oFer)
+		Return xErro
+	EndIf
+	nIni	:= Int(nIni)
+	nFim	:= Int(nFim)
+	If nIni>nFim
+		nTmp	:= nIni
+		nIni	:= nFim
+		nFim	:= nTmp
+		nSinal	:= -1
+	EndIf
+	For nDia:=nIni to nFim
+		If DiaUtil(oM,nDia,aFim,oFer)
+			nRet++
+		EndIf
+	Next
+	oFer:Clean()
+	FreeObj(oFer)
+Return nSinal*nRet
+
+/*/{Protheus.doc} fWorkDay
+WORKDAY(início,dias,[feriados]) / WORKDAY.INTL(início,dias,[fim_semana],[feriados])
+/*/
+Static Function fWorkDay(oM As Object, aArgs As Array, lIntl As Logical)
+	Local nIni := DataArg(oM,aArgs[1]) As Variant
+	Local nDias := oM:Num(aArgs[2]) As Variant
+	Local aFim As Variant
+	Local oFer As Variant
+	Local xErro As Variant
+	Local nPasso As Numeric
+	Local nDia As Numeric
+	If PrimErro(oM,{nIni,nDias})!=nil
+		Return PrimErro(oM,{nIni,nDias})
+	EndIf
+	aFim	:= FimSemana(oM,If(lIntl .AND. Len(aArgs)>=3,aArgs[3],1))
+	If oM:EhErro(aFim)
+		Return aFim
+	EndIf
+	oFer	:= Feriados(oM,If(lIntl,If(Len(aArgs)>=4,aArgs[4],nil),If(Len(aArgs)>=3,aArgs[3],nil)),@xErro)
+	If xErro!=nil
+		oFer:Clean()
+		FreeObj(oFer)
+		Return xErro
+	EndIf
+	nDias	:= Int(nDias)
+	nDia	:= Int(nIni)
+	nPasso	:= If(nDias<0,-1,1)
+	While nDias!=0
+		nDia	+= nPasso
+		If nDia<0 .OR. nDia>2958465
+			Return oM:Err("#NUM!")
+		EndIf
+		If DiaUtil(oM,nDia,aFim,oFer)
+			nDias	-= nPasso
+		EndIf
+	EndDo
+	oFer:Clean()
+	FreeObj(oFer)
+Return nDia

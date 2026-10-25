@@ -162,6 +162,7 @@ Static Function fIfErro(oM As Object, aNos As Array, lSoNA As Logical)
 	Local nJ As Numeric
 	Local lTem := .F. As Logical
 	If oM:EhMat(xVal)
+		xVal	:= oM:CopiaMat(xVal)	//A matriz pode estar no cache do motor
 		For nI:=1 to xVal:nL
 			For nJ:=1 to xVal:nC
 				If EhErroAlvo(oM,xVal:aV[nI][nJ],lSoNA)

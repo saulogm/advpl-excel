@@ -880,7 +880,7 @@ Static Function fMDeterm(oM As Object, aArgs As Array)
 		Return oMat
 	EndIf
 	nN	:= oMat:nL
-	aA	:= aClone(oMat:aV)
+	aA	:= oM:CopiaMat(oMat):aV	//Cópia profunda: a matriz pode estar no cache do motor
 	For nI:=1 to nN	//Eliminação de Gauss com pivoteamento parcial
 		nPiv	:= nI
 		For nK:=nI+1 to nN
