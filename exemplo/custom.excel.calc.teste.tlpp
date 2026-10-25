@@ -1058,6 +1058,103 @@ Static Function ConfInt(cArq As Character)
 	FwFreeArray(aEsp)
 Return cRet
 
+/*/{Protheus.doc} XCALCHTML
+Teste do cálculo de fórmulas no html: gera xlsx e html nos modos A, M e B com fórmulas sem valor,
+input na coluna de quantidade, linha de subtotais, nome definido, tabela formatada e gráfico.
+Os html ficam em \xcalc\xcalc_html_<modo>.html para conferência no navegador
+@type user function
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+User Function XCALCHTML()
+	Local aModos := {"A","M","B"} As Array
+	Local nModo As Numeric
+	Local cLog := "" As Character
+	Local oErr As Object
+	FWMakeDir("\xcalc\",.F.)
+	If Type("__TTSInUse")=="U"	//Sem ambiente preparado: modo banco (B) usa SQLite local
+		Public __TTSInUse := .F.
+		Public __cLogSiga := ""
+	EndIf
+	For nModo:=1 to Len(aModos)
+		Try
+			FErase("\xcalc\xcalc_html_"+aModos[nModo]+".xlsx")
+			FErase("\xcalc\xcalc_html_"+aModos[nModo]+".html")
+			cLog	+= "Modo "+aModos[nModo]+": "+GeraHtml(aModos[nModo])+Chr(13)+Chr(10)
+		Catch oErr
+			cLog	+= "Modo "+aModos[nModo]+" EXCEPTION: "+oErr:Description+Chr(13)+Chr(10)+oErr:ErrorStack+Chr(13)+Chr(10)
+		EndTry
+	Next
+	MemoWrite("\xcalc_html.log",cLog)
+	ConOut(cLog)
+	FwFreeArray(aModos)
+Return 0
+
+Static Function GeraHtml(cTipo As Character)
+	Local oExcel := custom.excel.Xlsx():New("xcalc_html_"+cTipo,,cTipo) As Object
+	Local aProd := {{"Teclado",10,89.9},{"Mouse",25,45.5},{"Monitor",3,1299},{"Cadeira",0,950},{"Mesa",2,1500.75}} As Array
+	Local aInfo := {'TEXT(D2,"#.##0,00")','VLOOKUP("Mouse",A2:D6,4,FALSE)','IF(D2>500,"alto","baixo")',"NORM.S.DIST(1,TRUE)","DATE(2026,10,25)+B2"} As Array
+	Local oStyMoeda As Object
+	Local oStyData As Object
+	Local oTab As Object
+	Local oGraf As Object
+	Local oHtml As Object
+	Local nCont As Numeric
+	Local nLin As Numeric
+	Local cHtml As Character
+	oStyMoeda	:= oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("#,##0.00"))
+	oStyData	:= oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("dd/mm/yyyy"))
+	oExcel:ADDPlan("Vendas")
+	oExcel:Cell(1,1,"Produto")
+	oExcel:Cell(1,2,"Qtd")
+	oExcel:Cell(1,3,"Preco")
+	oExcel:Cell(1,4,"Total")
+	oExcel:Cell(1,8,"Info")
+	For nCont:=1 to Len(aProd)
+		nLin	:= nCont+1
+		oExcel:Cell(nLin,1,aProd[nCont][1])
+		oExcel:Cell(nLin,2,aProd[nCont][2])
+		oExcel:Pos(nLin,3):SetValue(aProd[nCont][3]):SetStyle(oStyMoeda)
+		oExcel:Pos(nLin,4):SetValue(,"B"+cValToChar(nLin)+"*C"+cValToChar(nLin)):SetStyle(oStyMoeda)
+		oExcel:Pos(nLin,8):SetValue(,aInfo[nCont]):SetStyle(If(nCont==5,oStyData,nil))
+	Next
+	oExcel:AutoFilter(1,1,6,4)
+	oExcel:AddNome("TOTAIS",2,4,6,4)
+	oExcel:Cell(8,1,"Total")
+	oExcel:Cell(8,2,nil,"SUBTOTAL(109,B2:B6)")
+	oExcel:Pos(8,4):SetValue(,"SUBTOTAL(109,D2:D6)"):SetStyle(oStyMoeda)
+	oExcel:Pos(8,5):SetValue(,"SUM(D2:D6)"):SetStyle(oStyMoeda)
+	oExcel:Pos(8,6):SetValue(,"AGGREGATE(9,5,D2:D6)"):SetStyle(oStyMoeda)
+	oExcel:Pos(8,7):SetValue(,"SUM(TOTAIS)"):SetStyle(oStyMoeda)
+	oExcel:ADDPlan("Resumo")
+	oTab	:= oExcel:AddTabela("TabR",1,1)
+	oTab:AddColumn("Produto")
+	oTab:AddColumn("Total",oStyMoeda)
+	For nCont:=1 to Len(aProd)
+		oTab:AddLine()
+		oTab:Cell("Produto",aProd[nCont][1])
+		oTab:Cell("Total",nil,"Vendas!D"+cValToChar(nCont+1))
+	Next
+	oTab:AddTotal("Produto","Total")
+	oTab:AddTotal("Total",nil,"SUM")
+	oTab:AddTotais()
+	oTab:Finish()
+	oExcel:Cell(10,1,nil,"SUM(TabR[Total])")
+	oExcel:Cell(11,1,nil,"TabR[[#Totals],[Total]]")
+	oGraf	:= oExcel:NewChart("col")
+	oGraf:SetTitulo("Total por produto")
+	oGraf:AddSerie(cNome = "Total", cRefVal = "Resumo!$B$2:$B$6", cRefCat = "Resumo!$A$2:$A$6")
+	oGraf:Insert(nLinha = 1, nColuna = 4, nLinha2 = 16, nColuna2 = 11)
+	oHtml	:= oExcel:NewHtml()
+	oHtml:SetColInput("B","number",2,6,1,"qtd")
+	oExcel:Save("\xcalc")
+	cHtml	:= oExcel:Save2Html("\xcalc",oHtml)
+	oExcel:Close()
+	FreeObj(oExcel)
+	FwFreeArray(aProd)
+	FwFreeArray(aInfo)
+Return cHtml
+
 /*/{Protheus.doc} CasosPtBr
 Casos executados com a localidade pt-BR
 /*/

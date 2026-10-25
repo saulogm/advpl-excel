@@ -7,8 +7,9 @@
 4. Inputs por coluna
 5. Blocos de código (planilha, linha, coluna, célula)
 6. JavaScript no html e envio por formulário
-7. O que é convertido e limitações
-8. Exemplo completo
+7. Fórmulas no navegador
+8. O que é convertido e limitações
+9. Exemplo completo
 
 ---
 
@@ -49,6 +50,7 @@ New → (estilos) → ADDPlan → escrever → [oHtml := NewHtml() + configuraç
 | `AddCss(cCss)` / `AddScript(cJs)` / `AddHead(cHtml)` | Conteúdo adicional |
 | `SetAction(cUrl, cMetodo, cTxtBotao)` | `<form>` com botão de envio |
 | `SetChartJs(cUrl)` | URL do Chart.js (padrão CDN jsdelivr 4.4.1). Sem internet: caminho acessível ao navegador |
+| `SetFormulaJs(cUrl)` | URL do formula.js (padrão CDN jsdelivr `@formulajs/formulajs@4.6.1`), carregado só quando há fórmula. Sem internet: caminho acessível ao navegador; `""` não carrega (seção 7) |
 | `SetAbas(lAbas)` | `.T.` abas por planilha (padrão), `.F.` todas em sequência |
 | `SetPlanilhas(aPlanilhas)` | Somente as planilhas informadas (número ou nome) |
 | `SetGrade(lGrade)` | Força exibir/ocultar linhas de grade |
@@ -96,12 +98,37 @@ oHtml:AddCss("tr.par td{background:#f7f7f7}")
 
 `SetAction(cUrl)`: as planilhas ficam em um `<form>`; cada input é enviado pelo nome e o campo oculto `xh_dados` leva `JSON.stringify(getDados())`.
 
-## 7. O que é convertido e limitações
+## 7. Fórmulas no navegador
+
+Cada célula com fórmula leva o texto em `data-f` e o valor calculado pelo AdvPL. No navegador:
+
+- Ao alterar um input, só as fórmulas que dependem da célula são recalculadas (grafo de dependências, inclusive entre planilhas, nomes definidos e `Tab[Coluna]`), e o resultado é exibido com o formato numérico do estilo.
+- Fórmulas sem valor gravado são calculadas ao abrir a página.
+- Motor próprio (mesma gramática do Excel) com as funções mais usadas: agregação, `SUBTOTAL`/`AGGREGATE`, `SUMIF(S)`/`COUNTIF(S)`, lógicas, `LET`/`LAMBDA`/`MAP`/`REDUCE`, texto (`TEXT` na localidade do `SetCalcLocal`), datas, `VLOOKUP`/`XLOOKUP`/`INDEX`/`MATCH`/`OFFSET`/`INDIRECT`, matrizes dinâmicas (só a célula âncora). As demais funções do Excel vêm do **formula.js** (`SetFormulaJs`).
+- Função que não existe em nenhum dos dois (ou formula.js não carregado): a célula mantém o valor calculado pelo AdvPL.
+- Célula com fórmula configurada como input: o input prevalece (não recalcula).
+
+| `window.xlsxHtml` | Uso |
+|---|---|
+| `recalcula(ref)` | Recalcula as dependentes de `ref` (ex.: `"Plan!B2:B9"`, após alterar células por script); sem argumento recalcula todas |
+| `calcula(cFormula, plan)` | Avalia uma fórmula avulsa na planilha (número ou nome; padrão a visível) |
+| `valorFormula(ref)` | Valor atual da célula (calculado) |
+| `formata(valor, codigo)` | Formata como o formato numérico do Excel (`"#,##0.00"`) |
+| `addFuncao(nome, fn, flags)` | Registra/substitui função: `fn(args, contexto)` recebe os argumentos avaliados; `flags` `"E"` aplica elemento a elemento, `"V"` volátil, `"L"` recebe os nós sem avaliar |
+
+Evento `xlsxhtml:recalculo` no `document` (`e.detail.celulas` = `<td>` recalculados).
+
+```js
+document.addEventListener('xlsxhtml:recalculo',function(e){console.log(e.detail.celulas.length+' células');});
+xlsxHtml.addFuncao('DOBRO',function(a){return a[0]*2;},'E');
+```
+
+## 8. O que é convertido e limitações
 
 | Excel | Html |
 |---|---|
 | Valores e formato numérico do estilo | Texto formatado em pt-BR (decimal `,`, milhar `.`), valor bruto em `data-v` |
-| Fórmulas | Mostra o `xValor` informado no `SetValue` (não recalcula). Sempre informe `xValor` junto com `cFormula` |
+| Fórmulas | Valor calculado pelo AdvPL (ou o `xValor` informado) e recálculo no navegador ao alterar inputs (seção 7) |
 | Estilos, mesclagem, larguras, colunas/linhas ocultas, altura | CSS `.sN` (degradê linear e `path`, recuo esquerdo/direito, texto girado), `colspan`/`rowspan`, `<colgroup>` com largura fixa da tabela e altura padrão das linhas da planilha |
 | Texto maior que a célula | Ocupa as vizinhas vazias como no Excel (mesclada não transborda; alinhado à direita corta à esquerda) |
 | Cor da aba (`tabColor`) | Aba do html na mesma cor |
@@ -113,7 +140,7 @@ oHtml:AddCss("tr.par td{background:#f7f7f7}")
 | Imagens | `<img>` base64 na célula âncora, com rotação (90/270 graus: a área informada é a da imagem já girada, como no Excel) |
 | Gráficos | Chart.js na área do `Insert`, com aparência próxima do Excel (cores do tema, grade, escala a partir de zero, rótulos de dados, colunas/pizza 3D, ações em candlestick, bolhas, pizza de pizza, combinado com eixo secundário). Usa os arrays da série ou lê as células das referências. Superfície não suportada; pizza de barras é desenhada como pizza de pizza |
 
-## 8. Exemplo completo
+## 9. Exemplo completo
 
 ```tlpp
 #include "tlpp-core.th"

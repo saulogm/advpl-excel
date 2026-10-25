@@ -8,6 +8,8 @@
 - Novo motor de fórmulas em AdvPL (`src/custom.excel.calc*.tlpp`, namespace `custom.excel.calc`): parser com precedência do Excel, referências entre planilhas, nomes definidos, referências estruturadas de tabela, matrizes, LET/LAMBDA e 539 funções do Excel (504 calculadas; as dependentes do ambiente, como CUBE*/RTD/WEBSERVICE, ficam para o Excel).
 - Fórmulas não calculáveis ficam sem valor e o workbook recebe `calcPr fullCalcOnLoad="1"`.
 - Novos métodos: `SetCalcFormula`, `AddFuncFormula`, `SetCalcLocal`.
+- Html (`Save2Html`): as fórmulas vão para a página (`data-f`) e são recalculadas no navegador quando um input muda, só as dependentes, inclusive entre planilhas, nomes definidos e `Tab[Coluna]`. Motor JS próprio com as funções mais usadas e as demais via formula.js (CDN, `oHtml:SetFormulaJs(cUrl)` para ambiente sem internet). API `xlsxHtml.recalcula/calcula/valorFormula/formata/addFuncao` e evento `xlsxhtml:recalculo`.
+- Html: `data-v` grava o número com até 15 dígitos significativos (antes 8 decimais); no modo B a fórmula deixa de vir com escape XML.
 - Correções: subtotais MAX/MIN/MULT/STDEV/VAR do `Alias2Tab`; `LocRef` aceita o prefixo `Plan!`; no modo B, células só com fórmula não são mais descartadas no `Save`.
 - Documentação: `skills/advpl-excel-xlsx/references/formulas.md`.
 
