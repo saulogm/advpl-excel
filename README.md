@@ -33,6 +33,7 @@ Exemplo de uso:
 * Cabeçalho e Ropadé
 * Leitura de dados já gravados
 * Gravação em html (Save2Html): uma tabela por planilha com estilos, filtros, agrupamento, formatação condicional, imagens, gráficos (Chart.js), colunas como input e blocos de código para alterar o html
+* Fórmulas no html: recalculadas no navegador ao alterar inputs; SUBTOTAL acompanha o filtro e os gráficos se redesenham com os novos valores
 
 * Leitura simples dos dados
 

@@ -107,6 +107,9 @@ Cada célula com fórmula leva o texto em `data-f` e o valor calculado pelo AdvP
 - Motor próprio (mesma gramática do Excel) com as funções mais usadas: agregação, `SUBTOTAL`/`AGGREGATE`, `SUMIF(S)`/`COUNTIF(S)`, lógicas, `LET`/`LAMBDA`/`MAP`/`REDUCE`, texto (`TEXT` na localidade do `SetCalcLocal`), datas, `VLOOKUP`/`XLOOKUP`/`INDEX`/`MATCH`/`OFFSET`/`INDIRECT`, matrizes dinâmicas (só a célula âncora). As demais funções do Excel vêm do **formula.js** (`SetFormulaJs`).
 - Função que não existe em nenhum dos dois (ou formula.js não carregado): a célula mantém o valor calculado pelo AdvPL.
 - Célula com fórmula configurada como input: o input prevalece (não recalcula).
+- **Filtro e agrupamento** (como no Excel): ao filtrar, `SUBTOTAL` 1-11/101-111 e `AGGREGATE` ignoram as linhas filtradas; ao recolher grupo ou com linha oculta, só `SUBTOTAL` 101-111 e `AGGREGATE` com opção de ocultas as ignoram. `SUM` e demais não mudam. A linha de totais da tabela formatada (`SUBTOTAL(109,Tab[Col])`) acompanha o filtro.
+- **Gráficos** usam a referência da série (`cRefVal`/`cRefCat`...) quando existe e se redesenham após input, recálculo, filtro ou agrupamento, sem as linhas ocultas ("mostrar somente células visíveis" do Excel). Sem referência, usam os valores fixos da série.
+- A formatação condicional é reavaliada com os novos valores.
 
 | `window.xlsxHtml` | Uso |
 |---|---|
@@ -114,6 +117,7 @@ Cada célula com fórmula leva o texto em `data-f` e o valor calculado pelo AdvP
 | `calcula(cFormula, plan)` | Avalia uma fórmula avulsa na planilha (número ou nome; padrão a visível) |
 | `valorFormula(ref)` | Valor atual da célula (calculado) |
 | `formata(valor, codigo)` | Formata como o formato numérico do Excel (`"#,##0.00"`) |
+| `atualizaGraficos()` | Redesenha os gráficos com os valores atuais das células |
 | `addFuncao(nome, fn, flags)` | Registra/substitui função: `fn(args, contexto)` recebe os argumentos avaliados; `flags` `"E"` aplica elemento a elemento, `"V"` volátil, `"L"` recebe os nós sem avaliar |
 
 Evento `xlsxhtml:recalculo` no `document` (`e.detail.celulas` = `<td>` recalculados).
@@ -138,7 +142,7 @@ xlsxHtml.addFuncao('DOBRO',function(a){return a[0]*2;},'E');
 | Formatação condicional | `cellIs`, duplicados/exclusivos, `FormatCondTempo`, `DataBar` (degradê), `IconSet`. A prioridade vale entre todas as regras da planilha. **Não** avalia `FormatCond(...,"FORMULA",...)` |
 | Comentário / hyperlink interno | Dica + marcador / link para a célula de destino |
 | Imagens | `<img>` base64 na célula âncora, com rotação (90/270 graus: a área informada é a da imagem já girada, como no Excel) |
-| Gráficos | Chart.js na área do `Insert`, com aparência próxima do Excel (cores do tema, grade, escala a partir de zero, rótulos de dados, colunas/pizza 3D, ações em candlestick, bolhas, pizza de pizza, combinado com eixo secundário). Usa os arrays da série ou lê as células das referências. Superfície não suportada; pizza de barras é desenhada como pizza de pizza |
+| Gráficos | Chart.js na área do `Insert`, com aparência próxima do Excel (cores do tema, grade, escala a partir de zero, rótulos de dados, colunas/pizza 3D, ações em candlestick, bolhas, pizza de pizza, combinado com eixo secundário). Lê as células das referências (acompanha inputs, fórmulas e filtros, sem as linhas ocultas) ou usa os arrays da série quando não há referência. Superfície não suportada; pizza de barras é desenhada como pizza de pizza |
 
 ## 9. Exemplo completo
 

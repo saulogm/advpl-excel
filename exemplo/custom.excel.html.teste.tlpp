@@ -5,7 +5,9 @@ Namespace custom.excel.teste
 /*/{Protheus.doc} tstHtml
 Teste do Save2Html (tipo "M"): gera o mesmo conteúdo em xlsx e em html.
 Demonstra estilos, mesclagem, fórmula, painel congelado, filtro, formatação condicional, comentário,
-hyperlink, tabela formatada, gráfico, inputs por coluna e blocos de código por linha, coluna e célula
+hyperlink, tabela formatada, gráfico, inputs por coluna e blocos de código por linha, coluna e célula.
+No navegador: alterar a quantidade recalcula o total da linha, os subtotais, a tabela do resumo e o gráfico;
+filtrar a tabela recalcula o SUBTOTAL só com as linhas visíveis
 @type function
 @version 1.0
 @author Saulo Gomes Martins
@@ -63,11 +65,15 @@ User Function tstHtml()
 			oExcel:Pos(nLin,1):SetValue(aProd[nCont][1])
 			oExcel:Pos(nLin,2):SetValue(aProd[nCont][2])
 			oExcel:Pos(nLin,3):SetValue(aProd[nCont][3]):SetStyle(oStyMoeda)
-			oExcel:Pos(nLin,4):SetValue(xValor = aProd[nCont][2]*aProd[nCont][3], cFormula = "B"+cValToChar(nLin)+"*C"+cValToChar(nLin)):SetStyle(oStyMoeda)
+			oExcel:Pos(nLin,4):SetValue(cFormula = "B"+cValToChar(nLin)+"*C"+cValToChar(nLin)):SetStyle(oStyMoeda)	//Sem valor: calculado no Save e no navegador
 			oExcel:Pos(nLin,5):SetValue(Date()-nCont)
 			oExcel:Pos(nLin,6):SetValue(aProd[nCont][2]>0)
 		Next
 		oExcel:Pos(nLin+1,1):SetValue("Ver resumo"):SetStyle(oStyLink):Addhyperlink(cLocation = "Resumo!A1", ctooltip = "Ir para o resumo")
+		//Subtotais: SUBTOTAL(109) considera só as linhas visíveis do filtro
+		oExcel:Pos(nLin+2,1):SetValue("Total visível"):SetStyle(oStyCab)
+		oExcel:Pos(nLin+2,2):SetValue(cFormula = "SUBTOTAL(109,B4:B"+cValToChar(nLin)+")"):SetStyle(oStyCab)
+		oExcel:Pos(nLin+2,4):SetValue(cFormula = "SUBTOTAL(109,D4:D"+cValToChar(nLin)+")"):SetStyle(oStyMoeda)
 		oExcel:PosR("A4"):AddComment(cText = "Produto mais vendido do mês", cAutor = "Vendas")
 		oExcel:AutoFilter(nLinha = 3, nColuna = 1, nLinha2 = nLin, nColuna2 = 6)
 		oExcel:AddPane(nySplit = 3, nxSplit = 1)
@@ -87,7 +93,7 @@ User Function tstHtml()
 		For nCont:=1 to Len(aProd)
 			oTab:AddLine()
 			oTab:Cell(xColuna = "Produto", xValor = aProd[nCont][1])
-			oTab:Cell(xColuna = "Total", xValor = aProd[nCont][2]*aProd[nCont][3])
+			oTab:Cell(xColuna = "Total", cFormula = "Vendas!D"+cValToChar(nCont+3))	//Ligado ao total da venda (recalcula com a quantidade)
 		Next
 		oTab:AddTotal(xColuna = "Produto", xValor = "Total")
 		oTab:AddTotal(xColuna = "Total", cFunction = "SUM")
