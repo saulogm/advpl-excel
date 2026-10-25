@@ -142,6 +142,11 @@ Class Xlsx
 	Public Data oRow				As Object
 
 	Public Data cPathsheetData		As Character
+	Public Data aCharts				As Array //Gráficos inseridos {oChart,nPlanilha,nLinha,nColuna,nLinha2,nColuna2} (Save2Html)
+	Public Data aImgPos				As Array //Imagens posicionadas {nPlanilha,nIDImagem,nLinha,nColuna,nLargura,nAltura,nRotacao} em pixels (Save2Html)
+	Public Data aMaxCol				As Array //Maior coluna gravada por planilha no tipo arquivo (Save2Html)
+	Public Data lEscritaFim			As Logical //Gravação do tipo arquivo finalizada (Save/Save2Html)
+	Public Data lHtml				As Logical //Preserva os dados temporários para o Save2Html após o Save (padrão .T.; .F. libera no Save)
 
 	Public METHOD New()			 	As Object
 	Public METHOD ClassName()
@@ -151,6 +156,8 @@ Class Xlsx
 	Public METHOD Gravar()			//Grava em disco
 	Public METHOD OpenApp()			//Abre arquivo gravado
 	Public METHOD Save()			//Salva xlsx
+	Public METHOD Save2Html()		//Salva html
+	Public METHOD NewHtml()			//Cria a configuração do html (custom.excel.Html)
 	Public METHOD Close()			//fecha arquivo aberto e limpa temporario
 	Public METHOD Destroy()			//fecha arquivo aberto e limpa temporario
 	Public METHOD SetPlanName()		//Altera o nome da planilha
@@ -237,6 +244,9 @@ Class Xlsx
 	Public METHOD LerPasta()
 
 	//Interno
+	Public METHOD FimEscrita()		//Finaliza a gravação do arquivo de linhas (tipo arquivo)
+	Public METHOD CopiaClient()		//Copia arquivo do servidor para o client
+	Public METHOD DirHtml()			//Pasta temporária preservada para o Save2Html
 	Public METHOD CriarFile()		//Cria arquivos temporarios
 	Public METHOD GravaFile()		//Grava em arquivos temporarios
 	Public METHOD AddFormatCond()	//Formatação condicional(todos rercusos)
@@ -385,6 +395,11 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::lBD			:= .F.
 	::lCanUseBulk	:= .F.
 	::aBulkDB		:= {}
+	::aCharts		:= {}
+	::aImgPos		:= {}
+	::aMaxCol		:= {}
+	::lEscritaFim	:= .F.
+	::lHtml			:= .T.	//Sempre preserva os dados para o Save2Html após o Save
 	::oRegex1 		:= tlpp.regex.Regex():New('[^A-Za-z0-9\s_]')	//Aceita Alfa,Num,Espaco,underline
 	::oRegex2		:= tlpp.regex.Regex():New('[A-Za-z]{1,3}[0-9]{1,7}')	//Se é uma referencia de celula
 	If cTipo=="M"
@@ -542,7 +557,13 @@ Method Open(cFile As Character, cSenha As Character) Class Xlsx
 		::aRels			:= {}
 		::aDraw			:= {}
 		::aworkdrawing	:= {}
+		aEval(::asheet, {|x| If(ValType(x[1])=="O",FreeObj(x[1]),nil) })	//Libera os xml da planilha anterior
 		::asheet		:= {}
+		::aCharts		:= {}
+		FwFreeArray(::aImgPos)
+		::aImgPos		:= {}
+		::aMaxCol		:= {}
+		::lEscritaFim	:= .F.
 		::aPlanilhas	:= {}
 		::aPadraoSty	:= {}
 		::nIdRelat	:= 0
@@ -789,6 +810,9 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 	//Cria nova planilha
 	nQtdPlanilhas++
 	If ::lArquivo
+		If ::lEscritaFim
+			UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível adicionar planilhas.")
+		EndIf
 		If ValType(::oC)=="O"
 			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
@@ -834,6 +858,7 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 	cID	:= ::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
 
 	AADD(::aPlanilhas,{cID,cNome,/*3-id draw*/,/*4-drawsID*/,{}/*5-atable*/,Tag():New("tableParts",{},,self)/*6-tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/})
+	AADD(::aMaxCol,0)
 	::nPlanilhaAt	:= nQtdPlanilhas
 	::SetFooter("TOTVS","","Página &P/&N")
 
@@ -1862,6 +1887,7 @@ METHOD Img(nID As Numeric, nLinha As Numeric, nColuna As Numeric, nX As Numeric,
 	::aDraw[nPos][3]++
 
 	AADD(::aImgdraw,Len(::aImgdraw)+1)
+	AADD(::aImgPos,{::nPlanilhaAt,nID,nLinha,nColuna,Round(nX/9525,0),Round(nY/9525,0),nRot})	//Posição em pixels para o Save2Html
 
 Return
 
@@ -2160,6 +2186,8 @@ Inserir células vazias
 /*/
 Method InsertCellEmpty(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna2 As Numeric) Class Xlsx
 	Local cQuery As Character
+	Local cColunas As Character
+	Local cAliasTmp As Character
 	Local cRef As Character
 	Local nCont As Numeric
 	Local nCont2 As Numeric
@@ -2180,62 +2208,68 @@ Method InsertCellEmpty(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric
 			Next
 		Else
 			::InsertRowEmpty(nLinha,nLinha2)
-			//If "SQLITE" $ ::cDriver
-			//	cQuery	:= "INSERT INTO "+::cTabCol+" (PLA,LIN,COL,TIPO,TPSTY,TPVLR,STY)"+;
-			//		" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
-			//		" ,col(y) AS (VALUES("+cValToChar(nColuna)+") UNION ALL SELECT y+1 FROM col WHERE y<"+cValToChar(nColuna2)+")"+;
-			//		" SELECT "+cValToChar(::nPlanilhaAt)+",x,y,'s','S','U',-1 FROM lin INNER JOIN col on 1=1 LEFT JOIN "+::cTabCol+" TAB ON TAB.PLA="+cValToChar(::nPlanilhaAt)+" AND lin.x=TAB.LIN AND col.y=TAB.COL"+;
-			//		" WHERE TAB.LIN is null"
-			//	If !::ExecSql("",cQuery,::cDriver)
-			//		UserException("Xlsx - Erro ao inserrir celulas. "+TCSqlError())
-			//	Endif
-			//Else
-			cQuery	:= " SELECT LIN,COL FROM "+::cTabCol+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" AND COL BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+" ORDER BY COL,LIN"
-			cAliasTmp	:= MpSysOpenQuery(cQuery)
-			if ::lCanUseBulk
+			If "SQLITE" $ ::cDriver	//Sem conexão DBAccess: insere as células faltantes direto no SQLite
+				cColunas	:= ""
 				For nCont2:=nColuna to nColuna2
-					cRef	:= ::NumToString(nCont2)
-					For nCont:=nLinha to nLinha2
-						If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
-							(cAliasTmp)->(DbSkip())
-							Loop
-						EndIf
-						::aBulkDB[1]:AddData({;
-											::nPlanilhaAt;				//PLA
-											,nCont;						//LIN
-											,nCont2;					//COL
-											,cRef+cValToChar(nCont);	//REF
-											,-1;						//STY
-											,"S";						//TPSTY
-											,"s";						//TIPO
-											,"";						//FORMULA
-											,"U";						//TPVLR
-											,"";						//VLR
-											})
-					Next
+					cColunas	+= If(nCont2>nColuna,",","")+"("+cValToChar(nCont2)+",'"+::NumToString(nCont2)+"')"
 				Next
-				::aBulkDB[1]:Flush()
+				cQuery	:= "INSERT INTO "+::cTabCol+" (PLA,LIN,COL,REF,STY,TPSTY,TIPO,FORMULA,TPVLR,VLR)"+;
+					" WITH RECURSIVE lin(x) AS (VALUES("+cValToChar(nLinha)+") UNION ALL SELECT x+1 FROM lin WHERE x<"+cValToChar(nLinha2)+")"+;
+					" ,col(y,r) AS (VALUES"+cColunas+")"+;
+					" SELECT "+cValToChar(::nPlanilhaAt)+",x,y,r||x,-1,'S','s','','U','' FROM lin INNER JOIN col on 1=1 LEFT JOIN "+::cTabCol+" TAB ON TAB.PLA="+cValToChar(::nPlanilhaAt)+" AND lin.x=TAB.LIN AND col.y=TAB.COL"+;
+					" WHERE TAB.LIN is null"
+				If !::ExecSql("",cQuery,::cDriver)
+					UserException("Xlsx - Erro ao inserir celulas. "+TCSqlError())
+				Endif
 			Else
-				For nCont:=nLinha to nLinha2
+				cQuery	:= " SELECT LIN,COL FROM "+::cTabCol+" TAB WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN BETWEEN "+cValToChar(nLinha)+" AND "+cValToChar(nLinha2)+" AND COL BETWEEN "+cValToChar(nColuna)+" AND "+cValToChar(nColuna2)+" ORDER BY COL,LIN"
+				cAliasTmp	:= MpSysOpenQuery(cQuery)
+				if ::lCanUseBulk
 					For nCont2:=nColuna to nColuna2
-						If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
-							(cAliasTmp)->(DbSkip())
-							Loop
-						EndIf
-						RecLock(::cAliasCol,.T.)
-						(::cAliasCol)->PLA	:= ::nPlanilhaAt
-						(::cAliasCol)->LIN	:= nCont
-						(::cAliasCol)->COL	:= nCont2
-						(::cAliasCol)->TIPO	:= 's'
-						(::cAliasCol)->TPSTY:= 'S'
-						(::cAliasCol)->TPVLR:= 'U'
-						(::cAliasCol)->STY	:= -1
-						MsUnLock()
+						cRef	:= ::NumToString(nCont2)
+						For nCont:=nLinha to nLinha2
+							If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
+								(cAliasTmp)->(DbSkip())
+								Loop
+							EndIf
+							::aBulkDB[1]:AddData({;
+												::nPlanilhaAt;				//PLA
+												,nCont;						//LIN
+												,nCont2;					//COL
+												,cRef+cValToChar(nCont);	//REF
+												,-1;						//STY
+												,"S";						//TPSTY
+												,"s";						//TIPO
+												,"";						//FORMULA
+												,"U";						//TPVLR
+												,"";						//VLR
+												})
+						Next
 					Next
-				Next
+					::aBulkDB[1]:Flush()
+				Else
+					For nCont2:=nColuna to nColuna2
+						cRef	:= ::NumToString(nCont2)
+						For nCont:=nLinha to nLinha2
+							If (cAliasTmp)->LIN==nCont.AND.(cAliasTmp)->COL==nCont2
+								(cAliasTmp)->(DbSkip())
+								Loop
+							EndIf
+							RecLock(::cAliasCol,.T.)
+							(::cAliasCol)->PLA	:= ::nPlanilhaAt
+							(::cAliasCol)->LIN	:= nCont
+							(::cAliasCol)->COL	:= nCont2
+							(::cAliasCol)->REF	:= cRef+cValToChar(nCont)
+							(::cAliasCol)->TIPO	:= 's'
+							(::cAliasCol)->TPSTY:= 'S'
+							(::cAliasCol)->TPVLR:= 'U'
+							(::cAliasCol)->STY	:= -1
+							MsUnLock()
+						Next
+					Next
+				EndIf
+				(cAliasTmp)->(DbCloseArea())
 			EndIf
-			(cAliasTmp)->(DbCloseArea())
-			//EndIf
 		EndIf
 	EndIf
 Return
@@ -2341,7 +2375,7 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 			EndIf
 			If ValType(::nTamLinha)=="N"
 				AADD(aAtt,{"customHeight","1"})
-				AADD(aAtt,{"hidden",cValToChar(::nTamLinha)})
+				AADD(aAtt,{"ht",cValToChar(::nTamLinha)})
 			EndIf
 			::asheet[::nPlanilhaAt][1]:XPathAddAttArray(cPathLinha,aAtt)
 		EndIf
@@ -2571,15 +2605,13 @@ Return cPathLinha
 
 Method NewColunaM(cRef As Character, nLinha As Numeric) Class Xlsx
 	Local cPathColuna As Character
+	Local cPathLinha As Character
 	Local nCQtd As Numeric
 	Default cRef	:= ::cRef
 	Default nLinha	:= ::nLinha
 	If !::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+		cPathLinha	:= ::NewLinhaM(nLinha)	//Caminho da linha (cria se não existir)
 		::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(nLinha),@nCQtd)
-		If ValType(nCQtd)=="U"
-			::NewLinhaM(nLinha)
-			::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(nLinha),@nCQtd)
-		EndIf
 		nCQtd++
 		cPathColuna	:= cPathLinha+"/*["+cValToChar(nCQtd)+"]"
 		::aPlanilhas[::nPlanilhaAt][7]:Set(cRef,cPathColuna)
@@ -2649,6 +2681,9 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 	PARAMTYPE 1	VAR nColuna		AS NUMERIC
 	PARAMTYPE 2	VAR nPlanilha	AS NUMERIC OPTIONAL DEFAULT ::nPlanilhaAt
 	If ::lArquivo .AND. nLinha>0
+		If ::lEscritaFim
+			UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível gravar novas células.")
+		EndIf
 		If ValType(::oC)=="O" .AND. (::nLinha<>nLinha .OR. ::nColuna<>nColuna)
 			If nLinha<::nLinha
 				UserException("Xlsx - gravação em arquivo deve ser sequencial. Linha Atual "+cValToChar(::nLinha)+" Linha enviada "+cValToChar(nLinha))
@@ -2690,6 +2725,9 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 	::cRef			:= ::Ref(nLinha,nColuna)
 	If ::lArquivo .AND. nLinha>0 .AND. nColuna>0
 		::oC	:= Tag():New("c",{},{{"r",::cRef}})
+		If nPlanilha<=Len(::aMaxCol) .AND. nColuna>::aMaxCol[nPlanilha]
+			::aMaxCol[nPlanilha]	:= nColuna
+		EndIf
 	EndIf
 Return self
 
@@ -6498,9 +6536,16 @@ Method Close() Class Xlsx
 		::ExecSql("", 'DROP TABLE ' + ::cAliasStr , ::cDriver)
 	Endif
 	aEval(::aCleanObj, {|x| FreeObj(x) })
+	aEval(::asheet, {|x| If(ValType(x[1])=="O",FreeObj(x[1]),nil) })	//xml das planilhas (mantidos após o Save para o Save2Html)
+	::asheet	:= {}
+	::aCharts	:= {}	//objetos já liberados pelo aCleanObj
 	If substr(::cLocalFile,1,8)<>"\tmpxls\"
 		DelPasta("\tmpxls\"+::cTmpFile)
+	ElseIf ExistDir(::DirHtml(),,.F.)
+		DelPasta(SubStr(::DirHtml(),1,Len(::DirHtml())-1))	//Dados preservados para o Save2Html
 	Endif
+	FwFreeArray(::aImgPos)
+	FwFreeArray(::aMaxCol)
 	FwFreeArray(::aFiles)
 	FwFreeArray(::aPadraoSty)
 	FwFreeArray(::aTmpDB)
@@ -6565,6 +6610,7 @@ Method Save(cLocal As Character) Class Xlsx
 	Local lSheetDataOk As Logical
 	Local oFile As Object
 	Local oQryPlan As Object
+	Local cQryPlan As Character
 	Local cAliasQry As Character
 	Local oCrypto	as object
 	Default cLocal := If(!IsBlind(),GetTempPath(),"\")
@@ -6578,8 +6624,11 @@ Method Save(cLocal As Character) Class Xlsx
 			cQuery		+= " WHERE P.PLA= ? "
 			cQuery		+= " AND P.D_E_L_E_T_=' '"
 			cQuery		+= " ORDER BY P.PLA,P.LIN"
-			oQryPlan	:= FWPreparedStatement():New()
-			oQryPlan:SetQuery(cQuery)
+			cQryPlan	:= cQuery
+			If !("SQLITE" $ ::cDriver)
+				oQryPlan	:= FWPreparedStatement():New()
+				oQryPlan:SetQuery(cQuery)
+			EndIf
 		EndIf
 	EndIf
 	If ::lCanUseBulk
@@ -6588,21 +6637,7 @@ Method Save(cLocal As Character) Class Xlsx
 	lServidor	:= !Empty(cLocal) .and. SubStr(cLocal,1,1)=="\"
 	::cLocalFile	:= cLocal
 	If ::lArquivo
-		If ValType(::oC)=="O"
-			::oC:GetTag(::oFile,.T.)
-			FreeObj(::oC)
-			::oC	:= nil
-		EndIf
-		If ValType(::oRow)=="O"
-			::oFile:Write("</row>")
-			FreeObj(::oRow)
-			::oRow	:= nil
-		EndIf
-		If ValType(::oFile)=="O"
-			::oFile:Close()
-			FreeObj(::oFile)
-			::oFile	:= nil
-		EndIf
+		::FimEscrita()
 	Endif
 	If !Empty(::cLocalFile)
 		::cLocalFile	:= Alltrim(::cLocalFile)
@@ -6766,7 +6801,10 @@ Method Save(cLocal As Character) Class Xlsx
 		Else
 			oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
 		EndIf
-		FreeObj(oXmlSheet)
+		If ::aPlanilhas[nCont][9]	//Libera somente a cópia ordenada, o xml da planilha é mantido para o Save2Html
+			FreeObj(oXmlSheet)
+		EndIf
+		oXmlSheet	:= nil
 
 		If !::lMemoria
 			oFile		:= FWFileWriter():New("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],.T.)
@@ -6813,8 +6851,16 @@ Method Save(cLocal As Character) Class Xlsx
 							nBytTmp -= nBLidostmp
 						EndDo
 					Else
-						oQryPlan:setNumeric(1,nCont)
-						cAliasQry	:= MpSysOpenQuery(oQryPlan:GetFixQuery())
+						cAliasQry	:= GetNextAlias()
+						If "SQLITE" $ ::cDriver
+							cQuery	:= StrTran(cQryPlan,"?",cValToChar(nCont))
+						Else
+							oQryPlan:setNumeric(1,nCont)
+							cQuery	:= oQryPlan:GetFixQuery()
+						EndIf
+						If !::ExecSql(cAliasQry,cQuery,::cDriver)
+							UserException("Xlsx - Erro ao ler as linhas da planilha. "+TCSqlError())
+						EndIf
 						//Leitura das linhas
 						While (cAliasQry)->(!EOF())
 							nLinha := (cAliasQry)->LIN
@@ -6893,7 +6939,15 @@ Method Save(cLocal As Character) Class Xlsx
 			FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
 			If ::lArquivo
 				FCLOSE(nHTmp)
-				FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml")
+				If ::lHtml	//Preserva as linhas para o Save2Html
+					FWMakeDir(::DirHtml(),.F.)
+					FErase(::DirHtml()+"tmprow"+cValToChar(nCont)+".xml",,.F.)
+					If FRename("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml",::DirHtml()+"tmprow"+cValToChar(nCont)+".xml",,.F.)<>0
+						FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml")
+					EndIf
+				Else
+					FErase("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nCont)+".xml")
+				EndIf
 			Endif
 		EndIf
 		If !Empty(::asheet[nCont][3])	//Se possuir table
@@ -6912,6 +6966,9 @@ Method Save(cLocal As Character) Class Xlsx
 			AADD(::aFiles,"\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\tables\table"+cValToChar(::aPlanilhas[nCont][5][nCont2]:nIdRelat)+".xml")
 		Next
 	Next
+	If ValType(oQryPlan)=="O"
+		FreeObj(oQryPlan)
+	EndIf
 
 	If lServidor
 		cArquivo	:= ::cLocalFile+'\'+::cNomeFile+'.xlsx'
@@ -6957,6 +7014,12 @@ Method Save(cLocal As Character) Class Xlsx
 
 	//Apaga arquivos temporarios listados
 	For nCont:=1 to Len(::aFiles)
+		If ::lHtml .AND. "\xl\media\" $ ::aFiles[nCont]	//Preserva as imagens para o Save2Html
+			FWMakeDir(::DirHtml()+"media\",.F.)
+			If FRename(::aFiles[nCont],::DirHtml()+"media\"+SubStr(::aFiles[nCont],Rat("\",::aFiles[nCont])+1),,.F.)==0
+				Loop
+			EndIf
+		EndIf
 		If fErase(::aFiles[nCont],,.F.)<>0
 			WarnLogMsg(::aFiles[nCont])
 			WarnLogMsg("Ferror:"+cValToChar(ferror()))
@@ -6964,21 +7027,121 @@ Method Save(cLocal As Character) Class Xlsx
 	Next
 
 	DelPasta("\tmpxls\"+::cTmpFile+"\"+::cNomeFile)	//Apaga arquivos temporarios
-	If substr(cArquivo2,1,8)<>"\tmpxls\"
+	If substr(cArquivo2,1,8)<>"\tmpxls\" .AND. !::lHtml	//Com html a pasta é removida no Close/Destroy
 		DelPasta("\tmpxls\"+::cTmpFile)
 	Endif
 	If !Empty(::cLocalFile)
-		If GetRemoteType() == 5
-			CpyS2TW(cArquivo2, .T.)
-		Else
-			FWMakeDir(::cLocalFile,.F.)
-			CpyS2T( cArquivo2,::cLocalFile,,.F.)
-			cArquivo2	:= ::cLocalFile+'\'+::cNomeFile2+'.xlsx'
-			::cArqGrv	:= cArquivo2
-		Endif
-		::lDelSrv	:= .F.
+		cArquivo2	:= ::CopiaClient(cArquivo2,::cLocalFile)
 	Endif
 Return cArquivo2
+
+/*/{Protheus.doc} Xlsx::Save2Html
+Grava os dados em um arquivo html (uma <table> por planilha, com CSS e JavaScript embutidos) e retorna o caminho do arquivo gerado.
+Pode ser usado junto com o Save(), antes ou depois dele, e sempre antes do Destroy()/Close().
+No tipo "A" (gravação em arquivo) a gravação de células é encerrada no primeiro Save/Save2Html. As linhas e imagens ficam
+preservadas após o Save até o Close/Destroy, então o Save2Html pode ser chamado depois do Save sem NewHtml().
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 22/10/2026
+@param cLocal, character, Pasta no client (ex: GetTempPath()) ou pasta no servidor iniciando com "\"
+@param oHtml, object, Configuração criada com NewHtml() (opcional)
+@return character, caminho do arquivo html gerado
+/*/
+Method Save2Html(cLocal As Character, oHtml As Object) Class Xlsx
+	Local lServidor As Logical
+	Local cArquivo As Character
+	Default cLocal	:= If(!IsBlind(),GetTempPath(),"\")
+	If Empty(::aPlanilhas)
+		UserException("Xlsx - Nenhuma planilha criada, usar o método ADDPlan()")
+	EndIf
+	If ::lArquivo
+		::FimEscrita()
+	EndIf
+	If ::lCanUseBulk
+		::FlushBulk()
+	EndIf
+	If ValType(oHtml)!="O"
+		oHtml	:= ::NewHtml()
+	EndIf
+	::lHtml		:= .T.
+	cLocal		:= AllTrim(cLocal)
+	lServidor	:= !Empty(cLocal) .AND. SubStr(cLocal,1,1)=="\"
+	If Right(cLocal,1)=="\"
+		cLocal	:= SubStr(cLocal,1,Len(cLocal)-1)
+	EndIf
+	If lServidor
+		If !Empty(cLocal)
+			FWMakeDir(cLocal,.F.)
+		EndIf
+		cArquivo	:= cLocal+"\"+::cNomeFile2+".html"
+	Else
+		FWMakeDir("\tmpxls\"+::cTmpFile,.F.)
+		cArquivo	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile2+".html"
+	EndIf
+	oHtml:Gerar(cArquivo)
+	If !lServidor .AND. !Empty(cLocal)
+		::cLocalFile	:= cLocal
+		cArquivo		:= ::CopiaClient(cArquivo,cLocal)
+	EndIf
+Return cArquivo
+
+/*/{Protheus.doc} Xlsx::NewHtml
+Cria a configuração do html (custom.excel.Html) usada no Save2Html: inputs por coluna, blocos de código por
+planilha/linha/coluna/célula, CSS/JS adicionais, form de envio, etc.
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 22/10/2026
+@return object, custom.excel.Html
+/*/
+Method NewHtml() Class Xlsx
+	Local oHtml As Object
+	::lHtml	:= .T.
+	oHtml	:= custom.excel.Html():New(self)
+	AADD(::aCleanObj,oHtml)
+Return oHtml
+
+//NÃO DOCUMENTAR
+//Finaliza a gravação do arquivo de linhas (tipo arquivo)
+Method FimEscrita() Class Xlsx
+	If ValType(::oC)=="O"
+		::oC:GetTag(::oFile,.T.)
+		FreeObj(::oC)
+		::oC	:= nil
+	EndIf
+	If ValType(::oRow)=="O"
+		::oFile:Write("</row>")
+		FreeObj(::oRow)
+		::oRow	:= nil
+	EndIf
+	If ValType(::oFile)=="O"
+		::oFile:Close()
+		FreeObj(::oFile)
+		::oFile	:= nil
+	EndIf
+	::lEscritaFim	:= .T.
+Return
+
+//NÃO DOCUMENTAR
+//Copia o arquivo gerado no servidor para o client e retorna o caminho no client
+Method CopiaClient(cArquivo As Character, cLocal As Character) Class Xlsx
+	Local cRet := cArquivo As Character
+	If GetRemoteType() == 5
+		CpyS2TW(cArquivo, .T.)
+	Else
+		FWMakeDir(cLocal,.F.)
+		CpyS2T( cArquivo,cLocal,,.F.)
+		cRet		:= cLocal+'\'+SubStr(cArquivo,Rat("\",cArquivo)+1)
+		::cArqGrv	:= cRet
+	Endif
+	::lDelSrv	:= .F.
+Return cRet
+
+//NÃO DOCUMENTAR
+//Pasta temporária com os dados preservados para o Save2Html
+Method DirHtml() Class Xlsx
+Return "\tmpxls\"+::cTmpFile+"\html\"
 
 Static Function WarnLogMsg(cTexto As Character)
 	FWLogMsg("WARN", "LAST"/*cTransactionId*/, "CUSTOM.XLSX", ""/*cCategory*/, ""/*cStep*/,"" /*cMsgId*/, cTexto, /*nMensure*/, /*nElapseTime*/, /*aMessage*/)
@@ -7611,6 +7774,9 @@ Method DefBulkLine(aCampos As Array, xRegraStyle As Variant, lMontarLin As Logic
 	PARAMTYPE 0	VAR aCampos		AS ARRAY
 	PARAMTYPE 1	VAR xRegraStyle	AS ARRAY,OBJECT		OPTIONAL
 	PARAMTYPE 2	VAR lMontarLin	AS LOGICAL			OPTIONAL Default .F.
+	If ::lArquivo .AND. ::lEscritaFim
+		UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível gravar novas linhas.")
+	EndIf
 	If Len(aCampos)>16385
 		UserException("Xlsx - Quantidade informadas de colunas("+cValToChar(Len(aCampos))+") é superior ao limite do excel")
 	EndIf
@@ -7709,6 +7875,11 @@ Method DefBulkLine(aCampos As Array, xRegraStyle As Variant, lMontarLin As Logic
 			AADD(aDadosBulk,{&cBloco,aCampos[nCont]["coluna"],aCampos[nCont]["tipo"],aCampos[nCont]["ldatetime"],jCombo,cStyle,jsonstyle,aCampos[nCont]["campo"]})
 			FreeObj(oC)
 			oC	:= nil
+		Next
+		For nCont:=1 to Len(aCampos)
+			If ::nPlanilhaAt<=Len(::aMaxCol) .AND. aCampos[nCont]["coluna"]>::aMaxCol[::nPlanilhaAt]
+				::aMaxCol[::nPlanilhaAt]	:= aCampos[nCont]["coluna"]
+			EndIf
 		Next
 	ElseIf ::lMemoria
 		For nCont:=1 to Len(aCampos)
@@ -7888,6 +8059,9 @@ Method SetBulkLine() Class Xlsx
 	Local cTexto As Character
 	Local nStyle As Numeric
 	Local cTpVlr As Character
+	If ::lArquivo .AND. ::lEscritaFim
+		UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível gravar novas linhas.")
+	EndIf
 	If ::lArquivo
 		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
 		::oFile:Write(cTexto)
@@ -10715,7 +10889,11 @@ Method xls_sharedStrings(oFile As Object) Class Xlsx
 	Local cTexto As Character
 	Local cQuery As Character
 	Local cAliasQry As Character
-	Local cConfig := TCConfig( 'GETMEMOINQUERY' ) As Character
+	Local cConfig := "" As Character
+	Local lSqlite := "SQLITE" $ ::cDriver As Logical
+	If !lSqlite
+		cConfig	:= TCConfig( 'GETMEMOINQUERY' )
+	EndIf
 	nTam	:= ::nQtdString
 	cRet	+= '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	cRet	+= '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="'+cValToChar(nTam)+'" uniqueCount="'+cValToChar(nTam)+'">'
@@ -10730,7 +10908,10 @@ Method xls_sharedStrings(oFile As Object) Class Xlsx
 	cQuery		+= " WHERE "
 	cQuery		+= " S.D_E_L_E_T_=' '"
 	cQuery		+= " ORDER BY POS"
-	cAliasQry	:= MpSysOpenQuery(cQuery)
+	cAliasQry	:= GetNextAlias()
+	If !::ExecSql(cAliasQry,cQuery,::cDriver)
+		UserException("Xlsx - Erro ao ler as strings compartilhadas. "+TCSqlError())
+	EndIf
 	While (cAliasQry)->(!EOF())
 		cRet	+= '<si>'
 		cTexto	:= AjusEncode((cAliasQry)->VLRMEMO)

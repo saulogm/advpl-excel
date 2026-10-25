@@ -551,6 +551,9 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	oDraw:XPathAddAtt( cPath+"/xdr:graphicFrame/a:graphic/a:graphicData/c:chart", "r:id", cIdChart )
 	oDraw:XPathAddNode( cPath, "clientData", "" )
 	oExcel:aDraw[nPos][3]++
+	If ValType(oExcel:aCharts)=="A"	//Registra o gráfico para o Save2Html
+		AADD(oExcel:aCharts,{self,oExcel:nPlanilhaAt,nLinha,nColuna,nLinha2,nColuna2})
+	EndIf
 Return
 
 /*/{Protheus.doc} Chart::XmlPlot

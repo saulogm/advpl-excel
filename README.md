@@ -31,6 +31,7 @@ Exemplo de uso:
 * Definir orientação da pagina na impressão
 * Cabeçalho e Ropadé
 * Leitura de dados já gravados
+* Gravação em html (Save2Html): uma tabela por planilha com estilos, filtros, agrupamento, formatação condicional, imagens, gráficos (Chart.js), colunas como input e blocos de código para alterar o html
 
 * Leitura simples dos dados
 
@@ -65,6 +66,7 @@ O que a skill cobre:
 * Migração de fontes com `YExcel`, `YExcel_Style`, `YExcel_Table` etc. e da API v1 (`Cell`, `AddStyles`, `Gravar`, `OpenRead`) para o padrão atual
 * Escolha do tipo de gravação (`"A"` arquivo, `"M"` memória, `"B"` banco/bulk) e a regra de escrita sequencial do tipo `"A"`
 * Estilos, formatos numéricos, formatação condicional, tabelas formatadas, `Alias2Tab` com subtotais, bulk, gráficos, imagens, senha/proteção, impressão e leitura de arquivos
+* Gravação em html com `Save2Html` (inputs por coluna, blocos de código por planilha/linha/coluna/célula)
 * Ciclo de vida (`Save`, `OpenApp`, `Destroy`) e liberação de memória sem duplicidade
 * Fontes em CP-1252 sem BOM, CRLF e TAB
 

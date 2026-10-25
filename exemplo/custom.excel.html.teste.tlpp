@@ -1,0 +1,232 @@
+#include "tlpp-core.th"
+#include "protheus.ch"
+Namespace custom.excel.teste
+
+/*/{Protheus.doc} tstHtml
+Teste do Save2Html (tipo "M"): gera o mesmo conteúdo em xlsx e em html.
+Demonstra estilos, mesclagem, fórmula, painel congelado, filtro, formatação condicional, comentário,
+hyperlink, tabela formatada, gráfico, inputs por coluna e blocos de código por linha, coluna e célula
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 22/10/2026
+@return character, caminho do html gerado
+/*/
+User Function tstHtml()
+	Local oExcel As Object
+	Local oErro As Object
+	Local oHtml As Object
+	Local oStyCab As Object
+	Local oStyTit As Object
+	Local oStyMoeda As Object
+	Local oStyLink As Object
+	Local oTab As Object
+	Local oGraf As Object
+	Local aProd As Array
+	Local aFont As Array
+	Local aPreenc As Array
+	Local nDxfVerm As Numeric
+	Local nCont As Numeric
+	Local nLin As Numeric
+	Local cHtml := "" As Character
+
+	aProd	:= {{"Teclado",10,89.9},{"Mouse",25,45.5},{"Monitor",3,1299},{"Cadeira",0,950},{"Mesa",2,1500.75},{"Headset",8,250},{"Webcam",5,320.1},{"Notebook",1,5600}}
+
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstHtml", cTipo = "M")
+	Try
+		oStyTit		:= oExcel:NewStyle():Setfont(oExcel:AddFont(nTamanho = 16, xCorRGB = "FF1F4E78", lNegrito = .T.)):SetaValores({oExcel:Alinhamento(cHorizontal = "center", cVertical = "center")})
+		oStyCab		:= oExcel:NewStyle():Setfont(oExcel:AddFont(nTamanho = 11, xCorRGB = "FFFFFFFF", lNegrito = .T.)):Setfill(oExcel:CorPreenc("FF4F81BD")):Setborder(oExcel:Borda("ALL")):SetaValores({oExcel:Alinhamento(cHorizontal = "center", cVertical = "center")})
+		oStyMoeda	:= oExcel:NewStyle():SetnumFmt(44):Setborder(oExcel:Borda("ALL"))
+		oStyLink	:= oExcel:NewStyle():Setfont(oExcel:AddFont(nTamanho = 11, xCorRGB = "FF0563C1", lSublinhado = .T.))
+		aFont		:= oExcel:Font(nTamanho = 11, cCorRGB = "FFFFFF", cNome = "Calibri", cfamily = "2", lNegrito = .T.)
+		aPreenc		:= oExcel:Preenc("C00000")
+		nDxfVerm	:= oExcel:ADDdxf(aFont = aFont, aCorPreenc = aPreenc)
+
+		//----------------------------------------------------------------------
+		//PLANILHA VENDAS
+		//----------------------------------------------------------------------
+		oExcel:ADDPlan(cNome = "Vendas")
+		oExcel:AddTamCol(nMin = 1, nMax = 1, nWidth = 18)
+		oExcel:AddTamCol(nMin = 2, nMax = 2, nWidth = 10)
+		oExcel:AddTamCol(nMin = 3, nMax = 4, nWidth = 16)
+		oExcel:AddTamCol(nMin = 5, nMax = 6, nWidth = 12)
+		oExcel:Pos(1,1):SetValue("Relatório de Vendas"):SetStyle(oStyTit)
+		oExcel:mergeCells(nLinha = 1, nColuna = 1, nLinha2 = 1, nColuna2 = 6)
+		oExcel:Pos(3,1):SetValue("Produto"):SetStyle(oStyCab)
+		oExcel:Pos(3,2):SetValue("Qtd"):SetStyle(oStyCab)
+		oExcel:Pos(3,3):SetValue("Preço"):SetStyle(oStyCab)
+		oExcel:Pos(3,4):SetValue("Total"):SetStyle(oStyCab)
+		oExcel:Pos(3,5):SetValue("Data"):SetStyle(oStyCab)
+		oExcel:Pos(3,6):SetValue("Ativo"):SetStyle(oStyCab)
+		For nCont:=1 to Len(aProd)
+			nLin	:= nCont+3
+			oExcel:Pos(nLin,1):SetValue(aProd[nCont][1])
+			oExcel:Pos(nLin,2):SetValue(aProd[nCont][2])
+			oExcel:Pos(nLin,3):SetValue(aProd[nCont][3]):SetStyle(oStyMoeda)
+			oExcel:Pos(nLin,4):SetValue(xValor = aProd[nCont][2]*aProd[nCont][3], cFormula = "B"+cValToChar(nLin)+"*C"+cValToChar(nLin)):SetStyle(oStyMoeda)
+			oExcel:Pos(nLin,5):SetValue(Date()-nCont)
+			oExcel:Pos(nLin,6):SetValue(aProd[nCont][2]>0)
+		Next
+		oExcel:Pos(nLin+1,1):SetValue("Ver resumo"):SetStyle(oStyLink):Addhyperlink(cLocation = "Resumo!A1", ctooltip = "Ir para o resumo")
+		oExcel:PosR("A4"):AddComment(cText = "Produto mais vendido do mês", cAutor = "Vendas")
+		oExcel:AutoFilter(nLinha = 3, nColuna = 1, nLinha2 = nLin, nColuna2 = 6)
+		oExcel:AddPane(nySplit = 3, nxSplit = 1)
+		oExcel:FormatCond(cRefDe = "B4", cRefAte = "B"+cValToChar(nLin), nEstilo = nDxfVerm, cOperator = "=", xFormula = 0)	//Sem estoque em vermelho
+		oExcel:DataBar(cRefDe = "D4", cRefAte = "D"+cValToChar(nLin), cCor = "FF63BE7B")
+
+		//----------------------------------------------------------------------
+		//PLANILHA RESUMO - tabela formatada e gráfico por referência
+		//----------------------------------------------------------------------
+		oExcel:ADDPlan(cNome = "Resumo")
+		oExcel:AddTamCol(nMin = 1, nMax = 2, nWidth = 16)
+		oTab	:= oExcel:AddTabela(cNome = "TabResumo", nLinha = 1, nColuna = 1)
+		oTab:AddStyle(cNome = "TableStyleMedium9", lLinhaTiras = .T.)
+		oTab:AddFilter()
+		oTab:AddColumn("Produto")
+		oTab:AddColumn("Total",oStyMoeda)
+		For nCont:=1 to Len(aProd)
+			oTab:AddLine()
+			oTab:Cell(xColuna = "Produto", xValor = aProd[nCont][1])
+			oTab:Cell(xColuna = "Total", xValor = aProd[nCont][2]*aProd[nCont][3])
+		Next
+		oTab:AddTotal(xColuna = "Produto", xValor = "Total")
+		oTab:AddTotal(xColuna = "Total", cFunction = "SUM")
+		oTab:AddTotais()
+		oTab:Finish()
+		oGraf	:= oExcel:NewChart("col")
+		oGraf:SetTitulo("Total por produto")
+		oGraf:AddSerie(cNome = "Total", cRefVal = "Resumo!$B$2:$B$9", cRefCat = "Resumo!$A$2:$A$9")	//Sem arrays: o html lê os valores das células
+		oGraf:Insert(nLinha = 1, nColuna = 4, nLinha2 = 16, nColuna2 = 11)
+
+		//----------------------------------------------------------------------
+		//CONFIGURAÇÃO DO HTML
+		//----------------------------------------------------------------------
+		oHtml	:= oExcel:NewHtml()
+		oHtml:SetTitulo("Vendas - advpl-excel")
+		oHtml:SetColInput(xColuna = "B", cTipo = "number", nLinIni = 4, nLinFim = nLin, nPlanilha = 1, cNome = "qtd")		//Quantidade editável
+		oHtml:SetColInput(xColuna = 6, cTipo = "checkbox", nLinIni = 4, nLinFim = nLin, nPlanilha = 1, cNome = "ativo")		//Ativo como checkbox
+		oHtml:SetColInput(xColuna = "Produto", cTipo = "select", nPlanilha = 2, aOpcoes = {"Teclado","Mouse","Monitor","Cadeira","Mesa","Headset","Webcam","Notebook"})	//Coluna da tabela formatada
+		//Bloco por linha: destaca as linhas de produto sem estoque
+		oHtml:SetBlocoLinha({|jLin,nLinha,nPlanilha,oExcel| If(nPlanilha==1 .and. nLinha>=4 .and. nLinha<=3+Len(aProd) .and. aProd[nLinha-3][2]==0, jLin["class"] := "sem-estoque", nil) })
+		//Bloco por coluna: adiciona um selo nos totais acima de 1.000
+		oHtml:SetBlocoColuna(xColuna = "D", bBloco = {|jCel,nLinha,nColuna,nPlanilha,oExcel| If(jCel["tipo"]=="N" .and. jCel["valor"]>1000, jCel["depois"] := ' <span class="selo">alto</span>', nil) }, nPlanilha = 1)
+		//Bloco por célula: atributo data-ref em todas as células com valor
+		oHtml:SetBlocoCelula({|jCel,nLinha,nColuna,nPlanilha,oExcel| If(jCel["tipo"]!="U", jCel["attr"]["data-ref"] := jCel["ref"], nil) })
+		oHtml:SetBlocoPlanilha({|jPlan,nPlanilha,oExcel| jPlan["titulo"] := If(nPlanilha==1,"Vendas do período","") })
+		oHtml:AddCss("tr.sem-estoque td{color:#9c0006} .selo{background:#ffc000;border-radius:6px;padding:0 4px;font-size:8pt}")
+		oHtml:AddScript("document.addEventListener('xlsxhtml:pronto',function(e){console.log('dados',e.detail.getDados());});")
+		//oHtml:SetAction(cUrl = "http://localhost:8080/rest/pedido")	//Envia os inputs (e o JSON xh_dados) para uma URL
+
+		oExcel:Save(GetTempPath())				//Ordem livre: Save e Save2Html
+		cHtml	:= oExcel:Save2Html(GetTempPath(),oHtml)
+		ConOut("Html gerado: "+cHtml)
+		oExcel:OpenApp()						//Abre o último arquivo gerado (html)
+	Catch oErro
+		ConOut("Erro ao gerar html: "+oErro:Description+" Stack: "+oErro:ERRORSTACK)
+	EndTry
+	oExcel:Destroy()
+	FreeObj(oExcel)
+	FwFreeArray(aProd)
+	FwFreeArray(aFont)
+	FwFreeArray(aPreenc)
+Return cHtml
+
+/*/{Protheus.doc} tstHtmlA
+Teste do Save2Html no tipo "A" (gravação sequencial em arquivo) chamado DEPOIS do Save.
+Os dados das linhas ficam preservados após o Save; o NewHtml() é usado só para configurar o html
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 22/10/2026
+@return character, caminho do html gerado
+/*/
+User Function tstHtmlA()
+	Local oExcel As Object
+	Local oErro As Object
+	Local oHtml As Object
+	Local oStyCab As Object
+	Local nCont As Numeric
+	Local nGrupo As Numeric
+	Local nLin := 1 As Numeric
+	Local cHtml := "" As Character
+
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstHtmlA", cTipo = "A")
+	Try
+		oStyCab	:= oExcel:NewStyle():Setfont(oExcel:AddFont(nTamanho = 11, xCorRGB = "FFFFFFFF", lNegrito = .T.)):Setfill(oExcel:CorPreenc("FF548235"))
+		oHtml	:= oExcel:NewHtml()		//Opcional: só para configurar o html (os dados já ficam preservados)
+		oExcel:ADDPlan(cNome = "Agrupado")
+		oExcel:Pos(nLin,1):SetValue("Grupo"):SetStyle(oStyCab)
+		oExcel:Pos(nLin,2):SetValue("Item"):SetStyle(oStyCab)
+		oExcel:Pos(nLin,3):SetValue("Valor"):SetStyle(oStyCab)
+		For nGrupo:=1 to 3
+			nLin++
+			oExcel:NivelLinha()
+			oExcel:Pos(nLin,1):SetValue("Grupo "+cValToChar(nGrupo))
+			oExcel:Pos(nLin,3):SetValue(nGrupo*100)
+			oExcel:NivelLinha(nNivel = 1)
+			For nCont:=1 to 4
+				nLin++
+				oExcel:Pos(nLin,2):SetValue("Item "+cValToChar(nCont))
+				oExcel:Pos(nLin,3):SetValue(nGrupo*25)
+			Next
+		Next
+		oExcel:NivelLinha()
+		oExcel:ADDPlan(cNome = "Segunda")
+		oExcel:Pos(1,1):SetValue("Planilha 2")
+		oExcel:Pos(2,1):SetValue(Date())
+
+		oExcel:Save(GetTempPath())
+		cHtml	:= oExcel:Save2Html(GetTempPath(),oHtml)
+		ConOut("Html gerado: "+cHtml)
+		oExcel:OpenApp()
+	Catch oErro
+		ConOut("Erro ao gerar html: "+oErro:Description+" Stack: "+oErro:ERRORSTACK)
+	EndTry
+	oExcel:Destroy()
+	FreeObj(oExcel)
+Return cHtml
+
+/*/{Protheus.doc} tstHtmlB
+Teste do Save2Html no tipo "B" (tabelas temporárias) com volume, chamado ANTES do Save
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 22/10/2026
+@param nQtd, numeric, Quantidade de linhas (padrão 5000)
+@return character, caminho do html gerado
+/*/
+User Function tstHtmlB(nQtd As Numeric)
+	Local oExcel As Object
+	Local oErro As Object
+	Local oStyNum As Object
+	Local nCont As Numeric
+	Local nInicio := Seconds() As Numeric
+	Local cHtml := "" As Character
+	Default nQtd	:= 5000
+
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstHtmlB", cTipo = "B")
+	Try
+		oStyNum	:= oExcel:NewStyle():SetnumFmt(4)
+		oExcel:ADDPlan(cNome = "Volume")
+		oExcel:Pos(1,1):SetValue("Linha")
+		oExcel:Pos(1,2):SetValue("Descrição")
+		oExcel:Pos(1,3):SetValue("Valor")
+		oExcel:Pos(1,4):SetValue("Data")
+		For nCont:=1 to nQtd
+			oExcel:Pos(nCont+1,1):SetValue(nCont)
+			oExcel:Pos(nCont+1,2):SetValue("Registro "+StrZero(nCont,6)+" <&> ação")
+			oExcel:Pos(nCont+1,3):SetValue(nCont*1.5):SetStyle(oStyNum)
+			oExcel:Pos(nCont+1,4):SetValue(Date()+Mod(nCont,30))
+		Next
+		oExcel:AutoFilter(nLinha = 1, nColuna = 1, nLinha2 = nQtd+1, nColuna2 = 4)
+		oExcel:AddPane(nySplit = 1)
+		cHtml	:= oExcel:Save2Html(GetTempPath())		//Sem configuração: usa o padrão
+		ConOut("Html: "+cHtml+" - "+LTrim(Str(Seconds()-nInicio))+" segundos")
+		oExcel:Save(GetTempPath())
+		ConOut("Xlsx: "+LTrim(Str(Seconds()-nInicio))+" segundos")
+	Catch oErro
+		ConOut("Erro ao gerar html: "+oErro:Description+" Stack: "+oErro:ERRORSTACK)
+	EndTry
+	oExcel:Destroy()
+	FreeObj(oExcel)
+Return cHtml

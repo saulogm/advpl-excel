@@ -459,6 +459,8 @@ User Function tstXlsx()
 
 	oExcel:Save(GetTempPath())
 	oExcel:OpenApp()
+	oExcel:Save2Html(GetTempPath())
+	oExcel:OpenApp()
 	oExcel:Close()
 	conout( "Tempo: " + LTrim( Str( Seconds()-nStart ) ) + " segundos" )
 Return
