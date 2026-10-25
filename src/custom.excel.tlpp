@@ -147,6 +147,15 @@ Class Xlsx
 	Public Data aMaxCol				As Array //Maior coluna gravada por planilha no tipo arquivo (Save2Html)
 	Public Data lEscritaFim			As Logical //Gravação do tipo arquivo finalizada (Save/Save2Html)
 	Public Data lHtml				As Logical //Preserva os dados temporários para o Save2Html após o Save (padrão .T.; .F. libera no Save)
+	//Cálculo de fórmulas (custom.excel.calc)
+	Public Data lCalcFormula		As Logical //Calcula as fórmulas gravadas sem valor ao salvar (padrão .T.)
+	Public Data aFmlPend			As Array //Fórmulas pendentes de cálculo {nPlanilha,nLinha,nColuna,cFormula}
+	Public Data oFmlPend			As Object //Índice das fórmulas pendentes "pla|lin|col" -> posição em aFmlPend
+	Public Data aFuncCalc			As Array //Funções registradas pelo usuário {cNome,bBloco,nMin,nMax,cFlags}
+	Public Data aCalcDim			As Array //Área usada por planilha {nMaxLin,nMaxCol}
+	Public Data oMotor				As Object //Motor de cálculo em uso (custom.excel.calc.Motor)
+	Public Data oCalcCache			As Object //Cache do cálculo (células lidas do arquivo, dimensões, linhas ocultas)
+	Public Data oCalcNomes			As Object //Nomes definidos (cálculo)
 
 	Public METHOD New()			 	As Object
 	Public METHOD ClassName()
@@ -179,6 +188,9 @@ Class Xlsx
 	Public METHOD SetValue()		//Grava conteudo da celulas posicionada
 	Public METHOD SetDateTime()		//Grava conteudo com data e hora
 	Public METHOD GetFormula()		//Retorna a formula da celula posicionada
+	Public METHOD SetCalcFormula()	//Define se as fórmulas sem valor são calculadas ao salvar
+	Public METHOD AddFuncFormula()	//Registra função para o cálculo de fórmulas
+	Public METHOD CalcFormulas()	//Calcula as fórmulas sem valor (Save/Save2Html)
 	Public METHOD ColTam()			//Coluna Mínima e Máxima
 	Public METHOD LinTam()			//Linha Mínima e Máxima
 	Public METHOD mergeCells()		//Mescla células
@@ -245,6 +257,24 @@ Class Xlsx
 
 	//Interno
 	Public METHOD FimEscrita()		//Finaliza a gravação do arquivo de linhas (tipo arquivo)
+	Public METHOD CalcPendente()	//Registra fórmula pendente de cálculo
+	Public METHOD CalcDimAtu()		//Atualiza área usada da planilha
+	Public METHOD CalcPr()			//Marca o arquivo para recálculo ao abrir
+	Public METHOD CalcGrava()		//Grava o valor calculado
+	Public METHOD CalcCel()			//Provedor do motor de cálculo: célula
+	Public METHOD CalcCelM()
+	Public METHOD CalcValB()
+	Public METHOD CalcFaixa()		//Provedor: área de células
+	Public METHOD CalcPlan()		//Provedor: planilha pelo nome
+	Public METHOD CalcNomePlan()	//Provedor: nome da planilha
+	Public METHOD CalcQtdPlan()		//Provedor: quantidade de planilhas
+	Public METHOD CalcDim()			//Provedor: área usada
+	Public METHOD CalcNome()		//Provedor: nomes definidos
+	Public METHOD CalcTabela()		//Provedor: tabelas
+	Public METHOD CalcTabCel()		//Provedor: tabela da célula
+	Public METHOD CalcOculta()		//Provedor: linha oculta
+	Public METHOD CalcArquivo()		//Leitura/regravação do arquivo de linhas para o cálculo
+	Public METHOD CalcArqPla()
 	Public METHOD CopiaClient()		//Copia arquivo do servidor para o client
 	Public METHOD DirHtml()			//Pasta temporária preservada para o Save2Html
 	Public METHOD CriarFile()		//Cria arquivos temporarios
@@ -400,6 +430,11 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::aMaxCol		:= {}
 	::lEscritaFim	:= .F.
 	::lHtml			:= .T.	//Sempre preserva os dados para o Save2Html após o Save
+	::lCalcFormula	:= .T.
+	::aFmlPend		:= {}
+	::oFmlPend		:= tHashMap():New()
+	::aFuncCalc		:= {}
+	::aCalcDim		:= {}
 	::oRegex1 		:= tlpp.regex.Regex():New('[^A-Za-z0-9\s_]')	//Aceita Alfa,Num,Espaco,underline
 	::oRegex2		:= tlpp.regex.Regex():New('[A-Za-z]{1,3}[0-9]{1,7}')	//Se é uma referencia de celula
 	If cTipo=="M"
@@ -414,6 +449,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	AADD(::aCleanObj,::oString)
 	AADD(::aCleanObj,::oChaves)
 	AADD(::aCleanObj,::odefinedNa)
+	AADD(::aCleanObj,::oFmlPend)
 	AADD(::aCleanObj,::oRegex1)
 	AADD(::aCleanObj,::oRegex2)
 
@@ -2299,6 +2335,10 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 	If ::nLinha<=0 .OR. ::nColuna<=0
 		Return self
 	EndIf	
+	::CalcDimAtu(::nPlanilhaAt,::nLinha,::nColuna)
+	If ::lCalcFormula .AND. (!Empty(::aFmlPend) .OR. ValType(cFormula)=="C")
+		::CalcPendente(::nPlanilhaAt,::nLinha,::nColuna,cFormula,ValType(cFormula)=="C" .AND. !Empty(cFormula) .AND. cTipo=="U")
+	EndIf
 	If ValType(cFormula)!="U"
 		cFormula	:= Replace(cFormula,"<","&lt;")
 		cFormula	:= Replace(cFormula,">","&gt;")
@@ -6372,6 +6412,10 @@ METHOD LocRef(cRef As Character) Class Xlsx
 	Local cLinha2 := "" As Character
 	Local aRet := {0,0,0,0} As Array
 	Local lParte2 := .F. As Logical
+	If "!" $ cRef	//Referência com planilha: Plan1!A1 ou 'Plan 1'!A1:B2
+		cRef	:= SubStr(cRef,Rat("!",cRef)+1)
+		nTam	:= Len(cRef)
+	EndIf
 	For nCont:=1 to nTam
 		If SubStr(cRef,nCont,1)==":"
 			lParte2		:= .T.
@@ -6639,6 +6683,7 @@ Method Save(cLocal As Character) Class Xlsx
 	If ::lArquivo
 		::FimEscrita()
 	Endif
+	::CalcFormulas()	//Calcula as fórmulas gravadas sem valor
 	If !Empty(::cLocalFile)
 		::cLocalFile	:= Alltrim(::cLocalFile)
 		If Right(::cLocalFile,1)=="\"
@@ -6659,7 +6704,7 @@ Method Save(cLocal As Character) Class Xlsx
 
 	//Limpeza de colunas não usadas
 	If !::lArquivo .and. !::lMemoria
-		cQuery	:= "DELETE FROM "+::cTabCol+" WHERE STY=-1 AND TPVLR='U'"
+		cQuery	:= "DELETE FROM "+::cTabCol+" WHERE STY=-1 AND TPVLR='U' AND (FORMULA IS NULL OR RTRIM(FORMULA) IS NULL OR RTRIM(FORMULA)='')"
 		If !::ExecSql("",cQuery,::cDriver)
 			UserException("Xlsx - Erro ao limpar celulas vazias celulas. "+TCSqlError())
 		EndIf
@@ -6889,6 +6934,8 @@ Method Save(cLocal As Character) Class Xlsx
 								Endif
 								If (cAliasQry)->TIPO=="i"
 									cBuffer2	+= ' t="inlineStr"'
+								ElseIf (cAliasQry)->TIPO=="x"	//Texto resultado de fórmula
+									cBuffer2	+= ' t="str"'
 								ElseIf !Empty((cAliasQry)->TIPO) .AND. (cAliasQry)->TPVLR!="U" .AND. !( ((cAliasQry)->TIPO =="d".AND.(cAliasQry)->TPVLR=="N") .OR. (cAliasQry)->TIPO =="n" )	//não incluir atributo "t" quando data serializada e numero
 									cBuffer2	+= ' t="'+Alltrim((cAliasQry)->TIPO)+'"'
 								Endif
@@ -6908,7 +6955,9 @@ Method Save(cLocal As Character) Class Xlsx
 									cBuffer2	+= '</is>'
 								Else
 									cBuffer2	+= '<v>'
-									If (cAliasQry)->TPVLR=="C"
+									If (cAliasQry)->TIPO=="x"
+										cBuffer2	+= CalcEsc(AjusEncode(RTRIM((cAliasQry)->VLR)))
+									ElseIf (cAliasQry)->TPVLR=="C"
 										cBuffer2	+= RTRIM((cAliasQry)->VLR)
 									ElseIf (cAliasQry)->TPVLR=="U"
 									Else
@@ -7061,6 +7110,7 @@ Method Save2Html(cLocal As Character, oHtml As Object) Class Xlsx
 	If ::lCanUseBulk
 		::FlushBulk()
 	EndIf
+	::CalcFormulas()	//Calcula as fórmulas gravadas sem valor
 	If ValType(oHtml)!="O"
 		oHtml	:= ::NewHtml()
 	EndIf
@@ -8072,6 +8122,10 @@ Method SetBulkLine() Class Xlsx
 			::cCampo	:= ::aDadosBulk[nCont2][8]
 			cTexto		:= Eval(::aDadosBulk[nCont2][1],cLinha,::xValor,aValores[nCont][2],::aDadosBulk[nCont2][6],::aDadosBulk[nCont2][5],::aDadosBulk[nCont2][7])
 			::oFile:Write(cTexto)
+			If ::lCalcFormula .AND. ValType(::xValor)=="U" .AND. ValType(aValores[nCont][2])=="C" .AND. !Empty(aValores[nCont][2])
+				::CalcPendente(::nPlanilhaAt,::nLinha,::nColuna,aValores[nCont][2],.T.)
+			EndIf
+			::CalcDimAtu(::nPlanilhaAt,::nLinha,::nColuna)
 		Next
 		::oFile:Write("</row>")
 	ElseIf ::lMemoria
@@ -8131,6 +8185,10 @@ Method SetBulkLine() Class Xlsx
 					,::aDadosBulk[nCont2][5];						//TPVLR
 					,::xValor;										//VLR
 					})
+				If ::lCalcFormula .AND. ValType(aValores[nCont][1])=="U" .AND. ValType(aValores[nCont][2])=="C" .AND. !Empty(aValores[nCont][2])
+					::CalcPendente(::nPlanilhaAt,::nLinha,::nColuna,aValores[nCont][2],.T.)
+				EndIf
+				::CalcDimAtu(::nPlanilhaAt,::nLinha,::nColuna)
 			Next
 		Else
 			For nCont:=1 to Len(aValores)
@@ -8697,7 +8755,15 @@ Static Function FormuADVPL(cFuncao As Character, cTipo As Character, lExibir As 
 	Default lExibir	:= .F.
 	If lExibir
 		If cFuncao=="101".OR.cFuncao=="1"	//MÉDIA
-			cReturn += "aValAtu[1]/aValAtu[2]"
+			cReturn += "If(aValAtu[2]>0,aValAtu[1]/aValAtu[2],0)"
+		ElseIf cFuncao=="107".OR.cFuncao=="7"	//DESVPAD
+			cReturn += "If(aValAtu[2]>1,Sqrt(Max(aValAtu[3]-aValAtu[1]^2/aValAtu[2],0)/(aValAtu[2]-1)),0)"
+		ElseIf cFuncao=="108".OR.cFuncao=="8"	//DESVPADP
+			cReturn += "If(aValAtu[2]>0,Sqrt(Max(aValAtu[3]-aValAtu[1]^2/aValAtu[2],0)/aValAtu[2]),0)"
+		ElseIf cFuncao=="110".OR.cFuncao=="10"	//VAR
+			cReturn += "If(aValAtu[2]>1,Max(aValAtu[3]-aValAtu[1]^2/aValAtu[2],0)/(aValAtu[2]-1),0)"
+		ElseIf cFuncao=="111".OR.cFuncao=="11"	//VARP
+			cReturn += "If(aValAtu[2]>0,Max(aValAtu[3]-aValAtu[1]^2/aValAtu[2],0)/aValAtu[2],0)"
 		ElseIf cFuncao+"|" $ "102|2|103|3|".AND.cTipo=="C"
 			cReturn += "cValToChar(aValAtu[1])"
 		Else
@@ -8715,19 +8781,13 @@ Static Function FormuADVPL(cFuncao As Character, cTipo As Character, lExibir As 
 		ElseIf cFuncao=="103".OR.cFuncao=="3"	//CONT.VALORES
 			cReturn += "If(ValType(xValor)!='U',IF(ValType(xValor)=='C'.AND.xValor='',nil,IF(ValType(xValor)=='D'.AND.Empty(xValor),nil,aValAtu[1]+=1)),nil)"
 		ElseIf cFuncao=="104".OR.cFuncao=="4"	//MAX
-			cReturn += "aValAtu[1] := Max(aValAtu[1],xValor"
+			cReturn += "aValAtu[1] := If(aValAtu[2]==0,xValor,Max(aValAtu[1],xValor)),aValAtu[2]+=1"
 		ElseIf cFuncao=="105".OR.cFuncao=="5"	//MIN
-			cReturn += "aValAtu[1] := Mix(aValAtu[1],xValor)"
+			cReturn += "aValAtu[1] := If(aValAtu[2]==0,xValor,Min(aValAtu[1],xValor)),aValAtu[2]+=1"
 		ElseIf cFuncao=="106".OR.cFuncao=="6"	//MULT
-			cReturn += "aValAtu[1]*=xValor"
-		ElseIf cFuncao=="107".OR.cFuncao=="7"	//DESVPAD
-			cReturn += "aValAtu[1]"
-		ElseIf cFuncao=="108".OR.cFuncao=="8"	//DESVPADP
-			cReturn += "aValAtu[1]"
-		ElseIf cFuncao=="110".OR.cFuncao=="10"	//VAR
-			cReturn += "aValAtu[1]"
-		ElseIf cFuncao=="111".OR.cFuncao=="11"	//VARP
-			cReturn += "aValAtu[1]"
+			cReturn += "aValAtu[1] := If(aValAtu[2]==0,xValor,aValAtu[1]*xValor),aValAtu[2]+=1"
+		ElseIf cFuncao+"|" $ "107|7|108|8|110|10|111|11|"	//DESVPAD, DESVPADP, VAR, VARP
+			cReturn += "aValAtu[1]+=xValor,aValAtu[2]+=1,aValAtu[3]+=xValor*xValor"
 		Else
 			cReturn += "aValAtu[1]"
 		EndIf
@@ -8749,7 +8809,7 @@ Static Function VlrZeroTp(cTipo As Character, lNulo As Logical)
 	ElseIf cTipo=="D" .AND. !lNulo
 		xRet	:= CTOD("")
 	EndIf
-Return {xRet,0}	//{Valor atual,No total Dividir por}
+Return {xRet,0,0}	//{Valor atual,Quantidade de valores,Soma dos quadrados}
 
 /*/{Protheus.doc} Xlsx::DefSubTotal
 Cria nova definição de subtotal para alias2tab
@@ -11625,3 +11685,858 @@ Static Function lTem7Zip(oSelf As Object)
 	Endif
 	fErase("\tmpxls\"+oSelf:cTmpFile+"\fileexist.bat")
 Return
+
+/*/{Protheus.doc} Xlsx::SetCalcFormula
+Define se as fórmulas gravadas sem valor são calculadas ao salvar (Save/Gravar/Save2Html). Padrão .T.
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 25/10/2026
+@param lCalc, logical, .T. calcula as fórmulas sem valor; .F. grava só a fórmula (o Excel calcula ao abrir)
+@return object, self
+/*/
+Method SetCalcFormula(lCalc As Logical) Class Xlsx
+	Default lCalc	:= .T.
+	::lCalcFormula	:= lCalc
+Return self
+
+/*/{Protheus.doc} Xlsx::AddFuncFormula
+Registra uma função para o cálculo de fórmulas (substitui a função do Excel de mesmo nome)
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 25/10/2026
+@param cNome, character, Nome da função como gravado no xlsx (em inglês)
+@param bBloco, codeblock, Bloco {|oMotor,aArgs| xRetorno}. aArgs traz os argumentos avaliados (referências como objeto custom.excel.calc.Ref; use oMotor:Num/Txt/Log/Esc/ParaMat)
+@param nMin, numeric, Mínimo de argumentos
+@param nMax, numeric, Máximo de argumentos (-1 sem limite)
+@param cFlags, character, E=argumentos escalares (expande matrizes elemento a elemento) L=recebe os nós sem avaliar V=volátil X=não calculável
+@return object, self
+/*/
+Method AddFuncFormula(cNome As Character, bBloco As CodeBlock, nMin As Numeric, nMax As Numeric, cFlags As Character) Class Xlsx
+	Default nMin	:= 0
+	Default nMax	:= -1
+	Default cFlags	:= ""
+	AADD(::aFuncCalc,{cNome,bBloco,nMin,nMax,cFlags})
+Return self
+
+//NÃO DOCUMENTAR
+//Registra (ou retira) a fórmula pendente de cálculo da célula
+Method CalcPendente(nPla As Numeric, nLin As Numeric, nCol As Numeric, cFormula As Variant, lPendente As Logical) Class Xlsx
+	Local cChave := cValToChar(nPla)+"|"+cValToChar(nLin)+"|"+cValToChar(nCol) As Character
+	Local nPos As Numeric
+	If ::oFmlPend:Get(cChave,@nPos)
+		::aFmlPend[nPos][4]	:= If(lPendente,cFormula,"")
+	ElseIf lPendente
+		AADD(::aFmlPend,{nPla,nLin,nCol,cFormula})
+		::oFmlPend:Set(cChave,Len(::aFmlPend))
+	EndIf
+Return
+
+//NÃO DOCUMENTAR
+//Atualiza a área usada da planilha (linha e coluna máximas)
+Method CalcDimAtu(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class Xlsx
+	While Len(::aCalcDim)<nPla
+		AADD(::aCalcDim,{0,0})
+	EndDo
+	If nLin>::aCalcDim[nPla][1]
+		::aCalcDim[nPla][1]	:= nLin
+	EndIf
+	If nCol>::aCalcDim[nPla][2]
+		::aCalcDim[nPla][2]	:= nCol
+	EndIf
+Return
+
+/*/{Protheus.doc} Xlsx::CalcFormulas
+Calcula as fórmulas gravadas sem valor (chamado pelo Save/Save2Html) e grava o resultado na célula.
+Fórmulas com recurso não calculável ficam sem valor e o arquivo é marcado para recálculo ao abrir (fullCalcOnLoad).
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Method CalcFormulas() Class Xlsx
+	Local nCont As Numeric
+	Local aPend As Array
+	Local aRes := {} As Array
+	Local xRes As Variant
+	Local lInc As Logical
+	Local lRecalc := .F. As Logical
+	Local oErro As Object
+	If !::lCalcFormula .OR. Empty(::aFmlPend)
+		Return
+	EndIf
+	::oMotor	:= custom.excel.calc.Motor():New(self)
+	For nCont:=1 to Len(::aFuncCalc)
+		::oMotor:Registrar(::aFuncCalc[nCont][1],::aFuncCalc[nCont][2],::aFuncCalc[nCont][3],::aFuncCalc[nCont][4],::aFuncCalc[nCont][5])
+	Next
+	::oCalcCache	:= tHashMap():New()
+	Try
+		If ::lArquivo
+			::CalcArquivo(.F.)	//Lê do arquivo de linhas somente as células usadas pelas fórmulas
+		EndIf
+		//Ordem de gravação: dependências de linhas anteriores já estarão calculadas
+		For nCont:=1 to Len(::aFmlPend)
+			aPend	:= ::aFmlPend[nCont]
+			If Empty(aPend[4])
+				Loop
+			EndIf
+			lInc	:= .F.
+			xRes	:= ::oMotor:CalcCelula(aPend[1],aPend[2],aPend[3],aPend[4],@lInc)
+			AADD(aRes,{aPend[1],aPend[2],aPend[3],xRes,lInc})
+			lRecalc	:= lRecalc .OR. lInc
+		Next
+		If ::lArquivo
+			::CalcArquivo(.T.,aRes)	//Regrava o arquivo de linhas com os valores calculados
+		Else
+			For nCont:=1 to Len(aRes)
+				If !aRes[nCont][5]
+					::CalcGrava(aRes[nCont][1],aRes[nCont][2],aRes[nCont][3],aRes[nCont][4])
+				EndIf
+			Next
+		EndIf
+	Catch oErro
+		lRecalc	:= .T.
+		ConOut("Xlsx - Erro no cálculo das fórmulas: "+oErro:Description)
+	EndTry
+	If lRecalc
+		::CalcPr()
+	EndIf
+	FwFreeArray(aRes)
+	FwFreeArray(::aFmlPend)
+	::aFmlPend	:= {}
+	::oFmlPend:Clean()
+	::oMotor:Limpar()
+	FreeObj(::oMotor)
+	::oMotor	:= nil
+	::oCalcCache:Clean()
+	FreeObj(::oCalcCache)
+	::oCalcCache	:= nil
+	If ValType(::oCalcNomes)=="O"
+		::oCalcNomes:Clean()
+		FreeObj(::oCalcNomes)
+		::oCalcNomes	:= nil
+	EndIf
+Return
+
+//NÃO DOCUMENTAR
+//Marca o arquivo para o Excel recalcular todas as fórmulas ao abrir
+Method CalcPr() Class Xlsx
+	If ::oworkbook:XPathHasNode("/xmlns:workbook/xmlns:calcPr")
+		SetAtrr(::oworkbook,"/xmlns:workbook/xmlns:calcPr","fullCalcOnLoad","1")
+	Else
+		::oworkbook:XPathAddNode("/xmlns:workbook","calcPr","")
+		::oworkbook:XPathAddAtt("/xmlns:workbook/xmlns:calcPr","fullCalcOnLoad","1")
+	EndIf
+Return
+
+//NÃO DOCUMENTAR
+//Grava o valor calculado na célula (memória e banco)
+Method CalcGrava(nPla As Numeric, nLin As Numeric, nCol As Numeric, xValor As Variant) Class Xlsx
+	Local cTipo := ValType(xValor) As Character
+	Local cPath As Character
+	Local oXml As Object
+	If ::lMemoria
+		If !::aPlanilhas[nPla][7]:Get(::Ref(nLin,nCol),@cPath)
+			Return
+		EndIf
+		oXml	:= ::asheet[nPla][1]
+		While oXml:XPathHasNode(cPath+"/xmlns:v")
+			oXml:XPathDelNode(cPath+"/xmlns:v")
+		EndDo
+		While oXml:XPathHasNode(cPath+"/xmlns:is")
+			oXml:XPathDelNode(cPath+"/xmlns:is")
+		EndDo
+		oXml:XPathDelAtt(cPath,"t")
+		Do Case
+			Case cTipo=="N"
+				oXml:XPathAddNode(cPath,"v",::oMotor:NumTxt(xValor))
+			Case cTipo=="C"
+				SetAtrr(oXml,cPath,"t","str")
+				oXml:XPathAddNode(cPath,"v",AjusEncode(xValor))
+			Case cTipo=="L"
+				SetAtrr(oXml,cPath,"t","b")
+				oXml:XPathAddNode(cPath,"v",If(xValor,"1","0"))
+			Case cTipo=="O"
+				SetAtrr(oXml,cPath,"t","e")
+				oXml:XPathAddNode(cPath,"v",xValor:cCod)
+		EndCase
+	ElseIf ::lBD
+		If !(::cAliasCol)->(DbSeek(Str(nPla,10)+Str(nLin,10)+Str(nCol,10)))
+			Return
+		EndIf
+		(::cAliasCol)->(RecLock(::cAliasCol,.F.))
+		Do Case
+			Case cTipo=="N"
+				If (::cAliasCol)->TIPO!="d"
+					(::cAliasCol)->TIPO	:= "n"
+				EndIf
+				(::cAliasCol)->TPVLR	:= "N"
+				(::cAliasCol)->VLR		:= ::oMotor:NumTxt(xValor)
+			Case cTipo=="C"
+				(::cAliasCol)->TIPO		:= "x"	//Texto resultado de fórmula (t="str")
+				(::cAliasCol)->TPVLR	:= "C"
+				(::cAliasCol)->VLR		:= xValor
+			Case cTipo=="L"
+				(::cAliasCol)->TIPO		:= "b"
+				(::cAliasCol)->TPVLR	:= "N"
+				(::cAliasCol)->VLR		:= If(xValor,"1","0")
+			Case cTipo=="O"
+				(::cAliasCol)->TIPO		:= "e"
+				(::cAliasCol)->TPVLR	:= "C"
+				(::cAliasCol)->VLR		:= xValor:cCod
+		EndCase
+		(::cAliasCol)->(MsUnLock())
+	EndIf
+Return
+
+//NÃO DOCUMENTAR
+//Provedor do motor de cálculo: {xValor,cFormula,lPendente} da célula ou nil
+Method CalcCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class Xlsx
+	Local cChave := cValToChar(nPla)+"|"+cValToChar(nLin)+"|"+cValToChar(nCol) As Character
+	Local nPos As Numeric
+	Local aCel As Variant
+	If ::oFmlPend:Get(cChave,@nPos) .AND. !Empty(::aFmlPend[nPos][4])
+		Return {nil,::aFmlPend[nPos][4],.T.}
+	EndIf
+	If ::lArquivo
+		If ::oCalcCache:Get(cChave,@aCel)
+			Return aCel
+		EndIf
+		Return nil
+	ElseIf ::lMemoria
+		Return ::CalcCelM(nPla,::Ref(nLin,nCol))
+	EndIf
+	If !(::cAliasCol)->(DbSeek(Str(nPla,10)+Str(nLin,10)+Str(nCol,10)))
+		Return nil
+	EndIf
+Return {::CalcValB((::cAliasCol)->TIPO,(::cAliasCol)->TPVLR,(::cAliasCol)->VLR),AllTrim((::cAliasCol)->FORMULA),.F.}
+
+//NÃO DOCUMENTAR
+//Valor da célula em memória (xml da planilha)
+Method CalcCelM(nPla As Numeric, cRef As Character) Class Xlsx
+	Local cPath As Character
+	Local oXml As Object
+	Local cTipo As Character
+	Local cForm := "" As Character
+	Local cVal As Character
+	Local xRet As Variant
+	If !::aPlanilhas[nPla][7]:Get(cRef,@cPath)
+		Return nil
+	EndIf
+	oXml	:= ::asheet[nPla][1]
+	cTipo	:= oXml:XPathGetAtt(cPath,"t")
+	If oXml:XPathHasNode(cPath+"/xmlns:f")
+		cForm	:= oXml:XPathGetNodeValue(cPath+"/xmlns:f")
+	EndIf
+	Do Case
+		Case cTipo=="inlineStr"
+			xRet	:= oXml:XPathGetNodeValue(cPath+"/xmlns:is/xmlns:t")
+		Case cTipo=="s"
+			cVal	:= oXml:XPathGetNodeValue(cPath+"/xmlns:v")
+			xRet	:= ::osharedStrings:XPathGetNodeValue("/xmlns:sst/xmlns:si["+cValToChar(Val(cVal)+1)+"]")
+		Case cTipo=="str"
+			xRet	:= oXml:XPathGetNodeValue(cPath+"/xmlns:v")
+		Case cTipo=="b"
+			xRet	:= oXml:XPathGetNodeValue(cPath+"/xmlns:v")=="1"
+		Case cTipo=="e"
+			xRet	:= ::oMotor:Err(oXml:XPathGetNodeValue(cPath+"/xmlns:v"))
+		Otherwise
+			cVal	:= oXml:XPathGetNodeValue(cPath+"/xmlns:v")
+			If !Empty(cVal)
+				xRet	:= ::oMotor:TxtNum(cVal)
+			EndIf
+	EndCase
+Return {xRet,cForm,.F.}
+
+//NÃO DOCUMENTAR
+//Valor da célula gravada no banco
+Method CalcValB(cTipo As Character, cTpVlr As Character, cVlr As Character) Class Xlsx
+	Local lAchou As Logical
+	Local xRet As Variant
+	If cTpVlr=="U"
+		Return nil
+	EndIf
+	cVlr	:= RTrim(cVlr)
+	Do Case
+		Case cTipo=="s"
+			xRet	:= ::GetStrComp(Val(cVlr),@lAchou)
+		Case cTipo=="i" .OR. cTipo=="x"
+			xRet	:= cVlr
+		Case cTipo=="b"
+			xRet	:= cVlr=="1"
+		Case cTipo=="e"
+			xRet	:= ::oMotor:Err(cVlr)
+		Case cTpVlr=="C"
+			xRet	:= cVlr
+		Otherwise
+			If !Empty(cVlr)
+				xRet	:= ::oMotor:TxtNum(cVlr)
+			EndIf
+	EndCase
+Return xRet
+
+//NÃO DOCUMENTAR
+//Provedor: células existentes da área {{nLin,nCol,xValor,cFormula,lPendente},...}
+Method CalcFaixa(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric, nC2 As Numeric) Class Xlsx
+	Local aRet := {} As Array
+	Local nLin As Numeric
+	Local nCol As Numeric
+	Local aCel As Variant
+	Local cPath As Character
+	Local cAliasQry As Character
+	Local cChave As Character
+	Local nPos As Numeric
+	If ::lBD
+		cAliasQry	:= GetNextAlias()
+		If !::ExecSql(cAliasQry,"SELECT LIN,COL,TIPO,TPVLR,VLR,FORMULA FROM "+::cTabCol+" WHERE PLA="+cValToChar(nPla)+" AND LIN BETWEEN "+cValToChar(nL1)+" AND "+cValToChar(nL2)+" AND COL BETWEEN "+cValToChar(nC1)+" AND "+cValToChar(nC2)+" AND D_E_L_E_T_=' ' ORDER BY LIN,COL",::cDriver)
+			UserException("Xlsx - Erro ao ler células para o cálculo. "+TCSqlError())
+		EndIf
+		While (cAliasQry)->(!EOF())
+			cChave	:= cValToChar(nPla)+"|"+cValToChar((cAliasQry)->LIN)+"|"+cValToChar((cAliasQry)->COL)
+			If ::oFmlPend:Get(cChave,@nPos) .AND. !Empty(::aFmlPend[nPos][4])
+				AADD(aRet,{(cAliasQry)->LIN,(cAliasQry)->COL,nil,::aFmlPend[nPos][4],.T.})
+			Else
+				AADD(aRet,{(cAliasQry)->LIN,(cAliasQry)->COL,::CalcValB((cAliasQry)->TIPO,(cAliasQry)->TPVLR,(cAliasQry)->VLR),AllTrim((cAliasQry)->FORMULA),.F.})
+			EndIf
+			(cAliasQry)->(DbSkip())
+		EndDo
+		(cAliasQry)->(DbCloseArea())
+		Return aRet
+	EndIf
+	For nLin:=nL1 to nL2
+		If ::lMemoria .AND. !::aPlanilhas[nPla][7]:Get(nLin,@cPath)	//Linha não existe
+			Loop
+		EndIf
+		For nCol:=nC1 to nC2
+			aCel	:= ::CalcCel(nPla,nLin,nCol)
+			If ValType(aCel)=="A"
+				AADD(aRet,{nLin,nCol,aCel[1],aCel[2],aCel[3]})
+			EndIf
+		Next
+	Next
+Return aRet
+
+//NÃO DOCUMENTAR
+//Provedor: índice da planilha pelo nome (0 se não existe)
+Method CalcPlan(cNome As Character) Class Xlsx
+	Local nCont As Numeric
+	cNome	:= Upper(AllTrim(cNome))
+	For nCont:=1 to Len(::aPlanilhas)
+		If Upper(::aPlanilhas[nCont][2])==cNome .OR. Upper(::CalcNomePlan(nCont))==cNome
+			Return nCont
+		EndIf
+	Next
+Return 0
+
+//NÃO DOCUMENTAR
+Method CalcNomePlan(nPla As Numeric) Class Xlsx
+	Local cNome := ::aPlanilhas[nPla][2] As Character
+	Local cDec := DecodeUTF8(cNome) As Variant
+	If ValType(cDec)=="C"
+		cNome	:= cDec
+	EndIf
+	cNome	:= StrTran(cNome,"&lt;","<")
+	cNome	:= StrTran(cNome,"&gt;",">")
+Return cNome
+
+//NÃO DOCUMENTAR
+Method CalcQtdPlan() Class Xlsx
+Return Len(::aPlanilhas)
+
+//NÃO DOCUMENTAR
+//Provedor: área usada da planilha {nMaxLin,nMaxCol}
+Method CalcDim(nPla As Numeric) Class Xlsx
+	Local aRet As Variant
+	Local cRef As Character
+	Local aRef As Array
+	Local cAliasQry As Character
+	Local oXml As Object
+	Local cChave := "D|"+cValToChar(nPla) As Character
+	If ::oCalcCache:Get(cChave,@aRet)
+		Return aClone(aRet)
+	EndIf
+	aRet	:= {0,0}
+	If nPla<=Len(::aCalcDim)
+		aRet	:= aClone(::aCalcDim[nPla])
+	EndIf
+	If ::lMemoria
+		oXml	:= ::asheet[nPla][1]
+		If oXml:XPathHasNode("/xmlns:worksheet/xmlns:dimension")
+			cRef	:= oXml:XPathGetAtt("/xmlns:worksheet/xmlns:dimension","ref")
+			If !Empty(cRef)
+				aRef	:= ::LocRef(cRef)
+				aRet[1]	:= Max(aRet[1],Max(aRef[1],aRef[3]))
+				aRet[2]	:= Max(aRet[2],Max(aRef[2],aRef[4]))
+			EndIf
+		EndIf
+		If oXml:XPathHasNode(::cPathsheetData+"/xmlns:row[last()]")
+			aRet[1]	:= Max(aRet[1],Val(oXml:XPathGetAtt(::cPathsheetData+"/xmlns:row[last()]","r")))
+		EndIf
+	ElseIf ::lBD
+		cAliasQry	:= GetNextAlias()
+		If ::ExecSql(cAliasQry,"SELECT MAX(LIN) MAXLIN,MAX(COL) MAXCOL FROM "+::cTabCol+" WHERE PLA="+cValToChar(nPla)+" AND D_E_L_E_T_=' '",::cDriver)
+			If (cAliasQry)->(!EOF())
+				aRet[1]	:= Max(aRet[1],(cAliasQry)->MAXLIN)
+				aRet[2]	:= Max(aRet[2],(cAliasQry)->MAXCOL)
+			EndIf
+			(cAliasQry)->(DbCloseArea())
+		EndIf
+	EndIf
+	::oCalcCache:Set(cChave,aClone(aRet))
+Return aRet
+
+//NÃO DOCUMENTAR
+//Provedor: fórmula do nome definido (local da planilha ou global); "" se não existe
+Method CalcNome(cNome As Character, nPla As Numeric) Class Xlsx
+	Local nCont As Numeric
+	Local cBase := "/xmlns:workbook/xmlns:definedNames/xmlns:definedName" As Character
+	Local cLocal As Character
+	Local cRet := "" As Character
+	If ValType(::oCalcNomes)!="O"
+		::oCalcNomes	:= tHashMap():New()
+		For nCont:=1 to ::oworkbook:XPathChildCount("/xmlns:workbook/xmlns:definedNames")
+			cLocal	:= ::oworkbook:XPathGetAtt(cBase+"["+cValToChar(nCont)+"]","localSheetId")
+			::oCalcNomes:Set(Upper(::oworkbook:XPathGetAtt(cBase+"["+cValToChar(nCont)+"]","name"))+"|"+If(Empty(cLocal),"G",cValToChar(Val(cLocal)+1)),::oworkbook:XPathGetNodeValue(cBase+"["+cValToChar(nCont)+"]"))
+		Next
+	EndIf
+	cNome	:= Upper(cNome)
+	If ::oCalcNomes:Get(cNome+"|"+cValToChar(nPla),@cRet)
+		Return cRet
+	EndIf
+	If ::oCalcNomes:Get(cNome+"|G",@cRet)
+		Return cRet
+	EndIf
+Return ""
+
+//NÃO DOCUMENTAR
+//Provedor: tabela {nPla,nLinCab,nLinIni,nLinFim,nLinTot,nCol1,aColunas} ou nil
+Method CalcTabela(cNome As Character) Class Xlsx
+	Local nPla As Numeric
+	Local nCont As Numeric
+	Local oTab As Object
+	Local cTab As Character
+	Local cDec As Variant
+	cNome	:= Upper(AllTrim(cNome))
+	For nPla:=1 to Len(::aPlanilhas)
+		For nCont:=1 to Len(::aPlanilhas[nPla][5])
+			oTab	:= ::aPlanilhas[nPla][5][nCont]
+			cTab	:= oTab:cNomeTabela
+			cDec	:= DecodeUTF8(cTab)
+			If Upper(cTab)==cNome .OR. (ValType(cDec)=="C" .AND. Upper(cDec)==cNome)
+				Return {nPla,oTab:aRef[1][1],oTab:aRef[1][1]+1,oTab:aRef[2][1],If(oTab:GetAtributo("totalsRowCount",0)>0,oTab:aRef[2][1]+1,0),oTab:aRef[1][2],oTab:aColunas}
+			EndIf
+		Next
+	Next
+Return nil
+
+//NÃO DOCUMENTAR
+//Provedor: nome da tabela que contém a célula
+Method CalcTabCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class Xlsx
+	Local nCont As Numeric
+	Local oTab As Object
+	Local nTot As Numeric
+	If nPla>Len(::aPlanilhas)
+		Return ""
+	EndIf
+	For nCont:=1 to Len(::aPlanilhas[nPla][5])
+		oTab	:= ::aPlanilhas[nPla][5][nCont]
+		nTot	:= If(oTab:GetAtributo("totalsRowCount",0)>0,1,0)
+		If nLin>=oTab:aRef[1][1] .AND. nLin<=oTab:aRef[2][1]+nTot .AND. nCol>=oTab:aRef[1][2] .AND. nCol<oTab:aRef[1][2]+Len(oTab:aColunas)
+			Return oTab:cNomeTabela
+		EndIf
+	Next
+Return ""
+
+//NÃO DOCUMENTAR
+//Provedor: linha oculta
+Method CalcOculta(nPla As Numeric, nLin As Numeric) Class Xlsx
+	Local cPath As Character
+	Local lRet := .F. As Logical
+	If ::lArquivo
+		Return ::oCalcCache:Get("H|"+cValToChar(nPla)+"|"+cValToChar(nLin),@lRet)
+	ElseIf ::lMemoria
+		If ::aPlanilhas[nPla][7]:Get(nLin,@cPath)
+			Return ::asheet[nPla][1]:XPathGetAtt(cPath,"hidden")=="1"
+		EndIf
+		Return .F.
+	EndIf
+	If (::cAliasLin)->(DbSeek(Str(nPla,10)+Str(nLin,10)))
+		Return (::cAliasLin)->CHIDDEN=="1"
+	EndIf
+Return .F.
+
+/*/{Protheus.doc} Xlsx::CalcArquivo
+Gravação em arquivo: lê as células usadas pelas fórmulas pendentes (lGrava=.F.) ou regrava os arquivos de linhas
+com os valores calculados (lGrava=.T.)
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 25/10/2026
+@param lGrava, logical, .F. leitura / .T. regravação
+@param aRes, array, Resultados {nPla,nLin,nCol,xValor,lIncompleto} (regravação)
+/*/
+Method CalcArquivo(lGrava As Logical, aRes As Array) Class Xlsx
+	Local aAreas := {} As Array
+	Local lTudo := .F. As Logical
+	Local oIdx As Object
+	Local oRes As Object
+	Local aPlaUsa As Array
+	Local nCont As Numeric
+	Local nCol As Numeric
+	Local aArea As Array
+	Local cChave As Character
+	Local aInter As Variant
+	Local aChaves As Array
+	aPlaUsa	:= Array(Len(::aPlanilhas))
+	aFill(aPlaUsa,.F.)
+	If lGrava
+		oRes	:= tHashMap():New()
+		For nCont:=1 to Len(aRes)
+			If !aRes[nCont][5]
+				oRes:Set(cValToChar(aRes[nCont][1])+"|"+cValToChar(aRes[nCont][2])+"|"+cValToChar(aRes[nCont][3]),aRes[nCont][4])
+				aPlaUsa[aRes[nCont][1]]	:= .T.
+			EndIf
+		Next
+	Else
+		oIdx	:= tHashMap():New()
+		aChaves	:= {}
+		For nCont:=1 to Len(::aFmlPend)
+			If !Empty(::aFmlPend[nCont][4])
+				aPlaUsa[::aFmlPend[nCont][1]]	:= .T.
+				If !::oMotor:Precisa(::aFmlPend[nCont][4],::aFmlPend[nCont][1],::aFmlPend[nCont][2],::aFmlPend[nCont][3],@aAreas)
+					lTudo	:= .T.
+				EndIf
+			EndIf
+		Next
+		//Índice das áreas: "pla|col" (ou "pla|*" para linhas inteiras) -> intervalos de linhas
+		For nCont:=1 to Len(aAreas)
+			aArea	:= aAreas[nCont]
+			If aArea[1]<1 .OR. aArea[1]>Len(aPlaUsa)
+				Loop
+			EndIf
+			aPlaUsa[aArea[1]]	:= .T.
+			If aArea[5]-aArea[3]>1000
+				cChave	:= cValToChar(aArea[1])+"|*"
+				CalcIdxAdd(oIdx,cChave,aArea[2],aArea[4],aChaves)
+			Else
+				For nCol:=aArea[3] to aArea[5]
+					CalcIdxAdd(oIdx,cValToChar(aArea[1])+"|"+cValToChar(nCol),aArea[2],aArea[4],aChaves)
+				Next
+			EndIf
+		Next
+		For nCont:=1 to Len(aChaves)	//Ordena e une os intervalos
+			oIdx:Get(aChaves[nCont],@aInter)
+			oIdx:Set(aChaves[nCont],CalcIdxUne(aInter))
+		Next
+		FwFreeArray(aAreas)
+		FwFreeArray(aChaves)
+	EndIf
+	For nCont:=1 to Len(::aPlanilhas)
+		If aPlaUsa[nCont] .OR. lTudo
+			::CalcArqPla(nCont,lGrava,oIdx,lTudo,oRes)
+		EndIf
+	Next
+	FwFreeArray(aPlaUsa)
+	If ValType(oIdx)=="O"
+		oIdx:Clean()
+		FreeObj(oIdx)
+	EndIf
+	If ValType(oRes)=="O"
+		oRes:Clean()
+		FreeObj(oRes)
+	EndIf
+Return
+
+Static Function CalcIdxAdd(oIdx As Object, cChave As Character, nL1 As Numeric, nL2 As Numeric, aChaves As Array)
+	Local aInter As Variant
+	If !oIdx:Get(cChave,@aInter)
+		aInter	:= {}
+		oIdx:Set(cChave,aInter)
+		AADD(aChaves,cChave)
+	EndIf
+	AADD(aInter,{nL1,nL2})
+Return
+
+Static Function CalcIdxUne(aInter As Array)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	aSort(aInter,,,{|x,y| x[1]<y[1] })
+	For nCont:=1 to Len(aInter)
+		If !Empty(aRet) .AND. aInter[nCont][1]<=aRet[Len(aRet)][2]+1
+			aRet[Len(aRet)][2]	:= Max(aRet[Len(aRet)][2],aInter[nCont][2])
+		Else
+			AADD(aRet,{aInter[nCont][1],aInter[nCont][2]})
+		EndIf
+	Next
+Return aRet
+
+Static Function CalcIdxTem(oIdx As Object, cChave As Character, nLin As Numeric)
+	Local aInter As Variant
+	Local nIni := 1 As Numeric
+	Local nFim As Numeric
+	Local nMeio As Numeric
+	If !oIdx:Get(cChave,@aInter)
+		Return .F.
+	EndIf
+	nFim	:= Len(aInter)
+	While nIni<=nFim	//Busca binária
+		nMeio	:= Int((nIni+nFim)/2)
+		If nLin<aInter[nMeio][1]
+			nFim	:= nMeio-1
+		ElseIf nLin>aInter[nMeio][2]
+			nIni	:= nMeio+1
+		Else
+			Return .T.
+		EndIf
+	EndDo
+Return .F.
+
+//NÃO DOCUMENTAR
+//Percorre o arquivo de linhas da planilha (tmprowN.xml) lendo ou regravando as células
+Method CalcArqPla(nPla As Numeric, lGrava As Logical, oIdx As Object, lTudo As Logical, oRes As Object) Class Xlsx
+	Local cArq := "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nPla)+".xml" As Character
+	Local cArqNovo := cArq+".calc" As Character
+	Local nTamBloco := 524288 As Numeric
+	Local nH As Numeric
+	Local oOut As Object
+	Local cBuf := "" As Character
+	Local cBloco As Character
+	Local nLidos As Numeric
+	Local lFim := .F. As Logical
+	Local nPos As Numeric
+	Local nIni As Numeric
+	Local nFim As Numeric
+	Local nFim2 As Numeric
+	Local nProx As Numeric
+	Local cElem As Character
+	Local cAbre As Character
+	Local nLin := 0 As Numeric
+	Local nCol As Numeric
+	Local cRef As Character
+	Local aRef As Array
+	Local cChave As Character
+	Local xValor As Variant
+	Local lPrecisa As Logical
+	Local cPla := cValToChar(nPla) As Character
+	Local lMais As Logical
+	If !File(cArq,,.F.)
+		Return
+	EndIf
+	nH	:= FOpen(cArq,FO_READ+FO_SHARED)
+	If nH<0
+		Return
+	EndIf
+	If lGrava
+		oOut	:= FWFileWriter():New(cArqNovo,.T.)
+		oOut:SetCaseSensitive(.T.)
+		oOut:Create()
+	EndIf
+	While .T.
+		cBloco	:= Space(nTamBloco)
+		nLidos	:= FRead(nH,@cBloco,nTamBloco)
+		If nLidos>0
+			cBuf	+= Left(cBloco,nLidos)
+		EndIf
+		lFim	:= nLidos<nTamBloco
+		nPos	:= 1
+		lMais	:= .F.
+		While !lMais
+			nIni	:= At("<",cBuf,nPos)
+			If nIni==0
+				If lGrava
+					oOut:Write(SubStr(cBuf,nPos))
+				EndIf
+				cBuf	:= ""
+				Exit
+			EndIf
+			If lGrava .AND. nIni>nPos
+				oOut:Write(SubStr(cBuf,nPos,nIni-nPos))
+			EndIf
+			nFim	:= At(">",cBuf,nIni)
+			If nFim==0
+				lMais	:= .T.
+				Loop
+			EndIf
+			If SubStr(cBuf,nIni,3)=="<c "
+				If SubStr(cBuf,nFim-1,1)=="/"
+					nProx	:= nFim+1
+				Else
+					nFim2	:= At("</c>",cBuf,nFim)
+					If nFim2==0
+						lMais	:= .T.
+						Loop
+					EndIf
+					nProx	:= nFim2+4
+				EndIf
+				cElem	:= SubStr(cBuf,nIni,nProx-nIni)
+				cAbre	:= SubStr(cBuf,nIni,nFim-nIni+1)
+				cRef	:= CalcAtrib(cAbre,"r")
+				aRef	:= ::LocRef(cRef)
+				nCol	:= aRef[2]
+				If nLin==0
+					nLin	:= aRef[1]
+				EndIf
+				cChave	:= cPla+"|"+cValToChar(aRef[1])+"|"+cValToChar(nCol)
+				If lGrava
+					If oRes:Get(cChave,@xValor)
+						oOut:Write(CalcCelXml(self,cElem,cAbre,xValor))
+					Else
+						oOut:Write(cElem)
+					EndIf
+				Else
+					::CalcDimAtu(nPla,aRef[1],nCol)
+					lPrecisa	:= lTudo .OR. CalcIdxTem(oIdx,cPla+"|"+cValToChar(nCol),aRef[1]) .OR. CalcIdxTem(oIdx,cPla+"|*",aRef[1])
+					If lPrecisa
+						::oCalcCache:Set(cChave,CalcLeCel(self,cElem,cAbre))
+					EndIf
+				EndIf
+				nPos	:= nProx
+			Else
+				cAbre	:= SubStr(cBuf,nIni,nFim-nIni+1)
+				If SubStr(cAbre,1,5)=="<row "
+					nLin	:= Val(CalcAtrib(cAbre,"r"))
+					If !lGrava .AND. CalcAtrib(cAbre,"hidden")=="1"
+						::oCalcCache:Set("H|"+cPla+"|"+cValToChar(nLin),.T.)
+					EndIf
+				EndIf
+				If lGrava
+					oOut:Write(cAbre)
+				EndIf
+				nPos	:= nFim+1
+			EndIf
+		EndDo
+		If lMais
+			cBuf	:= SubStr(cBuf,nIni)
+			If lFim	//Conteúdo incompleto no fim do arquivo
+				If lGrava
+					oOut:Write(cBuf)
+				EndIf
+				Exit
+			EndIf
+		ElseIf lFim
+			Exit
+		EndIf
+	EndDo
+	FClose(nH)
+	If lGrava
+		oOut:Close()
+		FreeObj(oOut)
+		FErase(cArq,,.F.)
+		If FRename(cArqNovo,cArq,,.F.)<>0
+			UserException("Xlsx - Erro ao regravar o arquivo de linhas com as fórmulas calculadas: "+cArq)
+		EndIf
+	EndIf
+Return
+
+//Valor do atributo na tag de abertura
+Static Function CalcAtrib(cTag As Character, cAtrib As Character)
+	Local nPos := At(" "+cAtrib+'="',cTag) As Numeric
+	Local nFim As Numeric
+	If nPos==0
+		Return ""
+	EndIf
+	nPos	+= Len(cAtrib)+3
+	nFim	:= At('"',cTag,nPos)
+Return SubStr(cTag,nPos,nFim-nPos)
+
+//Conteúdo entre duas marcas
+Static Function CalcEntre(cTxt As Character, cIni As Character, cFim As Character)
+	Local nPos := At(cIni,cTxt) As Numeric
+	Local nFim As Numeric
+	If nPos==0
+		Return nil
+	EndIf
+	nPos	+= Len(cIni)
+	nFim	:= At(cFim,cTxt,nPos)
+	If nFim==0
+		Return nil
+	EndIf
+Return SubStr(cTxt,nPos,nFim-nPos)
+
+Static Function CalcDesEsc(cTxt As Character)
+	cTxt	:= StrTran(cTxt,"&lt;","<")
+	cTxt	:= StrTran(cTxt,"&gt;",">")
+	cTxt	:= StrTran(cTxt,"&quot;",'"')
+	cTxt	:= StrTran(cTxt,"&apos;","'")
+	cTxt	:= StrTran(cTxt,"&amp;","&")
+Return cTxt
+
+Static Function CalcEsc(cTxt As Character)
+	cTxt	:= StrTran(cTxt,"&","&amp;")
+	cTxt	:= StrTran(cTxt,"<","&lt;")
+	cTxt	:= StrTran(cTxt,">","&gt;")
+Return cTxt
+
+//Lê o valor de uma célula do arquivo de linhas {xValor,cFormula,lPendente}
+Static Function CalcLeCel(oExcel As Object, cElem As Character, cAbre As Character)
+	Local cTipo := CalcAtrib(cAbre,"t") As Character
+	Local cForm := CalcEntre(cElem,"<f>","</f>") As Variant
+	Local cVal As Variant
+	Local xRet As Variant
+	Local cDec As Variant
+	Do Case
+		Case cTipo=="inlineStr"
+			cVal	:= CalcEntre(cElem,"<![CDATA[","]]>")
+			If cVal==nil
+				cVal	:= CalcEntre(cElem,'<t xml:space="preserve">',"</t>")
+				If cVal!=nil
+					cVal	:= CalcDesEsc(cVal)
+				EndIf
+			EndIf
+			If cVal!=nil
+				cDec	:= DecodeUTF8(cVal)
+				xRet	:= If(ValType(cDec)=="C",cDec,cVal)
+			EndIf
+		Otherwise
+			cVal	:= CalcEntre(cElem,"<v>","</v>")
+			If cVal!=nil .AND. !Empty(cVal)
+				Do Case
+					Case cTipo=="b"
+						xRet	:= cVal=="1"
+					Case cTipo=="str"
+						cDec	:= DecodeUTF8(CalcDesEsc(cVal))
+						xRet	:= If(ValType(cDec)=="C",cDec,CalcDesEsc(cVal))
+					Case cTipo=="e"
+						xRet	:= oExcel:oMotor:Err(cVal)
+					Otherwise
+						xRet	:= oExcel:oMotor:TxtNum(cVal)
+				EndCase
+			EndIf
+	EndCase
+Return {xRet,If(cForm==nil,"",CalcDesEsc(cForm)),.F.}
+
+//Monta o xml da célula com o valor calculado (mantém referência, estilo e fórmula)
+Static Function CalcCelXml(oExcel As Object, cElem As Character, cAbre As Character, xValor As Variant)
+	Local cRet As Character
+	Local cEstilo := CalcAtrib(cAbre,"s") As Character
+	Local cForm := CalcEntre(cElem,"<f>","</f>") As Variant
+	Local cTipo := ValType(xValor) As Character
+	cRet	:= '<c r="'+CalcAtrib(cAbre,"r")+'"'
+	If !Empty(cEstilo)
+		cRet	+= ' s="'+cEstilo+'"'
+	EndIf
+	Do Case
+		Case cTipo=="C"
+			cRet	+= ' t="str"'
+		Case cTipo=="L"
+			cRet	+= ' t="b"'
+		Case cTipo=="O"
+			cRet	+= ' t="e"'
+	EndCase
+	cRet	+= '>'
+	If cForm!=nil
+		cRet	+= '<f>'+cForm+'</f>'
+	EndIf
+	Do Case
+		Case cTipo=="N"
+			cRet	+= '<v>'+oExcel:oMotor:NumTxt(xValor)+'</v>'
+		Case cTipo=="C"
+			cRet	+= '<v>'+CalcEsc(AjusEncode(xValor))+'</v>'
+		Case cTipo=="L"
+			cRet	+= '<v>'+If(xValor,"1","0")+'</v>'
+		Case cTipo=="O"
+			cRet	+= '<v>'+xValor:cCod+'</v>'
+	EndCase
+	cRet	+= '</c>'
+Return cRet

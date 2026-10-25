@@ -1,0 +1,370 @@
+// Funções matemáticas e trigonométricas do Excel (motor custom.excel.calc)
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define V_ERRO		1
+#define V_REF		2
+#define V_MAT		3
+#define XPI			3.14159265358979323846
+
+/*/{Protheus.doc} FuncMat
+Registro das funções matemáticas e trigonométricas
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncMat
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncMat
+Return self
+
+Method Registrar(oM As Object) Class FuncMat
+	oM:Registrar("SUM"			,{|o,a| fSum(o,a) }				,1,255)
+	oM:Registrar("SUMSQ"		,{|o,a| fSumSq(o,a) }			,1,255)
+	oM:Registrar("PRODUCT"		,{|o,a| fProduct(o,a) }			,1,255)
+	oM:Registrar("SUMIF"		,{|o,a| fSumIf(o,a) }			,2,3)
+	oM:Registrar("SUMIFS"		,{|o,a| fSumIfs(o,a) }			,3,255)
+	oM:Registrar("SUMPRODUCT"	,{|o,a| fSumProduct(o,a) }		,1,255)
+	oM:Registrar("ROUND"		,{|o,a| fRound(o,a,0) }			,2,2	,"E")
+	oM:Registrar("ROUNDUP"		,{|o,a| fRound(o,a,1) }			,2,2	,"E")
+	oM:Registrar("ROUNDDOWN"	,{|o,a| fRound(o,a,2) }			,2,2	,"E")
+	oM:Registrar("TRUNC"		,{|o,a| fTrunc(o,a) }			,1,2	,"E")
+	oM:Registrar("INT"			,{|o,a| Fn1(o,a,{|n| Piso(n) }) }	,1,1	,"E")
+	oM:Registrar("ABS"			,{|o,a| Fn1(o,a,{|n| Abs(n) }) }	,1,1	,"E")
+	oM:Registrar("SIGN"			,{|o,a| Fn1(o,a,{|n| If(n>0,1,If(n<0,-1,0)) }) }	,1,1	,"E")
+	oM:Registrar("MOD"			,{|o,a| fMod(o,a) }				,2,2	,"E")
+	oM:Registrar("QUOTIENT"		,{|o,a| fQuociente(o,a) }		,2,2	,"E")
+	oM:Registrar("POWER"		,{|o,a| fPower(o,a) }			,2,2	,"E")
+	oM:Registrar("SQRT"			,{|o,a| fSqrt(o,a) }			,1,1	,"E")
+	oM:Registrar("PI"			,{|o,a| XPI }					,0,0)
+	oM:Registrar("EXP"			,{|o,a| Fn1(o,a,{|n| Exp(n) }) }	,1,1	,"E")
+	oM:Registrar("LN"			,{|o,a| fLog(o,a,0) }			,1,1	,"E")
+	oM:Registrar("LOG10"		,{|o,a| fLog(o,a,10) }			,1,1	,"E")
+	oM:Registrar("LOG"			,{|o,a| fLog(o,a,-1) }			,1,2	,"E")
+	oM:Registrar("EVEN"			,{|o,a| fParImpar(o,a,.T.) }	,1,1	,"E")
+	oM:Registrar("ODD"			,{|o,a| fParImpar(o,a,.F.) }	,1,1	,"E")
+Return
+
+//Maior inteiro menor ou igual
+Static Function Piso(nNum As Numeric)
+	Local nInt := Int(nNum) As Numeric
+	If nNum<0 .AND. nInt!=nNum
+		nInt	-= 1
+	EndIf
+Return nInt
+
+//Função de um argumento numérico
+Static Function Fn1(oM As Object, aArgs As Array, bCalc As CodeBlock)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+Return Eval(bCalc,nNum)
+
+//Argumento numérico com padrão quando omitido
+Static Function NumArg(oM As Object, aArgs As Array, nPos As Numeric, nPadrao As Numeric)
+	If Len(aArgs)<nPos .OR. ValType(aArgs[nPos])=="U"
+		Return nPadrao
+	EndIf
+Return oM:Num(aArgs[nPos])
+
+/*/{Protheus.doc} ArredExcel
+Arredondamento do Excel (metade para longe do zero)
+@param nNum, numeric, Número
+@param nDig, numeric, Casas decimais (negativo arredonda à esquerda da vírgula)
+@param nModo, numeric, 0=ROUND 1=ROUNDUP 2=ROUNDDOWN
+/*/
+Static Function ArredExcel(nNum As Numeric, nDig As Numeric, nModo As Numeric)
+	Local nFat As Numeric
+	Local nX As Numeric
+	Local nSinal := If(nNum<0,-1,1) As Numeric
+	nDig	:= Int(nDig)
+	nFat	:= 10^nDig
+	nX		:= Round(Abs(nNum)*nFat,9)
+	Do Case
+		Case nModo==0
+			nX	:= Int(nX+0.5)
+		Case nModo==1
+			nX	:= If(nX==Int(nX),nX,Int(nX)+1)
+		Otherwise
+			nX	:= Int(nX)
+	EndCase
+Return nSinal*nX/nFat
+
+Static Function fSum(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local nRet := 0 As Numeric
+	If xErro!=nil
+		FwFreeArray(aNums)
+		Return xErro
+	EndIf
+	aEval(aNums,{|n| nRet+=n })
+	FwFreeArray(aNums)
+Return nRet
+
+Static Function fSumSq(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local nRet := 0 As Numeric
+	If xErro!=nil
+		FwFreeArray(aNums)
+		Return xErro
+	EndIf
+	aEval(aNums,{|n| nRet+=n*n })
+	FwFreeArray(aNums)
+Return nRet
+
+Static Function fProduct(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local nRet := 1 As Numeric
+	If xErro!=nil
+		FwFreeArray(aNums)
+		Return xErro
+	EndIf
+	If Empty(aNums)
+		Return 0
+	EndIf
+	aEval(aNums,{|n| nRet*=n })
+	FwFreeArray(aNums)
+Return nRet
+
+//Área do intervalo de soma com as mesmas dimensões do intervalo do critério
+Static Function AreaSoma(oM As Object, xSoma As Variant, oMatCrit As Object)
+	If oM:EhRef(xSoma)
+		xSoma	:= oM:NovaRef(xSoma:nPla,xSoma:nL1,xSoma:nC1,xSoma:nL1+oMatCrit:nL-1,xSoma:nC1+oMatCrit:nC-1)
+	EndIf
+Return oM:ParaMat(xSoma)
+
+Static Function fSumIf(oM As Object, aArgs As Array)
+	Local oCrit := oM:ParaMat(aArgs[1]) As Object
+	Local aCrit As Array
+	Local oSoma As Object
+	Local nRet := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xVal As Variant
+	aCrit	:= oM:Criterio(aArgs[2])
+	oSoma	:= If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",AreaSoma(oM,aArgs[3],oCrit),oCrit)
+	For nI:=1 to oCrit:nL
+		For nJ:=1 to oCrit:nC
+			If oM:TestaCrit(aCrit,oCrit:aV[nI][nJ])
+				xVal	:= If(nI<=oSoma:nL .AND. nJ<=oSoma:nC,oSoma:aV[nI][nJ],nil)
+				If ValType(xVal)=="N"
+					nRet	+= xVal
+				ElseIf oM:EhErro(xVal)
+					Return xVal
+				EndIf
+			EndIf
+		Next
+	Next
+	FwFreeArray(aCrit)
+Return nRet
+
+Static Function fSumIfs(oM As Object, aArgs As Array)
+	Local oSoma := oM:ParaMat(aArgs[1]) As Object
+	Local aTestes As Array
+	Local nRet := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xVal As Variant
+	aTestes	:= Condicoes(oM,aArgs,2,oSoma)
+	If oM:EhErro(aTestes)
+		Return aTestes
+	EndIf
+	For nI:=1 to oSoma:nL
+		For nJ:=1 to oSoma:nC
+			If PassaCond(oM,aTestes,nI,nJ)
+				xVal	:= oSoma:aV[nI][nJ]
+				If ValType(xVal)=="N"
+					nRet	+= xVal
+				ElseIf oM:EhErro(xVal)
+					Return xVal
+				EndIf
+			EndIf
+		Next
+	Next
+	FwFreeArray(aTestes)
+Return nRet
+
+/*/{Protheus.doc} Condicoes
+Pares intervalo/critério das funções *IFS a partir do argumento nIni
+@return array, {{oMat,aCrit},...} ou Erro
+/*/
+Static Function Condicoes(oM As Object, aArgs As Array, nIni As Numeric, oBase As Object)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Local oMat As Object
+	If Mod(Len(aArgs)-nIni+1,2)!=0
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nCont:=nIni to Len(aArgs) Step 2
+		oMat	:= oM:ParaMat(aArgs[nCont])
+		If oMat:nL!=oBase:nL .OR. oMat:nC!=oBase:nC
+			Return oM:Err("#VALUE!")
+		EndIf
+		AADD(aRet,{oMat,oM:Criterio(aArgs[nCont+1])})
+	Next
+Return aRet
+
+Static Function PassaCond(oM As Object, aTestes As Array, nI As Numeric, nJ As Numeric)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aTestes)
+		If !oM:TestaCrit(aTestes[nCont][2],aTestes[nCont][1]:aV[nI][nJ])
+			Return .F.
+		EndIf
+	Next
+Return .T.
+
+Static Function fSumProduct(oM As Object, aArgs As Array)
+	Local aMats := {} As Array
+	Local nCont As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nRet := 0 As Numeric
+	Local nProd As Numeric
+	Local xVal As Variant
+	For nCont:=1 to Len(aArgs)
+		AADD(aMats,oM:ParaMat(aArgs[nCont]))
+		If aMats[nCont]:nL!=aMats[1]:nL .OR. aMats[nCont]:nC!=aMats[1]:nC
+			FwFreeArray(aMats)
+			Return oM:Err("#VALUE!")
+		EndIf
+	Next
+	For nI:=1 to aMats[1]:nL
+		For nJ:=1 to aMats[1]:nC
+			nProd	:= 1
+			For nCont:=1 to Len(aMats)
+				xVal	:= aMats[nCont]:aV[nI][nJ]
+				If oM:EhErro(xVal)
+					FwFreeArray(aMats)
+					Return xVal
+				EndIf
+				nProd	*= If(ValType(xVal)=="N",xVal,0)
+			Next
+			nRet	+= nProd
+		Next
+	Next
+	FwFreeArray(aMats)
+Return nRet
+
+Static Function fRound(oM As Object, aArgs As Array, nModo As Numeric)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nDig := NumArg(oM,aArgs,2,0) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nDig)
+		Return nDig
+	EndIf
+Return ArredExcel(nNum,nDig,nModo)
+
+Static Function fTrunc(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nDig := NumArg(oM,aArgs,2,0) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nDig)
+		Return nDig
+	EndIf
+Return ArredExcel(nNum,nDig,2)
+
+Static Function fMod(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nDiv := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nDiv)
+		Return nDiv
+	EndIf
+	If nDiv==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+Return nNum-nDiv*Piso(nNum/nDiv)
+
+Static Function fQuociente(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nDiv := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nDiv)
+		Return nDiv
+	EndIf
+	If nDiv==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+Return Int(nNum/nDiv)
+
+Static Function fPower(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nExp := oM:Num(aArgs[2]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nExp)
+		Return nExp
+	EndIf
+Return oM:Elevar(nNum,nExp)
+
+Static Function fSqrt(oM As Object, aArgs As Array)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If nNum<0
+		Return oM:Err("#NUM!")
+	EndIf
+Return Sqrt(nNum)
+
+//nBase 0=natural, -1=argumento (padrão 10)
+Static Function fLog(oM As Object, aArgs As Array, nBase As Numeric)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If nBase==-1
+		nBase	:= NumArg(oM,aArgs,2,10)
+		If oM:EhErro(nBase)
+			Return nBase
+		EndIf
+		If nBase<=0 .OR. nBase==1
+			Return If(nBase==1,oM:Err("#DIV/0!"),oM:Err("#NUM!"))
+		EndIf
+	EndIf
+	If nNum<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	If nBase==0
+		Return Log(nNum)
+	EndIf
+Return Log(nNum)/Log(nBase)
+
+Static Function fParImpar(oM As Object, aArgs As Array, lPar As Logical)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local nSinal As Numeric
+	Local nRet As Numeric
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	nSinal	:= If(nNum<0,-1,1)
+	nRet	:= Abs(nNum)
+	nRet	:= If(nRet==Int(nRet),nRet,Int(nRet)+1)
+	If lPar
+		If Mod(nRet,2)!=0
+			nRet++
+		EndIf
+	Else
+		If Mod(nRet,2)==0
+			nRet++
+		EndIf
+	EndIf
+Return nSinal*nRet

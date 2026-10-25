@@ -1,0 +1,486 @@
+// Funções estatísticas do Excel (motor custom.excel.calc)
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define V_ERRO		1
+#define V_REF		2
+#define V_MAT		3
+
+/*/{Protheus.doc} FuncEst
+Registro das funções estatísticas (inclui SUBTOTAL e AGGREGATE)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncEst
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncEst
+Return self
+
+Method Registrar(oM As Object) Class FuncEst
+	oM:Registrar("COUNT"			,{|o,a| fCnt(o,a) }				,1,255)
+	oM:Registrar("COUNTA"			,{|o,a| fCountA(o,a) }				,1,255)
+	oM:Registrar("COUNTBLANK"		,{|o,a| fCountBlank(o,a) }			,1,1)
+	oM:Registrar("COUNTIF"			,{|o,a| fCountIfs(o,a) }			,2,2)
+	oM:Registrar("COUNTIFS"			,{|o,a| fCountIfs(o,a) }			,2,254)
+	oM:Registrar("AVERAGE"			,{|o,a| Agrega(o,a,1,0) }			,1,255)
+	oM:Registrar("AVERAGEA"			,{|o,a| Agrega(o,a,1,1) }			,1,255)
+	oM:Registrar("AVERAGEIF"		,{|o,a| fIfAgrega(o,a,1,.F.) }		,2,3)
+	oM:Registrar("AVERAGEIFS"		,{|o,a| fIfAgrega(o,a,1,.T.) }		,3,255)
+	oM:Registrar("MAX"				,{|o,a| Agrega(o,a,4,0) }			,1,255)
+	oM:Registrar("MIN"				,{|o,a| Agrega(o,a,5,0) }			,1,255)
+	oM:Registrar("MAXA"				,{|o,a| Agrega(o,a,4,1) }			,1,255)
+	oM:Registrar("MINA"				,{|o,a| Agrega(o,a,5,1) }			,1,255)
+	oM:Registrar("MAXIFS"			,{|o,a| fIfAgrega(o,a,4,.T.) }		,3,255)
+	oM:Registrar("MINIFS"			,{|o,a| fIfAgrega(o,a,5,.T.) }		,3,255)
+	oM:Registrar("STDEV"			,{|o,a| Agrega(o,a,7,0) }			,1,255)
+	oM:Registrar("STDEV.S"			,{|o,a| Agrega(o,a,7,0) }			,1,255)
+	oM:Registrar("STDEVP"			,{|o,a| Agrega(o,a,8,0) }			,1,255)
+	oM:Registrar("STDEV.P"			,{|o,a| Agrega(o,a,8,0) }			,1,255)
+	oM:Registrar("STDEVA"			,{|o,a| Agrega(o,a,7,1) }			,1,255)
+	oM:Registrar("STDEVPA"			,{|o,a| Agrega(o,a,8,1) }			,1,255)
+	oM:Registrar("VAR"				,{|o,a| Agrega(o,a,10,0) }			,1,255)
+	oM:Registrar("VAR.S"			,{|o,a| Agrega(o,a,10,0) }			,1,255)
+	oM:Registrar("VARP"				,{|o,a| Agrega(o,a,11,0) }			,1,255)
+	oM:Registrar("VAR.P"			,{|o,a| Agrega(o,a,11,0) }			,1,255)
+	oM:Registrar("VARA"				,{|o,a| Agrega(o,a,10,1) }			,1,255)
+	oM:Registrar("VARPA"			,{|o,a| Agrega(o,a,11,1) }			,1,255)
+	oM:Registrar("MEDIAN"			,{|o,a| Agrega(o,a,12,0) }			,1,255)
+	oM:Registrar("MODE"				,{|o,a| Agrega(o,a,13,0) }			,1,255)
+	oM:Registrar("MODE.SNGL"		,{|o,a| Agrega(o,a,13,0) }			,1,255)
+	oM:Registrar("LARGE"			,{|o,a| fK(o,a,14) }				,2,2)
+	oM:Registrar("SMALL"			,{|o,a| fK(o,a,15) }				,2,2)
+	oM:Registrar("PERCENTILE"		,{|o,a| fK(o,a,16) }				,2,2)
+	oM:Registrar("PERCENTILE.INC"	,{|o,a| fK(o,a,16) }				,2,2)
+	oM:Registrar("QUARTILE"			,{|o,a| fK(o,a,17) }				,2,2)
+	oM:Registrar("QUARTILE.INC"		,{|o,a| fK(o,a,17) }				,2,2)
+	oM:Registrar("PERCENTILE.EXC"	,{|o,a| fK(o,a,18) }				,2,2)
+	oM:Registrar("QUARTILE.EXC"		,{|o,a| fK(o,a,19) }				,2,2)
+	oM:Registrar("SUBTOTAL"			,{|o,a| fSubTotal(o,a) }			,2,255)
+	oM:Registrar("AGGREGATE"		,{|o,a| fAggregate(o,a) }			,3,255)
+Return
+
+/*/{Protheus.doc} Calcula
+Calcula a função de agregação pelo código do SUBTOTAL/AGGREGATE
+@param nFn, numeric, 1=AVERAGE 2=COUNT 4=MAX 5=MIN 6=PRODUCT 7=STDEV.S 8=STDEV.P 9=SUM 10=VAR.S 11=VAR.P 12=MEDIAN 13=MODE 14=LARGE 15=SMALL 16=PERCENTILE.INC 17=QUARTILE.INC 18=PERCENTILE.EXC 19=QUARTILE.EXC
+@param aNums, array, Números
+@param nK, numeric, Parâmetro k (14 a 19)
+/*/
+Static Function Calcula(oM As Object, nFn As Numeric, aNums As Array, nK As Variant)
+	Local nRet := 0 As Numeric
+	Local nQtd := Len(aNums) As Numeric
+	Local nMedia As Numeric
+	Local nSoma := 0 As Numeric
+	Local aOrd As Array
+	Do Case
+		Case nFn==1
+			If nQtd==0
+				Return oM:Err("#DIV/0!")
+			EndIf
+			aEval(aNums,{|n| nSoma+=n })
+			Return nSoma/nQtd
+		Case nFn==2
+			Return nQtd
+		Case nFn==4 .OR. nFn==5
+			If nQtd==0
+				Return 0
+			EndIf
+			nRet	:= aNums[1]
+			aEval(aNums,{|n| nRet:=If(nFn==4,Max(nRet,n),Min(nRet,n)) })
+			Return nRet
+		Case nFn==6
+			If nQtd==0
+				Return 0
+			EndIf
+			nRet	:= 1
+			aEval(aNums,{|n| nRet*=n })
+			Return nRet
+		Case nFn==9
+			aEval(aNums,{|n| nRet+=n })
+			Return nRet
+		Case nFn>=7 .AND. nFn<=11 .AND. nFn!=9
+			If nQtd<If(nFn==8 .OR. nFn==11,1,2)
+				Return oM:Err("#DIV/0!")
+			EndIf
+			aEval(aNums,{|n| nSoma+=n })
+			nMedia	:= nSoma/nQtd
+			aEval(aNums,{|n| nRet+=(n-nMedia)^2 })
+			nRet	:= nRet/If(nFn==8 .OR. nFn==11,nQtd,nQtd-1)
+			If nFn==7 .OR. nFn==8
+				nRet	:= Sqrt(nRet)
+			EndIf
+			Return nRet
+		Case nFn==12
+			If nQtd==0
+				Return oM:Err("#NUM!")
+			EndIf
+			aOrd	:= aSort(aClone(aNums))
+			If Mod(nQtd,2)==1
+				nRet	:= aOrd[(nQtd+1)/2]
+			Else
+				nRet	:= (aOrd[nQtd/2]+aOrd[nQtd/2+1])/2
+			EndIf
+			FwFreeArray(aOrd)
+			Return nRet
+		Case nFn==13
+			Return Moda(oM,aNums)
+		Case nFn==14 .OR. nFn==15
+			If ValType(nK)!="N"
+				Return oM:Err("#VALUE!")
+			EndIf
+			nK	:= Int(nK+0.0000000001)
+			If nQtd==0 .OR. nK<1 .OR. nK>nQtd
+				Return oM:Err("#NUM!")
+			EndIf
+			aOrd	:= aSort(aClone(aNums))
+			nRet	:= If(nFn==15,aOrd[nK],aOrd[nQtd-nK+1])
+			FwFreeArray(aOrd)
+			Return nRet
+		Case nFn>=16 .AND. nFn<=19
+			If ValType(nK)!="N"
+				Return oM:Err("#VALUE!")
+			EndIf
+			If nFn==17 .OR. nFn==19	//Quartil
+				nK	:= Int(nK)
+				If (nFn==17 .AND. (nK<0 .OR. nK>4)) .OR. (nFn==19 .AND. (nK<1 .OR. nK>3))
+					Return oM:Err("#NUM!")
+				EndIf
+				nK	:= nK/4
+			EndIf
+			Return Percentil(oM,aNums,nK,nFn==18 .OR. nFn==19)
+	EndCase
+Return oM:Err("#VALUE!")
+
+//Percentil inclusivo/exclusivo com interpolação
+Static Function Percentil(oM As Object, aNums As Array, nK As Numeric, lExc As Logical)
+	Local nQtd := Len(aNums) As Numeric
+	Local aOrd As Array
+	Local nPos As Numeric
+	Local nInt As Numeric
+	Local nRet As Numeric
+	If nQtd==0
+		Return oM:Err("#NUM!")
+	EndIf
+	If lExc
+		If nK<=0 .OR. nK>=1 .OR. nK<1/(nQtd+1) .OR. nK>nQtd/(nQtd+1)
+			Return oM:Err("#NUM!")
+		EndIf
+		nPos	:= (nQtd+1)*nK
+	Else
+		If nK<0 .OR. nK>1
+			Return oM:Err("#NUM!")
+		EndIf
+		nPos	:= (nQtd-1)*nK+1
+	EndIf
+	aOrd	:= aSort(aClone(aNums))
+	nInt	:= Int(nPos)
+	If nInt>=nQtd
+		nRet	:= aOrd[nQtd]
+	ElseIf nInt<1
+		nRet	:= aOrd[1]
+	Else
+		nRet	:= aOrd[nInt]+(nPos-nInt)*(aOrd[nInt+1]-aOrd[nInt])
+	EndIf
+	FwFreeArray(aOrd)
+Return nRet
+
+//Valor mais frequente (primeiro em caso de empate); #N/A se nenhum se repete
+Static Function Moda(oM As Object, aNums As Array)
+	Local oCont := tHashMap():New() As Object
+	Local nCont As Numeric
+	Local nQtd As Numeric
+	Local nMaior := 1 As Numeric
+	Local xRet As Variant
+	For nCont:=1 to Len(aNums)
+		If !oCont:Get(cValToChar(aNums[nCont]),@nQtd)
+			nQtd	:= 0
+		EndIf
+		nQtd++
+		oCont:Set(cValToChar(aNums[nCont]),nQtd)
+		If nQtd>nMaior
+			nMaior	:= nQtd
+		EndIf
+	Next
+	If nMaior<2
+		oCont:Clean()
+		FreeObj(oCont)
+		Return oM:Err("#N/A")
+	EndIf
+	For nCont:=1 to Len(aNums)
+		oCont:Get(cValToChar(aNums[nCont]),@nQtd)
+		If nQtd==nMaior
+			xRet	:= aNums[nCont]
+			Exit
+		EndIf
+	Next
+	oCont:Clean()
+	FreeObj(oCont)
+Return xRet
+
+//Agregação simples sobre os argumentos (nModo 1 = funções "A")
+Static Function Agrega(oM As Object, aArgs As Array, nFn As Numeric, nModo As Numeric)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums,nModo) As Variant
+	Local xRet As Variant
+	If xErro!=nil
+		FwFreeArray(aNums)
+		Return xErro
+	EndIf
+	xRet	:= Calcula(oM,nFn,aNums)
+	FwFreeArray(aNums)
+Return xRet
+
+//LARGE, SMALL, PERCENTILE, QUARTILE
+Static Function fK(oM As Object, aArgs As Array, nFn As Numeric)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros({aArgs[1]},@aNums) As Variant
+	Local nK := oM:Num(aArgs[2]) As Variant
+	Local xRet As Variant
+	If xErro!=nil
+		FwFreeArray(aNums)
+		Return xErro
+	EndIf
+	If oM:EhErro(nK)
+		Return nK
+	EndIf
+	xRet	:= Calcula(oM,nFn,aNums,nK)
+	FwFreeArray(aNums)
+Return xRet
+
+Static Function fCnt(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local nArg As Numeric
+	Local nRet := 0 As Numeric
+	Local xArg As Variant
+	For nArg:=1 to Len(aArgs)
+		xArg	:= aArgs[nArg]
+		If oM:EhRef(xArg) .OR. oM:EhMat(xArg)
+			oM:Numeros({xArg},@aNums,0,.F.,.F.,.T.)
+		ElseIf ValType(xArg)=="N" .OR. ValType(xArg)=="L"
+			nRet++
+		ElseIf ValType(xArg)=="C" .AND. oM:TxtNum(xArg)!=nil
+			nRet++
+		EndIf
+	Next
+	nRet	+= Len(aNums)
+	FwFreeArray(aNums)
+Return nRet
+
+Static Function fCountA(oM As Object, aArgs As Array)
+	Local aVals := oM:Lista(aArgs) As Array
+	Local nRet := 0 As Numeric
+	aEval(aVals,{|x| If(ValType(x)!="U",nRet++,nil) })
+	FwFreeArray(aVals)
+Return nRet
+
+Static Function fCountBlank(oM As Object, aArgs As Array)
+	Local oMat := oM:ParaMat(aArgs[1]) As Object
+	Local nRet := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	For nI:=1 to oMat:nL
+		For nJ:=1 to oMat:nC
+			If ValType(oMat:aV[nI][nJ])=="U" .OR. (ValType(oMat:aV[nI][nJ])=="C" .AND. Empty(oMat:aV[nI][nJ]))
+				nRet++
+			EndIf
+		Next
+	Next
+Return nRet
+
+Static Function fCountIfs(oM As Object, aArgs As Array)
+	Local oBase := oM:ParaMat(aArgs[1]) As Object
+	Local aTestes As Variant
+	Local nRet := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	aTestes	:= Condicoes(oM,aArgs,1,oBase)
+	If oM:EhErro(aTestes)
+		Return aTestes
+	EndIf
+	For nI:=1 to oBase:nL
+		For nJ:=1 to oBase:nC
+			If PassaCond(oM,aTestes,nI,nJ)
+				nRet++
+			EndIf
+		Next
+	Next
+	FwFreeArray(aTestes)
+Return nRet
+
+//AVERAGEIF(S), MAXIFS, MINIFS
+Static Function fIfAgrega(oM As Object, aArgs As Array, nFn As Numeric, lIfs As Logical)
+	Local oVal As Object
+	Local oBase As Object
+	Local aTestes As Variant
+	Local aNums := {} As Array
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xVal As Variant
+	Local xRet As Variant
+	If lIfs
+		oVal	:= oM:ParaMat(aArgs[1])
+		aTestes	:= Condicoes(oM,aArgs,2,oVal)
+	Else
+		oBase	:= oM:ParaMat(aArgs[1])
+		aTestes	:= {{oBase,oM:Criterio(aArgs[2])}}
+		If Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U"
+			If oM:EhRef(aArgs[3])
+				oVal	:= oM:ParaMat(oM:NovaRef(aArgs[3]:nPla,aArgs[3]:nL1,aArgs[3]:nC1,aArgs[3]:nL1+oBase:nL-1,aArgs[3]:nC1+oBase:nC-1))
+			Else
+				oVal	:= oM:ParaMat(aArgs[3])
+			EndIf
+		Else
+			oVal	:= oBase
+		EndIf
+	EndIf
+	If oM:EhErro(aTestes)
+		Return aTestes
+	EndIf
+	For nI:=1 to oVal:nL
+		For nJ:=1 to oVal:nC
+			If PassaCond(oM,aTestes,nI,nJ)
+				xVal	:= oVal:aV[nI][nJ]
+				If ValType(xVal)=="N"
+					AADD(aNums,xVal)
+				ElseIf oM:EhErro(xVal)
+					Return xVal
+				EndIf
+			EndIf
+		Next
+	Next
+	xRet	:= Calcula(oM,nFn,aNums)
+	FwFreeArray(aNums)
+	FwFreeArray(aTestes)
+Return xRet
+
+Static Function Condicoes(oM As Object, aArgs As Array, nIni As Numeric, oBase As Object)
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Local oMat As Object
+	If Mod(Len(aArgs)-nIni+1,2)!=0
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nCont:=nIni to Len(aArgs) Step 2
+		oMat	:= oM:ParaMat(aArgs[nCont])
+		If oMat:nL!=oBase:nL .OR. oMat:nC!=oBase:nC
+			Return oM:Err("#VALUE!")
+		EndIf
+		AADD(aRet,{oMat,oM:Criterio(aArgs[nCont+1])})
+	Next
+Return aRet
+
+Static Function PassaCond(oM As Object, aTestes As Array, nI As Numeric, nJ As Numeric)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aTestes)
+		If !oM:TestaCrit(aTestes[nCont][2],aTestes[nCont][1]:aV[nI][nJ])
+			Return .F.
+		EndIf
+	Next
+Return .T.
+
+/*/{Protheus.doc} fSubTotal
+SUBTOTAL(função, ref1, ...) - ignora outros SUBTOTAL/AGGREGATE; 101 a 111 ignoram linhas ocultas
+/*/
+Static Function fSubTotal(oM As Object, aArgs As Array)
+	Local nFn := oM:Num(aArgs[1]) As Variant
+	Local lOcultas As Logical
+	Local aRefs := {} As Array
+	Local nCont As Numeric
+	If oM:EhErro(nFn)
+		Return nFn
+	EndIf
+	nFn			:= Int(nFn)
+	lOcultas	:= nFn>100
+	If lOcultas
+		nFn	-= 100
+	EndIf
+	If nFn<1 .OR. nFn>11
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nCont:=2 to Len(aArgs)
+		If !oM:EhRef(aArgs[nCont])
+			Return oM:Err("#VALUE!")
+		EndIf
+		AADD(aRefs,aArgs[nCont])
+	Next
+Return AgregaRefs(oM,nFn,aRefs,.T.,lOcultas,.F.,nil)
+
+/*/{Protheus.doc} fAggregate
+AGGREGATE(função, opções, ref1, [ref2|k])
+/*/
+Static Function fAggregate(oM As Object, aArgs As Array)
+	Local nFn := oM:Num(aArgs[1]) As Variant
+	Local nOpc := If(ValType(aArgs[2])=="U",0,oM:Num(aArgs[2])) As Variant
+	Local aRefs := {} As Array
+	Local nK As Variant
+	Local nCont As Numeric
+	If oM:EhErro(nFn)
+		Return nFn
+	EndIf
+	If oM:EhErro(nOpc)
+		Return nOpc
+	EndIf
+	nFn		:= Int(nFn)
+	nOpc	:= Int(nOpc)
+	If nFn<1 .OR. nFn>19 .OR. nOpc<0 .OR. nOpc>7
+		Return oM:Err("#VALUE!")
+	EndIf
+	If nFn>=14
+		If Len(aArgs)<4
+			Return oM:Err("#VALUE!")
+		EndIf
+		nK	:= oM:Num(aArgs[4])
+		If oM:EhErro(nK)
+			Return nK
+		EndIf
+		aRefs	:= {aArgs[3]}
+	Else
+		For nCont:=3 to Len(aArgs)
+			AADD(aRefs,aArgs[nCont])
+		Next
+	EndIf
+Return AgregaRefs(oM,nFn,aRefs,nOpc<=3,nOpc==1 .OR. nOpc==3 .OR. nOpc==5 .OR. nOpc==7,nOpc==2 .OR. nOpc==3 .OR. nOpc==6 .OR. nOpc==7,nK)
+
+//Agregação com as opções de SUBTOTAL/AGGREGATE
+Static Function AgregaRefs(oM As Object, nFn As Numeric, aRefs As Array, lSubTot As Logical, lOcultas As Logical, lIgnErro As Logical, nK As Variant)
+	Local aNums := {} As Array
+	Local xErro As Variant
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	Local aCel As Array
+	Local xRet As Variant
+	Local nI As Numeric
+	Local nJ As Numeric
+	If nFn==3	//COUNTA
+		For nCont:=1 to Len(aRefs)
+			If oM:EhRef(aRefs[nCont])
+				aCel	:= oM:Celulas(aRefs[nCont],lSubTot,lOcultas)
+				aEval(aCel,{|x| If(ValType(x[4])!="U" .AND. !(lIgnErro .AND. oM:EhErro(x[4])),nRet++,nil) })
+				FwFreeArray(aCel)
+			ElseIf oM:EhMat(aRefs[nCont])
+				For nI:=1 to aRefs[nCont]:nL
+					For nJ:=1 to aRefs[nCont]:nC
+						If ValType(aRefs[nCont]:aV[nI][nJ])!="U"
+							nRet++
+						EndIf
+					Next
+				Next
+			ElseIf ValType(aRefs[nCont])!="U"
+				nRet++
+			EndIf
+		Next
+		Return nRet
+	EndIf
+	xErro	:= oM:Numeros(aRefs,@aNums,0,lSubTot,lOcultas,lIgnErro .OR. nFn==2)
+	If xErro!=nil
+		FwFreeArray(aNums)
+		Return xErro
+	EndIf
+	xRet	:= Calcula(oM,nFn,aNums,nK)
+	FwFreeArray(aNums)
+Return xRet

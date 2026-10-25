@@ -1,0 +1,2414 @@
+// Motor de cálculo de fórmulas do Excel para a classe custom.excel.Xlsx
+// Parser (texto da fórmula -> árvore), avaliador e registro de funções.
+// As funções ficam nos fontes custom.excel.calc.*.tlpp (uma classe por categoria).
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+//Tipos de nó da árvore sintática (primeira posição do array do nó)
+#define N_NUM		1	//{1,nValor}
+#define N_STR		2	//{2,cValor}
+#define N_LOG		3	//{3,lValor}
+#define N_ERR		4	//{4,cCodigo}
+#define N_REF		5	//{5,cPlanilha,nLin1,nCol1,nLin2,nCol2,cPlanilha2}
+#define N_NOME		6	//{6,cNome,cPlanilha}
+#define N_FUNC		7	//{7,cNome,aArgs}
+#define N_BIN		8	//{8,cOperador,aEsq,aDir}
+#define N_UN		9	//{9,cOperador,aNo}
+#define N_ARR		10	//{10,aLinhas}
+#define N_ESTR		11	//{11,cTabela,aEspec,cCol1,cCol2}
+#define N_VAZIO		12	//{12} argumento omitido
+#define N_SPILL		13	//{13,aNoRef} referência A1#
+#define N_CHAMA		14	//{14,aNoFuncao,aArgs} chamada de LAMBDA
+
+//Tipos de valor (objetos)
+#define V_ERRO		1
+#define V_REF		2
+#define V_MAT		3
+#define V_LAMBDA	4
+
+#define MAX_LIN		1048576
+#define MAX_COL		16384
+
+Static oErros := nil As Variant		//Cache dos objetos de erro (um por código)
+
+/*/{Protheus.doc} Erro
+Valor de erro do Excel (#DIV/0!, #N/A, #VALUE!, #REF!, #NAME?, #NUM!, #NULL!, #SPILL!, #CALC!)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class Erro
+	Public Data nTipoV		As Numeric
+	Public Data cCod		As Character
+	Public Method New()		As Object
+EndClass
+
+Method New(cCod As Character) As Object Class Erro
+	::nTipoV	:= V_ERRO
+	::cCod		:= cCod
+Return self
+
+/*/{Protheus.doc} Ref
+Referência a uma área de células (ou união de áreas)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class Ref
+	Public Data nTipoV		As Numeric
+	Public Data nPla		As Numeric
+	Public Data nPla2		As Numeric	//Referência 3D (Plan1:Plan3!A1)
+	Public Data nL1			As Numeric
+	Public Data nC1			As Numeric
+	Public Data nL2			As Numeric
+	Public Data nC2			As Numeric
+	Public Data aAreas		As Variant	//União: array de Ref
+	Public Method New()		As Object
+	Public Method Linhas()	As Numeric
+	Public Method Colunas()	As Numeric
+	Public Method Unica()	As Logical
+EndClass
+
+Method New(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric, nC2 As Numeric, nPla2 As Numeric) As Object Class Ref
+	Default nL2		:= nL1
+	Default nC2		:= nC1
+	Default nPla2	:= nPla
+	::nTipoV	:= V_REF
+	::nPla		:= nPla
+	::nPla2		:= nPla2
+	::nL1		:= Min(nL1,nL2)
+	::nC1		:= Min(nC1,nC2)
+	::nL2		:= Max(nL1,nL2)
+	::nC2		:= Max(nC1,nC2)
+	::aAreas	:= nil
+Return self
+
+Method Linhas() As Numeric Class Ref
+Return ::nL2-::nL1+1
+
+Method Colunas() As Numeric Class Ref
+Return ::nC2-::nC1+1
+
+Method Unica() As Logical Class Ref
+Return ::aAreas==nil .AND. ::nL1==::nL2 .AND. ::nC1==::nC2 .AND. ::nPla==::nPla2
+
+/*/{Protheus.doc} Mat
+Matriz de valores (resultado de constantes {..}, operações com intervalos e funções matriciais)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class Mat
+	Public Data nTipoV		As Numeric
+	Public Data aV			As Array	//aV[linha][coluna]
+	Public Data nL			As Numeric
+	Public Data nC			As Numeric
+	Public Method New()		As Object
+	Public Method Get()
+EndClass
+
+Method New(aV As Array, nL As Numeric, nC As Numeric) As Object Class Mat
+	Local nCont As Numeric
+	::nTipoV	:= V_MAT
+	If ValType(aV)=="U"
+		aV	:= Array(nL)
+		For nCont:=1 to nL
+			aV[nCont]	:= Array(nC)
+		Next
+	EndIf
+	::aV		:= aV
+	::nL		:= Len(aV)
+	::nC		:= If(::nL>0,Len(aV[1]),0)
+Return self
+
+//Elemento com repetição de linha/coluna única (broadcast)
+Method Get(nL As Numeric, nC As Numeric) Class Mat
+	If ::nL==1
+		nL	:= 1
+	EndIf
+	If ::nC==1
+		nC	:= 1
+	EndIf
+	If nL>::nL .OR. nC>::nC
+		Return Err("#N/A")
+	EndIf
+Return ::aV[nL][nC]
+
+/*/{Protheus.doc} Lambda
+Função LAMBDA (parâmetros, corpo e escopo capturado)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class Lambda
+	Public Data nTipoV		As Numeric
+	Public Data aParams		As Array
+	Public Data aCorpo		As Array
+	Public Data aEscopos	As Array
+	Public Method New()		As Object
+EndClass
+
+Method New(aParams As Array, aCorpo As Array, aEscopos As Array) As Object Class Lambda
+	::nTipoV	:= V_LAMBDA
+	::aParams	:= aParams
+	::aCorpo	:= aCorpo
+	::aEscopos	:= aEscopos
+Return self
+
+/*/{Protheus.doc} Err
+Retorna o objeto de erro do código informado (cache)
+@type function
+@param cCod, character, Código do erro (#DIV/0!, #N/A, ...)
+@return object, objeto Erro
+/*/
+Static Function Err(cCod As Character)
+	Local oErro As Object
+	If oErros==nil
+		oErros	:= tHashMap():New()
+	EndIf
+	If !oErros:Get(cCod,@oErro)
+		oErro	:= Erro():New(cCod)
+		oErros:Set(cCod,oErro)
+	EndIf
+Return oErro
+
+/*/{Protheus.doc} Parser
+Converte o texto da fórmula em árvore sintática (arrays)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class Parser
+	Public Data cTxt		As Character
+	Public Data nPos		As Numeric
+	Public Data nLen		As Numeric
+	Public Method New()		As Object
+	Public Method Parse()
+	Public Method Pula()
+	Public Method Car()
+	Public Method Erro()
+	Public Method Expr()
+	Public Method Comp()
+	Public Method Concat()
+	Public Method Soma()
+	Public Method Mult()
+	Public Method Pot()
+	Public Method Unario()
+	Public Method Pct()
+	Public Method Inter()
+	Public Method Faixa()
+	Public Method Prim()
+	Public Method Numero()
+	Public Method Texto()
+	Public Method Palavra()
+	Public Method Matriz()
+	Public Method ErroLit()
+	Public Method Args()
+	Public Method RefPlan()
+	Public Method Estrut()
+	Public Method ColEstr()
+EndClass
+
+Method New(cTxt As Character) As Object Class Parser
+	cTxt	:= AllTrim(cTxt)
+	If Left(cTxt,1)=="="
+		cTxt	:= SubStr(cTxt,2)
+	EndIf
+	cTxt	:= StrTran(cTxt,"&lt;","<")
+	cTxt	:= StrTran(cTxt,"&gt;",">")
+	cTxt	:= StrTran(cTxt,"&amp;","&")
+	cTxt	:= StrTran(cTxt,"&quot;",'"')
+	cTxt	:= StrTran(cTxt,Chr(13)," ")
+	cTxt	:= StrTran(cTxt,Chr(10)," ")
+	::cTxt	:= cTxt
+	::nPos	:= 1
+	::nLen	:= Len(cTxt)
+Return self
+
+Method Parse() Class Parser
+	Local aNo As Array
+	aNo	:= ::Expr()
+	::Pula()
+	If ::nPos<=::nLen
+		::Erro("caracter inesperado '"+SubStr(::cTxt,::nPos,1)+"'")
+	EndIf
+Return aNo
+
+Method Erro(cMsg As Character) Class Parser
+	UserException("custom.excel.calc - erro de sintaxe na fórmula ["+::cTxt+"] posição "+cValToChar(::nPos)+": "+cMsg)
+Return
+
+Method Pula() Class Parser
+	While ::nPos<=::nLen .AND. SubStr(::cTxt,::nPos,1)==" "
+		::nPos++
+	EndDo
+Return
+
+Method Car(nDesloc As Numeric) Class Parser
+	Default nDesloc	:= 0
+Return SubStr(::cTxt,::nPos+nDesloc,1)
+
+Method Expr() Class Parser
+Return ::Comp()
+
+Method Comp() Class Parser
+	Local aNo := ::Concat() As Array
+	Local cOp As Character
+	While .T.
+		::Pula()
+		cOp	:= SubStr(::cTxt,::nPos,2)
+		If cOp=="<>" .OR. cOp=="<=" .OR. cOp==">="
+			::nPos	+= 2
+		Else
+			cOp	:= ::Car()
+			If cOp=="=" .OR. cOp=="<" .OR. cOp==">"
+				::nPos++
+			Else
+				Exit
+			EndIf
+		EndIf
+		aNo	:= {N_BIN,cOp,aNo,::Concat()}
+	EndDo
+Return aNo
+
+Method Concat() Class Parser
+	Local aNo := ::Soma() As Array
+	While .T.
+		::Pula()
+		If ::Car()!="&"
+			Exit
+		EndIf
+		::nPos++
+		aNo	:= {N_BIN,"&",aNo,::Soma()}
+	EndDo
+Return aNo
+
+Method Soma() Class Parser
+	Local aNo := ::Mult() As Array
+	Local cOp As Character
+	While .T.
+		::Pula()
+		cOp	:= ::Car()
+		If cOp!="+" .AND. cOp!="-"
+			Exit
+		EndIf
+		::nPos++
+		aNo	:= {N_BIN,cOp,aNo,::Mult()}
+	EndDo
+Return aNo
+
+Method Mult() Class Parser
+	Local aNo := ::Pot() As Array
+	Local cOp As Character
+	While .T.
+		::Pula()
+		cOp	:= ::Car()
+		If cOp!="*" .AND. cOp!="/"
+			Exit
+		EndIf
+		::nPos++
+		aNo	:= {N_BIN,cOp,aNo,::Pot()}
+	EndDo
+Return aNo
+
+Method Pot() Class Parser
+	Local aNo := ::Unario() As Array
+	While .T.
+		::Pula()
+		If ::Car()!="^"
+			Exit
+		EndIf
+		::nPos++
+		aNo	:= {N_BIN,"^",aNo,::Unario()}
+	EndDo
+Return aNo
+
+//Negação tem precedência maior que a potência no Excel (=-2^2 retorna 4)
+Method Unario() Class Parser
+	Local cOp As Character
+	::Pula()
+	cOp	:= ::Car()
+	If cOp=="-" .OR. cOp=="+" .OR. cOp=="@"
+		::nPos++
+		Return {N_UN,cOp,::Unario()}
+	EndIf
+Return ::Pct()
+
+Method Pct() Class Parser
+	Local aNo := ::Inter() As Array
+	While .T.
+		::Pula()
+		If ::Car()!="%"
+			Exit
+		EndIf
+		::nPos++
+		aNo	:= {N_UN,"%",aNo}
+	EndDo
+Return aNo
+
+//Interseção (operador espaço) entre referências
+Method Inter() Class Parser
+	Local aNo := ::Faixa() As Array
+	Local nIni As Numeric
+	Local cProx As Character
+	While aNo[1]==N_REF .OR. aNo[1]==N_ESTR .OR. (aNo[1]==N_BIN .AND. aNo[2]==":")
+		nIni	:= ::nPos
+		If ::Car()!=" "
+			Exit
+		EndIf
+		::Pula()
+		cProx	:= ::Car()
+		If !(IsAlpha(cProx) .OR. cProx=="$" .OR. cProx=="'" .OR. cProx=="(" .OR. cProx=="_")
+			::nPos	:= nIni
+			Exit
+		EndIf
+		aNo	:= {N_BIN," ",aNo,::Faixa()}
+	EndDo
+Return aNo
+
+Method Faixa() Class Parser
+	Local aNo := ::Prim() As Array
+	While ::Car()==":"
+		::nPos++
+		aNo	:= {N_BIN,":",aNo,::Prim()}
+	EndDo
+	If ::Car()=="#" .AND. (aNo[1]==N_REF .OR. aNo[1]==N_NOME .OR. aNo[1]==N_FUNC)
+		::nPos++
+		aNo	:= {N_SPILL,aNo}
+	EndIf
+Return aNo
+
+Method Prim() Class Parser
+	Local cCar As Character
+	Local aNo As Array
+	Local aItens As Array
+	::Pula()
+	If ::nPos>::nLen
+		::Erro("fim inesperado da fórmula")
+	EndIf
+	cCar	:= ::Car()
+	Do Case
+		Case cCar=='"'
+			aNo	:= {N_STR,::Texto()}
+		Case IsDigit(cCar) .OR. (cCar=="." .AND. IsDigit(::Car(1)))
+			aNo	:= ::Numero()
+		Case cCar=="{"
+			aNo	:= ::Matriz()
+		Case cCar=="#"
+			aNo	:= {N_ERR,::ErroLit()}
+		Case cCar=="("
+			::nPos++
+			aNo	:= ::Expr()
+			::Pula()
+			If ::Car()==","	//União de referências
+				aItens	:= {aNo}
+				While ::Car()==","
+					::nPos++
+					AADD(aItens,::Expr())
+					::Pula()
+				EndDo
+				aNo	:= {N_FUNC,"_UNIAO",aItens}
+			EndIf
+			If ::Car()!=")"
+				::Erro("esperado ')'")
+			EndIf
+			::nPos++
+			If ::Car()=="("	//Chamada de função retornada: (LAMBDA(x,x+1))(2)
+				aNo	:= {N_CHAMA,aNo,::Args()}
+			EndIf
+		Case cCar=="'"
+			aNo	:= ::RefPlan(::Texto("'"))
+		Case cCar=="["
+			aNo	:= ::Estrut("")
+		Case IsAlpha(cCar) .OR. cCar=="$" .OR. cCar=="_" .OR. cCar=="\"
+			aNo	:= ::Palavra()
+		OtherWise
+			::Erro("caracter inesperado '"+cCar+"'")
+	EndCase
+Return aNo
+
+//Texto entre delimitadores com escape duplicado ("" ou '')
+Method Texto(cDelim As Character) Class Parser
+	Local cRet := "" As Character
+	Local cCar As Character
+	Default cDelim	:= '"'
+	::nPos++
+	While .T.
+		If ::nPos>::nLen
+			::Erro("texto não finalizado")
+		EndIf
+		cCar	:= ::Car()
+		If cCar==cDelim
+			If ::Car(1)==cDelim
+				cRet	+= cDelim
+				::nPos	+= 2
+				Loop
+			EndIf
+			::nPos++
+			Exit
+		EndIf
+		cRet	+= cCar
+		::nPos++
+	EndDo
+Return cRet
+
+Method Numero() Class Parser
+	Local nIni := ::nPos As Numeric
+	Local cNum := "" As Character
+	Local cExp := "" As Character
+	Local nL1 As Numeric
+	Local nL2 As Numeric
+	While IsDigit(::Car())
+		::nPos++
+	EndDo
+	//Intervalo de linhas: 1:3
+	If ::Car()==":" .AND. (IsDigit(::Car(1)) .OR. (::Car(1)=="$" .AND. IsDigit(::Car(2))))
+		nL1		:= Val(SubStr(::cTxt,nIni,::nPos-nIni))
+		::nPos++
+		If ::Car()=="$"
+			::nPos++
+		EndIf
+		nIni	:= ::nPos
+		While IsDigit(::Car())
+			::nPos++
+		EndDo
+		nL2		:= Val(SubStr(::cTxt,nIni,::nPos-nIni))
+		Return {N_REF,"",nL1,1,nL2,MAX_COL,""}
+	EndIf
+	If ::Car()=="."
+		::nPos++
+		While IsDigit(::Car())
+			::nPos++
+		EndDo
+	EndIf
+	cNum	:= SubStr(::cTxt,nIni,::nPos-nIni)
+	If Upper(::Car())=="E" .AND. (IsDigit(::Car(1)) .OR. ((::Car(1)=="+" .OR. ::Car(1)=="-") .AND. IsDigit(::Car(2))))
+		::nPos++
+		nIni	:= ::nPos
+		If ::Car()=="+" .OR. ::Car()=="-"
+			::nPos++
+		EndIf
+		While IsDigit(::Car())
+			::nPos++
+		EndDo
+		cExp	:= SubStr(::cTxt,nIni,::nPos-nIni)
+	EndIf
+Return {N_NUM,TxtNum(cNum,cExp)}
+
+Method ErroLit() Class Parser
+	Local aErros := {"#NULL!","#DIV/0!","#VALUE!","#REF!","#NAME?","#NUM!","#N/A","#GETTING_DATA","#SPILL!","#CALC!","#BLOCKED!","#FIELD!","#CONNECT!","#BUSY!","#UNKNOWN!"} As Array
+	Local nCont As Numeric
+	Local cTxt := Upper(SubStr(::cTxt,::nPos,14)) As Character
+	For nCont:=1 to Len(aErros)
+		If Left(cTxt,Len(aErros[nCont]))==aErros[nCont]
+			::nPos	+= Len(aErros[nCont])
+			Return aErros[nCont]
+		EndIf
+	Next
+	::Erro("erro desconhecido")
+Return ""
+
+Method Matriz() Class Parser
+	Local aLinhas := {} As Array
+	Local aLinha := {} As Array
+	Local cCar As Character
+	Local lNeg As Logical
+	Local aNo As Array
+	::nPos++
+	While .T.
+		::Pula()
+		cCar	:= ::Car()
+		lNeg	:= .F.
+		If cCar=="-" .OR. cCar=="+"
+			lNeg	:= cCar=="-"
+			::nPos++
+			::Pula()
+			cCar	:= ::Car()
+		EndIf
+		If cCar=='"'
+			AADD(aLinha,::Texto())
+		ElseIf cCar=="#"
+			AADD(aLinha,Err(::ErroLit()))
+		ElseIf IsDigit(cCar) .OR. cCar=="."
+			aNo	:= ::Numero()
+			AADD(aLinha,If(lNeg,-aNo[2],aNo[2]))
+		ElseIf Upper(SubStr(::cTxt,::nPos,4))=="TRUE"
+			::nPos	+= 4
+			AADD(aLinha,.T.)
+		ElseIf Upper(SubStr(::cTxt,::nPos,5))=="FALSE"
+			::nPos	+= 5
+			AADD(aLinha,.F.)
+		Else
+			::Erro("constante de matriz inválida")
+		EndIf
+		::Pula()
+		cCar	:= ::Car()
+		::nPos++
+		If cCar==","
+			Loop
+		ElseIf cCar==";"
+			AADD(aLinhas,aLinha)
+			aLinha	:= {}
+		ElseIf cCar=="}"
+			AADD(aLinhas,aLinha)
+			Exit
+		Else
+			::Erro("esperado ',' ';' ou '}' na constante de matriz")
+		EndIf
+	EndDo
+Return {N_ARR,aLinhas}
+
+//Argumentos de função: (a,b,,c)
+Method Args() Class Parser
+	Local aArgs := {} As Array
+	::nPos++	//(
+	::Pula()
+	If ::Car()==")"
+		::nPos++
+		Return aArgs
+	EndIf
+	While .T.
+		::Pula()
+		If ::Car()=="," .OR. ::Car()==")"
+			AADD(aArgs,{N_VAZIO})
+		Else
+			AADD(aArgs,::Expr())
+			::Pula()
+		EndIf
+		If ::Car()==","
+			::nPos++
+			Loop
+		ElseIf ::Car()==")"
+			::nPos++
+			Exit
+		EndIf
+		::Erro("esperado ',' ou ')' nos argumentos")
+	EndDo
+Return aArgs
+
+Method Palavra() Class Parser
+	Local nIni := ::nPos As Numeric
+	Local cPal As Character
+	Local cUp As Character
+	Local cCar As Character
+	Local aRef As Array
+	Local aRef2 As Array
+	Local nSalva As Numeric
+	Local cPal2 As Character
+	While ::nPos<=::nLen
+		cCar	:= ::Car()
+		If IsAlpha(cCar) .OR. IsDigit(cCar) .OR. cCar=="_" .OR. cCar=="." .OR. cCar=="$" .OR. cCar=="\" .OR. Asc(cCar)>127
+			::nPos++
+		Else
+			Exit
+		EndIf
+	EndDo
+	cPal	:= SubStr(::cTxt,nIni,::nPos-nIni)
+	cUp		:= Upper(cPal)
+	cCar	:= ::Car()
+	Do Case
+		Case cCar=="!"
+			::nPos++
+			Return ::RefPlan(cPal)
+		Case cCar==":" .AND. !Empty(RefCel(cPal)) .AND. !Empty(RefCel(PalavraEm(::cTxt,::nPos+1)))
+			//Intervalo A1:B2
+			aRef	:= RefCel(cPal)
+			::nPos++
+			cPal2	:= PalavraEm(::cTxt,::nPos)
+			::nPos	+= Len(cPal2)
+			aRef2	:= RefCel(cPal2)
+			Return {N_REF,"",aRef[1],aRef[2],aRef2[1],aRef2[2],""}
+		Case cCar==":" .AND. RefColuna(cPal)>0 .AND. RefColuna(PalavraEm(::cTxt,::nPos+1))>0
+			//Intervalo de colunas A:C
+			::nPos++
+			cPal2	:= PalavraEm(::cTxt,::nPos)
+			::nPos	+= Len(cPal2)
+			Return {N_REF,"",1,RefColuna(cPal),MAX_LIN,RefColuna(cPal2),""}
+		Case cCar==":" .AND. !("$" $ cPal)
+			//Referência 3D: Plan1:Plan3!A1
+			nSalva	:= ::nPos
+			cPal2	:= PalavraEm(::cTxt,::nPos+1)
+			If !Empty(cPal2) .AND. SubStr(::cTxt,::nPos+1+Len(cPal2),1)=="!"
+				::nPos	+= Len(cPal2)+2
+				aRef	:= ::RefPlan(cPal)
+				aRef[7]	:= cPal2
+				Return aRef
+			EndIf
+			::nPos	:= nSalva
+		Case cCar=="("
+			cUp		:= NomeFunc(cUp)
+			aRef	:= {N_FUNC,cUp,::Args()}
+			If ::Car()=="("	//LAMBDA(x,x+1)(2)
+				aRef	:= {N_CHAMA,aRef,::Args()}
+			EndIf
+			Return aRef
+		Case cCar=="["
+			Return ::Estrut(cPal)
+	EndCase
+	If cUp=="TRUE" .OR. cUp=="FALSE"
+		Return {N_LOG,cUp=="TRUE"}
+	EndIf
+	aRef	:= RefCel(cPal)
+	If !Empty(aRef)
+		Return {N_REF,"",aRef[1],aRef[2],aRef[1],aRef[2],""}
+	EndIf
+Return {N_NOME,cPal,""}
+
+//Referência após o nome da planilha (Plan1!A1, 'Plan 1'!A1:B2, Plan1!A:A, Plan1!1:3, Plan1!Nome)
+Method RefPlan(cPlan As Character) Class Parser
+	Local cPal As Character
+	Local aRef As Array
+	Local aRef2 As Array
+	Local nIni As Numeric
+	Local nL1 As Numeric
+	If ::Car()=="!"
+		::nPos++
+	EndIf
+	If IsDigit(::Car()) .OR. (::Car()=="$" .AND. IsDigit(::Car(1)))
+		If ::Car()=="$"
+			::nPos++
+		EndIf
+		nIni	:= ::nPos
+		While IsDigit(::Car())
+			::nPos++
+		EndDo
+		nL1		:= Val(SubStr(::cTxt,nIni,::nPos-nIni))
+		If ::Car()!=":"
+			::Erro("referência de linha inválida")
+		EndIf
+		::nPos++
+		If ::Car()=="$"
+			::nPos++
+		EndIf
+		nIni	:= ::nPos
+		While IsDigit(::Car())
+			::nPos++
+		EndDo
+		Return {N_REF,cPlan,nL1,1,Val(SubStr(::cTxt,nIni,::nPos-nIni)),MAX_COL,""}
+	EndIf
+	cPal	:= PalavraEm(::cTxt,::nPos)
+	If Empty(cPal)
+		If ::Car()=="#"	//Plan1!#REF!
+			Return {N_ERR,::ErroLit()}
+		EndIf
+		::Erro("referência inválida após '!'")
+	EndIf
+	::nPos	+= Len(cPal)
+	aRef	:= RefCel(cPal)
+	If !Empty(aRef)
+		If ::Car()==":" .AND. !Empty(RefCel(PalavraEm(::cTxt,::nPos+1)))
+			::nPos++
+			cPal	:= PalavraEm(::cTxt,::nPos)
+			::nPos	+= Len(cPal)
+			aRef2	:= RefCel(cPal)
+			Return {N_REF,cPlan,aRef[1],aRef[2],aRef2[1],aRef2[2],""}
+		EndIf
+		Return {N_REF,cPlan,aRef[1],aRef[2],aRef[1],aRef[2],""}
+	EndIf
+	If RefColuna(cPal)>0 .AND. ::Car()==":"
+		::nPos++
+		cPal2	:= PalavraEm(::cTxt,::nPos)
+		::nPos	+= Len(cPal2)
+		Return {N_REF,cPlan,1,RefColuna(cPal),MAX_LIN,RefColuna(cPal2),""}
+	EndIf
+Return {N_NOME,cPal,cPlan}
+
+//Referência estruturada: Tabela[Coluna], Tabela[[#Totals],[Col]], Tabela[@Col], Tabela[@[Col A]], [@Col]
+Method Estrut(cTabela As Character) Class Parser
+	Local aEspec := {} As Array
+	Local cCol1 := "" As Character
+	Local cCol2 := "" As Character
+	Local cItem As Character
+	::nPos++	//[
+	::Pula()
+	If ::Car()=="]"
+		::nPos++
+		Return {N_ESTR,cTabela,{"#DATA"},"",""}
+	EndIf
+	If ::Car()=="["
+		//Lista de itens [[#Totals],[Col1]:[Col2]]
+		While .T.
+			::Pula()
+			If ::Car()=="@"
+				::nPos++
+				AADD(aEspec,"#THIS ROW")
+				Loop
+			EndIf
+			If ::Car()!="["
+				::Erro("referência estruturada inválida")
+			EndIf
+			::nPos++
+			cItem	:= ::ColEstr()
+			::nPos++	//]
+			If Left(cItem,1)=="#"
+				AADD(aEspec,Upper(cItem))
+			ElseIf Empty(cCol1)
+				cCol1	:= cItem
+			Else
+				cCol2	:= cItem
+			EndIf
+			::Pula()
+			If ::Car()=="," .OR. ::Car()==":"
+				::nPos++
+				Loop
+			EndIf
+			If ::Car()=="]"
+				::nPos++
+				Exit
+			EndIf
+			::Erro("referência estruturada inválida")
+		EndDo
+	Else
+		If ::Car()=="@"
+			::nPos++
+			AADD(aEspec,"#THIS ROW")
+			If ::Car()=="["	//Tabela[@[Col A]]
+				::nPos++
+				cCol1	:= ::ColEstr()
+				::nPos++	//]
+				If ::Car()!="]"
+					::Erro("esperado ']'")
+				EndIf
+				::nPos++
+				Return {N_ESTR,cTabela,aEspec,cCol1,cCol2}
+			EndIf
+			If ::Car()=="]"	//Tabela[@] linha atual inteira
+				::nPos++
+				Return {N_ESTR,cTabela,aEspec,"",""}
+			EndIf
+		EndIf
+		cItem	:= ::ColEstr()
+		::nPos++	//]
+		If Left(cItem,1)=="#"
+			AADD(aEspec,Upper(cItem))
+		Else
+			cCol1	:= cItem
+		EndIf
+	EndIf
+	If Empty(aEspec)
+		AADD(aEspec,"#DATA")
+	EndIf
+Return {N_ESTR,cTabela,aEspec,cCol1,cCol2}
+
+//Nome de coluna da referência estruturada até ']' (sem consumir), com escape '
+Method ColEstr() Class Parser
+	Local cRet := "" As Character
+	Local cCar As Character
+	While ::nPos<=::nLen
+		cCar	:= ::Car()
+		If cCar=="'"
+			cRet	+= ::Car(1)
+			::nPos	+= 2
+			Loop
+		EndIf
+		If cCar=="]"
+			Exit
+		EndIf
+		cRet	+= cCar
+		::nPos++
+	EndDo
+	If ::Car()!="]"
+		::Erro("esperado ']'")
+	EndIf
+Return AllTrim(cRet)
+
+/*/{Protheus.doc} Motor
+Avaliador de fórmulas do Excel. Lê as células através de um provedor (objeto com os métodos Calc*)
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+@obs Métodos esperados no provedor:
+	CalcCel(nPla,nLin,nCol)			-> {xValor,cFormula,lPendente}
+	CalcFaixa(nPla,nL1,nC1,nL2,nC2)	-> {{nLin,nCol,xValor,cFormula,lPendente},...} somente células existentes
+	CalcPlan(cNome)					-> índice da planilha (0 se não existe)
+	CalcNomePlan(nPla)				-> nome da planilha
+	CalcQtdPlan()					-> quantidade de planilhas
+	CalcDim(nPla)					-> {nMaxLin,nMaxCol}
+	CalcNome(cNome,nPla)			-> texto da fórmula do nome definido ("" se não existe)
+	CalcTabela(cNome)				-> {nPla,nLinCab,nLinIni,nLinFim,nLinTot,nCol1,aColunas} ou nil
+	CalcTabCel(nPla,nLin,nCol)		-> nome da tabela que contém a célula ("" se nenhuma)
+	CalcOculta(nPla,nLin)			-> linha oculta
+/*/
+Class Motor
+	Public Data oProv		As Object
+	Public Data oFunc		As Object	//Registro de funções: NOME -> {bBloco,nMin,nMax,cFlags}
+	Public Data oCache		As Object	//Resultado das células calculadas "pla|lin|col" -> {xValor,lIncompleto}
+	Public Data oEstado		As Object	//Células em cálculo (referência circular)
+	Public Data oAst		As Object	//Cache da árvore por texto da fórmula
+	Public Data nPla		As Numeric	//Célula em cálculo
+	Public Data nLin		As Numeric
+	Public Data nCol		As Numeric
+	Public Data aEscopos	As Array	//Variáveis de LET/LAMBDA (pilha de tHashMap)
+	Public Data lIncompleto	As Logical	//Fórmula usa recurso não calculável (Excel deve recalcular)
+	Public Data cUltErro	As Character
+	Public Method New()		As Object
+	Public Method Registrar()
+	Public Method Funcao()
+	Public Method Var()
+	Public Method Funcoes()
+	Public Method Arvore()
+	Public Method Calcular()
+	Public Method CalcCelula()
+	Public Method Avaliar()
+	Public Method Chamar()
+	Public Method ChamarLambda()
+	Public Method Elevar()
+	Public Method Valor()
+	Public Method Esc()
+	Public Method Num()
+	Public Method Txt()
+	Public Method Log()
+	Public Method ParaMat()
+	Public Method Celulas()
+	Public Method ValorCel()
+	Public Method RefNo()
+	Public Method Nome()
+	Public Method Estrut()
+	Public Method Binario()
+	Public Method OperaEsc()
+	Public Method Numeros()
+	Public Method Lista()
+	Public Method Dim()
+	Public Method Limpar()
+	Public Method Err()
+	Public Method EhErro()
+	Public Method EhRef()
+	Public Method EhMat()
+	Public Method EhLambda()
+	Public Method Compara()
+	Public Method NumTxt()
+	Public Method TxtNum()
+	Public Method NovaMat()
+	Public Method NovaRef()
+	Public Method NovaLambda()
+	Public Method Criterio()
+	Public Method TestaCrit()
+	Public Method ColNum()
+	Public Method ColLetra()
+	Public Method Curinga()
+	Public Method Precisa()
+EndClass
+
+Method New(oProv As Object) As Object Class Motor
+	::oProv		:= oProv
+	::oFunc		:= tHashMap():New()
+	::oCache	:= tHashMap():New()
+	::oEstado	:= tHashMap():New()
+	::oAst		:= tHashMap():New()
+	::nPla		:= 1
+	::nLin		:= 1
+	::nCol		:= 1
+	::aEscopos	:= {}
+	::lIncompleto	:= .F.
+	::cUltErro	:= ""
+	::Funcoes()
+Return self
+
+/*/{Protheus.doc} Motor::Registrar
+Registra uma função
+@type method
+@param cNome, character, Nome da função em inglês (como gravado no xlsx)
+@param bBloco, codeblock, Bloco {|oMotor,aArgs| xRetorno}
+@param nMin, numeric, Mínimo de argumentos
+@param nMax, numeric, Máximo de argumentos (-1 sem limite)
+@param cFlags, character, L=argumentos não avaliados(lazy) E=argumentos escalares com expansão matricial V=volátil X=não calculável no servidor
+/*/
+Method Registrar(cNome As Character, bBloco As CodeBlock, nMin As Numeric, nMax As Numeric, cFlags As Character) Class Motor
+	Default nMin	:= 0
+	Default nMax	:= -1
+	Default cFlags	:= ""
+	::oFunc:Set(Upper(cNome),{bBloco,nMin,nMax,cFlags})
+Return
+
+//Definição da função registrada (nil se não existe)
+Method Funcao(cNome As Character) Class Motor
+	Local aFunc As Array
+	If ::oFunc:Get(Upper(cNome),@aFunc)
+		Return aFunc
+	EndIf
+Return nil
+
+/*/{Protheus.doc} Motor::Var
+Procura variável de LET/LAMBDA nos escopos
+@type method
+@param cNome, character, Nome da variável (maiúsculo)
+@param xValor, variant, (referência) valor encontrado
+@return logical, encontrou
+/*/
+Method Var(cNome As Character, xValor As Variant) Class Motor
+	Local nCont As Numeric
+	For nCont:=Len(::aEscopos) to 1 Step -1
+		If ::aEscopos[nCont]:Get(cNome,@xValor)
+			Return .T.
+		EndIf
+	Next
+Return .F.
+
+//Registra as funções de todas as categorias
+Method Funcoes() Class Motor
+	Local aCat As Array
+	Local nCont As Numeric
+	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New()}
+	For nCont:=1 to Len(aCat)
+		aCat[nCont]:Registrar(self)
+		FreeObj(aCat[nCont])
+	Next
+	FwFreeArray(aCat)
+Return
+
+//Árvore sintática da fórmula (cache)
+Method Arvore(cFormula As Character) Class Motor
+	Local aNo As Array
+	Local oParser As Object
+	If !::oAst:Get(cFormula,@aNo)
+		oParser	:= Parser():New(cFormula)
+		aNo		:= oParser:Parse()
+		FreeObj(oParser)
+		::oAst:Set(cFormula,aNo)
+	EndIf
+Return aNo
+
+/*/{Protheus.doc} Motor::Calcular
+Avalia uma fórmula no contexto de uma célula
+@type method
+@param cFormula, character, Fórmula (com ou sem "=")
+@param nPla, numeric, Planilha da célula
+@param nLin, numeric, Linha da célula
+@param nCol, numeric, Coluna da célula
+@param lIncompleto, logical, (referência) .T. se o resultado depende de recurso não calculável
+@return variant, valor escalar (número, texto, lógico, Erro ou nil)
+/*/
+Method Calcular(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As Numeric, lIncompleto As Logical) Class Motor
+	Local xRet As Variant
+	Local aSalva := {::nPla,::nLin,::nCol,::lIncompleto} As Array
+	Local oErro As Object
+	Default nPla	:= 1
+	Default nLin	:= 1
+	Default nCol	:= 1
+	::nPla			:= nPla
+	::nLin			:= nLin
+	::nCol			:= nCol
+	::lIncompleto	:= .F.
+	Try
+		xRet	:= ::Avaliar(::Arvore(cFormula))
+		xRet	:= ::Valor(xRet)
+		If ValType(xRet)=="O" .AND. xRet:nTipoV==V_MAT	//Matriz: valor da primeira célula (âncora do spill)
+			xRet	:= xRet:aV[1][1]
+		ElseIf ValType(xRet)=="O" .AND. xRet:nTipoV==V_LAMBDA
+			xRet	:= Err("#CALC!")
+		EndIf
+		If ValType(xRet)=="U"
+			xRet	:= 0
+		EndIf
+	Catch oErro
+		::cUltErro		:= oErro:Description
+		::lIncompleto	:= .T.
+		xRet			:= Err("#NAME?")
+	EndTry
+	lIncompleto		:= ::lIncompleto
+	::nPla			:= aSalva[1]
+	::nLin			:= aSalva[2]
+	::nCol			:= aSalva[3]
+	::lIncompleto	:= aSalva[4] .OR. lIncompleto
+	FwFreeArray(aSalva)
+Return xRet
+
+//Valor de uma célula com fórmula pendente (calcula uma vez, detecta referência circular)
+Method CalcCelula(nPla As Numeric, nLin As Numeric, nCol As Numeric, cFormula As Character, lIncOut As Logical) Class Motor
+	Local cChave := cValToChar(nPla)+"|"+cValToChar(nLin)+"|"+cValToChar(nCol) As Character
+	Local aRes As Array
+	Local nEstado As Numeric
+	Local lInc := .F. As Logical
+	Local xRet As Variant
+	If ::oCache:Get(cChave,@aRes)
+		If aRes[2]
+			::lIncompleto	:= .T.
+		EndIf
+		lIncOut	:= aRes[2]
+		Return aRes[1]
+	EndIf
+	If ::oEstado:Get(cChave,@nEstado)	//Referência circular
+		::lIncompleto	:= .T.
+		lIncOut			:= .T.
+		Return 0
+	EndIf
+	::oEstado:Set(cChave,1)
+	xRet	:= ::Calcular(cFormula,nPla,nLin,nCol,@lInc)
+	::oEstado:Del(cChave)
+	::oCache:Set(cChave,{xRet,lInc})
+	lIncOut	:= lInc
+Return xRet
+
+//Valor de uma célula do provedor (calcula se for fórmula pendente)
+Method ValorCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class Motor
+	Local aCel := ::oProv:CalcCel(nPla,nLin,nCol) As Array
+	Local xRet As Variant
+	If ValType(aCel)!="A"
+		Return nil
+	EndIf
+	If aCel[3]
+		xRet	:= ::CalcCelula(nPla,nLin,nCol,aCel[2])
+	Else
+		xRet	:= aCel[1]
+	EndIf
+Return xRet
+
+/*/{Protheus.doc} Motor::Celulas
+Células existentes de uma referência
+@type method
+@param oRef, object, Referência
+@param lSubTot, logical, Ignora células com SUBTOTAL/AGGREGATE
+@param lOcultas, logical, Ignora linhas ocultas
+@return array, {{nPla,nLin,nCol,xValor},...}
+/*/
+Method Celulas(oRef As Object, lSubTot As Logical, lOcultas As Logical) Class Motor
+	Local aRet := {} As Array
+	Local aFaixa As Array
+	Local aDim As Array
+	Local nCont As Numeric
+	Local nPla As Numeric
+	Local nArea As Numeric
+	Local oArea As Object
+	Local aAreas As Array
+	Local xValor As Variant
+	Local cForm As Character
+	Default lSubTot		:= .F.
+	Default lOcultas	:= .F.
+	aAreas	:= If(oRef:aAreas==nil,{oRef},oRef:aAreas)
+	For nArea:=1 to Len(aAreas)
+		oArea	:= aAreas[nArea]
+		For nPla:=oArea:nPla to oArea:nPla2
+			aDim	:= ::oProv:CalcDim(nPla)
+			aFaixa	:= ::oProv:CalcFaixa(nPla,oArea:nL1,oArea:nC1,Min(oArea:nL2,aDim[1]),Min(oArea:nC2,aDim[2]))
+			For nCont:=1 to Len(aFaixa)
+				cForm	:= aFaixa[nCont][4]
+				If lSubTot .AND. !Empty(cForm) .AND. ("SUBTOTAL(" $ Upper(cForm) .OR. "AGGREGATE(" $ Upper(cForm))
+					Loop
+				EndIf
+				If lOcultas .AND. ::oProv:CalcOculta(nPla,aFaixa[nCont][1])
+					Loop
+				EndIf
+				If aFaixa[nCont][5]
+					xValor	:= ::CalcCelula(nPla,aFaixa[nCont][1],aFaixa[nCont][2],cForm)
+				Else
+					xValor	:= aFaixa[nCont][3]
+				EndIf
+				AADD(aRet,{nPla,aFaixa[nCont][1],aFaixa[nCont][2],xValor})
+			Next
+			FwFreeArray(aFaixa)
+			FwFreeArray(aDim)
+		Next
+	Next
+Return aRet
+
+//Dimensões efetivas de uma referência (limitada à área usada nas colunas/linhas inteiras)
+Method Dim(oRef As Object) Class Motor
+	Local aDim As Array
+	Local nL2 := oRef:nL2 As Numeric
+	Local nC2 := oRef:nC2 As Numeric
+	If nL2==MAX_LIN .OR. nC2==MAX_COL
+		aDim	:= ::oProv:CalcDim(oRef:nPla)
+		If nL2==MAX_LIN
+			nL2	:= Max(Min(nL2,aDim[1]),oRef:nL1)
+		EndIf
+		If nC2==MAX_COL
+			nC2	:= Max(Min(nC2,aDim[2]),oRef:nC1)
+		EndIf
+		FwFreeArray(aDim)
+	EndIf
+Return {nL2-oRef:nL1+1,nC2-oRef:nC1+1}
+
+//Converte valor em matriz (referência, matriz ou escalar)
+Method ParaMat(xVal As Variant) Class Motor
+	Local oMat As Object
+	Local aCel As Array
+	Local aDim As Array
+	Local nCont As Numeric
+	Local nL As Numeric
+	Local nC As Numeric
+	If ValType(xVal)=="O" .AND. xVal:nTipoV==V_MAT
+		Return xVal
+	EndIf
+	If ValType(xVal)=="O" .AND. xVal:nTipoV==V_REF
+		If xVal:aAreas!=nil .OR. xVal:nPla!=xVal:nPla2
+			Return Mat():New({{Err("#VALUE!")}})
+		EndIf
+		aDim	:= ::Dim(xVal)
+		oMat	:= Mat():New(nil,aDim[1],aDim[2])
+		aCel	:= ::Celulas(xVal)
+		For nCont:=1 to Len(aCel)
+			nL	:= aCel[nCont][2]-xVal:nL1+1
+			nC	:= aCel[nCont][3]-xVal:nC1+1
+			If nL<=oMat:nL .AND. nC<=oMat:nC
+				oMat:aV[nL][nC]	:= aCel[nCont][4]
+			EndIf
+		Next
+		FwFreeArray(aCel)
+		FwFreeArray(aDim)
+		Return oMat
+	EndIf
+Return Mat():New({{xVal}})
+
+//Remove a referência: célula única vira valor, intervalo vira matriz
+Method Valor(xVal As Variant) Class Motor
+	If ValType(xVal)=="O" .AND. xVal:nTipoV==V_REF
+		If xVal:Unica()
+			Return ::ValorCel(xVal:nPla,xVal:nL1,xVal:nC1)
+		EndIf
+		Return ::ParaMat(xVal)
+	EndIf
+Return xVal
+
+//Valor escalar (interseção implícita para intervalos)
+Method Esc(xVal As Variant) Class Motor
+	If ValType(xVal)=="O"
+		If xVal:nTipoV==V_REF
+			If xVal:Unica()
+				Return ::ValorCel(xVal:nPla,xVal:nL1,xVal:nC1)
+			EndIf
+			If xVal:aAreas==nil .AND. xVal:nPla==::nPla
+				If xVal:nC1==xVal:nC2 .AND. ::nLin>=xVal:nL1 .AND. ::nLin<=xVal:nL2
+					Return ::ValorCel(xVal:nPla,::nLin,xVal:nC1)
+				EndIf
+				If xVal:nL1==xVal:nL2 .AND. ::nCol>=xVal:nC1 .AND. ::nCol<=xVal:nC2
+					Return ::ValorCel(xVal:nPla,xVal:nL1,::nCol)
+				EndIf
+			EndIf
+			Return Err("#VALUE!")
+		ElseIf xVal:nTipoV==V_MAT
+			If xVal:nL==0 .OR. xVal:nC==0
+				Return Err("#CALC!")
+			EndIf
+			Return xVal:aV[1][1]
+		ElseIf xVal:nTipoV==V_LAMBDA
+			Return Err("#CALC!")
+		EndIf
+	EndIf
+Return xVal
+
+//Converte em número (retorna Erro se não for possível)
+Method Num(xVal As Variant) Class Motor
+	Local cTipo As Character
+	Local nRet As Variant
+	xVal	:= ::Esc(xVal)
+	cTipo	:= ValType(xVal)
+	Do Case
+		Case cTipo=="N"
+			Return xVal
+		Case cTipo=="U"
+			Return 0
+		Case cTipo=="L"
+			Return If(xVal,1,0)
+		Case cTipo=="C"
+			nRet	:= TxtParaNum(xVal)
+			If nRet==nil
+				Return Err("#VALUE!")
+			EndIf
+			Return nRet
+		Case cTipo=="D"
+			Return If(Empty(xVal),0,xVal-STOD("18991230"))
+	EndCase
+Return xVal	//Erro
+
+//Converte em texto
+Method Txt(xVal As Variant) Class Motor
+	Local cTipo As Character
+	xVal	:= ::Esc(xVal)
+	cTipo	:= ValType(xVal)
+	Do Case
+		Case cTipo=="C"
+			Return xVal
+		Case cTipo=="N"
+			Return NumTxt(xVal)
+		Case cTipo=="U"
+			Return ""
+		Case cTipo=="L"
+			Return If(xVal,"TRUE","FALSE")
+	EndCase
+Return xVal	//Erro
+
+//Converte em lógico
+Method Log(xVal As Variant) Class Motor
+	Local cTipo As Character
+	xVal	:= ::Esc(xVal)
+	cTipo	:= ValType(xVal)
+	Do Case
+		Case cTipo=="L"
+			Return xVal
+		Case cTipo=="N"
+			Return xVal!=0
+		Case cTipo=="U"
+			Return .F.
+		Case cTipo=="C"
+			If Upper(xVal)=="TRUE"
+				Return .T.
+			ElseIf Upper(xVal)=="FALSE"
+				Return .F.
+			EndIf
+			Return Err("#VALUE!")
+	EndCase
+Return xVal	//Erro
+
+/*/{Protheus.doc} Motor::Numeros
+Coleta os números dos argumentos (regras das funções de agregação do Excel)
+@type method
+@param aArgs, array, Argumentos avaliados
+@param aNums, array, (referência) números coletados
+@param nModo, numeric, 0=SUM/AVERAGE (texto/lógico em referência ignorados) 1=modo A (texto=0, lógico=1/0)
+@param lSubTot, logical, Ignora células com SUBTOTAL/AGGREGATE
+@param lOcultas, logical, Ignora linhas ocultas
+@param lIgnErro, logical, Ignora erros
+@return variant, nil ou Erro
+/*/
+Method Numeros(aArgs As Array, aNums As Array, nModo As Numeric, lSubTot As Logical, lOcultas As Logical, lIgnErro As Logical) Class Motor
+	Local nArg As Numeric
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local xArg As Variant
+	Local xVal As Variant
+	Local aCel As Array
+	Local cTipo As Character
+	Default nModo		:= 0
+	Default lSubTot		:= .F.
+	Default lOcultas	:= .F.
+	Default lIgnErro	:= .F.
+	For nArg:=1 to Len(aArgs)
+		xArg	:= aArgs[nArg]
+		If ValType(xArg)=="O" .AND. xArg:nTipoV==V_REF
+			aCel	:= ::Celulas(xArg,lSubTot,lOcultas)
+			For nCont:=1 to Len(aCel)
+				xVal	:= aCel[nCont][4]
+				cTipo	:= ValType(xVal)
+				If cTipo=="N"
+					AADD(aNums,xVal)
+				ElseIf cTipo=="O" .AND. xVal:nTipoV==V_ERRO
+					If !lIgnErro
+						FwFreeArray(aCel)
+						Return xVal
+					EndIf
+				ElseIf nModo==1
+					If cTipo=="L"
+						AADD(aNums,If(xVal,1,0))
+					ElseIf cTipo=="C"
+						AADD(aNums,0)
+					EndIf
+				EndIf
+			Next
+			FwFreeArray(aCel)
+		ElseIf ValType(xArg)=="O" .AND. xArg:nTipoV==V_MAT
+			For nCont:=1 to xArg:nL
+				For nCont2:=1 to xArg:nC
+					xVal	:= xArg:aV[nCont][nCont2]
+					cTipo	:= ValType(xVal)
+					If cTipo=="N"
+						AADD(aNums,xVal)
+					ElseIf cTipo=="O" .AND. xVal:nTipoV==V_ERRO
+						If !lIgnErro
+							Return xVal
+						EndIf
+					ElseIf nModo==1
+						If cTipo=="L"
+							AADD(aNums,If(xVal,1,0))
+						ElseIf cTipo=="C"
+							AADD(aNums,0)
+						EndIf
+					EndIf
+				Next
+			Next
+		Else
+			cTipo	:= ValType(xArg)
+			If cTipo=="U"	//Argumento omitido
+				Loop
+			EndIf
+			If cTipo=="O" .AND. xArg:nTipoV==V_ERRO
+				If !lIgnErro
+					Return xArg
+				EndIf
+				Loop
+			EndIf
+			xVal	:= ::Num(xArg)
+			If ValType(xVal)=="O"
+				If !lIgnErro
+					Return xVal
+				EndIf
+				Loop
+			EndIf
+			AADD(aNums,xVal)
+		EndIf
+	Next
+Return nil
+
+/*/{Protheus.doc} Motor::Lista
+Lista todos os valores dos argumentos (células vazias como nil quando lVazio)
+@type method
+@param aArgs, array, Argumentos avaliados
+@param lVazio, logical, Inclui células vazias das referências
+@return array, valores
+/*/
+Method Lista(aArgs As Array, lVazio As Logical) Class Motor
+	Local aRet := {} As Array
+	Local nArg As Numeric
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Local xArg As Variant
+	Local oMat As Object
+	Default lVazio	:= .F.
+	For nArg:=1 to Len(aArgs)
+		xArg	:= aArgs[nArg]
+		If ValType(xArg)=="O" .AND. (xArg:nTipoV==V_REF .OR. xArg:nTipoV==V_MAT)
+			If ValType(xArg)=="O" .AND. xArg:nTipoV==V_REF .AND. !lVazio
+				aEval(::Celulas(xArg),{|x| AADD(aRet,x[4]) })
+			Else
+				oMat	:= ::ParaMat(xArg)
+				For nCont:=1 to oMat:nL
+					For nCont2:=1 to oMat:nC
+						If lVazio .OR. ValType(oMat:aV[nCont][nCont2])!="U"
+							AADD(aRet,oMat:aV[nCont][nCont2])
+						EndIf
+					Next
+				Next
+			EndIf
+		Else
+			AADD(aRet,xArg)
+		EndIf
+	Next
+Return aRet
+
+/*/{Protheus.doc} Motor::Avaliar
+Avalia um nó da árvore sintática
+@type method
+@param aNo, array, Nó
+@return variant, valor (pode ser Ref, Mat, Erro ou Lambda)
+/*/
+Method Avaliar(aNo As Array) Class Motor
+	Local xRet As Variant
+	Local xA As Variant
+	Local oMat As Object
+	Local nCont As Numeric
+	Local nCont2 As Numeric
+	Do Case
+		Case aNo[1]==N_NUM .OR. aNo[1]==N_STR .OR. aNo[1]==N_LOG
+			Return aNo[2]
+		Case aNo[1]==N_REF
+			Return ::RefNo(aNo)
+		Case aNo[1]==N_FUNC
+			Return ::Chamar(aNo[2],aNo[3])
+		Case aNo[1]==N_BIN
+			If aNo[2]==":" .OR. aNo[2]==" "
+				Return ::Binario(aNo[2],::Avaliar(aNo[3]),::Avaliar(aNo[4]))
+			EndIf
+			Return ::Binario(aNo[2],::Valor(::Avaliar(aNo[3])),::Valor(::Avaliar(aNo[4])))
+		Case aNo[1]==N_UN
+			If aNo[2]=="@"
+				Return ::Esc(::Avaliar(aNo[3]))
+			EndIf
+			xA	:= ::Valor(::Avaliar(aNo[3]))
+			If aNo[2]=="-"
+				Return ::Binario("*",xA,-1)
+			ElseIf aNo[2]=="%"
+				Return ::Binario("/",xA,100)
+			EndIf
+			Return xA
+		Case aNo[1]==N_NOME
+			Return ::Nome(aNo[2],aNo[3])
+		Case aNo[1]==N_ERR
+			Return Err(aNo[2])
+		Case aNo[1]==N_ARR
+			oMat	:= Mat():New(nil,Len(aNo[2]),Len(aNo[2][1]))
+			For nCont:=1 to oMat:nL
+				For nCont2:=1 to Min(oMat:nC,Len(aNo[2][nCont]))
+					oMat:aV[nCont][nCont2]	:= aNo[2][nCont][nCont2]
+				Next
+			Next
+			Return oMat
+		Case aNo[1]==N_ESTR
+			Return ::Estrut(aNo)
+		Case aNo[1]==N_VAZIO
+			Return nil
+		Case aNo[1]==N_SPILL
+			//Sem matriz dinâmica gravada: devolve a própria célula
+			Return ::Avaliar(aNo[2])
+		Case aNo[1]==N_CHAMA
+			xA	:= ::Avaliar(aNo[2])
+			If ValType(xA)=="O" .AND. xA:nTipoV==V_LAMBDA
+				Return ::ChamarLambda(xA,aNo[3],.F.)
+			EndIf
+			Return Err("#VALUE!")
+	EndCase
+Return xRet
+
+//Referência de um nó N_REF
+Method RefNo(aNo As Array) Class Motor
+	Local nPla := ::nPla As Numeric
+	Local nPla2 As Numeric
+	If !Empty(aNo[2])
+		nPla	:= ::oProv:CalcPlan(aNo[2])
+		If nPla==0
+			Return Err("#REF!")
+		EndIf
+	EndIf
+	nPla2	:= nPla
+	If !Empty(aNo[7])
+		nPla2	:= ::oProv:CalcPlan(aNo[7])
+		If nPla2==0
+			Return Err("#REF!")
+		EndIf
+	EndIf
+Return Ref():New(nPla,aNo[3],aNo[4],aNo[5],aNo[6],nPla2)
+
+//Variável de LET/LAMBDA ou nome definido
+Method Nome(cNome As Character, cPlan As Character) Class Motor
+	Local cUp := Upper(cNome) As Character
+	Local nCont As Numeric
+	Local nPla := ::nPla As Numeric
+	Local cForm As Character
+	Local xRet As Variant
+	Local aSalva As Array
+	If Left(cUp,6)=="_XLPM."
+		cUp	:= SubStr(cUp,7)
+	EndIf
+	If Empty(cPlan)
+		If ::Var(cUp,@xRet)
+			Return xRet
+		EndIf
+	Else
+		nPla	:= ::oProv:CalcPlan(cPlan)
+	EndIf
+	cForm	:= ::oProv:CalcNome(cNome,nPla)
+	If Empty(cForm)
+		Return Err("#NAME?")
+	EndIf
+	aSalva	:= ::aEscopos
+	::aEscopos	:= {}
+	xRet	:= ::Avaliar(::Arvore(cForm))
+	::aEscopos	:= aSalva
+Return xRet
+
+//Referência estruturada para a área da tabela
+Method Estrut(aNo As Array) Class Motor
+	Local cTab := aNo[2] As Character
+	Local aTab As Array
+	Local nL1 As Numeric
+	Local nL2 As Numeric
+	Local nC1 As Numeric
+	Local nC2 As Numeric
+	Local nPos As Numeric
+	Local cEsp As Character
+	Local nCont As Numeric
+	Local lAll := .F. As Logical
+	Local lCab := .F. As Logical
+	Local lDad := .F. As Logical
+	Local lTot := .F. As Logical
+	Local lLin := .F. As Logical
+	If Empty(cTab)
+		cTab	:= ::oProv:CalcTabCel(::nPla,::nLin,::nCol)
+	EndIf
+	aTab	:= ::oProv:CalcTabela(cTab)
+	If ValType(aTab)!="A"
+		Return Err("#REF!")
+	EndIf
+	//aTab: {nPla,nLinCab,nLinIni,nLinFim,nLinTot,nCol1,aColunas}
+	For nCont:=1 to Len(aNo[3])
+		cEsp	:= aNo[3][nCont]
+		Do Case
+			Case cEsp=="#ALL"
+				lAll	:= .T.
+			Case cEsp=="#HEADERS"
+				lCab	:= .T.
+			Case cEsp=="#DATA"
+				lDad	:= .T.
+			Case cEsp=="#TOTALS"
+				lTot	:= .T.
+			Case cEsp=="#THIS ROW"
+				lLin	:= .T.
+		EndCase
+	Next
+	Do Case
+		Case lAll
+			nL1	:= If(aTab[2]>0,aTab[2],aTab[3])
+			nL2	:= If(aTab[5]>0,aTab[5],aTab[4])
+		Case lLin
+			If ::nLin<aTab[3] .OR. ::nLin>aTab[4] .OR. ::nPla!=aTab[1]
+				Return Err("#VALUE!")
+			EndIf
+			nL1	:= ::nLin
+			nL2	:= ::nLin
+		Otherwise
+			nL1	:= 0
+			nL2	:= 0
+			If lCab .AND. aTab[2]>0
+				nL1	:= aTab[2]
+				nL2	:= aTab[2]
+			EndIf
+			If lDad .OR. (!lCab .AND. !lTot)
+				nL1	:= If(nL1==0,aTab[3],nL1)
+				nL2	:= aTab[4]
+			EndIf
+			If lTot
+				If aTab[5]==0
+					Return Err("#REF!")
+				EndIf
+				nL1	:= If(nL1==0,aTab[5],nL1)
+				nL2	:= aTab[5]
+			EndIf
+	EndCase
+	nC1	:= aTab[6]
+	nC2	:= aTab[6]+Len(aTab[7])-1
+	If !Empty(aNo[4])
+		nPos	:= aScan(aTab[7],{|x| Upper(AllTrim(x))==Upper(aNo[4]) })
+		If nPos==0
+			Return Err("#REF!")
+		EndIf
+		nC1	:= aTab[6]+nPos-1
+		nC2	:= nC1
+		If !Empty(aNo[5])
+			nPos	:= aScan(aTab[7],{|x| Upper(AllTrim(x))==Upper(aNo[5]) })
+			If nPos==0
+				Return Err("#REF!")
+			EndIf
+			nC2	:= aTab[6]+nPos-1
+		EndIf
+	EndIf
+	If nL2<nL1	//Tabela sem linhas de dados
+		nL2	:= nL1
+	EndIf
+Return Ref():New(aTab[1],nL1,nC1,nL2,nC2)
+
+/*/{Protheus.doc} Motor::Chamar
+Chama uma função registrada
+@type method
+@param cNome, character, Nome da função (maiúsculo)
+@param aNos, array, Nós dos argumentos
+/*/
+Method Chamar(cNome As Character, aNos As Array) Class Motor
+	Local aFunc As Array
+	Local aArgs As Array
+	Local nCont As Numeric
+	Local cFlags As Character
+	Local xRet As Variant
+	Local xLam As Variant
+	Local lMat := .F. As Logical
+	Local nL := 1 As Numeric
+	Local nC := 1 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local aEsc As Array
+	Local oRes As Object
+	Local xArg As Variant
+	If cNome=="_UNIAO"	//União de referências (A1:B2,D1:D3)
+		aArgs	:= {}
+		For nCont:=1 to Len(aNos)
+			xArg	:= ::Avaliar(aNos[nCont])
+			If ValType(xArg)!="O" .OR. xArg:nTipoV!=V_REF
+				Return Err("#VALUE!")
+			EndIf
+			If xArg:aAreas!=nil
+				aEval(xArg:aAreas,{|x| AADD(aArgs,x) })
+			Else
+				AADD(aArgs,xArg)
+			EndIf
+		Next
+		oRes		:= Ref():New(aArgs[1]:nPla,aArgs[1]:nL1,aArgs[1]:nC1,aArgs[1]:nL2,aArgs[1]:nC2)
+		oRes:aAreas	:= aArgs
+		Return oRes
+	EndIf
+	aFunc	:= ::Funcao(cNome)
+	If aFunc==nil
+		//Variável LET/LAMBDA com nome de função: =LET(f,LAMBDA(x,x*2),f(3))
+		xLam	:= ::Nome(cNome,"")
+		If ValType(xLam)=="O" .AND. xLam:nTipoV==V_LAMBDA
+			Return ::ChamarLambda(xLam,aNos,.F.)
+		EndIf
+		::lIncompleto	:= .T.
+		Return Err("#NAME?")
+	EndIf
+	cFlags	:= aFunc[4]
+	If "X" $ cFlags
+		::lIncompleto	:= .T.
+	EndIf
+	If Len(aNos)<aFunc[2] .OR. (aFunc[3]>=0 .AND. Len(aNos)>aFunc[3])
+		Return Err("#VALUE!")
+	EndIf
+	If "L" $ cFlags	//Argumentos avaliados pela própria função
+		Return Eval(aFunc[1],self,aNos)
+	EndIf
+	aArgs	:= Array(Len(aNos))
+	For nCont:=1 to Len(aNos)
+		aArgs[nCont]	:= ::Avaliar(aNos[nCont])
+	Next
+	If "E" $ cFlags	//Argumentos escalares: expande elemento a elemento quando recebe matriz
+		For nCont:=1 to Len(aArgs)
+			xArg	:= aArgs[nCont]
+			If ValType(xArg)=="O" .AND. (xArg:nTipoV==V_REF .OR. xArg:nTipoV==V_MAT)
+				If xArg:nTipoV==V_REF .AND. xArg:Unica()
+					aArgs[nCont]	:= ::Valor(xArg)
+					Loop
+				EndIf
+				aArgs[nCont]	:= ::ParaMat(xArg)
+				If aArgs[nCont]:nL==1 .AND. aArgs[nCont]:nC==1
+					aArgs[nCont]	:= aArgs[nCont]:aV[1][1]
+					Loop
+				EndIf
+				lMat	:= .T.
+				nL		:= Max(nL,aArgs[nCont]:nL)
+				nC		:= Max(nC,aArgs[nCont]:nC)
+			EndIf
+		Next
+		If lMat
+			oRes	:= Mat():New(nil,nL,nC)
+			For nI:=1 to nL
+				For nJ:=1 to nC
+					aEsc	:= Array(Len(aArgs))
+					For nCont:=1 to Len(aArgs)
+						xArg	:= aArgs[nCont]
+						If ValType(xArg)=="O" .AND. xArg:nTipoV==V_MAT
+							aEsc[nCont]	:= xArg:Get(nI,nJ)
+						Else
+							aEsc[nCont]	:= xArg
+						EndIf
+					Next
+					oRes:aV[nI][nJ]	:= Eval(aFunc[1],self,aEsc)
+				Next
+			Next
+			Return oRes
+		EndIf
+	EndIf
+	xRet	:= Eval(aFunc[1],self,aArgs)
+Return xRet
+
+/*/{Protheus.doc} Motor::ChamarLambda
+Executa uma LAMBDA
+@type method
+@param oLam, object, Lambda
+@param aArgs, array, Nós (lAval=.F.) ou valores já avaliados (lAval=.T.)
+@param lAval, logical, Argumentos já avaliados
+/*/
+Method ChamarLambda(oLam As Object, aArgs As Array, lAval As Logical) Class Motor
+	Local oVar := tHashMap():New() As Object
+	Local nCont As Numeric
+	Local aSalva := ::aEscopos As Array
+	Local xRet As Variant
+	If Len(aArgs)>Len(oLam:aParams)
+		Return Err("#VALUE!")
+	EndIf
+	For nCont:=1 to Len(oLam:aParams)
+		If nCont<=Len(aArgs)
+			oVar:Set(oLam:aParams[nCont],If(lAval,aArgs[nCont],::Avaliar(aArgs[nCont])))
+		Else
+			oVar:Set(oLam:aParams[nCont],nil)
+		EndIf
+	Next
+	::aEscopos	:= aClone(oLam:aEscopos)
+	AADD(::aEscopos,oVar)
+	xRet	:= ::Avaliar(oLam:aCorpo)
+	::aEscopos	:= aSalva
+Return xRet
+
+/*/{Protheus.doc} Motor::Binario
+Operadores binários com expansão matricial
+@type method
+/*/
+Method Binario(cOp As Character, xA As Variant, xB As Variant) Class Motor
+	Local oA As Object
+	Local oB As Object
+	Local oRes As Object
+	Local nL As Numeric
+	Local nC As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	If cOp==":"
+		If ValType(xA)=="O" .AND. xA:nTipoV==V_ERRO
+			Return xA
+		EndIf
+		If ValType(xB)=="O" .AND. xB:nTipoV==V_ERRO
+			Return xB
+		EndIf
+		If ValType(xA)!="O" .OR. ValType(xB)!="O" .OR. xA:nTipoV!=V_REF .OR. xB:nTipoV!=V_REF .OR. xA:nPla!=xB:nPla
+			Return Err("#VALUE!")
+		EndIf
+		Return Ref():New(xA:nPla,Min(xA:nL1,xB:nL1),Min(xA:nC1,xB:nC1),Max(xA:nL2,xB:nL2),Max(xA:nC2,xB:nC2))
+	EndIf
+	If cOp==" "	//Interseção
+		If ValType(xA)!="O" .OR. ValType(xB)!="O" .OR. xA:nTipoV!=V_REF .OR. xB:nTipoV!=V_REF .OR. xA:nPla!=xB:nPla
+			Return Err("#VALUE!")
+		EndIf
+		If Max(xA:nL1,xB:nL1)>Min(xA:nL2,xB:nL2) .OR. Max(xA:nC1,xB:nC1)>Min(xA:nC2,xB:nC2)
+			Return Err("#NULL!")
+		EndIf
+		Return Ref():New(xA:nPla,Max(xA:nL1,xB:nL1),Max(xA:nC1,xB:nC1),Min(xA:nL2,xB:nL2),Min(xA:nC2,xB:nC2))
+	EndIf
+	If (ValType(xA)=="O" .AND. xA:nTipoV==V_MAT) .OR. (ValType(xB)=="O" .AND. xB:nTipoV==V_MAT)
+		oA		:= If(ValType(xA)=="O" .AND. xA:nTipoV==V_MAT,xA,Mat():New({{xA}}))
+		oB		:= If(ValType(xB)=="O" .AND. xB:nTipoV==V_MAT,xB,Mat():New({{xB}}))
+		nL		:= Max(oA:nL,oB:nL)
+		nC		:= Max(oA:nC,oB:nC)
+		oRes	:= Mat():New(nil,nL,nC)
+		For nI:=1 to nL
+			For nJ:=1 to nC
+				oRes:aV[nI][nJ]	:= ::OperaEsc(cOp,oA:Get(nI,nJ),oB:Get(nI,nJ))
+			Next
+		Next
+		Return oRes
+	EndIf
+Return ::OperaEsc(cOp,xA,xB)
+
+//Operação entre dois escalares
+Method OperaEsc(cOp As Character, xA As Variant, xB As Variant) Class Motor
+	Local nA As Variant
+	Local nB As Variant
+	Local nCmp As Numeric
+	If ValType(xA)=="O" .AND. xA:nTipoV==V_ERRO
+		Return xA
+	EndIf
+	If ValType(xB)=="O" .AND. xB:nTipoV==V_ERRO
+		Return xB
+	EndIf
+	If ValType(xA)=="O" .OR. ValType(xB)=="O"
+		Return Err("#VALUE!")
+	EndIf
+	If cOp=="&"
+		Return ::Txt(xA)+::Txt(xB)
+	EndIf
+	If cOp=="=" .OR. cOp=="<>" .OR. cOp=="<" .OR. cOp==">" .OR. cOp=="<=" .OR. cOp==">="
+		nCmp	:= Compara(xA,xB)
+		Do Case
+			Case cOp=="="
+				Return nCmp==0
+			Case cOp=="<>"
+				Return nCmp!=0
+			Case cOp=="<"
+				Return nCmp<0
+			Case cOp==">"
+				Return nCmp>0
+			Case cOp=="<="
+				Return nCmp<=0
+		EndCase
+		Return nCmp>=0
+	EndIf
+	nA	:= ::Num(xA)
+	If ValType(nA)=="O"
+		Return nA
+	EndIf
+	nB	:= ::Num(xB)
+	If ValType(nB)=="O"
+		Return nB
+	EndIf
+	Do Case
+		Case cOp=="+"
+			Return nA+nB
+		Case cOp=="-"
+			Return nA-nB
+		Case cOp=="*"
+			Return nA*nB
+		Case cOp=="/"
+			If nB==0
+				Return Err("#DIV/0!")
+			EndIf
+			Return nA/nB
+		Case cOp=="^"
+			Return ::Elevar(nA,nB)
+	EndCase
+Return Err("#VALUE!")
+
+//Potência com as regras do Excel
+Method Elevar(nA As Numeric, nB As Numeric) Class Motor
+	If nA==0 .AND. nB==0
+		Return Err("#NUM!")
+	EndIf
+	If nA==0 .AND. nB<0
+		Return Err("#DIV/0!")
+	EndIf
+	If nA<0 .AND. nB!=Int(nB)
+		Return Err("#NUM!")
+	EndIf
+	If nA<0
+		Return If(Mod(Abs(nB),2)==1,-1,1)*(Abs(nA)^nB)
+	EndIf
+Return nA^nB
+
+//Libera os caches
+Method Limpar() Class Motor
+	::oCache:Clean()
+	::oEstado:Clean()
+	::oAst:Clean()
+	FreeObj(::oCache)
+	FreeObj(::oEstado)
+	FreeObj(::oAst)
+	::oFunc:Clean()
+	FreeObj(::oFunc)
+Return
+
+/*/{Protheus.doc} Compara
+Compara dois escalares conforme o Excel (número < texto < lógico; texto sem diferenciar maiúsculas)
+@type function
+@return numeric, -1, 0 ou 1
+/*/
+Static Function Compara(xA As Variant, xB As Variant)
+	Local cTa := ValType(xA) As Character
+	Local cTb := ValType(xB) As Character
+	Local nOa As Numeric
+	Local nOb As Numeric
+	Local cA As Character
+	Local cB As Character
+	If cTa=="U"
+		xA	:= VazioTipo(cTb)
+		cTa	:= ValType(xA)
+	EndIf
+	If cTb=="U"
+		xB	:= VazioTipo(cTa)
+		cTb	:= ValType(xB)
+	EndIf
+	nOa	:= If(cTa=="N",1,If(cTa=="C",2,3))
+	nOb	:= If(cTb=="N",1,If(cTb=="C",2,3))
+	If nOa!=nOb
+		Return If(nOa<nOb,-1,1)
+	EndIf
+	If cTa=="N"
+		If Abs(xA-xB)<=Abs(xA)*0.000000000000001
+			Return 0
+		EndIf
+		Return If(xA<xB,-1,1)
+	EndIf
+	If cTa=="L"
+		If xA==xB
+			Return 0
+		EndIf
+		Return If(xA,1,-1)
+	EndIf
+	cA	:= Upper(xA)
+	cB	:= Upper(xB)
+	If cA==cB
+		Return 0
+	EndIf
+Return If(cA<cB,-1,1)
+
+//Valor de célula vazia na comparação com o tipo informado
+Static Function VazioTipo(cTipo As Character)
+	Local xRet As Variant
+	If cTipo=="C"
+		xRet	:= ""
+	ElseIf cTipo=="L"
+		xRet	:= .F.
+	Else
+		xRet	:= 0
+	EndIf
+Return xRet
+
+/*/{Protheus.doc} TxtNum
+Monta número a partir da mantissa e do expoente em texto
+/*/
+Static Function TxtNum(cNum As Character, cExp As Character)
+	Local nRet := Val(cNum) As Numeric
+	Local nExp As Numeric
+	If !Empty(cExp)
+		nExp	:= Val(cExp)
+		nRet	:= nRet*(10^nExp)
+	EndIf
+Return nRet
+
+/*/{Protheus.doc} TxtParaNum
+Converte texto em número como o Excel (número, percentual, notação científica); nil se não for número
+/*/
+Static Function TxtParaNum(cTxt As Character)
+	Local cT := AllTrim(cTxt) As Character
+	Local nPct := 1 As Numeric
+	Local nSinal := 1 As Numeric
+	Local nPosE As Numeric
+	Local cMant As Character
+	Local cExp := "" As Character
+	Local nCont As Numeric
+	Local cCar As Character
+	Local lPonto := .F. As Logical
+	Local lDig := .F. As Logical
+	If Empty(cT)
+		Return nil
+	EndIf
+	If Right(cT,1)=="%"
+		nPct	:= 100
+		cT		:= AllTrim(Left(cT,Len(cT)-1))
+	EndIf
+	If Left(cT,1)=="-"
+		nSinal	:= -1
+		cT		:= SubStr(cT,2)
+	ElseIf Left(cT,1)=="+"
+		cT		:= SubStr(cT,2)
+	EndIf
+	cT		:= StrTran(cT,",","")	//Separador de milhar
+	nPosE	:= At("E",Upper(cT))
+	cMant	:= cT
+	If nPosE>0
+		cMant	:= Left(cT,nPosE-1)
+		cExp	:= SubStr(cT,nPosE+1)
+		If Empty(cExp) .OR. !(IsDigit(Right(cExp,1)))
+			Return nil
+		EndIf
+		For nCont:=1 to Len(cExp)
+			cCar	:= SubStr(cExp,nCont,1)
+			If !(IsDigit(cCar) .OR. (nCont==1 .AND. (cCar=="+" .OR. cCar=="-")))
+				Return nil
+			EndIf
+		Next
+	EndIf
+	For nCont:=1 to Len(cMant)
+		cCar	:= SubStr(cMant,nCont,1)
+		If cCar=="."
+			If lPonto
+				Return nil
+			EndIf
+			lPonto	:= .T.
+		ElseIf IsDigit(cCar)
+			lDig	:= .T.
+		Else
+			Return nil
+		EndIf
+	Next
+	If !lDig
+		Return nil
+	EndIf
+Return nSinal*TxtNum(cMant,cExp)/nPct
+
+/*/{Protheus.doc} NumTxt
+Converte número em texto no formato Geral do Excel (até 15 dígitos significativos)
+/*/
+Static Function NumTxt(nNum As Numeric)
+	Local cRet As Character
+	Local nAbs := Abs(nNum) As Numeric
+	Local nInt As Numeric
+	Local nDec As Numeric
+	Local nExp As Numeric
+	Local nMant As Numeric
+	If nNum==0
+		Return "0"
+	EndIf
+	If nAbs>=1000000000000000 .OR. nAbs<0.000000001
+		nExp	:= Int(Log(nAbs)/Log(10))
+		If 10^nExp>nAbs
+			nExp--
+		EndIf
+		nMant	:= Round(nNum/(10^nExp),14)
+		If Abs(nMant)>=10
+			nMant	:= nMant/10
+			nExp++
+		EndIf
+		cRet	:= NumTxt(nMant)+"E"+If(nExp<0,"-","+")+StrZero(Abs(nExp),2)
+		Return cRet
+	EndIf
+	nInt	:= Len(cValToChar(Int(nAbs)))
+	If Int(nAbs)==0
+		nInt	:= 0
+	EndIf
+	nDec	:= Max(15-nInt,0)
+	nNum	:= Round(nNum,nDec)
+	If nNum==Int(nNum)
+		Return cValToChar(Int(nNum))
+	EndIf
+	cRet	:= AllTrim(Str(nNum,40,nDec))
+	If "." $ cRet
+		While Right(cRet,1)=="0"
+			cRet	:= Left(cRet,Len(cRet)-1)
+		EndDo
+		If Right(cRet,1)=="."
+			cRet	:= Left(cRet,Len(cRet)-1)
+		EndIf
+	EndIf
+Return cRet
+
+/*/{Protheus.doc} NomeFunc
+Normaliza o nome da função (remove prefixos _xlfn. _xlws.)
+/*/
+Static Function NomeFunc(cNome As Character)
+	cNome	:= Upper(cNome)
+	If Left(cNome,6)=="_XLFN."
+		cNome	:= SubStr(cNome,7)
+	EndIf
+	If Left(cNome,6)=="_XLWS."
+		cNome	:= SubStr(cNome,7)
+	EndIf
+	If Left(cNome,6)=="_XLUDF."
+		cNome	:= SubStr(cNome,8)
+	EndIf
+Return cNome
+
+/*/{Protheus.doc} PalavraEm
+Palavra (letras, dígitos, _ . $) a partir da posição
+/*/
+Static Function PalavraEm(cTxt As Character, nPos As Numeric)
+	Local nIni := nPos As Numeric
+	Local cCar As Character
+	While nPos<=Len(cTxt)
+		cCar	:= SubStr(cTxt,nPos,1)
+		If IsAlpha(cCar) .OR. IsDigit(cCar) .OR. cCar=="_" .OR. cCar=="." .OR. cCar=="$" .OR. cCar=="\"
+			nPos++
+		Else
+			Exit
+		EndIf
+	EndDo
+Return SubStr(cTxt,nIni,nPos-nIni)
+
+/*/{Protheus.doc} RefCel
+Converte "A1"/"$A$1" em {nLin,nCol}; {} se não for referência de célula
+/*/
+Static Function RefCel(cRef As Character)
+	Local nCont As Numeric
+	Local cCar As Character
+	Local cCol := "" As Character
+	Local cLin := "" As Character
+	Local nCol As Numeric
+	Local nLin As Numeric
+	Local nEtapa := 0 As Numeric	//0=coluna 1=linha
+	For nCont:=1 to Len(cRef)
+		cCar	:= SubStr(cRef,nCont,1)
+		If cCar=="$"
+			If (nEtapa==0 .AND. !Empty(cCol))
+				nEtapa	:= 1
+			ElseIf nEtapa==1
+				Return {}
+			EndIf
+			Loop
+		EndIf
+		If IsAlpha(cCar) .AND. nEtapa==0
+			cCol	+= Upper(cCar)
+		ElseIf IsDigit(cCar)
+			nEtapa	:= 1
+			cLin	+= cCar
+		Else
+			Return {}
+		EndIf
+	Next
+	If Empty(cCol) .OR. Empty(cLin) .OR. Len(cCol)>3 .OR. Len(cLin)>7
+		Return {}
+	EndIf
+	nCol	:= ColNum(cCol)
+	nLin	:= Val(cLin)
+	If nCol<1 .OR. nCol>MAX_COL .OR. nLin<1 .OR. nLin>MAX_LIN
+		Return {}
+	EndIf
+Return {nLin,nCol}
+
+/*/{Protheus.doc} RefColuna
+Converte "A"/"$A" em número da coluna; 0 se não for coluna
+/*/
+Static Function RefColuna(cRef As Character)
+	Local cCol := StrTran(Upper(cRef),"$","") As Character
+	Local nCont As Numeric
+	If Empty(cCol) .OR. Len(cCol)>3
+		Return 0
+	EndIf
+	For nCont:=1 to Len(cCol)
+		If !IsAlpha(SubStr(cCol,nCont,1)) .OR. Asc(SubStr(cCol,nCont,1))>90
+			Return 0
+		EndIf
+	Next
+	If ColNum(cCol)>MAX_COL
+		Return 0
+	EndIf
+Return ColNum(cCol)
+
+//Letras da coluna para número
+Static Function ColNum(cCol As Character)
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to Len(cCol)
+		nRet	:= nRet*26+(Asc(SubStr(cCol,nCont,1))-64)
+	Next
+Return nRet
+
+//Número da coluna para letras
+Static Function ColLetra(nCol As Numeric)
+	Local cRet := "" As Character
+	Local nResto As Numeric
+	While nCol>0
+		nResto	:= Mod(nCol-1,26)
+		cRet	:= Chr(65+nResto)+cRet
+		nCol	:= Int((nCol-1)/26)
+	EndDo
+Return cRet
+
+Method Err(cCod As Character) Class Motor
+Return Err(cCod)
+
+Method EhErro(xVal As Variant) Class Motor
+Return ValType(xVal)=="O" .AND. xVal:nTipoV==V_ERRO
+
+Method EhRef(xVal As Variant) Class Motor
+Return ValType(xVal)=="O" .AND. xVal:nTipoV==V_REF
+
+Method EhMat(xVal As Variant) Class Motor
+Return ValType(xVal)=="O" .AND. xVal:nTipoV==V_MAT
+
+Method EhLambda(xVal As Variant) Class Motor
+Return ValType(xVal)=="O" .AND. xVal:nTipoV==V_LAMBDA
+
+Method Compara(xA As Variant, xB As Variant) Class Motor
+Return Compara(xA,xB)
+
+Method NumTxt(nNum As Numeric) Class Motor
+Return NumTxt(nNum)
+
+//Texto para número (nil se não for número)
+Method TxtNum(cTxt As Character) Class Motor
+Return TxtParaNum(cTxt)
+
+Method NovaMat(aV As Variant, nL As Numeric, nC As Numeric) Class Motor
+Return Mat():New(aV,nL,nC)
+
+Method NovaRef(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric, nC2 As Numeric) Class Motor
+Return Ref():New(nPla,nL1,nC1,nL2,nC2)
+
+Method NovaLambda(aParams As Array, aCorpo As Array) Class Motor
+Return Lambda():New(aParams,aCorpo,aClone(::aEscopos))
+
+Method ColNum(cCol As Character) Class Motor
+Return ColNum(Upper(cCol))
+
+Method ColLetra(nCol As Numeric) Class Motor
+Return ColLetra(nCol)
+
+/*/{Protheus.doc} Motor::Criterio
+Compila o critério das funções *IF/*IFS/D* (">10", "<>", "a*", 5, ...)
+@type method
+@param xCrit, variant, Critério (escalar)
+@return array, {cOperador,xValor,lCuringa,lNumero}
+/*/
+Method Criterio(xCrit As Variant) Class Motor
+	Local cOp := "=" As Character
+	Local cTxt As Character
+	Local xVal As Variant
+	Local nNum As Variant
+	xCrit	:= ::Esc(xCrit)
+	If ValType(xCrit)=="N" .OR. ValType(xCrit)=="L" .OR. (ValType(xCrit)=="O")
+		Return {"=",xCrit,.F.,ValType(xCrit)=="N"}
+	EndIf
+	If ValType(xCrit)=="U"
+		Return {"=","",.F.,.F.}
+	EndIf
+	cTxt	:= xCrit
+	If Left(cTxt,2)==">=" .OR. Left(cTxt,2)=="<=" .OR. Left(cTxt,2)=="<>"
+		cOp		:= Left(cTxt,2)
+		cTxt	:= SubStr(cTxt,3)
+	ElseIf Left(cTxt,1)=="=" .OR. Left(cTxt,1)==">" .OR. Left(cTxt,1)=="<"
+		cOp		:= Left(cTxt,1)
+		cTxt	:= SubStr(cTxt,2)
+	EndIf
+	nNum	:= TxtParaNum(cTxt)
+	If nNum!=nil
+		Return {cOp,nNum,.F.,.T.}
+	EndIf
+	If Upper(cTxt)=="TRUE" .OR. Upper(cTxt)=="FALSE"
+		Return {cOp,Upper(cTxt)=="TRUE",.F.,.F.}
+	EndIf
+	xVal	:= cTxt
+Return {cOp,xVal,("*" $ cTxt .OR. "?" $ cTxt .OR. "~" $ cTxt) .AND. (cOp=="=" .OR. cOp=="<>"),.F.}
+
+/*/{Protheus.doc} Motor::TestaCrit
+Testa um valor contra o critério compilado
+@type method
+/*/
+Method TestaCrit(aCrit As Array, xVal As Variant) Class Motor
+	Local cOp := aCrit[1] As Character
+	Local xCrit := aCrit[2] As Variant
+	Local cTipo := ValType(xVal) As Character
+	Local nCmp As Numeric
+	Local nNum As Variant
+	Local lRet As Logical
+	If ValType(xCrit)=="O"	//Critério de erro
+		Return cTipo=="O" .AND. xVal:nTipoV==V_ERRO .AND. xVal:cCod==xCrit:cCod .AND. cOp=="="
+	EndIf
+	If cTipo=="O"
+		Return cOp=="<>"
+	EndIf
+	If ValType(xCrit)=="C" .AND. Empty(xCrit) .AND. !aCrit[3]
+		//"" ou "=" -> vazias; "<>" -> não vazias
+		lRet	:= cTipo=="U" .OR. (cTipo=="C" .AND. Empty(xVal))
+		If cOp=="="
+			Return lRet
+		ElseIf cOp=="<>"
+			Return !lRet
+		EndIf
+		Return .F.
+	EndIf
+	If cTipo=="U"
+		Return cOp=="<>"
+	EndIf
+	If aCrit[4]	//Critério numérico
+		If cTipo=="C" .AND. cOp=="="
+			nNum	:= TxtParaNum(xVal)
+			If nNum==nil
+				Return .F.
+			EndIf
+			xVal	:= nNum
+		ElseIf cTipo!="N"
+			Return cOp=="<>"
+		EndIf
+	ElseIf ValType(xCrit)=="L"
+		If cTipo!="L"
+			Return cOp=="<>"
+		EndIf
+	Else	//Critério texto
+		If cTipo!="C"
+			Return cOp=="<>"
+		EndIf
+		If aCrit[3]
+			lRet	:= ::Curinga(xCrit,xVal)
+			Return If(cOp=="=",lRet,!lRet)
+		EndIf
+	EndIf
+	nCmp	:= Compara(xVal,xCrit)
+	Do Case
+		Case cOp=="="
+			Return nCmp==0
+		Case cOp=="<>"
+			Return nCmp!=0
+		Case cOp==">"
+			Return nCmp>0
+		Case cOp=="<"
+			Return nCmp<0
+		Case cOp==">="
+			Return nCmp>=0
+		Case cOp=="<="
+			Return nCmp<=0
+	EndCase
+Return .F.
+
+/*/{Protheus.doc} Motor::Curinga
+Compara texto com padrão de curingas do Excel (* ? e ~ como escape), sem diferenciar maiúsculas
+@type method
+/*/
+Method Curinga(cPadrao As Character, cTxt As Character) Class Motor
+Return Curinga(Upper(cPadrao),1,Upper(cTxt),1)
+
+Static Function Curinga(cP As Character, nP As Numeric, cT As Character, nT As Numeric)
+	Local cCar As Character
+	While nP<=Len(cP)
+		cCar	:= SubStr(cP,nP,1)
+		If cCar=="~" .AND. nP<Len(cP)
+			nP++
+			If nT>Len(cT) .OR. SubStr(cT,nT,1)!=SubStr(cP,nP,1)
+				Return .F.
+			EndIf
+			nP++
+			nT++
+		ElseIf cCar=="*"
+			While nP<=Len(cP) .AND. SubStr(cP,nP,1)=="*"
+				nP++
+			EndDo
+			If nP>Len(cP)
+				Return .T.
+			EndIf
+			While nT<=Len(cT)+1
+				If Curinga(cP,nP,cT,nT)
+					Return .T.
+				EndIf
+				nT++
+			EndDo
+			Return .F.
+		ElseIf cCar=="?"
+			If nT>Len(cT)
+				Return .F.
+			EndIf
+			nP++
+			nT++
+		Else
+			If nT>Len(cT) .OR. SubStr(cT,nT,1)!=cCar
+				Return .F.
+			EndIf
+			nP++
+			nT++
+		EndIf
+	EndDo
+Return nT>Len(cT)
+
+/*/{Protheus.doc} Motor::Precisa
+Áreas de células lidas pela fórmula (análise estática da árvore)
+@type method
+@param cFormula, character, Fórmula
+@param nPla, numeric, Planilha da célula da fórmula
+@param nLin, numeric, Linha da célula
+@param nCol, numeric, Coluna da célula
+@param aAreas, array, (referência) áreas {nPla,nL1,nC1,nL2,nC2} acrescentadas
+@return logical, .F. se a fórmula usa referência dinâmica (INDIRECT/OFFSET) e precisa de todas as células
+/*/
+Method Precisa(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As Numeric, aAreas As Array) Class Motor
+	Local aSalva := {::nPla,::nLin,::nCol} As Array
+	Local lRet As Logical
+	Local oErro As Object
+	::nPla	:= nPla
+	::nLin	:= nLin
+	::nCol	:= nCol
+	Try
+		lRet	:= PrecisaNo(self,::Arvore(cFormula),@aAreas,0)
+	Catch oErro
+		lRet	:= .T.	//Fórmula inválida não lê células
+	EndTry
+	::nPla	:= aSalva[1]
+	::nLin	:= aSalva[2]
+	::nCol	:= aSalva[3]
+	FwFreeArray(aSalva)
+Return lRet
+
+Static Function PrecisaNo(oM As Object, aNo As Array, aAreas As Array, nNivel As Numeric)
+	Local nCont As Numeric
+	Local xRef As Variant
+	Local nPla As Numeric
+	Local nPla2 As Numeric
+	Local cForm As Character
+	If nNivel>50	//Nomes recursivos
+		Return .F.
+	EndIf
+	Do Case
+		Case aNo[1]==N_REF
+			nPla	:= oM:nPla
+			If !Empty(aNo[2])
+				nPla	:= oM:oProv:CalcPlan(aNo[2])
+			EndIf
+			nPla2	:= nPla
+			If !Empty(aNo[7])
+				nPla2	:= oM:oProv:CalcPlan(aNo[7])
+			EndIf
+			For nCont:=nPla to nPla2
+				If nCont>0
+					AADD(aAreas,{nCont,Min(aNo[3],aNo[5]),Min(aNo[4],aNo[6]),Max(aNo[3],aNo[5]),Max(aNo[4],aNo[6])})
+				EndIf
+			Next
+		Case aNo[1]==N_ESTR
+			xRef	:= oM:Estrut(aNo)
+			If oM:EhRef(xRef)
+				AADD(aAreas,{xRef:nPla,xRef:nL1,xRef:nC1,xRef:nL2,xRef:nC2})
+			EndIf
+		Case aNo[1]==N_NOME
+			nPla	:= oM:nPla
+			If !Empty(aNo[3])
+				nPla	:= oM:oProv:CalcPlan(aNo[3])
+			EndIf
+			cForm	:= oM:oProv:CalcNome(aNo[2],nPla)
+			If !Empty(cForm)
+				Return PrecisaNo(oM,oM:Arvore(cForm),@aAreas,nNivel+1)
+			EndIf
+		Case aNo[1]==N_FUNC
+			If aNo[2]=="INDIRECT" .OR. aNo[2]=="OFFSET"
+				Return .F.
+			EndIf
+			For nCont:=1 to Len(aNo[3])
+				If !PrecisaNo(oM,aNo[3][nCont],@aAreas,nNivel)
+					Return .F.
+				EndIf
+			Next
+		Case aNo[1]==N_BIN
+			If !PrecisaNo(oM,aNo[3],@aAreas,nNivel) .OR. !PrecisaNo(oM,aNo[4],@aAreas,nNivel)
+				Return .F.
+			EndIf
+		Case aNo[1]==N_UN .OR. aNo[1]==N_SPILL
+			Return PrecisaNo(oM,aNo[If(aNo[1]==N_UN,3,2)],@aAreas,nNivel)
+		Case aNo[1]==N_CHAMA
+			If !PrecisaNo(oM,aNo[2],@aAreas,nNivel)
+				Return .F.
+			EndIf
+			For nCont:=1 to Len(aNo[3])
+				If !PrecisaNo(oM,aNo[3][nCont],@aAreas,nNivel)
+					Return .F.
+				EndIf
+			Next
+	EndCase
+Return .T.

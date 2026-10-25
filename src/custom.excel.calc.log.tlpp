@@ -1,0 +1,407 @@
+// Funções lógicas e de informação do Excel (motor custom.excel.calc)
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define N_NOME		6
+#define N_VAZIO		12
+#define V_ERRO		1
+#define V_REF		2
+#define V_MAT		3
+#define V_LAMBDA	4
+
+/*/{Protheus.doc} FuncLog
+Registro das funções lógicas e de informação
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncLog
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncLog
+Return self
+
+Method Registrar(oM As Object) Class FuncLog
+	//Lógicas
+	oM:Registrar("IF"			,{|o,a| fIf(o,a) }			,1,3	,"L")
+	oM:Registrar("IFS"			,{|o,a| fIfs(o,a) }			,2,254	,"L")
+	oM:Registrar("IFERROR"		,{|o,a| fIfErro(o,a,.F.) }	,2,2	,"L")
+	oM:Registrar("IFNA"			,{|o,a| fIfErro(o,a,.T.) }	,2,2	,"L")
+	oM:Registrar("SWITCH"		,{|o,a| fSwitch(o,a) }		,3,254	,"L")
+	oM:Registrar("AND"			,{|o,a| fAndOr(o,a,1) }		,1,255)
+	oM:Registrar("OR"			,{|o,a| fAndOr(o,a,2) }		,1,255)
+	oM:Registrar("XOR"			,{|o,a| fAndOr(o,a,3) }		,1,255)
+	oM:Registrar("NOT"			,{|o,a| fNot(o,a) }			,1,1	,"E")
+	oM:Registrar("TRUE"			,{|o,a| .T. }				,0,0)
+	oM:Registrar("FALSE"		,{|o,a| .F. }				,0,0)
+	oM:Registrar("LET"			,{|o,a| fLet(o,a) }			,3,255	,"L")
+	oM:Registrar("LAMBDA"		,{|o,a| fLambda(o,a) }		,1,254	,"L")
+	//Informação
+	oM:Registrar("ISBLANK"		,{|o,a| ValType(a[1])=="U" }					,1,1,"E")
+	oM:Registrar("ISERROR"		,{|o,a| o:EhErro(a[1]) }						,1,1,"E")
+	oM:Registrar("ISERR"		,{|o,a| o:EhErro(a[1]) .AND. a[1]:cCod!="#N/A" }	,1,1,"E")
+	oM:Registrar("ISNA"			,{|o,a| o:EhErro(a[1]) .AND. a[1]:cCod=="#N/A" }	,1,1,"E")
+	oM:Registrar("ISNUMBER"		,{|o,a| ValType(a[1])=="N" }					,1,1,"E")
+	oM:Registrar("ISTEXT"		,{|o,a| ValType(a[1])=="C" }					,1,1,"E")
+	oM:Registrar("ISNONTEXT"	,{|o,a| ValType(a[1])!="C" }					,1,1,"E")
+	oM:Registrar("ISLOGICAL"	,{|o,a| ValType(a[1])=="L" }					,1,1,"E")
+	oM:Registrar("ISREF"		,{|o,a| o:EhRef(a[1]) }							,1,1)
+	oM:Registrar("ISEVEN"		,{|o,a| fParImpar(o,a,.T.) }					,1,1,"E")
+	oM:Registrar("ISODD"		,{|o,a| fParImpar(o,a,.F.) }					,1,1,"E")
+	oM:Registrar("ISFORMULA"	,{|o,a| fIsFormula(o,a) }						,1,1)
+	oM:Registrar("ISOMITTED"	,{|o,a| fIsOmitido(o,a) }						,1,1,"L")
+	oM:Registrar("ERROR.TYPE"	,{|o,a| fTipoErro(o,a) }						,1,1,"E")
+	oM:Registrar("NA"			,{|o,a| o:Err("#N/A") }							,0,0)
+	oM:Registrar("N"			,{|o,a| fN(o,a) }								,1,1)
+	oM:Registrar("T"			,{|o,a| fT(o,a) }								,1,1)
+	oM:Registrar("TYPE"			,{|o,a| fType(o,a) }							,1,1)
+	oM:Registrar("SHEET"		,{|o,a| fSheet(o,a,.F.) }						,0,1)
+	oM:Registrar("SHEETS"		,{|o,a| fSheet(o,a,.T.) }						,0,1)
+Return
+
+//Avalia o nó e remove a referência
+Static Function Arg(oM As Object, aNo As Array)
+Return oM:Valor(oM:Avaliar(aNo))
+
+Static Function fIf(oM As Object, aNos As Array)
+	Local xCond := Arg(oM,aNos[1]) As Variant
+	Local xV As Variant
+	Local xF As Variant
+	Local oRes As Object
+	Local nL As Numeric
+	Local nC As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xC As Variant
+	Local lCond As Variant
+	If oM:EhMat(xCond)	//Condição matricial: avalia os dois lados e escolhe elemento a elemento
+		xV		:= If(Len(aNos)>=2,Arg(oM,aNos[2]),.T.)
+		xF		:= If(Len(aNos)>=3,Arg(oM,aNos[3]),.F.)
+		nL		:= xCond:nL
+		nC		:= xCond:nC
+		If oM:EhMat(xV)
+			nL	:= Max(nL,xV:nL)
+			nC	:= Max(nC,xV:nC)
+		EndIf
+		If oM:EhMat(xF)
+			nL	:= Max(nL,xF:nL)
+			nC	:= Max(nC,xF:nC)
+		EndIf
+		oRes	:= oM:NovaMat(nil,nL,nC)
+		For nI:=1 to nL
+			For nJ:=1 to nC
+				xC	:= xCond:Get(nI,nJ)
+				If oM:EhErro(xC)
+					oRes:aV[nI][nJ]	:= xC
+					Loop
+				EndIf
+				lCond	:= oM:Log(xC)
+				If oM:EhErro(lCond)
+					oRes:aV[nI][nJ]	:= lCond
+				ElseIf lCond
+					oRes:aV[nI][nJ]	:= If(oM:EhMat(xV),xV:Get(nI,nJ),xV)
+				Else
+					oRes:aV[nI][nJ]	:= If(oM:EhMat(xF),xF:Get(nI,nJ),xF)
+				EndIf
+			Next
+		Next
+		Return oRes
+	EndIf
+	If oM:EhErro(xCond)
+		Return xCond
+	EndIf
+	lCond	:= oM:Log(xCond)
+	If oM:EhErro(lCond)
+		Return lCond
+	EndIf
+	If lCond
+		If Len(aNos)<2
+			Return .T.
+		EndIf
+		Return VazioZero(oM:Avaliar(aNos[2]),aNos[2])
+	EndIf
+	If Len(aNos)<3
+		Return .F.
+	EndIf
+Return VazioZero(oM:Avaliar(aNos[3]),aNos[3])
+
+//Argumento omitido retorna 0 (IF(A1,,1))
+Static Function VazioZero(xVal As Variant, aNo As Array)
+	If aNo[1]==N_VAZIO
+		Return 0
+	EndIf
+Return xVal
+
+Static Function fIfs(oM As Object, aNos As Array)
+	Local nCont As Numeric
+	Local xCond As Variant
+	If Mod(Len(aNos),2)!=0
+		Return oM:Err("#VALUE!")
+	EndIf
+	For nCont:=1 to Len(aNos) Step 2
+		xCond	:= oM:Log(Arg(oM,aNos[nCont]))
+		If oM:EhErro(xCond)
+			Return xCond
+		EndIf
+		If xCond
+			Return VazioZero(oM:Avaliar(aNos[nCont+1]),aNos[nCont+1])
+		EndIf
+	Next
+Return oM:Err("#N/A")
+
+Static Function fIfErro(oM As Object, aNos As Array, lSoNA As Logical)
+	Local xVal := Arg(oM,aNos[1]) As Variant
+	Local xAlt As Variant
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local lTem := .F. As Logical
+	If oM:EhMat(xVal)
+		For nI:=1 to xVal:nL
+			For nJ:=1 to xVal:nC
+				If EhErroAlvo(oM,xVal:aV[nI][nJ],lSoNA)
+					If !lTem
+						xAlt	:= oM:Esc(VazioZero(Arg(oM,aNos[2]),aNos[2]))
+						lTem	:= .T.
+					EndIf
+					xVal:aV[nI][nJ]	:= xAlt
+				EndIf
+			Next
+		Next
+		Return xVal
+	EndIf
+	If EhErroAlvo(oM,xVal,lSoNA)
+		Return VazioZero(oM:Avaliar(aNos[2]),aNos[2])
+	EndIf
+Return xVal
+
+Static Function EhErroAlvo(oM As Object, xVal As Variant, lSoNA As Logical)
+	If !oM:EhErro(xVal)
+		Return .F.
+	EndIf
+Return !lSoNA .OR. xVal:cCod=="#N/A"
+
+Static Function fSwitch(oM As Object, aNos As Array)
+	Local xExp := oM:Esc(Arg(oM,aNos[1])) As Variant
+	Local nCont As Numeric
+	Local xVal As Variant
+	If oM:EhErro(xExp)
+		Return xExp
+	EndIf
+	For nCont:=2 to Len(aNos)-1 Step 2
+		xVal	:= oM:Esc(Arg(oM,aNos[nCont]))
+		If oM:EhErro(xVal)
+			Return xVal
+		EndIf
+		If ValType(xVal)==ValType(xExp) .AND. oM:Compara(xVal,xExp)==0
+			Return oM:Avaliar(aNos[nCont+1])
+		EndIf
+	Next
+	If Mod(Len(aNos),2)==0	//Tem valor padrão
+		Return oM:Avaliar(aNos[Len(aNos)])
+	EndIf
+Return oM:Err("#N/A")
+
+//nTipo 1=AND 2=OR 3=XOR
+Static Function fAndOr(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local aVals := oM:Lista(aArgs) As Array
+	Local nCont As Numeric
+	Local xVal As Variant
+	Local lRet := (nTipo==1) As Logical
+	Local nVerd := 0 As Numeric
+	Local lAchou := .F. As Logical
+	Local nArg As Numeric
+	Local lDireto As Logical
+	For nArg:=1 to Len(aArgs)
+		lDireto	:= !(oM:EhRef(aArgs[nArg]) .OR. oM:EhMat(aArgs[nArg]))
+		If lDireto .AND. ValType(aArgs[nArg])=="C"
+			xVal	:= oM:Log(aArgs[nArg])
+			If oM:EhErro(xVal)
+				FwFreeArray(aVals)
+				Return xVal
+			EndIf
+		EndIf
+	Next
+	For nCont:=1 to Len(aVals)
+		xVal	:= aVals[nCont]
+		If oM:EhErro(xVal)
+			FwFreeArray(aVals)
+			Return xVal
+		EndIf
+		If ValType(xVal)=="L" .OR. ValType(xVal)=="N"
+			lAchou	:= .T.
+			xVal	:= If(ValType(xVal)=="N",xVal!=0,xVal)
+		ElseIf ValType(xVal)=="C" .AND. (Upper(xVal)=="TRUE" .OR. Upper(xVal)=="FALSE")
+			lAchou	:= .T.
+			xVal	:= Upper(xVal)=="TRUE"
+		Else
+			Loop
+		EndIf
+		If nTipo==1
+			lRet	:= lRet .AND. xVal
+		ElseIf nTipo==2
+			lRet	:= lRet .OR. xVal
+		ElseIf xVal
+			nVerd++
+		EndIf
+	Next
+	FwFreeArray(aVals)
+	If !lAchou
+		Return oM:Err("#VALUE!")
+	EndIf
+	If nTipo==3
+		Return Mod(nVerd,2)==1
+	EndIf
+Return lRet
+
+Static Function fNot(oM As Object, aArgs As Array)
+	Local xVal := oM:Log(aArgs[1]) As Variant
+	If oM:EhErro(xVal)
+		Return xVal
+	EndIf
+Return !xVal
+
+//LET(nome1,valor1,[nome2,valor2,...],calculo)
+Static Function fLet(oM As Object, aNos As Array)
+	Local oVar := tHashMap():New() As Object
+	Local nCont As Numeric
+	Local xRet As Variant
+	Local cNome As Character
+	If Mod(Len(aNos),2)==0
+		Return oM:Err("#VALUE!")
+	EndIf
+	AADD(oM:aEscopos,oVar)
+	For nCont:=1 to Len(aNos)-1 Step 2
+		If aNos[nCont][1]!=N_NOME
+			ASize(oM:aEscopos,Len(oM:aEscopos)-1)
+			Return oM:Err("#VALUE!")
+		EndIf
+		cNome	:= NomeVar(aNos[nCont][2])
+		oVar:Set(cNome,oM:Avaliar(aNos[nCont+1]))
+	Next
+	xRet	:= oM:Avaliar(aNos[Len(aNos)])
+	ASize(oM:aEscopos,Len(oM:aEscopos)-1)
+Return xRet
+
+//LAMBDA(param1,...,calculo)
+Static Function fLambda(oM As Object, aNos As Array)
+	Local aParams := {} As Array
+	Local nCont As Numeric
+	For nCont:=1 to Len(aNos)-1
+		If aNos[nCont][1]!=N_NOME
+			Return oM:Err("#VALUE!")
+		EndIf
+		AADD(aParams,NomeVar(aNos[nCont][2]))
+	Next
+Return oM:NovaLambda(aParams,aNos[Len(aNos)])
+
+Static Function NomeVar(cNome As Character)
+	cNome	:= Upper(cNome)
+	If Left(cNome,6)=="_XLPM."
+		cNome	:= SubStr(cNome,7)
+	EndIf
+Return cNome
+
+Static Function fIsOmitido(oM As Object, aNos As Array)
+	Local xVal As Variant
+	If aNos[1][1]==N_NOME
+		If oM:Var(NomeVar(aNos[1][2]),@xVal)
+			Return ValType(xVal)=="U"
+		EndIf
+	EndIf
+Return .F.
+
+Static Function fParImpar(oM As Object, aArgs As Array, lPar As Logical)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	nNum	:= Int(Abs(nNum))
+Return (Mod(nNum,2)==0)==lPar
+
+Static Function fIsFormula(oM As Object, aArgs As Array)
+	Local aCel As Variant
+	If !oM:EhRef(aArgs[1])
+		Return oM:Err("#VALUE!")
+	EndIf
+	aCel	:= oM:oProv:CalcCel(aArgs[1]:nPla,aArgs[1]:nL1,aArgs[1]:nC1)
+Return ValType(aCel)=="A" .AND. !Empty(aCel[2])
+
+Static Function fTipoErro(oM As Object, aArgs As Array)
+	Local aErros := {"#NULL!","#DIV/0!","#VALUE!","#REF!","#NAME?","#NUM!","#N/A","#GETTING_DATA","#SPILL!","#CONNECT!","#BLOCKED!","#UNKNOWN!","#FIELD!","#CALC!"} As Array
+	Local nPos As Numeric
+	If !oM:EhErro(aArgs[1])
+		Return oM:Err("#N/A")
+	EndIf
+	nPos	:= aScan(aErros,aArgs[1]:cCod)
+	If nPos==0
+		Return oM:Err("#N/A")
+	EndIf
+	If nPos>=10
+		nPos	+= 3
+	EndIf
+Return nPos
+
+Static Function fN(oM As Object, aArgs As Array)
+	Local xVal := oM:Esc(aArgs[1]) As Variant
+	Do Case
+		Case ValType(xVal)=="N"
+			Return xVal
+		Case ValType(xVal)=="L"
+			Return If(xVal,1,0)
+		Case oM:EhErro(xVal)
+			Return xVal
+	EndCase
+Return 0
+
+Static Function fT(oM As Object, aArgs As Array)
+	Local xVal := oM:Esc(aArgs[1]) As Variant
+	If ValType(xVal)=="C" .OR. oM:EhErro(xVal)
+		Return xVal
+	EndIf
+Return ""
+
+Static Function fType(oM As Object, aArgs As Array)
+	Local xVal := aArgs[1] As Variant
+	If oM:EhRef(xVal) .AND. !xVal:Unica()
+		Return 64
+	EndIf
+	xVal	:= oM:Valor(xVal)
+	Do Case
+		Case ValType(xVal)=="N" .OR. ValType(xVal)=="U"
+			Return 1
+		Case ValType(xVal)=="C"
+			Return 2
+		Case ValType(xVal)=="L"
+			Return 4
+		Case oM:EhErro(xVal)
+			Return 16
+		Case oM:EhMat(xVal)
+			Return 64
+		Case oM:EhLambda(xVal)
+			Return 128
+	EndCase
+Return 1
+
+Static Function fSheet(oM As Object, aArgs As Array, lQtd As Logical)
+	Local xVal As Variant
+	Local nPla As Numeric
+	If Len(aArgs)==0
+		Return If(lQtd,oM:oProv:CalcQtdPlan(),oM:nPla)
+	EndIf
+	xVal	:= aArgs[1]
+	If oM:EhRef(xVal)
+		Return If(lQtd,xVal:nPla2-xVal:nPla+1,xVal:nPla)
+	EndIf
+	xVal	:= oM:Esc(xVal)
+	If ValType(xVal)=="C" .AND. !lQtd
+		nPla	:= oM:oProv:CalcPlan(xVal)
+		If nPla==0
+			Return oM:Err("#N/A")
+		EndIf
+		Return nPla
+	EndIf
+Return oM:Err("#VALUE!")
