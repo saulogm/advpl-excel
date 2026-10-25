@@ -63,6 +63,7 @@ Method Registrar(oM As Object) Class FuncEst
 	oM:Registrar("QUARTILE.EXC"		,{|o,a| fK(o,a,19) }				,2,2)
 	oM:Registrar("SUBTOTAL"			,{|o,a| fSubTotal(o,a) }			,2,255)
 	oM:Registrar("AGGREGATE"		,{|o,a| fAggregate(o,a) }			,3,255)
+	RegEst2(oM)
 Return
 
 /*/{Protheus.doc} Calcula
@@ -484,3 +485,738 @@ Static Function AgregaRefs(oM As Object, nFn As Numeric, aRefs As Array, lSubTot
 	xRet	:= Calcula(oM,nFn,aNums,nK)
 	FwFreeArray(aNums)
 Return xRet
+
+//Registro das funções estatísticas adicionais (etapa 1d)
+Static Function RegEst2(oM As Object)
+	oM:Registrar("AVEDEV"					,{|o,a| Descr(o,a,1) }					,1,255)
+	oM:Registrar("DEVSQ"					,{|o,a| Descr(o,a,2) }					,1,255)
+	oM:Registrar("GEOMEAN"					,{|o,a| Descr(o,a,3) }					,1,255)
+	oM:Registrar("HARMEAN"					,{|o,a| Descr(o,a,4) }					,1,255)
+	oM:Registrar("KURT"						,{|o,a| Descr(o,a,5) }					,1,255)
+	oM:Registrar("SKEW"						,{|o,a| Descr(o,a,6) }					,1,255)
+	oM:Registrar("SKEW.P"					,{|o,a| Descr(o,a,7) }					,1,255)
+	oM:Registrar("TRIMMEAN"					,{|o,a| fTrimMean(o,a) }				,2,2)
+	oM:Registrar("PERMUT"					,{|o,a| fPermut(o,a,.F.) }				,2,2,"E")
+	oM:Registrar("PERMUTATIONA"				,{|o,a| fPermut(o,a,.T.) }				,2,2,"E")
+	oM:Registrar("RANK"						,{|o,a| fRank(o,a,.F.) }				,2,3)
+	oM:Registrar("RANK.EQ"					,{|o,a| fRank(o,a,.F.) }				,2,3)
+	oM:Registrar("RANK.AVG"					,{|o,a| fRank(o,a,.T.) }				,2,3)
+	oM:Registrar("PERCENTRANK"				,{|o,a| fPercentRank(o,a,.F.) }			,2,3)
+	oM:Registrar("PERCENTRANK.INC"			,{|o,a| fPercentRank(o,a,.F.) }			,2,3)
+	oM:Registrar("PERCENTRANK.EXC"			,{|o,a| fPercentRank(o,a,.T.) }			,2,3)
+	oM:Registrar("FREQUENCY"				,{|o,a| fFrequency(o,a) }				,2,2)
+	oM:Registrar("MODE.MULT"				,{|o,a| fModeMult(o,a) }				,1,255)
+	oM:Registrar("CORREL"					,{|o,a| Par(o,a,1) }					,2,2)
+	oM:Registrar("PEARSON"					,{|o,a| Par(o,a,1) }					,2,2)
+	oM:Registrar("RSQ"						,{|o,a| Par(o,a,2) }					,2,2)
+	oM:Registrar("SLOPE"					,{|o,a| Par(o,a,3) }					,2,2)
+	oM:Registrar("INTERCEPT"				,{|o,a| Par(o,a,4) }					,2,2)
+	oM:Registrar("STEYX"					,{|o,a| Par(o,a,5) }					,2,2)
+	oM:Registrar("COVAR"					,{|o,a| Par(o,a,6) }					,2,2)
+	oM:Registrar("COVARIANCE.P"				,{|o,a| Par(o,a,6) }					,2,2)
+	oM:Registrar("COVARIANCE.S"				,{|o,a| Par(o,a,7) }					,2,2)
+	oM:Registrar("FORECAST"					,{|o,a| fForecast(o,a) }				,3,3)
+	oM:Registrar("FORECAST.LINEAR"			,{|o,a| fForecast(o,a) }				,3,3)
+	oM:Registrar("LINEST"					,{|o,a| fLinest(o,a,.F.) }				,1,4)
+	oM:Registrar("LOGEST"					,{|o,a| fLinest(o,a,.T.) }				,1,4)
+	oM:Registrar("TREND"					,{|o,a| fTrend(o,a,.F.) }				,1,4)
+	oM:Registrar("GROWTH"					,{|o,a| fTrend(o,a,.T.) }				,1,4)
+	//Suavização exponencial (algoritmo AAA do Excel com otimização própria): o Excel calcula ao abrir
+	oM:Registrar("FORECAST.ETS"				,{|o,a| o:Err("#N/A") }					,3,6,"X")
+	oM:Registrar("FORECAST.ETS.CONFINT"		,{|o,a| o:Err("#N/A") }					,3,7,"X")
+	oM:Registrar("FORECAST.ETS.SEASONALITY"	,{|o,a| o:Err("#N/A") }					,2,4,"X")
+	oM:Registrar("FORECAST.ETS.STAT"		,{|o,a| o:Err("#N/A") }					,3,6,"X")
+Return
+
+/*/{Protheus.doc} Descr
+Medidas descritivas: 1=AVEDEV 2=DEVSQ 3=GEOMEAN 4=HARMEAN 5=KURT 6=SKEW 7=SKEW.P
+/*/
+Static Function Descr(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local nN := Len(aNums) As Numeric
+	Local nMedia := 0 As Numeric
+	Local nRet := 0 As Numeric
+	Local nDp As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If nN==0
+		Return oM:Err(If(nTipo<=2,"#NUM!","#NUM!"))
+	EndIf
+	aEval(aNums,{|n| nMedia+=n })
+	nMedia	:= nMedia/nN
+	Do Case
+		Case nTipo==1
+			aEval(aNums,{|n| nRet+=Abs(n-nMedia) })
+			Return nRet/nN
+		Case nTipo==2
+			aEval(aNums,{|n| nRet+=(n-nMedia)^2 })
+			Return nRet
+		Case nTipo==3
+			For nCont:=1 to nN
+				If aNums[nCont]<=0
+					Return oM:Err("#NUM!")
+				EndIf
+				nRet	+= Log(aNums[nCont])
+			Next
+			Return Exp(nRet/nN)
+		Case nTipo==4
+			For nCont:=1 to nN
+				If aNums[nCont]<=0
+					Return oM:Err("#NUM!")
+				EndIf
+				nRet	+= 1/aNums[nCont]
+			Next
+			Return nN/nRet
+	EndCase
+	aEval(aNums,{|n| nRet+=(n-nMedia)^2 })
+	If nTipo==7
+		nDp	:= Sqrt(nRet/nN)
+	Else
+		If nN<If(nTipo==5,4,3)
+			Return oM:Err("#DIV/0!")
+		EndIf
+		nDp	:= Sqrt(nRet/(nN-1))
+	EndIf
+	If nDp==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+	nRet	:= 0
+	Do Case
+		Case nTipo==5
+			aEval(aNums,{|n| nRet+=((n-nMedia)/nDp)^4 })
+			Return nN*(nN+1)/((nN-1)*(nN-2)*(nN-3))*nRet-3*((nN-1)^2)/((nN-2)*(nN-3))
+		Case nTipo==6
+			aEval(aNums,{|n| nRet+=((n-nMedia)/nDp)^3 })
+			Return nN/((nN-1)*(nN-2))*nRet
+	EndCase
+	aEval(aNums,{|n| nRet+=((n-nMedia)/nDp)^3 })
+	FwFreeArray(aNums)
+Return nRet/nN
+
+//TRIMMEAN(matriz,percentual)
+Static Function fTrimMean(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros({aArgs[1]},@aNums) As Variant
+	Local nPct := oM:Num(aArgs[2]) As Variant
+	Local nTira As Numeric
+	Local nSoma := 0 As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(nPct)
+		Return nPct
+	EndIf
+	If nPct<0 .OR. nPct>=1 .OR. Empty(aNums)
+		Return oM:Err("#NUM!")
+	EndIf
+	aSort(aNums)
+	nTira	:= Int(Int(Len(aNums)*nPct)/2)	//Exclui a mesma quantidade em cada ponta
+	For nCont:=nTira+1 to Len(aNums)-nTira
+		nSoma	+= aNums[nCont]
+	Next
+	nSoma	:= nSoma/(Len(aNums)-2*nTira)
+	FwFreeArray(aNums)
+Return nSoma
+
+Static Function fPermut(oM As Object, aArgs As Array, lRepet As Logical)
+	Local nN := oM:Num(aArgs[1]) As Variant
+	Local nK := oM:Num(aArgs[2]) As Variant
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	If oM:EhErro(nN)
+		Return nN
+	EndIf
+	If oM:EhErro(nK)
+		Return nK
+	EndIf
+	nN	:= Int(nN)
+	nK	:= Int(nK)
+	If nN<0 .OR. nK<0 .OR. (!lRepet .AND. nN<nK)
+		Return oM:Err("#NUM!")
+	EndIf
+	If lRepet
+		Return nN^nK
+	EndIf
+	For nCont:=nN-nK+1 to nN
+		nRet	*= nCont
+	Next
+Return nRet
+
+//RANK.EQ / RANK.AVG(número,ref,[ordem 0=decrescente])
+Static Function fRank(oM As Object, aArgs As Array, lMedia As Logical)
+	Local nNum := oM:Num(aArgs[1]) As Variant
+	Local aNums := {} As Array
+	Local nOrdem := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),0) As Variant
+	Local nAntes := 0 As Numeric
+	Local nIguais := 0 As Numeric
+	Local nCont As Numeric
+	Local xErro As Variant
+	If oM:EhErro(nNum)
+		Return nNum
+	EndIf
+	If oM:EhErro(nOrdem)
+		Return nOrdem
+	EndIf
+	If !oM:EhRef(aArgs[2])
+		Return oM:Err("#VALUE!")
+	EndIf
+	xErro	:= oM:Numeros({aArgs[2]},@aNums)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	For nCont:=1 to Len(aNums)
+		If aNums[nCont]==nNum
+			nIguais++
+		ElseIf (nOrdem==0 .AND. aNums[nCont]>nNum) .OR. (nOrdem!=0 .AND. aNums[nCont]<nNum)
+			nAntes++
+		EndIf
+	Next
+	FwFreeArray(aNums)
+	If nIguais==0
+		Return oM:Err("#N/A")
+	EndIf
+	If lMedia
+		Return nAntes+(nIguais+1)/2
+	EndIf
+Return nAntes+1
+
+//PERCENTRANK.INC / .EXC(matriz,x,[significância=3]) - truncado nas casas significativas
+Static Function fPercentRank(oM As Object, aArgs As Array, lExc As Logical)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros({aArgs[1]},@aNums) As Variant
+	Local nX := oM:Num(aArgs[2]) As Variant
+	Local nSig := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Num(aArgs[3]),3) As Variant
+	Local nN As Numeric
+	Local nMenores := 0 As Numeric
+	Local nCont As Numeric
+	Local nRet As Numeric
+	Local nAbaixo As Numeric
+	Local nAcima As Numeric
+	Local nPosAb As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If PrimErro(oM,{nX,nSig})!=nil
+		Return PrimErro(oM,{nX,nSig})
+	EndIf
+	nSig	:= Int(nSig)
+	nN		:= Len(aNums)
+	If nN==0 .OR. nSig<1
+		Return oM:Err("#NUM!")
+	EndIf
+	aSort(aNums)
+	If nX<aNums[1] .OR. nX>aNums[nN]
+		Return oM:Err("#N/A")
+	EndIf
+	nPosAb	:= 0
+	For nCont:=1 to nN
+		If aNums[nCont]<nX
+			nMenores++
+			nPosAb	:= nCont
+		EndIf
+	Next
+	If aScan(aNums,nX)>0
+		nRet	:= If(lExc,(nMenores+1)/(nN+1),If(nN==1,1,nMenores/(nN-1)))
+	Else	//Interpolação entre os vizinhos
+		nAbaixo	:= aNums[nPosAb]
+		nAcima	:= aNums[nPosAb+1]
+		If lExc
+			nRet	:= (nPosAb+(nX-nAbaixo)/(nAcima-nAbaixo))/(nN+1)
+		Else
+			nRet	:= (nPosAb-1+(nX-nAbaixo)/(nAcima-nAbaixo))/(nN-1)
+		EndIf
+	EndIf
+	FwFreeArray(aNums)
+Return Int(Round(nRet*(10^nSig),6))/(10^nSig)
+
+//FREQUENCY(dados,classes): contagem por classe (+ acima da maior)
+Static Function fFrequency(oM As Object, aArgs As Array)
+	Local aDados := {} As Array
+	Local aCls := {} As Array
+	Local xErro As Variant
+	Local aOrd As Array
+	Local aCont As Array
+	Local oRes As Object
+	Local nCont As Numeric
+	Local nC As Numeric
+	Local nPos As Numeric
+	xErro	:= oM:Numeros({aArgs[1]},@aDados)
+	If xErro==nil
+		xErro	:= oM:Numeros({aArgs[2]},@aCls)
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	aOrd	:= Array(Len(aCls))
+	aEval(aOrd,{|x,n| aOrd[n]:=n })
+	aSort(aOrd,,,{|x,y| aCls[x]<aCls[y] })
+	aCont	:= Array(Len(aCls)+1)
+	aFill(aCont,0)
+	For nCont:=1 to Len(aDados)
+		nPos	:= Len(aCls)+1
+		For nC:=1 to Len(aOrd)
+			If aDados[nCont]<=aCls[aOrd[nC]]
+				nPos	:= aOrd[nC]
+				Exit
+			EndIf
+		Next
+		aCont[nPos]++
+	Next
+	oRes	:= oM:NovaMat(nil,Len(aCont),1)
+	For nCont:=1 to Len(aCont)
+		oRes:aV[nCont][1]	:= aCont[nCont]
+	Next
+	FwFreeArray(aDados)
+	FwFreeArray(aCls)
+Return oRes
+
+//MODE.MULT: modas na ordem da primeira ocorrência (vertical)
+Static Function fModeMult(oM As Object, aArgs As Array)
+	Local aNums := {} As Array
+	Local xErro := oM:Numeros(aArgs,@aNums) As Variant
+	Local oCont := tHashMap():New() As Object
+	Local aModas := {} As Array
+	Local nMaior := 1 As Numeric
+	Local nQtd As Numeric
+	Local nCont As Numeric
+	Local oRes As Object
+	Local lUsado As Logical
+	If xErro!=nil
+		Return xErro
+	EndIf
+	For nCont:=1 to Len(aNums)
+		If !oCont:Get(cValToChar(aNums[nCont]),@nQtd)
+			nQtd	:= 0
+		EndIf
+		nQtd++
+		oCont:Set(cValToChar(aNums[nCont]),nQtd)
+		nMaior	:= Max(nMaior,nQtd)
+	Next
+	If nMaior<2
+		Return oM:Err("#N/A")
+	EndIf
+	For nCont:=1 to Len(aNums)
+		oCont:Get(cValToChar(aNums[nCont]),@nQtd)
+		If nQtd==nMaior
+			AADD(aModas,aNums[nCont])
+			oCont:Set(cValToChar(aNums[nCont]),-1)	//Não repete
+		EndIf
+	Next
+	oRes	:= oM:NovaMat(nil,Len(aModas),1)
+	aEval(aModas,{|n,i| oRes:aV[i][1]:=n })
+	oCont:Clean()
+	FreeObj(oCont)
+	FwFreeArray(aNums)
+Return oRes
+
+//Pares numéricos de dois conjuntos de mesmo tamanho (xErro com #N/A se os tamanhos diferem)
+Static Function Pares(oM As Object, xY As Variant, xX As Variant, aY As Array, aX As Array)
+	Local oY := oM:ParaMat(xY) As Object
+	Local oX := oM:ParaMat(xX) As Object
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xA As Variant
+	Local xB As Variant
+	If oY:nL*oY:nC!=oX:nL*oX:nC
+		Return oM:Err("#N/A")
+	EndIf
+	For nI:=1 to oY:nL
+		For nJ:=1 to oY:nC
+			xA	:= oY:aV[nI][nJ]
+			xB	:= If(oX:nL==oY:nL,oX:aV[nI][nJ],oX:aV[Int(((nI-1)*oY:nC+nJ-1)/oX:nC)+1][Mod((nI-1)*oY:nC+nJ-1,oX:nC)+1])
+			If oM:EhErro(xA)
+				Return xA
+			EndIf
+			If oM:EhErro(xB)
+				Return xB
+			EndIf
+			If ValType(xA)=="N" .AND. ValType(xB)=="N"
+				AADD(aY,xA)
+				AADD(aX,xB)
+			EndIf
+		Next
+	Next
+Return nil
+
+/*/{Protheus.doc} Par
+Estatísticas de pares (y,x): 1=CORREL/PEARSON 2=RSQ 3=SLOPE 4=INTERCEPT 5=STEYX 6=COVARIANCE.P 7=COVARIANCE.S
+/*/
+Static Function Par(oM As Object, aArgs As Array, nTipo As Numeric)
+	Local aY := {} As Array
+	Local aX := {} As Array
+	Local xErro As Variant
+	Local nN As Numeric
+	Local nMy := 0 As Numeric
+	Local nMx := 0 As Numeric
+	Local nSxy := 0 As Numeric
+	Local nSxx := 0 As Numeric
+	Local nSyy := 0 As Numeric
+	Local nCont As Numeric
+	Local nR As Numeric
+	If nTipo==1 .OR. nTipo==6 .OR. nTipo==7	//CORREL(matriz1,matriz2): ordem indiferente
+		xErro	:= Pares(oM,aArgs[1],aArgs[2],@aY,@aX)
+	Else
+		xErro	:= Pares(oM,aArgs[1],aArgs[2],@aY,@aX)	//(y_conhecidos,x_conhecidos)
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nN	:= Len(aY)
+	If nN==0 .OR. (nTipo==7 .AND. nN<2) .OR. (nTipo==5 .AND. nN<3)
+		Return oM:Err("#DIV/0!")
+	EndIf
+	aEval(aY,{|n| nMy+=n })
+	aEval(aX,{|n| nMx+=n })
+	nMy	:= nMy/nN
+	nMx	:= nMx/nN
+	For nCont:=1 to nN
+		nSxy	+= (aX[nCont]-nMx)*(aY[nCont]-nMy)
+		nSxx	+= (aX[nCont]-nMx)^2
+		nSyy	+= (aY[nCont]-nMy)^2
+	Next
+	FwFreeArray(aY)
+	FwFreeArray(aX)
+	Do Case
+		Case nTipo==6
+			Return nSxy/nN
+		Case nTipo==7
+			Return nSxy/(nN-1)
+	EndCase
+	If nSxx==0 .OR. ((nTipo==1 .OR. nTipo==2) .AND. nSyy==0)
+		Return oM:Err("#DIV/0!")
+	EndIf
+	Do Case
+		Case nTipo==1
+			Return nSxy/Sqrt(nSxx*nSyy)
+		Case nTipo==2
+			nR	:= nSxy/Sqrt(nSxx*nSyy)
+			Return nR*nR
+		Case nTipo==3
+			Return nSxy/nSxx
+		Case nTipo==4
+			Return nMy-(nSxy/nSxx)*nMx
+	EndCase
+Return Sqrt((nSyy-(nSxy^2)/nSxx)/(nN-2))
+
+//FORECAST(x,y_conhecidos,x_conhecidos)
+Static Function fForecast(oM As Object, aArgs As Array)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	Local nIncl As Variant
+	Local nInter As Variant
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+	nIncl	:= Par(oM,{aArgs[2],aArgs[3]},3)
+	If oM:EhErro(nIncl)
+		Return nIncl
+	EndIf
+	nInter	:= Par(oM,{aArgs[2],aArgs[3]},4)
+Return nInter+nIncl*nX
+
+/*/{Protheus.doc} Regressao
+Regressão linear múltipla por mínimos quadrados (equações normais com Gauss-Jordan)
+@param aY, array, valores de y (n)
+@param aX, array, linhas de x (n x k)
+@param lConst, logical, Calcula o intercepto
+@return array, {aCoef(k+1: b0,b1..bk),aInvXtX,nSsResid,nSsReg,nGl} ou Erro
+/*/
+Static Function Regressao(oM As Object, aY As Array, aX As Array, lConst As Logical)
+	Local nN := Len(aY) As Numeric
+	Local nK := If(nN>0,Len(aX[1]),0) As Numeric
+	Local nP := nK+If(lConst,1,0) As Numeric
+	Local aA As Array
+	Local aLin As Array
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nL As Numeric
+	Local nPiv As Numeric
+	Local nFat As Numeric
+	Local aTmp As Array
+	Local aCoef As Array
+	Local aInv As Array
+	Local nSsRes := 0 As Numeric
+	Local nSsTot := 0 As Numeric
+	Local nMy := 0 As Numeric
+	Local nYc As Numeric
+	Local aLinha As Array
+	If nN==0 .OR. nN<nP
+		Return oM:Err("#NUM!")
+	EndIf
+	//Matriz aumentada [X'X | X'y | I]
+	aA	:= Array(nP)
+	For nI:=1 to nP
+		aA[nI]	:= Array(2*nP+1)
+		aFill(aA[nI],0)
+		aA[nI][nP+1+nI]	:= 1
+	Next
+	For nL:=1 to nN
+		aLinha	:= LinhaX(aX[nL],lConst)
+		For nI:=1 to nP
+			For nJ:=1 to nP
+				aA[nI][nJ]	+= aLinha[nI]*aLinha[nJ]
+			Next
+			aA[nI][nP+1]	+= aLinha[nI]*aY[nL]
+		Next
+	Next
+	For nI:=1 to nP	//Gauss-Jordan
+		nPiv	:= nI
+		For nL:=nI+1 to nP
+			If Abs(aA[nL][nI])>Abs(aA[nPiv][nI])
+				nPiv	:= nL
+			EndIf
+		Next
+		If Abs(aA[nPiv][nI])<0.0000000000001
+			Return oM:Err("#NUM!")
+		EndIf
+		aTmp		:= aA[nI]
+		aA[nI]		:= aA[nPiv]
+		aA[nPiv]	:= aTmp
+		nFat	:= aA[nI][nI]
+		For nJ:=1 to 2*nP+1
+			aA[nI][nJ]	:= aA[nI][nJ]/nFat
+		Next
+		For nL:=1 to nP
+			If nL!=nI .AND. aA[nL][nI]!=0
+				nFat	:= aA[nL][nI]
+				For nJ:=1 to 2*nP+1
+					aA[nL][nJ]	-= nFat*aA[nI][nJ]
+				Next
+			EndIf
+		Next
+	Next
+	aCoef	:= Array(nK+1)
+	aInv	:= Array(nP)
+	For nI:=1 to nP
+		aLin	:= Array(nP)
+		For nJ:=1 to nP
+			aLin[nJ]	:= aA[nI][nP+1+nJ]
+		Next
+		aInv[nI]	:= aLin
+	Next
+	If lConst
+		For nI:=1 to nP
+			aCoef[nI]	:= aA[nI][nP+1]	//b0,b1..bk
+		Next
+	Else
+		aCoef[1]	:= 0
+		For nI:=1 to nK
+			aCoef[nI+1]	:= aA[nI][nP+1]
+		Next
+	EndIf
+	aEval(aY,{|n| nMy+=n })
+	nMy	:= nMy/nN
+	For nL:=1 to nN
+		nYc	:= aCoef[1]
+		For nI:=1 to nK
+			nYc	+= aCoef[nI+1]*aX[nL][nI]
+		Next
+		nSsRes	+= (aY[nL]-nYc)^2
+		nSsTot	+= If(lConst,(aY[nL]-nMy)^2,aY[nL]^2)
+	Next
+	FwFreeArray(aA)
+Return {aCoef,aInv,nSsRes,nSsTot-nSsRes,nN-nP}
+
+//Linha da matriz de projeto (com 1 do intercepto)
+Static Function LinhaX(aLin As Array, lConst As Logical)
+	Local aRet := {} As Array
+	If lConst
+		AADD(aRet,1)
+	EndIf
+	aEval(aLin,{|n| AADD(aRet,n) })
+Return aRet
+
+//Dados da regressão: y em vetor e x em linhas (variáveis nas colunas, ou nas linhas se y for horizontal)
+Static Function DadosReg(oM As Object, aArgs As Array, lLog As Logical, aY As Array, aX As Array)
+	Local oY := oM:ParaMat(aArgs[1]) As Object
+	Local oX As Object
+	Local lYCol := oY:nC==1 As Logical
+	Local nN := oY:nL*oY:nC As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xV As Variant
+	Local aLin As Array
+	For nI:=1 to oY:nL
+		For nJ:=1 to oY:nC
+			xV	:= oY:aV[nI][nJ]
+			If ValType(xV)!="N"
+				Return oM:Err("#VALUE!")
+			EndIf
+			If lLog
+				If xV<=0
+					Return oM:Err("#NUM!")
+				EndIf
+				xV	:= Log(xV)
+			EndIf
+			AADD(aY,xV)
+		Next
+	Next
+	If Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U"
+		oX	:= oM:ParaMat(aArgs[2])
+	Else
+		oX	:= oM:NovaMat(nil,If(lYCol,nN,1),If(lYCol,1,nN))
+		For nI:=1 to nN
+			If lYCol
+				oX:aV[nI][1]	:= nI
+			Else
+				oX:aV[1][nI]	:= nI
+			EndIf
+		Next
+	EndIf
+	If (lYCol .AND. oX:nL!=nN) .OR. (!lYCol .AND. oX:nC!=nN)
+		Return oM:Err("#REF!")
+	EndIf
+	For nI:=1 to nN
+		aLin	:= {}
+		For nJ:=1 to If(lYCol,oX:nC,oX:nL)
+			xV	:= If(lYCol,oX:aV[nI][nJ],oX:aV[nJ][nI])
+			If ValType(xV)!="N"
+				Return oM:Err("#VALUE!")
+			EndIf
+			AADD(aLin,xV)
+		Next
+		AADD(aX,aLin)
+	Next
+Return nil
+
+/*/{Protheus.doc} fLinest
+LINEST/LOGEST(y_conhecidos,[x_conhecidos],[constante],[estatísticas])
+/*/
+Static Function fLinest(oM As Object, aArgs As Array, lLog As Logical)
+	Local aY := {} As Array
+	Local aX := {} As Array
+	Local lConst := If(Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U",oM:Log(aArgs[3]),.T.) As Variant
+	Local lStats := If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Log(aArgs[4]),.F.) As Variant
+	Local xErro As Variant
+	Local aReg As Variant
+	Local nK As Numeric
+	Local oRes As Object
+	Local nJ As Numeric
+	Local nSe As Numeric
+	Local nGl As Numeric
+	Local nIdx As Numeric
+	If PrimErro(oM,{lConst,lStats})!=nil
+		Return PrimErro(oM,{lConst,lStats})
+	EndIf
+	xErro	:= DadosReg(oM,aArgs,lLog,@aY,@aX)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	aReg	:= Regressao(oM,aY,aX,lConst)
+	If oM:EhErro(aReg)
+		Return aReg
+	EndIf
+	nK		:= Len(aX[1])
+	oRes	:= oM:NovaMat(nil,If(lStats,5,1),nK+1)
+	For nJ:=1 to nK	//Coeficientes na ordem inversa: mk..m1, b
+		oRes:aV[1][nJ]	:= If(lLog,Exp(aReg[1][nK-nJ+2]),aReg[1][nK-nJ+2])
+	Next
+	oRes:aV[1][nK+1]	:= If(lLog,Exp(aReg[1][1]),aReg[1][1])
+	If lStats
+		nGl	:= aReg[5]
+		nSe	:= If(nGl>0,Sqrt(aReg[3]/nGl),0)
+		For nJ:=1 to nK
+			nIdx	:= nK-nJ+1+If(lConst,1,0)
+			oRes:aV[2][nJ]	:= Sqrt(Max(aReg[2][nIdx][nIdx],0))*nSe
+		Next
+		oRes:aV[2][nK+1]	:= If(lConst,Sqrt(Max(aReg[2][1][1],0))*nSe,oM:Err("#N/A"))
+		oRes:aV[3][1]	:= If(aReg[3]+aReg[4]==0,1,aReg[4]/(aReg[3]+aReg[4]))
+		oRes:aV[3][2]	:= nSe
+		oRes:aV[4][1]	:= If(nGl>0 .AND. aReg[3]>0,(aReg[4]/nK)/(aReg[3]/nGl),oM:Err("#NUM!"))
+		oRes:aV[4][2]	:= nGl
+		oRes:aV[5][1]	:= aReg[4]
+		oRes:aV[5][2]	:= aReg[3]
+		For nJ:=3 to nK+1
+			oRes:aV[3][nJ]	:= oM:Err("#N/A")
+			oRes:aV[4][nJ]	:= oM:Err("#N/A")
+			oRes:aV[5][nJ]	:= oM:Err("#N/A")
+		Next
+	EndIf
+	FwFreeArray(aY)
+	FwFreeArray(aX)
+Return oRes
+
+/*/{Protheus.doc} fTrend
+TREND/GROWTH(y_conhecidos,[x_conhecidos],[novos_x],[constante])
+/*/
+Static Function fTrend(oM As Object, aArgs As Array, lLog As Logical)
+	Local aY := {} As Array
+	Local aX := {} As Array
+	Local lConst := If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Log(aArgs[4]),.T.) As Variant
+	Local xErro As Variant
+	Local aReg As Variant
+	Local oNovo As Object
+	Local oRes As Object
+	Local nK As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nV As Numeric
+	Local nN As Numeric
+	Local lYCol As Logical
+	If oM:EhErro(lConst)
+		Return lConst
+	EndIf
+	xErro	:= DadosReg(oM,aArgs,lLog,@aY,@aX)
+	If xErro!=nil
+		Return xErro
+	EndIf
+	aReg	:= Regressao(oM,aY,aX,lConst)
+	If oM:EhErro(aReg)
+		Return aReg
+	EndIf
+	nK		:= Len(aX[1])
+	lYCol	:= oM:ParaMat(aArgs[1]):nC==1
+	If Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U"
+		oNovo	:= oM:ParaMat(aArgs[3])
+	ElseIf Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U"
+		oNovo	:= oM:ParaMat(aArgs[2])
+	Else
+		oNovo	:= oM:NovaMat(nil,If(lYCol,Len(aY),1),If(lYCol,1,Len(aY)))
+		For nI:=1 to Len(aY)
+			If lYCol
+				oNovo:aV[nI][1]	:= nI
+			Else
+				oNovo:aV[1][nI]	:= nI
+			EndIf
+		Next
+	EndIf
+	//Cada observação nova: linha (k colunas) quando y é coluna, ou coluna quando y é linha
+	If nK==1
+		oRes	:= oM:NovaMat(nil,oNovo:nL,oNovo:nC)
+		For nI:=1 to oNovo:nL
+			For nJ:=1 to oNovo:nC
+				nV	:= aReg[1][1]+aReg[1][2]*oM:Num(oNovo:aV[nI][nJ])
+				oRes:aV[nI][nJ]	:= If(lLog,Exp(nV),nV)
+			Next
+		Next
+		Return oRes
+	EndIf
+	nN		:= If(lYCol,oNovo:nL,oNovo:nC)
+	oRes	:= oM:NovaMat(nil,If(lYCol,nN,1),If(lYCol,1,nN))
+	For nI:=1 to nN
+		nV	:= aReg[1][1]
+		For nJ:=1 to nK
+			nV	+= aReg[1][nJ+1]*oM:Num(If(lYCol,oNovo:aV[nI][nJ],oNovo:aV[nJ][nI]))
+		Next
+		If lYCol
+			oRes:aV[nI][1]	:= If(lLog,Exp(nV),nV)
+		Else
+			oRes:aV[1][nI]	:= If(lLog,Exp(nV),nV)
+		EndIf
+	Next
+	FwFreeArray(aY)
+	FwFreeArray(aX)
+Return oRes
+
+//Primeiro erro da lista (nil se nenhum)
+Static Function PrimErro(oM As Object, aVals As Array)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aVals)
+		If oM:EhErro(aVals[nCont])
+			Return aVals[nCont]
+		EndIf
+	Next
+Return nil

@@ -986,7 +986,7 @@ Return .F.
 Method Funcoes() Class Motor
 	Local aCat As Array
 	Local nCont As Numeric
-	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New(),FuncTxt():New(),FuncDat():New(),FuncRef():New()}
+	aCat	:= {FuncLog():New(),FuncMat():New(),FuncEst():New(),FuncTxt():New(),FuncDat():New(),FuncRef():New(),FuncDist():New()}
 	For nCont:=1 to Len(aCat)
 		aCat[nCont]:Registrar(self)
 		FreeObj(aCat[nCont])

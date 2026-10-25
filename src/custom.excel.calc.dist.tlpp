@@ -1,0 +1,1404 @@
+// Distribuições de probabilidade, testes estatísticos e funções erro (motor custom.excel.calc)
+// Rotinas numéricas: log-gama (Lanczos), gama e beta incompletas (série/fração continuada de Lentz),
+// inversa da normal (AS241 refinada por Newton) e inversão genérica pelo método de Brent
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel.calc
+
+#define XPI			3.14159265358979323846
+#define XEPS		0.000000000000001
+
+/*/{Protheus.doc} FuncDist
+Registro das distribuições de probabilidade e testes estatísticos
+@type class
+@author Saulo Gomes Martins
+@since 25/10/2026
+/*/
+Class FuncDist
+	Public Method New()			As Object
+	Public Method Registrar()
+EndClass
+
+Method New() As Object Class FuncDist
+Return self
+
+Method Registrar(oM As Object) Class FuncDist
+	//Normal
+	oM:Registrar("NORM.DIST"			,{|o,a| fNormDist(o,a,.F.) }			,4,4,"E")
+	oM:Registrar("NORMDIST"				,{|o,a| fNormDist(o,a,.F.) }			,4,4,"E")
+	oM:Registrar("NORM.S.DIST"			,{|o,a| fNormDist(o,a,.T.) }			,2,2,"E")
+	oM:Registrar("NORMSDIST"			,{|o,a| fNormSDist1(o,a) }				,1,1,"E")
+	oM:Registrar("NORM.INV"				,{|o,a| fNormInv(o,a,.F.) }				,3,3,"E")
+	oM:Registrar("NORMINV"				,{|o,a| fNormInv(o,a,.F.) }				,3,3,"E")
+	oM:Registrar("NORM.S.INV"			,{|o,a| fNormInv(o,a,.T.) }				,1,1,"E")
+	oM:Registrar("NORMSINV"				,{|o,a| fNormInv(o,a,.T.) }				,1,1,"E")
+	oM:Registrar("PHI"					,{|o,a| N1(o,a,{|x| Exp(-x*x/2)/Sqrt(2*XPI) }) }	,1,1,"E")
+	oM:Registrar("GAUSS"				,{|o,a| N1(o,a,{|x| NormCdf(x)-0.5 }) }	,1,1,"E")
+	oM:Registrar("STANDARDIZE"			,{|o,a| fStandardize(o,a) }				,3,3,"E")
+	oM:Registrar("CONFIDENCE.NORM"		,{|o,a| fConfidence(o,a,.F.) }			,3,3,"E")
+	oM:Registrar("CONFIDENCE"			,{|o,a| fConfidence(o,a,.F.) }			,3,3,"E")
+	oM:Registrar("CONFIDENCE.T"			,{|o,a| fConfidence(o,a,.T.) }			,3,3,"E")
+	oM:Registrar("LOGNORM.DIST"			,{|o,a| fLogNormDist(o,a) }				,4,4,"E")
+	oM:Registrar("LOGNORMDIST"			,{|o,a| fLogNormDist(o,a) }				,3,3,"E")
+	oM:Registrar("LOGNORM.INV"			,{|o,a| fLogNormInv(o,a) }				,3,3,"E")
+	oM:Registrar("LOGINV"				,{|o,a| fLogNormInv(o,a) }				,3,3,"E")
+	//t de Student
+	oM:Registrar("T.DIST"				,{|o,a| fTDist(o,a,0) }					,3,3,"E")
+	oM:Registrar("T.DIST.2T"			,{|o,a| fTDist(o,a,2) }					,2,2,"E")
+	oM:Registrar("T.DIST.RT"			,{|o,a| fTDist(o,a,1) }					,2,2,"E")
+	oM:Registrar("TDIST"				,{|o,a| fTDist(o,a,3) }					,3,3,"E")
+	oM:Registrar("T.INV"				,{|o,a| fTInv(o,a,.F.) }				,2,2,"E")
+	oM:Registrar("T.INV.2T"				,{|o,a| fTInv(o,a,.T.) }				,2,2,"E")
+	oM:Registrar("TINV"					,{|o,a| fTInv(o,a,.T.) }				,2,2,"E")
+	//Qui-quadrado
+	oM:Registrar("CHISQ.DIST"			,{|o,a| fChiDist(o,a,.F.) }				,3,3,"E")
+	oM:Registrar("CHISQ.DIST.RT"		,{|o,a| fChiDist(o,a,.T.) }				,2,2,"E")
+	oM:Registrar("CHIDIST"				,{|o,a| fChiDist(o,a,.T.) }				,2,2,"E")
+	oM:Registrar("CHISQ.INV"			,{|o,a| fChiInv(o,a,.F.) }				,2,2,"E")
+	oM:Registrar("CHISQ.INV.RT"			,{|o,a| fChiInv(o,a,.T.) }				,2,2,"E")
+	oM:Registrar("CHIINV"				,{|o,a| fChiInv(o,a,.T.) }				,2,2,"E")
+	//F
+	oM:Registrar("F.DIST"				,{|o,a| fFDist(o,a,.F.) }				,4,4,"E")
+	oM:Registrar("F.DIST.RT"			,{|o,a| fFDist(o,a,.T.) }				,3,3,"E")
+	oM:Registrar("FDIST"				,{|o,a| fFDist(o,a,.T.) }				,3,3,"E")
+	oM:Registrar("F.INV"				,{|o,a| fFInv(o,a,.F.) }				,3,3,"E")
+	oM:Registrar("F.INV.RT"				,{|o,a| fFInv(o,a,.T.) }				,3,3,"E")
+	oM:Registrar("FINV"					,{|o,a| fFInv(o,a,.T.) }				,3,3,"E")
+	//Gama e beta
+	oM:Registrar("GAMMA"				,{|o,a| fGamma(o,a) }					,1,1,"E")
+	oM:Registrar("GAMMALN"				,{|o,a| fGammaLn(o,a) }					,1,1,"E")
+	oM:Registrar("GAMMALN.PRECISE"		,{|o,a| fGammaLn(o,a) }					,1,1,"E")
+	oM:Registrar("GAMMA.DIST"			,{|o,a| fGammaDist(o,a) }				,4,4,"E")
+	oM:Registrar("GAMMADIST"			,{|o,a| fGammaDist(o,a) }				,4,4,"E")
+	oM:Registrar("GAMMA.INV"			,{|o,a| fGammaInv(o,a) }				,3,3,"E")
+	oM:Registrar("GAMMAINV"				,{|o,a| fGammaInv(o,a) }				,3,3,"E")
+	oM:Registrar("BETA.DIST"			,{|o,a| fBetaDist(o,a,.T.) }			,4,6,"E")
+	oM:Registrar("BETADIST"				,{|o,a| fBetaDist(o,a,.F.) }			,3,5,"E")
+	oM:Registrar("BETA.INV"				,{|o,a| fBetaInv(o,a) }					,3,5,"E")
+	oM:Registrar("BETAINV"				,{|o,a| fBetaInv(o,a) }					,3,5,"E")
+	//Exponencial e Weibull
+	oM:Registrar("EXPON.DIST"			,{|o,a| fExponDist(o,a) }				,3,3,"E")
+	oM:Registrar("EXPONDIST"			,{|o,a| fExponDist(o,a) }				,3,3,"E")
+	oM:Registrar("WEIBULL.DIST"			,{|o,a| fWeibull(o,a) }					,4,4,"E")
+	oM:Registrar("WEIBULL"				,{|o,a| fWeibull(o,a) }					,4,4,"E")
+	//Discretas
+	oM:Registrar("BINOM.DIST"			,{|o,a| fBinomDist(o,a) }				,4,4,"E")
+	oM:Registrar("BINOMDIST"			,{|o,a| fBinomDist(o,a) }				,4,4,"E")
+	oM:Registrar("BINOM.DIST.RANGE"		,{|o,a| fBinomRange(o,a) }				,3,4,"E")
+	oM:Registrar("BINOM.INV"			,{|o,a| fBinomInv(o,a) }				,3,3,"E")
+	oM:Registrar("CRITBINOM"			,{|o,a| fBinomInv(o,a) }				,3,3,"E")
+	oM:Registrar("NEGBINOM.DIST"		,{|o,a| fNegBinom(o,a) }				,4,4,"E")
+	oM:Registrar("NEGBINOMDIST"			,{|o,a| fNegBinom(o,a) }				,3,3,"E")
+	oM:Registrar("HYPGEOM.DIST"			,{|o,a| fHypGeom(o,a) }					,5,5,"E")
+	oM:Registrar("HYPGEOMDIST"			,{|o,a| fHypGeom(o,a) }					,4,4,"E")
+	oM:Registrar("POISSON.DIST"			,{|o,a| fPoisson(o,a) }					,3,3,"E")
+	oM:Registrar("POISSON"				,{|o,a| fPoisson(o,a) }					,3,3,"E")
+	//Fisher e função erro
+	oM:Registrar("FISHER"				,{|o,a| fFisher(o,a,.F.) }				,1,1,"E")
+	oM:Registrar("FISHERINV"			,{|o,a| fFisher(o,a,.T.) }				,1,1,"E")
+	oM:Registrar("ERF"					,{|o,a| fErf(o,a,.F.) }					,1,2,"E")
+	oM:Registrar("ERF.PRECISE"			,{|o,a| fErf(o,a,.F.) }					,1,1,"E")
+	oM:Registrar("ERFC"					,{|o,a| fErf(o,a,.T.) }					,1,1,"E")
+	oM:Registrar("ERFC.PRECISE"			,{|o,a| fErf(o,a,.T.) }					,1,1,"E")
+	//Testes
+	oM:Registrar("T.TEST"				,{|o,a| fTTest(o,a) }					,4,4)
+	oM:Registrar("TTEST"				,{|o,a| fTTest(o,a) }					,4,4)
+	oM:Registrar("F.TEST"				,{|o,a| fFTest(o,a) }					,2,2)
+	oM:Registrar("FTEST"				,{|o,a| fFTest(o,a) }					,2,2)
+	oM:Registrar("CHISQ.TEST"			,{|o,a| fChiTest(o,a) }					,2,2)
+	oM:Registrar("CHITEST"				,{|o,a| fChiTest(o,a) }					,2,2)
+	oM:Registrar("Z.TEST"				,{|o,a| fZTest(o,a) }					,2,3)
+	oM:Registrar("ZTEST"				,{|o,a| fZTest(o,a) }					,2,3)
+	oM:Registrar("PROB"					,{|o,a| fProb(o,a) }					,3,4)
+Return
+
+/* =====================================================================================
+   Rotinas numéricas
+   ===================================================================================== */
+
+//Menor positivo usado na fração continuada de Lentz
+Static Function FPMin()
+Return 10^(-290)
+
+/*/{Protheus.doc} GLn
+Logaritmo natural da função gama (aproximação de Lanczos, g=7)
+/*/
+Static Function GLn(nX As Numeric)
+	Local aC := {0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,0.0000099843695780195716,0.00000015056327351493116} As Array
+	Local nA As Numeric
+	Local nT As Numeric
+	Local nCont As Numeric
+	Local nRet As Numeric
+	If nX<0.5	//Reflexão
+		nRet	:= Log(XPI/Abs(Sin(XPI*nX)))-GLn(1-nX)
+		FwFreeArray(aC)
+		Return nRet
+	EndIf
+	nX	:= nX-1
+	nA	:= aC[1]
+	nT	:= nX+7.5
+	For nCont:=1 to 8
+		nA	+= aC[nCont+1]/(nX+nCont)
+	Next
+	FwFreeArray(aC)
+Return 0.5*Log(2*XPI)+(nX+0.5)*Log(nT)-nT+Log(nA)
+
+//Função gama (com sinal para negativos não inteiros)
+Static Function Gama(nX As Numeric)
+	If nX>0 .AND. nX==Int(nX) .AND. nX<=171
+		Return Fat(nX-1)
+	EndIf
+	If nX<0.5
+		Return XPI/(Sin(XPI*nX)*Gama(1-nX))
+	EndIf
+Return Exp(GLn(nX))
+
+Static Function Fat(nN As Numeric)
+	Local nRet := 1 As Numeric
+	Local nCont As Numeric
+	For nCont:=2 to nN
+		nRet	*= nCont
+	Next
+Return nRet
+
+/*/{Protheus.doc} GamaP
+Gama incompleta regularizada inferior P(a,x)
+/*/
+Static Function GamaP(nA As Numeric, nX As Numeric)
+	If nX<=0
+		Return 0
+	EndIf
+	If nX<nA+1
+		Return GamaSerie(nA,nX)
+	EndIf
+Return 1-GamaFC(nA,nX)
+
+//Gama incompleta regularizada superior Q(a,x)=1-P(a,x)
+Static Function GamaQ(nA As Numeric, nX As Numeric)
+	If nX<=0
+		Return 1
+	EndIf
+	If nX<nA+1
+		Return 1-GamaSerie(nA,nX)
+	EndIf
+Return GamaFC(nA,nX)
+
+Static Function GamaSerie(nA As Numeric, nX As Numeric)
+	Local nAp := nA As Numeric
+	Local nSoma := 1/nA As Numeric
+	Local nDel := nSoma As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to 10000
+		nAp++
+		nDel	*= nX/nAp
+		nSoma	+= nDel
+		If Abs(nDel)<Abs(nSoma)*XEPS
+			Exit
+		EndIf
+	Next
+Return nSoma*Exp(-nX+nA*Log(nX)-GLn(nA))
+
+Static Function GamaFC(nA As Numeric, nX As Numeric)
+	Local nB := nX+1-nA As Numeric
+	Local nC := 1/FPMin() As Numeric
+	Local nD := 1/nB As Numeric
+	Local nH := nD As Numeric
+	Local nAn As Numeric
+	Local nDel As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to 10000
+		nAn	:= -nCont*(nCont-nA)
+		nB	+= 2
+		nD	:= nAn*nD+nB
+		If Abs(nD)<FPMin()
+			nD	:= FPMin()
+		EndIf
+		nC	:= nB+nAn/nC
+		If Abs(nC)<FPMin()
+			nC	:= FPMin()
+		EndIf
+		nD	:= 1/nD
+		nDel	:= nD*nC
+		nH	*= nDel
+		If Abs(nDel-1)<XEPS
+			Exit
+		EndIf
+	Next
+Return Exp(-nX+nA*Log(nX)-GLn(nA))*nH
+
+/*/{Protheus.doc} BetaI
+Beta incompleta regularizada I_x(a,b)
+/*/
+Static Function BetaI(nA As Numeric, nB As Numeric, nX As Numeric)
+	Local nBt As Numeric
+	If nX<=0
+		Return 0
+	EndIf
+	If nX>=1
+		Return 1
+	EndIf
+	nBt	:= Exp(GLn(nA+nB)-GLn(nA)-GLn(nB)+nA*Log(nX)+nB*Log(1-nX))
+	If nX<(nA+1)/(nA+nB+2)
+		Return nBt*BetaCF(nA,nB,nX)/nA
+	EndIf
+Return 1-nBt*BetaCF(nB,nA,1-nX)/nB
+
+Static Function BetaCF(nA As Numeric, nB As Numeric, nX As Numeric)
+	Local nQab := nA+nB As Numeric
+	Local nQap := nA+1 As Numeric
+	Local nQam := nA-1 As Numeric
+	Local nC := 1 As Numeric
+	Local nD := 1-nQab*nX/nQap As Numeric
+	Local nH As Numeric
+	Local nM As Numeric
+	Local nM2 As Numeric
+	Local nAa As Numeric
+	Local nDel As Numeric
+	If Abs(nD)<FPMin()
+		nD	:= FPMin()
+	EndIf
+	nD	:= 1/nD
+	nH	:= nD
+	For nM:=1 to 10000
+		nM2	:= 2*nM
+		nAa	:= nM*(nB-nM)*nX/((nQam+nM2)*(nA+nM2))
+		nD	:= 1+nAa*nD
+		If Abs(nD)<FPMin()
+			nD	:= FPMin()
+		EndIf
+		nC	:= 1+nAa/nC
+		If Abs(nC)<FPMin()
+			nC	:= FPMin()
+		EndIf
+		nD	:= 1/nD
+		nH	*= nD*nC
+		nAa	:= -(nA+nM)*(nQab+nM)*nX/((nA+nM2)*(nQap+nM2))
+		nD	:= 1+nAa*nD
+		If Abs(nD)<FPMin()
+			nD	:= FPMin()
+		EndIf
+		nC	:= 1+nAa/nC
+		If Abs(nC)<FPMin()
+			nC	:= FPMin()
+		EndIf
+		nD	:= 1/nD
+		nDel	:= nD*nC
+		nH	*= nDel
+		If Abs(nDel-1)<XEPS
+			Exit
+		EndIf
+	Next
+Return nH
+
+//Função erro e complementar (pela gama incompleta)
+Static Function Erf(nX As Numeric)
+	If nX==0
+		Return 0
+	EndIf
+	If nX<0
+		Return -Erf(-nX)
+	EndIf
+Return GamaP(0.5,nX*nX)
+
+Static Function Erfc(nX As Numeric)
+	If nX<0
+		Return 2-Erfc(-nX)
+	EndIf
+	If nX==0
+		Return 1
+	EndIf
+Return GamaQ(0.5,nX*nX)
+
+//Distribuição normal padrão acumulada
+Static Function NormCdf(nZ As Numeric)
+Return 0.5*Erfc(-nZ/Sqrt(2))
+
+//Densidade normal padrão
+Static Function NormPdf(nZ As Numeric)
+Return Exp(-nZ*nZ/2)/Sqrt(2*XPI)
+
+/*/{Protheus.doc} NormInv
+Inversa da normal padrão: algoritmo AS241 (Wichura) refinado por Newton sobre a acumulada
+/*/
+Static Function NormInv(nP As Numeric)
+	Local nQ := nP-0.5 As Numeric
+	Local nR As Numeric
+	Local nX As Numeric
+	Local nCont As Numeric
+	If Abs(nQ)<=0.425
+		nR	:= 0.180625-nQ*nQ
+		nX	:= nQ*(((((((2509.0809287301226727*nR+33430.575583588128105)*nR+67265.770927008700853)*nR+45921.953931549871457)*nR+13731.693765509461125)*nR+1971.5909503065514427)*nR+133.14166789178437745)*nR+3.387132872796366608);
+			/(((((((5226.495278852854561*nR+28729.085735721942674)*nR+39307.89580009271061)*nR+21213.794301586595867)*nR+5394.1960214247511077)*nR+687.1870074920579083)*nR+42.313330701600911252)*nR+1)
+	Else
+		nR	:= If(nQ<0,nP,1-nP)
+		nR	:= Sqrt(-Log(nR))
+		If nR<=5
+			nR	:= nR-1.6
+			nX	:= (((((((0.00077454501427834140764*nR+0.0227238449892691845833)*nR+0.24178072517745061177)*nR+1.27045825245236838258)*nR+3.64784832476320460504)*nR+5.7694972214606914055)*nR+4.6303378461565452959)*nR+1.42343711074968357734);
+				/(((((((0.00000000105075007164441684324*nR+0.0005475938084995344946)*nR+0.0151986665636164571966)*nR+0.14810397642748007459)*nR+0.68976733498510000455)*nR+1.6763848301838038494)*nR+2.05319162663775882187)*nR+1)
+		Else
+			nR	:= nR-5
+			nX	:= (((((((0.000000201033439929228813265*nR+0.0000271155556874348757815)*nR+0.0012426609473880784386)*nR+0.026532189526576123093)*nR+0.29656057182850489123)*nR+1.7848265399172913358)*nR+5.4637849111641143699)*nR+6.6579046435011037772);
+				/(((((((0.000000000000002044263103389939785*nR+0.00000014215117583164458887)*nR+0.000018463183175100546818)*nR+0.0007868691311456132591)*nR+0.0148753612908506148525)*nR+0.13692988092273580531)*nR+0.59983220655588793769)*nR+1)
+		EndIf
+		If nQ<0
+			nX	:= -nX
+		EndIf
+	EndIf
+	For nCont:=1 to 2	//Refinamento de Newton
+		nX	:= nX-(NormCdf(nX)-nP)/NormPdf(nX)
+	Next
+Return nX
+
+//Acumulada da t de Student (cauda inferior)
+Static Function TCdf(nT As Numeric, nV As Numeric)
+	Local nX := nV/(nV+nT*nT) As Numeric
+	Local nCauda := 0.5*BetaI(nV/2,0.5,nX) As Numeric
+Return If(nT>0,1-nCauda,nCauda)
+
+//Acumulada da qui-quadrado
+Static Function ChiCdf(nX As Numeric, nK As Numeric)
+Return GamaP(nK/2,nX/2)
+
+//Acumulada da F
+Static Function FCdf(nX As Numeric, nD1 As Numeric, nD2 As Numeric)
+	If nX<=0
+		Return 0
+	EndIf
+Return BetaI(nD1/2,nD2/2,nD1*nX/(nD1*nX+nD2))
+
+/*/{Protheus.doc} Brent
+Raiz de f(x)-p no intervalo [a,b] (método de Brent); expande b enquanto não houver troca de sinal
+@param bF, codeblock, Função {|x| valor}
+/*/
+Static Function Brent(bF As CodeBlock, nP As Numeric, nA As Numeric, nB As Numeric, lExpande As Logical)
+	Local nFa As Numeric
+	Local nFb As Numeric
+	Local nC As Numeric
+	Local nFc As Numeric
+	Local nD As Numeric
+	Local nE As Numeric
+	Local nTol As Numeric
+	Local nM As Numeric
+	Local nS As Numeric
+	Local nPp As Numeric
+	Local nQq As Numeric
+	Local nR As Numeric
+	Local nCont As Numeric
+	Default lExpande	:= .T.
+	nFa	:= Eval(bF,nA)-nP
+	nFb	:= Eval(bF,nB)-nP
+	nCont	:= 0
+	While lExpande .AND. nFa*nFb>0 .AND. nCont<200
+		nB	:= nB*2+1
+		nFb	:= Eval(bF,nB)-nP
+		nCont++
+	EndDo
+	If nFa*nFb>0
+		Return nil
+	EndIf
+	nC	:= nB
+	nFc	:= nFb
+	nD	:= nB-nA
+	nE	:= nD
+	For nCont:=1 to 300
+		If (nFb>0 .AND. nFc>0) .OR. (nFb<0 .AND. nFc<0)
+			nC	:= nA
+			nFc	:= nFa
+			nD	:= nB-nA
+			nE	:= nD
+		EndIf
+		If Abs(nFc)<Abs(nFb)
+			nA	:= nB
+			nB	:= nC
+			nC	:= nA
+			nFa	:= nFb
+			nFb	:= nFc
+			nFc	:= nFa
+		EndIf
+		nTol	:= 2*XEPS*Abs(nB)+0.0000000000000001
+		nM		:= 0.5*(nC-nB)
+		If Abs(nM)<=nTol .OR. nFb==0
+			Return nB
+		EndIf
+		If Abs(nE)>=nTol .AND. Abs(nFa)>Abs(nFb)
+			nS	:= nFb/nFa
+			If nA==nC
+				nPp	:= 2*nM*nS
+				nQq	:= 1-nS
+			Else
+				nQq	:= nFa/nFc
+				nR	:= nFb/nFc
+				nPp	:= nS*(2*nM*nQq*(nQq-nR)-(nB-nA)*(nR-1))
+				nQq	:= (nQq-1)*(nR-1)*(nS-1)
+			EndIf
+			If nPp>0
+				nQq	:= -nQq
+			Else
+				nPp	:= -nPp
+			EndIf
+			If 2*nPp<Min(3*nM*nQq-Abs(nTol*nQq),Abs(nE*nQq))
+				nE	:= nD
+				nD	:= nPp/nQq
+			Else
+				nD	:= nM
+				nE	:= nD
+			EndIf
+		Else
+			nD	:= nM
+			nE	:= nD
+		EndIf
+		nA	:= nB
+		nFa	:= nFb
+		If Abs(nD)>nTol
+			nB	+= nD
+		Else
+			nB	+= If(nM>0,nTol,-nTol)
+		EndIf
+		nFb	:= Eval(bF,nB)-nP
+	Next
+Return nB
+
+/* =====================================================================================
+   Funções
+   ===================================================================================== */
+
+//Primeiro erro da lista (nil se nenhum)
+Static Function PrimErro(oM As Object, aVals As Array)
+	Local nCont As Numeric
+	For nCont:=1 to Len(aVals)
+		If oM:EhErro(aVals[nCont])
+			Return aVals[nCont]
+		EndIf
+	Next
+Return nil
+
+//Converte os argumentos em números (xErro recebe o primeiro erro)
+Static Function Nums(oM As Object, aArgs As Array, xErro As Variant)
+	Local aRet := Array(Len(aArgs)) As Array
+	Local nCont As Numeric
+	For nCont:=1 to Len(aArgs)
+		If ValType(aArgs[nCont])=="L" .AND. xErro==nil
+			aRet[nCont]	:= If(aArgs[nCont],1,0)
+			Loop
+		EndIf
+		aRet[nCont]	:= oM:Num(aArgs[nCont])
+		If oM:EhErro(aRet[nCont]) .AND. xErro==nil
+			xErro	:= aRet[nCont]
+		EndIf
+	Next
+Return aRet
+
+//Argumento lógico (acumulada)
+Static Function Acum(oM As Object, xArg As Variant)
+Return oM:Log(xArg)
+
+Static Function N1(oM As Object, aArgs As Array, bCalc As CodeBlock)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+Return Eval(bCalc,nX)
+
+//NORM.DIST(x,média,desvio,acumulada) / NORM.S.DIST(z,acumulada)
+Static Function fNormDist(oM As Object, aArgs As Array, lPadrao As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,If(lPadrao,{aArgs[1]},{aArgs[1],aArgs[2],aArgs[3]}),@xErro) As Array
+	Local lAcum := Acum(oM,aArgs[Len(aArgs)]) As Variant
+	Local nZ As Numeric
+	Local nDesv := If(lPadrao,1,aN[Min(3,Len(aN))]) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If nDesv<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	nZ	:= If(lPadrao,aN[1],(aN[1]-aN[2])/nDesv)
+	If lAcum
+		Return NormCdf(nZ)
+	EndIf
+Return NormPdf(nZ)/nDesv
+
+Static Function fNormSDist1(oM As Object, aArgs As Array)
+	Local nZ := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nZ)
+		Return nZ
+	EndIf
+Return NormCdf(nZ)
+
+//NORM.INV(p,média,desvio) / NORM.S.INV(p)
+Static Function fNormInv(oM As Object, aArgs As Array, lPadrao As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<=0 .OR. aN[1]>=1 .OR. (!lPadrao .AND. aN[3]<=0)
+		Return oM:Err("#NUM!")
+	EndIf
+	If lPadrao
+		Return NormInv(aN[1])
+	EndIf
+Return aN[2]+aN[3]*NormInv(aN[1])
+
+Static Function fStandardize(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return (aN[1]-aN[2])/aN[3]
+
+//CONFIDENCE.NORM(alfa,desvio,n) / CONFIDENCE.T
+Static Function fConfidence(oM As Object, aArgs As Array, lT As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nN As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nN	:= Int(aN[3])
+	If aN[1]<=0 .OR. aN[1]>=1 .OR. aN[2]<=0 .OR. nN<1 .OR. (lT .AND. nN<2)
+		Return If(lT .AND. nN==1,oM:Err("#DIV/0!"),oM:Err("#NUM!"))
+	EndIf
+	If lT
+		Return TInvBi(aN[1],nN-1)*aN[2]/Sqrt(nN)
+	EndIf
+Return NormInv(1-aN[1]/2)*aN[2]/Sqrt(nN)
+
+//LOGNORM.DIST(x,média,desvio,[acumulada])
+Static Function fLogNormDist(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local lAcum := If(Len(aArgs)>=4,Acum(oM,aArgs[4]),.T.) As Variant
+	Local nZ As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If aN[1]<=0 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	nZ	:= (Log(aN[1])-aN[2])/aN[3]
+	If lAcum
+		Return NormCdf(nZ)
+	EndIf
+Return NormPdf(nZ)/(aN[1]*aN[3])
+
+Static Function fLogNormInv(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<=0 .OR. aN[1]>=1 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return Exp(aN[2]+aN[3]*NormInv(aN[1]))
+
+/*/{Protheus.doc} fTDist
+nModo 0=T.DIST(x,gl,acumulada) 1=T.DIST.RT 2=T.DIST.2T 3=TDIST(x,gl,caudas)
+/*/
+Static Function fTDist(oM As Object, aArgs As Array, nModo As Numeric)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2]},@xErro) As Array
+	Local nX := aN[1] As Variant
+	Local nV As Variant
+	Local xTerc As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nV	:= Int(aN[2])
+	If nV<1
+		Return oM:Err("#NUM!")
+	EndIf
+	Do Case
+		Case nModo==0
+			xTerc	:= Acum(oM,aArgs[3])
+			If oM:EhErro(xTerc)
+				Return xTerc
+			EndIf
+			If xTerc
+				Return TCdf(nX,nV)
+			EndIf
+			Return Exp(GLn((nV+1)/2)-GLn(nV/2)-(nV+1)/2*Log(1+nX*nX/nV))/Sqrt(nV*XPI)
+		Case nModo==1
+			Return 1-TCdf(nX,nV)
+		Case nModo==2
+			If nX<0
+				Return oM:Err("#NUM!")
+			EndIf
+			Return 2*(1-TCdf(nX,nV))
+	EndCase
+	xTerc	:= oM:Num(aArgs[3])	//TDIST: caudas 1 ou 2
+	If oM:EhErro(xTerc)
+		Return xTerc
+	EndIf
+	If nX<0 .OR. (Int(xTerc)!=1 .AND. Int(xTerc)!=2)
+		Return oM:Err("#NUM!")
+	EndIf
+Return Int(xTerc)*(1-TCdf(nX,nV))
+
+//Inversa bicaudal da t: t tal que P(|T|>t)=p
+Static Function TInvBi(nP As Numeric, nV As Numeric)
+	Local xRet := Brent({|t| 2*(1-TCdf(t,nV)) },nP,0,10) As Variant
+Return xRet
+
+//T.INV(p,gl) cauda inferior / T.INV.2T(p,gl)
+Static Function fTInv(oM As Object, aArgs As Array, lBi As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nV As Numeric
+	Local nP As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nP	:= aN[1]
+	nV	:= Int(aN[2])
+	If nP<=0 .OR. nP>=If(lBi,1.0000000001,1) .OR. nV<1 .OR. (lBi .AND. nP>1)
+		Return oM:Err("#NUM!")
+	EndIf
+	If lBi
+		If nP==1
+			Return 0
+		EndIf
+		Return TInvBi(nP,nV)
+	EndIf
+	If nP==0.5
+		Return 0
+	EndIf
+	If nP>0.5
+		Return TInvBi(2*(1-nP),nV)
+	EndIf
+Return -TInvBi(2*nP,nV)
+
+//CHISQ.DIST(x,gl,acumulada) / CHISQ.DIST.RT(x,gl)
+Static Function fChiDist(oM As Object, aArgs As Array, lCauda As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2]},@xErro) As Array
+	Local nK As Numeric
+	Local lAcum As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nK	:= Int(aN[2])
+	If aN[1]<0 .OR. nK<1 .OR. nK>10000000000
+		Return oM:Err("#NUM!")
+	EndIf
+	If lCauda
+		Return GamaQ(nK/2,aN[1]/2)
+	EndIf
+	lAcum	:= Acum(oM,aArgs[3])
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If lAcum
+		Return ChiCdf(aN[1],nK)
+	EndIf
+	If aN[1]==0
+		Return If(nK==2,0.5,If(nK<2,oM:Err("#NUM!"),0))
+	EndIf
+Return Exp((nK/2-1)*Log(aN[1])-aN[1]/2-(nK/2)*Log(2)-GLn(nK/2))
+
+Static Function fChiInv(oM As Object, aArgs As Array, lCauda As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nK As Numeric
+	Local nP As Numeric
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nP	:= aN[1]
+	nK	:= Int(aN[2])
+	If nP<0 .OR. nP>1 .OR. nK<1 .OR. (lCauda .AND. nP==0) .OR. (!lCauda .AND. nP==1)
+		Return oM:Err("#NUM!")
+	EndIf
+	If lCauda
+		nP	:= 1-nP
+	EndIf
+	If nP==0
+		Return 0
+	EndIf
+	xRet	:= Brent({|x| ChiCdf(x,nK) },nP,0,nK+10)
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet
+
+//F.DIST(x,gl1,gl2,acumulada) / F.DIST.RT
+Static Function fFDist(oM As Object, aArgs As Array, lCauda As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local nD1 As Numeric
+	Local nD2 As Numeric
+	Local lAcum As Variant
+	Local nX As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nX	:= aN[1]
+	nD1	:= Int(aN[2])
+	nD2	:= Int(aN[3])
+	If nX<0 .OR. nD1<1 .OR. nD2<1
+		Return oM:Err("#NUM!")
+	EndIf
+	If lCauda
+		Return 1-FCdf(nX,nD1,nD2)
+	EndIf
+	lAcum	:= Acum(oM,aArgs[4])
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If lAcum
+		Return FCdf(nX,nD1,nD2)
+	EndIf
+	If nX==0
+		Return If(nD1==2,1,If(nD1<2,oM:Err("#NUM!"),0))
+	EndIf
+Return Exp(0.5*(nD1*Log(nD1*nX)+nD2*Log(nD2)-(nD1+nD2)*Log(nD1*nX+nD2))-Log(nX)-(GLn(nD1/2)+GLn(nD2/2)-GLn((nD1+nD2)/2)))
+
+Static Function fFInv(oM As Object, aArgs As Array, lCauda As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nD1 As Numeric
+	Local nD2 As Numeric
+	Local nP As Numeric
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nP	:= aN[1]
+	nD1	:= Int(aN[2])
+	nD2	:= Int(aN[3])
+	If nP<0 .OR. nP>1 .OR. nD1<1 .OR. nD2<1 .OR. (lCauda .AND. nP==0) .OR. (!lCauda .AND. nP==1)
+		Return oM:Err("#NUM!")
+	EndIf
+	If lCauda
+		nP	:= 1-nP
+	EndIf
+	If nP==0
+		Return 0
+	EndIf
+	xRet	:= Brent({|x| FCdf(x,nD1,nD2) },nP,0,10)
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet
+
+Static Function fGamma(oM As Object, aArgs As Array)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+	If (nX<=0 .AND. nX==Int(nX)) .OR. nX>171.6
+		Return oM:Err("#NUM!")
+	EndIf
+Return Gama(nX)
+
+Static Function fGammaLn(oM As Object, aArgs As Array)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+	If nX<=0
+		Return oM:Err("#NUM!")
+	EndIf
+Return GLn(nX)
+
+//GAMMA.DIST(x,alfa,beta,acumulada)
+Static Function fGammaDist(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local lAcum := Acum(oM,aArgs[4]) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If aN[1]<0 .OR. aN[2]<=0 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	If lAcum
+		Return GamaP(aN[2],aN[1]/aN[3])
+	EndIf
+	If aN[1]==0
+		Return If(aN[2]==1,1/aN[3],If(aN[2]<1,oM:Err("#NUM!"),0))
+	EndIf
+Return Exp((aN[2]-1)*Log(aN[1])-aN[1]/aN[3]-aN[2]*Log(aN[3])-GLn(aN[2]))
+
+Static Function fGammaInv(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nA As Numeric
+	Local xRet As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<0 .OR. aN[1]>=1 .OR. aN[2]<=0 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	If aN[1]==0
+		Return 0
+	EndIf
+	nA		:= aN[2]
+	xRet	:= Brent({|x| GamaP(nA,x) },aN[1],0,nA+10)
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return xRet*aN[3]
+
+/*/{Protheus.doc} fBetaDist
+BETA.DIST(x,alfa,beta,acumulada,[A],[B]) / BETADIST(x,alfa,beta,[A],[B])
+/*/
+Static Function fBetaDist(oM As Object, aArgs As Array, lNova As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local lAcum := .T. As Variant
+	Local nIni := If(lNova,5,4) As Numeric
+	Local nA := 0 As Variant
+	Local nB := 1 As Variant
+	Local nX As Numeric
+	If lNova
+		lAcum	:= Acum(oM,aArgs[4])
+		If oM:EhErro(lAcum)
+			Return lAcum
+		EndIf
+	EndIf
+	If Len(aArgs)>=nIni .AND. ValType(aArgs[nIni])!="U"
+		nA	:= oM:Num(aArgs[nIni])
+	EndIf
+	If Len(aArgs)>=nIni+1 .AND. ValType(aArgs[nIni+1])!="U"
+		nB	:= oM:Num(aArgs[nIni+1])
+	EndIf
+	If xErro==nil
+		xErro	:= PrimErro(oM,{nA,nB})
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[2]<=0 .OR. aN[3]<=0 .OR. aN[1]<nA .OR. aN[1]>nB .OR. nA==nB
+		Return oM:Err("#NUM!")
+	EndIf
+	nX	:= (aN[1]-nA)/(nB-nA)
+	If lAcum
+		Return BetaI(aN[2],aN[3],nX)
+	EndIf
+	If nX==0 .OR. nX==1
+		Return 0
+	EndIf
+Return Exp((aN[2]-1)*Log(nX)+(aN[3]-1)*Log(1-nX)-(GLn(aN[2])+GLn(aN[3])-GLn(aN[2]+aN[3])))/(nB-nA)
+
+Static Function fBetaInv(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local nA := If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Num(aArgs[4]),0) As Variant
+	Local nB := If(Len(aArgs)>=5 .AND. ValType(aArgs[5])!="U",oM:Num(aArgs[5]),1) As Variant
+	Local nAl As Numeric
+	Local nBe As Numeric
+	Local xRet As Variant
+	If xErro==nil
+		xErro	:= PrimErro(oM,{nA,nB})
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If aN[1]<=0 .OR. aN[1]>=1 .OR. aN[2]<=0 .OR. aN[3]<=0 .OR. nA>=nB
+		Return oM:Err("#NUM!")
+	EndIf
+	nAl		:= aN[2]
+	nBe		:= aN[3]
+	xRet	:= Brent({|x| BetaI(nAl,nBe,x) },aN[1],0,1,.F.)
+	If xRet==nil
+		Return oM:Err("#NUM!")
+	EndIf
+Return nA+xRet*(nB-nA)
+
+Static Function fExponDist(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2]},@xErro) As Array
+	Local lAcum := Acum(oM,aArgs[3]) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If aN[1]<0 .OR. aN[2]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	If lAcum
+		Return 1-Exp(-aN[2]*aN[1])
+	EndIf
+Return aN[2]*Exp(-aN[2]*aN[1])
+
+//WEIBULL.DIST(x,alfa,beta,acumulada)
+Static Function fWeibull(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local lAcum := Acum(oM,aArgs[4]) As Variant
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	If aN[1]<0 .OR. aN[2]<=0 .OR. aN[3]<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	If lAcum
+		Return 1-Exp(-((aN[1]/aN[3])^aN[2]))
+	EndIf
+	If aN[1]==0
+		Return If(aN[2]==1,1/aN[3],If(aN[2]>1,0,oM:Err("#NUM!")))
+	EndIf
+Return Exp(Log(aN[2]/aN[3])+(aN[2]-1)*Log(aN[1]/aN[3])-((aN[1]/aN[3])^aN[2]))	//Logaritmos: evita underflow
+
+//Logaritmo da combinação C(n,k)
+Static Function LnComb(nN As Numeric, nK As Numeric)
+Return GLn(nN+1)-GLn(nK+1)-GLn(nN-nK+1)
+
+//Probabilidade binomial P(X=k)
+Static Function BinomPmf(nK As Numeric, nN As Numeric, nP As Numeric)
+	If nP==0
+		Return If(nK==0,1,0)
+	EndIf
+	If nP==1
+		Return If(nK==nN,1,0)
+	EndIf
+Return Exp(LnComb(nN,nK)+nK*Log(nP)+(nN-nK)*Log(1-nP))
+
+//BINOM.DIST(k,n,p,acumulada)
+Static Function fBinomDist(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local lAcum := Acum(oM,aArgs[4]) As Variant
+	Local nK As Numeric
+	Local nN As Numeric
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	nK	:= Int(aN[1])
+	nN	:= Int(aN[2])
+	If nK<0 .OR. nK>nN .OR. aN[3]<0 .OR. aN[3]>1
+		Return oM:Err("#NUM!")
+	EndIf
+	If !lAcum
+		Return BinomPmf(nK,nN,aN[3])
+	EndIf
+	If nK==nN
+		Return 1
+	EndIf
+	If aN[3]==0 .OR. aN[3]==1 .OR. nN<=1000
+		For nCont:=0 to nK
+			nRet	+= BinomPmf(nCont,nN,aN[3])
+		Next
+		Return Min(nRet,1)
+	EndIf
+Return 1-BetaI(nK+1,nN-nK,aN[3])
+
+//BINOM.DIST.RANGE(n,p,s,[s2])
+Static Function fBinomRange(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nN As Numeric
+	Local nS As Numeric
+	Local nS2 As Numeric
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nN	:= Int(aN[1])
+	nS	:= Int(aN[3])
+	nS2	:= If(Len(aN)>=4 .AND. ValType(aArgs[4])!="U",Int(aN[4]),nS)
+	If nN<0 .OR. aN[2]<0 .OR. aN[2]>1 .OR. nS<0 .OR. nS>nN .OR. nS2<nS .OR. nS2>nN
+		Return oM:Err("#NUM!")
+	EndIf
+	For nCont:=nS to nS2
+		nRet	+= BinomPmf(nCont,nN,aN[2])
+	Next
+Return nRet
+
+//BINOM.INV(n,p,alfa): menor k com acumulada >= alfa
+Static Function fBinomInv(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	Local nN As Numeric
+	Local nAcum := 0 As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	nN	:= Int(aN[1])
+	If nN<0 .OR. aN[2]<0 .OR. aN[2]>1 .OR. aN[3]<0 .OR. aN[3]>1
+		Return oM:Err("#NUM!")
+	EndIf
+	For nCont:=0 to nN
+		nAcum	+= BinomPmf(nCont,nN,aN[2])
+		If nAcum>=aN[3]-0.000000000001
+			Return nCont
+		EndIf
+	Next
+Return nN
+
+//NEGBINOM.DIST(falhas,sucessos,p,acumulada) / NEGBINOMDIST
+Static Function fNegBinom(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3]},@xErro) As Array
+	Local lAcum := If(Len(aArgs)>=4,Acum(oM,aArgs[4]),.F.) As Variant
+	Local nF As Numeric
+	Local nS As Numeric
+	Local nP As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	nF	:= Int(aN[1])
+	nS	:= Int(aN[2])
+	nP	:= aN[3]
+	If nF<0 .OR. nS<1 .OR. nP<0 .OR. nP>1
+		Return oM:Err("#NUM!")
+	EndIf
+	If lAcum
+		Return BetaI(nS,nF+1,nP)
+	EndIf
+Return Exp(LnComb(nF+nS-1,nS-1)+nS*Log(nP)+nF*Log(1-nP))
+
+//Probabilidade hipergeométrica
+Static Function HipPmf(nX As Numeric, nN As Numeric, nM As Numeric, nPop As Numeric)
+	If nX<Max(0,nN-(nPop-nM)) .OR. nX>Min(nN,nM)
+		Return 0
+	EndIf
+Return Exp(LnComb(nM,nX)+LnComb(nPop-nM,nN-nX)-LnComb(nPop,nN))
+
+//HYPGEOM.DIST(sucessos_amostra,n_amostra,sucessos_pop,n_pop,acumulada) / HYPGEOMDIST
+Static Function fHypGeom(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2],aArgs[3],aArgs[4]},@xErro) As Array
+	Local lAcum := If(Len(aArgs)>=5,Acum(oM,aArgs[5]),.F.) As Variant
+	Local nX As Numeric
+	Local nN As Numeric
+	Local nM As Numeric
+	Local nPop As Numeric
+	Local nRet := 0 As Numeric
+	Local nCont As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	nX		:= Int(aN[1])
+	nN		:= Int(aN[2])
+	nM		:= Int(aN[3])
+	nPop	:= Int(aN[4])
+	If nX<0 .OR. nX>Min(nN,nM) .OR. nX<Max(0,nN-nPop+nM) .OR. nN<=0 .OR. nN>nPop .OR. nM<=0 .OR. nM>nPop .OR. nPop<=0
+		Return oM:Err("#NUM!")
+	EndIf
+	If !lAcum
+		Return HipPmf(nX,nN,nM,nPop)
+	EndIf
+	For nCont:=0 to nX
+		nRet	+= HipPmf(nCont,nN,nM,nPop)
+	Next
+Return nRet
+
+//POISSON.DIST(x,média,acumulada)
+Static Function fPoisson(oM As Object, aArgs As Array)
+	Local xErro As Variant
+	Local aN := Nums(oM,{aArgs[1],aArgs[2]},@xErro) As Array
+	Local lAcum := Acum(oM,aArgs[3]) As Variant
+	Local nX As Numeric
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If oM:EhErro(lAcum)
+		Return lAcum
+	EndIf
+	nX	:= Int(aN[1])
+	If nX<0 .OR. aN[2]<0
+		Return oM:Err("#NUM!")
+	EndIf
+	If aN[2]==0
+		Return If(lAcum .OR. nX==0,1,0)
+	EndIf
+	If lAcum
+		Return GamaQ(nX+1,aN[2])
+	EndIf
+Return Exp(nX*Log(aN[2])-aN[2]-GLn(nX+1))
+
+Static Function fFisher(oM As Object, aArgs As Array, lInv As Logical)
+	Local nX := oM:Num(aArgs[1]) As Variant
+	If oM:EhErro(nX)
+		Return nX
+	EndIf
+	If lInv
+		Return (Exp(2*nX)-1)/(Exp(2*nX)+1)
+	EndIf
+	If nX<=-1 .OR. nX>=1
+		Return oM:Err("#NUM!")
+	EndIf
+Return 0.5*Log((1+nX)/(1-nX))
+
+//ERF(inferior,[superior]) / ERFC(x)
+Static Function fErf(oM As Object, aArgs As Array, lComp As Logical)
+	Local xErro As Variant
+	Local aN := Nums(oM,aArgs,@xErro) As Array
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If lComp
+		Return Erfc(aN[1])
+	EndIf
+	If Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U"
+		Return Erf(aN[2])-Erf(aN[1])
+	EndIf
+Return Erf(aN[1])
+
+//Números de um argumento (referência/matriz) com flag de erro
+Static Function Amostra(oM As Object, xArg As Variant, aNums As Array)
+Return oM:Numeros({xArg},@aNums)
+
+//Média e variância amostral
+Static Function MediaVar(aNums As Array, nMedia As Numeric, nVar As Numeric)
+	Local nSoma := 0 As Numeric
+	Local nQ := 0 As Numeric
+	aEval(aNums,{|n| nSoma+=n })
+	nMedia	:= nSoma/Len(aNums)
+	aEval(aNums,{|n| nQ+=(n-nMedia)^2 })
+	nVar	:= If(Len(aNums)>1,nQ/(Len(aNums)-1),0)
+Return
+
+/*/{Protheus.doc} fTTest
+T.TEST(matriz1,matriz2,caudas,tipo 1=pareado 2=variâncias iguais 3=diferentes)
+/*/
+Static Function fTTest(oM As Object, aArgs As Array)
+	Local oA := oM:ParaMat(aArgs[1]) As Object
+	Local oB := oM:ParaMat(aArgs[2]) As Object
+	Local nCaudas := oM:Num(aArgs[3]) As Variant
+	Local nTipo := oM:Num(aArgs[4]) As Variant
+	Local aA := {} As Array
+	Local aB := {} As Array
+	Local aD := {} As Array
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nM1 As Numeric
+	Local nV1 As Numeric
+	Local nM2 As Numeric
+	Local nV2 As Numeric
+	Local nT As Numeric
+	Local nGl As Numeric
+	Local nN1 As Numeric
+	Local nN2 As Numeric
+	Local xA As Variant
+	Local xB As Variant
+	If PrimErro(oM,{nCaudas,nTipo})!=nil
+		Return PrimErro(oM,{nCaudas,nTipo})
+	EndIf
+	nCaudas	:= Int(nCaudas)
+	nTipo	:= Int(nTipo)
+	If (nCaudas!=1 .AND. nCaudas!=2) .OR. nTipo<1 .OR. nTipo>3
+		Return oM:Err("#NUM!")
+	EndIf
+	If nTipo==1
+		If oA:nL*oA:nC!=oB:nL*oB:nC
+			Return oM:Err("#N/A")
+		EndIf
+		For nI:=1 to oA:nL
+			For nJ:=1 to oA:nC
+				xA	:= oA:aV[nI][nJ]
+				xB	:= oB:aV[nI][nJ]
+				If ValType(xA)=="N" .AND. ValType(xB)=="N"
+					AADD(aD,xA-xB)
+				EndIf
+			Next
+		Next
+		If Len(aD)<2
+			Return oM:Err("#DIV/0!")
+		EndIf
+		MediaVar(aD,@nM1,@nV1)
+		If nV1==0
+			Return oM:Err("#DIV/0!")
+		EndIf
+		nT	:= nM1/Sqrt(nV1/Len(aD))
+		nGl	:= Len(aD)-1
+	Else
+		oM:Numeros({oA},@aA)
+		oM:Numeros({oB},@aB)
+		If Len(aA)<2 .OR. Len(aB)<2
+			Return oM:Err("#DIV/0!")
+		EndIf
+		MediaVar(aA,@nM1,@nV1)
+		MediaVar(aB,@nM2,@nV2)
+		nN1	:= Len(aA)
+		nN2	:= Len(aB)
+		If nTipo==2
+			nGl	:= nN1+nN2-2
+			nT	:= (nM1-nM2)/Sqrt((((nN1-1)*nV1+(nN2-1)*nV2)/nGl)*(1/nN1+1/nN2))
+		Else
+			nT	:= (nM1-nM2)/Sqrt(nV1/nN1+nV2/nN2)
+			nGl	:= ((nV1/nN1+nV2/nN2)^2)/(((nV1/nN1)^2)/(nN1-1)+((nV2/nN2)^2)/(nN2-1))
+		EndIf
+	EndIf
+	FwFreeArray(aA)
+	FwFreeArray(aB)
+	FwFreeArray(aD)
+Return nCaudas*(1-TCdf(Abs(nT),nGl))
+
+//F.TEST(matriz1,matriz2) bicaudal
+Static Function fFTest(oM As Object, aArgs As Array)
+	Local aA := {} As Array
+	Local aB := {} As Array
+	Local nM1 As Numeric
+	Local nV1 As Numeric
+	Local nM2 As Numeric
+	Local nV2 As Numeric
+	Local nF As Numeric
+	Local nP As Numeric
+	Local xErro As Variant
+	xErro	:= Amostra(oM,aArgs[1],@aA)
+	If xErro==nil
+		xErro	:= Amostra(oM,aArgs[2],@aB)
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If Len(aA)<2 .OR. Len(aB)<2
+		Return oM:Err("#DIV/0!")
+	EndIf
+	MediaVar(aA,@nM1,@nV1)
+	MediaVar(aB,@nM2,@nV2)
+	If nV1==0 .OR. nV2==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+	nF	:= nV1/nV2
+	nP	:= FCdf(nF,Len(aA)-1,Len(aB)-1)
+	nP	:= 2*Min(nP,1-nP)
+	FwFreeArray(aA)
+	FwFreeArray(aB)
+Return nP
+
+//CHISQ.TEST(observado,esperado)
+Static Function fChiTest(oM As Object, aArgs As Array)
+	Local oObs := oM:ParaMat(aArgs[1]) As Object
+	Local oEsp := oM:ParaMat(aArgs[2]) As Object
+	Local nChi := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local nGl As Numeric
+	Local xO As Variant
+	Local xE As Variant
+	If oObs:nL!=oEsp:nL .OR. oObs:nC!=oEsp:nC
+		Return oM:Err("#N/A")
+	EndIf
+	For nI:=1 to oObs:nL
+		For nJ:=1 to oObs:nC
+			xO	:= oObs:aV[nI][nJ]
+			xE	:= oEsp:aV[nI][nJ]
+			If ValType(xO)=="N" .AND. ValType(xE)=="N"
+				If xE==0
+					Return oM:Err("#DIV/0!")
+				EndIf
+				nChi	+= ((xO-xE)^2)/xE
+			EndIf
+		Next
+	Next
+	If oObs:nL==1 .OR. oObs:nC==1
+		nGl	:= Max(oObs:nL,oObs:nC)-1
+	Else
+		nGl	:= (oObs:nL-1)*(oObs:nC-1)
+	EndIf
+	If nGl<1
+		Return oM:Err("#N/A")
+	EndIf
+Return GamaQ(nGl/2,nChi/2)
+
+//Z.TEST(matriz,x,[sigma])
+Static Function fZTest(oM As Object, aArgs As Array)
+	Local aA := {} As Array
+	Local xErro := Amostra(oM,aArgs[1],@aA) As Variant
+	Local nX := oM:Num(aArgs[2]) As Variant
+	Local nSig As Variant
+	Local nMedia As Numeric
+	Local nVar As Numeric
+	If xErro==nil .AND. oM:EhErro(nX)
+		xErro	:= nX
+	EndIf
+	If xErro!=nil
+		Return xErro
+	EndIf
+	If Len(aA)<2 .AND. (Len(aArgs)<3 .OR. ValType(aArgs[3])=="U")
+		Return oM:Err("#DIV/0!")
+	EndIf
+	MediaVar(aA,@nMedia,@nVar)
+	If Len(aArgs)>=3 .AND. ValType(aArgs[3])!="U"
+		nSig	:= oM:Num(aArgs[3])
+		If oM:EhErro(nSig)
+			Return nSig
+		EndIf
+	Else
+		nSig	:= Sqrt(nVar)
+	EndIf
+	If nSig==0
+		Return oM:Err("#DIV/0!")
+	EndIf
+	nVar	:= 1-NormCdf((nMedia-nX)/(nSig/Sqrt(Len(aA))))
+	FwFreeArray(aA)
+Return nVar
+
+//PROB(valores,probabilidades,inferior,[superior])
+Static Function fProb(oM As Object, aArgs As Array)
+	Local oX := oM:ParaMat(aArgs[1]) As Object
+	Local oP := oM:ParaMat(aArgs[2]) As Object
+	Local nInf := oM:Num(aArgs[3]) As Variant
+	Local nSup As Variant
+	Local nRet := 0 As Numeric
+	Local nSomaP := 0 As Numeric
+	Local nI As Numeric
+	Local nJ As Numeric
+	Local xX As Variant
+	Local xP As Variant
+	nSup	:= If(Len(aArgs)>=4 .AND. ValType(aArgs[4])!="U",oM:Num(aArgs[4]),nInf)
+	If PrimErro(oM,{nInf,nSup})!=nil
+		Return PrimErro(oM,{nInf,nSup})
+	EndIf
+	If oX:nL*oX:nC!=oP:nL*oP:nC
+		Return oM:Err("#N/A")
+	EndIf
+	For nI:=1 to oX:nL
+		For nJ:=1 to oX:nC
+			xX	:= oX:aV[nI][nJ]
+			xP	:= oP:Get(nI,nJ)
+			If ValType(xP)=="N"
+				If xP<0 .OR. xP>1
+					Return oM:Err("#NUM!")
+				EndIf
+				nSomaP	+= xP
+				If ValType(xX)=="N" .AND. xX>=nInf .AND. xX<=nSup
+					nRet	+= xP
+				EndIf
+			EndIf
+		Next
+	Next
+	If Abs(nSomaP-1)>0.0000001
+		Return oM:Err("#NUM!")
+	EndIf
+Return nRet
