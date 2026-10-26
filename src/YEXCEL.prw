@@ -77,11 +77,3 @@ EndClass
 Method New(cTipo) Class YExcelVar
 	_Super:Var():New(cTipo)
 Return self
-
-Class YExcelfunction From custom.excel.Formula
-	Method New()
-EndClass
-
-Method New() Class YExcelfunction
-	_Super:Formula():New()
-Return self
