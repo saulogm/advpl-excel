@@ -40,6 +40,7 @@ Exemplo de uso:
 
 # Testes
 Arquivo excel gerado: [pasta2.xlsx](exemplo/pasta2.xlsx)
+Gerar dados HTML: [Html](https://saulogm.github.io/advpl-excel/TstYExcel.html)
 
 ![Exemplo1](/exemplo/excel1.png)
 
@@ -62,10 +63,6 @@ DashBoard:
 Gráficos:
 
 ![Exemplo6](/exemplo/excel6.png)
-
-Gerar dados HTML:
-
-![Html](/exemplo/TstYExcel.html)
 
 # Instalação
 1. Compilar Fontes da pasta src
