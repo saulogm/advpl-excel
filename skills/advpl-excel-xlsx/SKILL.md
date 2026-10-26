@@ -106,6 +106,7 @@ Cada regra existe porque o erro correspondente acontece na prática:
 
 - **No tipo "A", escreva em ordem.** Linha 1 → 2 → 3, e dentro da linha, coluna 1 → 2 → 3. Com duas tabelas lado a lado, preencha linha por linha e não tabela por tabela (é o que fazem os exemplos de gráfico). Se a lógica precisar voltar, use `cTipo = "M"`.
 - **Fórmula:** nomes das funções em inglês, `,` como separador e sem `=` inicial. O valor é calculado pela própria classe no `Save`/`Save2Html` (motor AdvPL com as funções do Excel): `SetValue(, "SUM(A2:A3)")`. Se `xValor` for informado, ele é mantido sem recalcular. O que não puder ser calculado (funções do ambiente do Excel, como CUBE*/RTD/WEBSERVICE) fica para o Excel recalcular ao abrir. Detalhes, `AddFuncFormula`, `SetCalcLocal` e a lista de funções em [references/formulas.md](references/formulas.md). Para montar referências use `oExcel:Ref(nLin,nCol)` (`Ref(3,3,.T.,.T.)` retorna `$C$3`).
+- **Fórmula em português e L1C1:** `oExcel:Formula(cFormula, lPtBr = .T., lL1C1 = .T.)` prepara a fórmula escrita como no Excel em português (`SOMA`, `SE`, `PROCV`, `;` entre argumentos, `,` decimal) e com referências L1C1 (`L2C3` absoluta, `L[-1]C` relativa à célula, `L`/`C` omitidos = linha/coluna atual). Ela é convertida para inglês/A1 no `SetValue`/`Cell`, relativa à célula posicionada, então o mesmo objeto serve para todas as linhas de um laço: `oFml := oExcel:Formula('SE(LC[-1]>0;LC[-2]/LC[-1];0)')` → `oExcel:Cell(nLin,5,,oFml)` grava `IF(D2>0,C2/D2,0)`, `IF(D3>0,C3/D3,0)`... Libere com `FreeObj(oFml)` após o laço. `lPtBr = .F.` para nomes em inglês e `lL1C1 = .F.` para referências A1. Detalhes em [references/formulas.md](references/formulas.md#fórmula-em-português-e-l1c1).
 - **Nome definido** (`AddNome`) deve existir antes da fórmula que o usa.
 - **Estilos são criados uma vez e reutilizados.** Cada `NewStyle`/`AddFont`/`CorPreenc` dentro de um laço infla o styles.xml. Para variar por linha ou coluna use herança (`NewStyle(oPai)`) ou regras (`NewStyRules`).
 - **Nomes reais dos parâmetros:** `AddFont(..., xCorRGB = ...)` (mas `Font(..., cCorRGB = ...)` na formatação condicional), `AddStyles(..., nborderId = ...)`, `Cell(..., xStyle = ...)` e `Borda(cTipo = "ALL"|"T"|"B"|"L"|"R"|combinação)`.
@@ -174,14 +175,14 @@ Monte as strings entre parênteses ou em variáveis: em PowerShell a `,` tem pre
 | Tabela formatada do Excel, preencher a partir de alias ou query (Alias2Tab, NewFldTab, subtotais, NewRuleLine), bulk de grande volume | [references/tabelas-bulk-alias.md](references/tabelas-bulk-alias.md) |
 | Gráficos (colunas, barras, linha, pizza, dispersão, área, ações, radar, rosca, bolhas, pizza de pizza, superfície, combinação) | [references/graficos.md](references/graficos.md) |
 | Senha de abertura (SetPassword/Open), proteção de planilha, área de impressão, cabeçalho/rodapé, orientação | [references/protecao-impressao.md](references/protecao-impressao.md) |
-| Cálculo automático de fórmulas: funções suportadas, SetCalcFormula, AddFuncFormula, SetCalcLocal, limitações | [references/formulas.md](references/formulas.md) |
+| Cálculo automático de fórmulas: funções suportadas, SetCalcFormula, AddFuncFormula, SetCalcLocal, fórmula em PT-BR/L1C1 (Formula), limitações | [references/formulas.md](references/formulas.md) |
 | Gravar em html (Save2Html, NewHtml): inputs por coluna, blocos de código por planilha/linha/coluna/célula, CSS/JS, formulário, limitações | [references/html.md](references/html.md) |
 | Converter código YExcel/v1 (Cell, AddStyles, Gravar, OpenRead/CellRead) para o padrão novo | [references/migracao-yexcel.md](references/migracao-yexcel.md) |
 | Receitas completas prontas (relatório SX3 com subtotal, tabela, gráfico, senha, leitura) | [references/exemplos.md](references/exemplos.md) |
 
 ## 8. Requisitos do ambiente (vale mencionar ao usuário quando relevante)
 
-- A lib precisa estar compilada no RPO: `custom.excel.tlpp`, `custom.excel.chart.tlpp`, `custom.excel.crypto.tlpp`, `custom.excel.html.tlpp` (Save2Html), os fontes do cálculo de fórmulas `custom.excel.calc*.tlpp` e, para legado, `YEXCEL.prw`.
+- A lib precisa estar compilada no RPO: `custom.excel.tlpp`, `custom.excel.chart.tlpp`, `custom.excel.crypto.tlpp`, `custom.excel.html.tlpp` (Save2Html), os fontes do cálculo de fórmulas `custom.excel.calc*.tlpp`, `custom.excel.formula.tlpp` (fórmula em PT-BR/L1C1) e, para legado, `YEXCEL.prw`.
 - Gráficos no html usam o Chart.js de `cdn.jsdelivr.net`: sem internet no navegador, informe outro caminho com `oHtml:SetChartJs(cUrl)`.
 - Os temporários ficam em `\tmpxls\` no RootPath. A compactação usa FZip. Para compatibilidade com LibreOffice em servidor Windows, é possível instalar o 7-Zip e configurar `[GENERAL] LOCAL7ZIP` no appserver.ini.
 - `Alias2Tab` com `lSx3 = .T.` precisa de ambiente aberto (dicionário SX3 disponível).

@@ -26,6 +26,50 @@ oExcel:Pos(5,1):SetValue(, "VLOOKUP(""X"",Plan2!A:B,2,FALSE)")
 | `SetCalcFormula(lCalc)` | Liga/desliga o cálculo automático (padrão `.T.`). |
 | `AddFuncFormula(cNome, bBloco, nMin, nMax, cFlags)` | Registra ou substitui uma função. Bloco `{\|oMotor,aArgs\| xRetorno}`: `aArgs` traz os argumentos avaliados (referências como `custom.excel.calc.Ref`; converta com `oMotor:Num/Txt/Log/Esc/ParaMat`). `cFlags`: `E` expande matrizes elemento a elemento, `V` volátil, `X` não calculável. |
 | `SetCalcLocal(cLocal)` | Localidade usada em funções de texto/data (`TEXT`, `DATEVALUE`, `VALUE`...): `"pt-BR"` (padrão) ou `"en-US"`. |
+| `Formula(cFormula, lPtBr, lL1C1)` | Prepara uma fórmula em PT-BR e/ou L1C1, convertida para inglês/A1 no `SetValue`/`Cell` (veja abaixo). |
+
+## Fórmula em português e L1C1
+
+`oExcel:Formula(cFormula, lPtBr, lL1C1)` devolve um objeto `custom.excel.Formula` que é aceito no lugar do texto da fórmula em `SetValue(xValor, oFml)` e `Cell(nLin, nCol, xValor, oFml)`. A fórmula é analisada uma única vez; no `SetValue` ela é convertida para inglês/A1 relativa à célula posicionada, então o mesmo objeto pode ser gravado em quantas células forem necessárias.
+
+```tlpp
+oFml := oExcel:Formula('SE(LC[-1]>0;LC[-2]/LC[-1];0)')		//PT-BR + L1C1 (padrão)
+For nLinha := 2 To 1000
+	oExcel:Cell(nLinha,5,,oFml)						//IF(D2>0,C2/D2,0), IF(D3>0,C3/D3,0)...
+Next
+FreeObj(oFml)
+oExcel:Pos(1001,5):SetValue(,oExcel:Formula('SOMA(L2C:L[-1]C)'))	//SUM(E$2:E1000)
+oExcel:Pos(1002,5):SetValue(,oExcel:Formula('SUM(R2C:R[-1]C)',.F.))	//só L1C1, nomes em inglês
+oExcel:Pos(1003,5):SetValue(,oExcel:Formula('SOMA(E2:E1000)',,.F.))	//só PT-BR, referências A1
+```
+
+| Parâmetro | Padrão | `.T.` | `.F.` |
+|---|---|---|---|
+| `lPtBr` | `.T.` | Fórmula em português: traduz nomes de funções, `VERDADEIRO`/`FALSO`, erros e separadores | Fórmula em inglês (`,` separa argumentos, `.` decimal) |
+| `lL1C1` | `.T.` | Referências L1C1 | Referências A1 (sem alteração) |
+
+Com os dois `.F.` a fórmula é gravada como foi escrita.
+
+**PT-BR (`lPtBr`)**
+
+- Nomes das funções do Excel em português para todas as funções do motor (`SOMA`→`SUM`, `SE`→`IF`, `PROCV`→`VLOOKUP`, `CONT.SE`→`COUNTIF`, `ÍNDICE`→`INDEX`, `CORRESP`→`MATCH`, `ARRED`→`ROUND`, `HOJE`→`TODAY`, `EXT.TEXTO`→`MID`...). Acentos são opcionais (`MÉDIA` ou `MEDIA`) e maiúsculas/minúsculas são indiferentes. Nome sem tradução (inglês, função própria do `AddFuncFormula`, nome definido) é mantido.
+- `VERDADEIRO`/`FALSO` → `TRUE`/`FALSE`; erros `#N/D`, `#VALOR!`, `#NOME?`, `#NÚM!`, `#NULO!`, `#DESPEJAR!` → `#N/A`, `#VALUE!`, `#NAME?`, `#NUM!`, `#NULL!`, `#SPILL!`.
+- Separadores: `;` entre argumentos vira `,`; `,` decimal vira `.`; na matriz constante `\` separa colunas e `;` separa linhas (`{1\2;3\4}` → `{1,2;3,4}`).
+- Textos entre aspas, nomes de planilha entre apóstrofos e referências estruturadas (`Tab[Coluna]`) são copiados sem alteração; dentro de colchetes use a sintaxe em inglês (`Tab[[#Totals],[Valor]]`).
+
+**L1C1 (`lL1C1`)**
+
+| L1C1 | Significado | Na célula E5 |
+|---|---|---|
+| `L2C3` | Linha 2, coluna 3 (absoluta) | `$C$2` |
+| `L[-1]C[2]` | 1 linha acima, 2 colunas à direita | `G4` |
+| `LC[-1]` | Mesma linha, coluna anterior | `D5` |
+| `L2C` | Linha 2 absoluta, mesma coluna | `E$2` |
+| `L2:L4` / `L` | Linhas inteiras / linha atual | `$2:$4` / `5:5` |
+| `C3` / `C[1]` / `C1:C3` | Colunas inteiras | `$C:$C` / `F:F` / `$A:$C` |
+
+- `R` é aceito no lugar de `L` (`R1C1`). Referências a outra planilha: `Plan2!L1C1`, `'Plan 1'!LC[-1]`.
+- Uma referência que resulte fora da planilha (linha ou coluna menor que 1) gera exceção no `SetValue` informando a fórmula e a célula.
 
 ## Limitações
 

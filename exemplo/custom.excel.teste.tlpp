@@ -76,6 +76,7 @@ User Function tstXlsx()
 	Local oRecuoD As Object
 	Local oRegraLinha As Object
 	Local jCab As Json
+	Local oFml As Object
 	Local aOnlyFieds As Array
 	Local lSx3 As Logical
 	Local lExibirCab As Logical
@@ -276,7 +277,7 @@ User Function tstXlsx()
 	oExcel:SetsumRight(.F.)				//Defini que o agrupamento vai ser na esquerda
 	oExcel:SetColLevel(nMin = 4, nMax = 5, nNivel = 1, lFechado = .T.)		//Agrupa coluna 4 e 5 fechado
 	If File("\Star_Wars_Logo.png")
-		oExcel:Img(nID = nIDImg, nLinha = 2, nColuna = 6, nX = 121, nY = 200, nRot = 270)	//Usa imagem com rotação de 270
+		oExcel:Img(nID = nIDImg, nLinha = 2, nColuna = 7, nX = 121, nY = 200, nRot = 270)	//Usa imagem com rotação de 270
 	EndIf
 
 	oExcel:Pos(1,1):SetValue("Linha"):SetStyle(oPosCAB)
@@ -284,6 +285,8 @@ User Function tstXlsx()
 	oExcel:Pos(1,3):SetValue("Venda"):SetStyle(oPosCAB)
 	oExcel:Pos(1,4):SetValue("Numero"):SetStyle(oPosCAB)
 	oExcel:Pos(1,5):SetValue("Data Venda"):SetStyle(oPosCAB)
+	oExcel:Pos(1,6):SetValue("Venda x Numero"):SetStyle(oPosCAB)
+	oFml	:= oExcel:Formula('ARRED(LC[-3]*LC[-2];2)')	//Fórmula em PT-BR e L1C1: preparada uma vez e reutilizada no laço
 	nCont2	:= 1
 	For nCont:=2 to 110
 		oExcel:NivelLinha(nNivel = 2, lOculto = If(nCont2==1,.F.,.T.))	//NivelLinha(nNivel,lFechado,lOculto)	PROXIMAS LINHAS A SER CRIADO COM NÍVEL 2
@@ -292,6 +295,7 @@ User Function tstXlsx()
 		oExcel:Pos(nCont,3):SetValue(Randomize(1,100)):SetStyle(oRegEst1)
 		oExcel:Pos(nCont,4):SetValue(Randomize(1,100)*(1+(Randomize(0,200)/100))):SetStyle(oRegEst1)
 		oExcel:Pos(nCont,5):SetValue(date()+nCont):SetStyle(oRegEst1)
+		oExcel:Pos(nCont,6):SetValue(,oFml):SetStyle(oRegEst1)		//Convertida para a linha: ROUND(C2*D2,2), ROUND(C3*D3,2)...
 		If nCont % 10 ==0
 			lSubTotal	:= .T.
 			oExcel:AddNome(cNome = "VENDA"+cValToChar(nCont2), nLinha = nCont-8, nColuna = 3, nLinha2 = nCont, nColuna2 = 3)
@@ -302,10 +306,12 @@ User Function tstXlsx()
 			oExcel:Pos(nCont,3):SetValue(xValor = 0, cFormula = "SUBTOTAL(9,VENDA"+cValToChar(nCont2)+")"):SetStyle(oRegEst1)
 			oExcel:Pos(nCont,4):SetValue(""):SetStyle(oRegEst1)
 			oExcel:Pos(nCont,5):SetValue(""):SetStyle(oRegEst1)
+			oExcel:Pos(nCont,6):SetValue(,oExcel:Formula('SUBTOTAL(9;L[-9]C:L[-1]C)')):SetStyle(oRegEst1)
 			nCont2++
 		EndIf
 		lSubTotal	:= .F.
 	Next
+	FreeObj(oFml)
 	oExcel:NivelLinha()
 	lSubTotal	:= .T.
 	oExcel:Pos(nCont,1):SetValue("Total Geral"):SetStyle(oRegEst1)
@@ -313,6 +319,7 @@ User Function tstXlsx()
 	oExcel:Pos(nCont,3):SetValue(xValor = 0, cFormula = 'SUMIF(A2:'+oExcel:Ref(nCont-1,1)+',"Sub Total Filial",C2:'+oExcel:Ref(nCont-1,3)+')'):SetStyle(oRegEst1)
 	oExcel:Pos(nCont,4):SetValue(""):SetStyle(oRegEst1)
 	oExcel:Pos(nCont,5):SetValue(""):SetStyle(oRegEst1)
+	oExcel:Pos(nCont,6):SetValue(,oExcel:Formula('SOMASE(L2C1:L[-1]C1;"Sub Total Filial";L2C:L[-1]C)')):SetStyle(oRegEst1)	//Mesmo total com fórmula em PT-BR e L1C1
 
 	oExcel:AutoFilter(nLinha = 1, nColuna = 1, nLinha2 = nCont, nColuna2 = 4)	//Auto filtro
 	oExcel:AddPane(nySplit = 1, nxSplit = 1)	//Congela primeira linha e primeira coluna

@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fórmula em português e L1C1
+
+- Novo método `oExcel:Formula(cFormula, lPtBr = .T., lL1C1 = .T.)` (classe `custom.excel.Formula`, `src/custom.excel.formula.tlpp`): fórmula escrita como no Excel em português (nomes das funções, `VERDADEIRO`/`FALSO`, erros, `;` e `,` decimal) e com referências L1C1 (`L2C3`, `L[-1]C`, linhas/colunas inteiras). A conversão para inglês/A1 é feita no `SetValue`/`Cell`, relativa à célula posicionada, permitindo reutilizar o mesmo objeto em um laço.
+- `SetValue` e `Cell` aceitam o objeto no parâmetro `cFormula`.
+- Correção: no `Open` (Windows com 7-Zip) a pasta de extração que sobrou de uma execução anterior com o mesmo nome temporário é apagada e o 7-Zip recebe `-y`; antes a leitura travava esperando a confirmação de substituição.
+- Testes `U_XFMLPTTST` e desempenho `U_XFMLBENCH` (`exemplo/custom.excel.calc.teste.tlpp`) e exemplo na segunda planilha de `u_tstXlsx` (`exemplo/custom.excel.teste.tlpp`).
+
 ### Cálculo automático de fórmulas
 
 - `SetValue(, cFormula)` sem valor: a classe calcula a fórmula no `Save`/`Save2Html` e grava o valor em cache (`<v>`), nos modos A (arquivo), M (memória) e B (banco). `GetValue` e o html passam a mostrar o resultado.

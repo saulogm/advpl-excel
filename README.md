@@ -9,6 +9,7 @@ Exemplo de uso:
 # Recursos disponíveis
 * Definir células String,Numérica,data,DateTime,Logica,formula
 * Cálculo automático de fórmulas: a classe calcula o valor das fórmulas (mais de 500 funções do Excel) ao salvar, sem precisar enviar o valor já calculado ([lista de funções](skills/advpl-excel-xlsx/references/formulas.md))
+* Fórmula em português e L1C1 (`oExcel:Formula('SOMA(L2C:L[-1]C)')`): escrita uma vez e convertida para cada célula no `SetValue`
 * Adicionar novas planilhas(Nome,Cor)
 * Cor de preenchimento(simples,efeito de preenchimento)
 * Alinhamento(Horizontal,Vertical,Reduzir para Caber,Quebra Texto,Angulo de Rotação)

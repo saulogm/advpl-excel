@@ -1,0 +1,598 @@
+// Facilitador de fórmulas da classe custom.excel.Xlsx: fórmula em português (PT-BR) e/ou notação L1C1,
+// convertida para inglês/A1 no SetValue, relativa à célula posicionada.
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+Namespace custom.excel
+
+#define MAX_LIN		1048576
+#define MAX_COL		16384
+
+//Tipos de referência L1C1
+#define REF_CEL		1	//L1C1 (célula)
+#define REF_LIN		2	//L1 (linha inteira)
+#define REF_COL		3	//C1 (coluna inteira)
+
+Static jDicPt := nil As Variant		//Cache do dicionário PT-BR -> inglês (chave normalizada sem acento)
+Static aColLetra := {} As Array		//Cache das letras das colunas (1=A)
+
+/*/{Protheus.doc} Formula
+Fórmula preparada (tokenizada uma única vez) para ser gravada em várias células.
+A tradução PT-BR já fica pronta no New; o Converter só resolve as referências L1C1 para a célula.
+@type class
+@author Saulo Gomes Martins
+@since 26/10/2026
+@example
+	oFml := oExcel:Formula('SE(LC[-1]>0;LC[-2]/LC[-1];0)')
+	For nLinha := 2 To 100
+		oExcel:Cell(nLinha,5,,oFml)		//IF(D2>0,C2/D2,0), IF(D3>0,C3/D3,0)...
+	Next
+	FreeObj(oFml)
+/*/
+Class Formula
+	Public Data cTexto		As Character	//Texto original da fórmula
+	Public Data lPtBr		As Logical		//Fórmula escrita em PT-BR
+	Public Data lL1C1		As Logical		//Referências em L1C1
+	Public Data aTokens		As Array		//Partes: texto já traduzido (C) ou referência L1C1 {nTipo,aParte1,aParte2}
+	Public Data lFixo		As Logical		//Não há referência L1C1: cFixo é a fórmula pronta
+	Public Data cFixo		As Character	//Fórmula pronta quando não há referência L1C1
+	Public Method New()			As Object
+	Public Method Converter()	As Character
+EndClass
+
+/*/{Protheus.doc} Formula::New
+Prepara a fórmula
+@type method
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cTexto, character, Fórmula (sem o = inicial)
+@param lPtBr, logical, .T. (padrão) fórmula escrita em PT-BR: nomes de funções, VERDADEIRO/FALSO, erros (#N/D...), ";" separando argumentos, "," decimal e "\" separando colunas em matriz constante
+@param lL1C1, logical, .T. (padrão) referências em L1C1 (L2C3 absoluta, L[-1]C[2] relativa, L linha inteira, C coluna inteira; aceita R no lugar de L)
+@return object, self
+/*/
+Method New(cTexto As Character, lPtBr As Logical, lL1C1 As Logical) As Object Class Formula
+	Default cTexto	:= ""
+	Default lPtBr	:= .T.
+	Default lL1C1	:= .T.
+	::cTexto	:= cTexto
+	::lPtBr		:= lPtBr
+	::lL1C1		:= lL1C1
+	::lFixo		:= .F.
+	If !lPtBr .AND. !lL1C1
+		::aTokens	:= {cTexto}
+	Else
+		::aTokens	:= Tokenizar(cTexto,lPtBr,lL1C1)
+	EndIf
+	If Len(::aTokens)==0
+		::lFixo	:= .T.
+		::cFixo	:= ""
+	ElseIf Len(::aTokens)==1 .AND. ValType(::aTokens[1])=="C"
+		::lFixo	:= .T.
+		::cFixo	:= ::aTokens[1]
+	Else
+		PreparaRefs(self)
+	EndIf
+Return self
+
+/*/{Protheus.doc} Formula::Converter
+Retorna a fórmula em inglês e A1 para a célula informada
+@type method
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param nLinha, numeric, Linha da célula que recebe a fórmula
+@param nColuna, numeric, Coluna da célula que recebe a fórmula
+@return character, fórmula convertida
+/*/
+Method Converter(nLinha As Numeric, nColuna As Numeric) As Character Class Formula
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local xTok As Variant
+	If ::lFixo
+		Return ::cFixo
+	EndIf
+	For nCont:=1 to Len(::aTokens)
+		xTok	:= ::aTokens[nCont]
+		If ValType(xTok)=="C"
+			cRet	+= xTok
+		ElseIf xTok[1]==REF_CEL
+			cRet	+= ParteA1(self,xTok[2],nLinha,nColuna)+ParteA1(self,xTok[3],nLinha,nColuna)
+		Else
+			cRet	+= ParteA1(self,xTok[2],nLinha,nColuna)+":"+ParteA1(self,xTok[3],nLinha,nColuna)
+		EndIf
+	Next
+Return cRet
+
+/*/{Protheus.doc} Tokenizar
+Separa a fórmula em partes, traduzindo o PT-BR e identificando as referências L1C1
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cTxt, character, Fórmula
+@param lPtBr, logical, Traduz PT-BR
+@param lL1C1, logical, Identifica referências L1C1
+@return array, partes da fórmula
+/*/
+Static Function Tokenizar(cTxt As Character, lPtBr As Logical, lL1C1 As Logical)
+	Local aTok := {} As Array
+	Local cBuf := "" As Character
+	Local nTam := Len(cTxt) As Numeric
+	Local nPos := 1 As Numeric
+	Local nFim As Numeric
+	Local nChave := 0 As Numeric
+	Local cCar As Character
+	Local aRef As Array
+	While nPos<=nTam
+		cCar	:= SubStr(cTxt,nPos,1)
+		If cCar=='"' .OR. cCar=="'"			//Texto ou nome de planilha: copia sem alterar
+			nFim	:= FimAspas(cTxt,nPos,cCar)
+			cBuf	+= SubStr(cTxt,nPos,nFim-nPos+1)
+			nPos	:= nFim+1
+		ElseIf cCar=="["					//Referência estruturada de tabela: copia sem alterar
+			nFim	:= FimColchete(cTxt,nPos)
+			cBuf	+= SubStr(cTxt,nPos,nFim-nPos+1)
+			nPos	:= nFim+1
+		ElseIf cCar=="#" .AND. lPtBr		//Erros: #N/D, #VALOR!...
+			cBuf	+= ErroPt(cTxt,@nPos)
+		ElseIf IsDigit(cCar)				//Número (com expoente) ou parte de referência A1 ($A$1)
+			nFim	:= nPos
+			While nFim<=nTam .AND. (IsDigit(SubStr(cTxt,nFim,1)) .OR. IsAlpha(SubStr(cTxt,nFim,1)))
+				nFim++
+			EndDo
+			cBuf	+= SubStr(cTxt,nPos,nFim-nPos)
+			nPos	:= nFim
+		ElseIf IniPalavra(cCar)
+			aRef	:= nil
+			If lL1C1 .AND. LerRef(cTxt,@nPos,@aRef)
+				If !Empty(cBuf)
+					AADD(aTok,cBuf)
+					cBuf	:= ""
+				EndIf
+				AADD(aTok,aRef)
+			Else
+				nFim	:= nPos
+				While nFim<=nTam .AND. CarPalavra(SubStr(cTxt,nFim,1))
+					nFim++
+				EndDo
+				If lPtBr
+					cBuf	+= TraduzPt(SubStr(cTxt,nPos,nFim-nPos),SubStr(cTxt,nFim,1)=="(")
+				Else
+					cBuf	+= SubStr(cTxt,nPos,nFim-nPos)
+				EndIf
+				nPos	:= nFim
+			EndIf
+		Else
+			If lPtBr
+				If cCar=="{"
+					nChave++
+				ElseIf cCar=="}"
+					nChave--
+				ElseIf cCar==";" .AND. nChave<=0	//Separador de argumentos (na matriz constante ";" separa linhas nos dois idiomas)
+					cCar	:= ","
+				ElseIf cCar=="\" .AND. nChave>0		//Separador de colunas da matriz constante
+					cCar	:= ","
+				ElseIf cCar==","					//Decimal
+					cCar	:= "."
+				EndIf
+			EndIf
+			cBuf	+= cCar
+			nPos++
+		EndIf
+	EndDo
+	If !Empty(cBuf)
+		AADD(aTok,cBuf)
+	EndIf
+Return aTok
+
+//Posição da aspa que fecha o texto/nome de planilha (aspas duplicadas são escape)
+Static Function FimAspas(cTxt As Character, nPos As Numeric, cAspa As Character)
+	Local nTam := Len(cTxt) As Numeric
+	Local nFim := nPos+1 As Numeric
+	While nFim<=nTam
+		If SubStr(cTxt,nFim,1)==cAspa
+			If SubStr(cTxt,nFim+1,1)==cAspa
+				nFim	+= 2
+				Loop
+			EndIf
+			Return nFim
+		EndIf
+		nFim++
+	EndDo
+Return nTam
+
+//Posição do colchete que fecha (considera colchetes aninhados)
+Static Function FimColchete(cTxt As Character, nPos As Numeric)
+	Local nTam := Len(cTxt) As Numeric
+	Local nNivel := 0 As Numeric
+	Local nFim As Numeric
+	For nFim:=nPos to nTam
+		If SubStr(cTxt,nFim,1)=="["
+			nNivel++
+		ElseIf SubStr(cTxt,nFim,1)=="]"
+			nNivel--
+			If nNivel==0
+				Return nFim
+			EndIf
+		EndIf
+	Next
+Return nTam
+
+//Início de nome (função, nome definido, planilha ou referência)
+Static Function IniPalavra(cCar As Character)
+Return IsAlpha(cCar) .OR. cCar=="_" .OR. Asc(cCar)>127
+
+//Caractere que faz parte de um nome
+Static Function CarPalavra(cCar As Character)
+Return !Empty(cCar) .AND. (IsAlpha(cCar) .OR. IsDigit(cCar) .OR. cCar$"_." .OR. Asc(cCar)>127)
+
+/*/{Protheus.doc} ErroPt
+Traduz o erro em PT-BR na posição informada e avança a posição
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cTxt, character, Fórmula
+@param nPos, numeric, Posição do # (por referência)
+@return character, erro em inglês
+/*/
+Static Function ErroPt(cTxt As Character, nPos As Numeric)
+	Local aErros := {{"#N/D","#N/A"},{"#VALOR!","#VALUE!"},{"#NOME?","#NAME?"},{"#NUM!","#NUM!"},{"#NULO!","#NULL!"},{"#DESPEJAR!","#SPILL!"}} As Array
+	Local nCont As Numeric
+	Local cRet := "#" As Character
+	Local nTam := 1 As Numeric
+	For nCont:=1 to Len(aErros)
+		If NormPt(SubStr(cTxt,nPos,Len(aErros[nCont][1])))==aErros[nCont][1]
+			cRet	:= aErros[nCont][2]
+			nTam	:= Len(aErros[nCont][1])
+			Exit
+		EndIf
+	Next
+	nPos	+= nTam
+	FwFreeArray(aErros)
+Return cRet
+
+/*/{Protheus.doc} TraduzPt
+Traduz um nome em PT-BR para o inglês
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cNome, character, Nome
+@param lFuncao, logical, Nome seguido de "(" (função)
+@return character, nome traduzido (ou o próprio nome quando não há tradução)
+/*/
+Static Function TraduzPt(cNome As Character, lFuncao As Logical)
+	Local cChave := NormPt(cNome) As Character
+	Local jDic := DicPtEn() As Json
+	If lFuncao
+		If jDic:HasProperty(cChave)
+			Return jDic[cChave]
+		EndIf
+	ElseIf cChave=="VERDADEIRO"
+		Return "TRUE"
+	ElseIf cChave=="FALSO"
+		Return "FALSE"
+	EndIf
+Return cNome
+
+//Maiúsculo e sem acentos
+Static Function NormPt(cTexto As Character)
+	Local cDe := "ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇç" As Character
+	Local cPara := "AAAAAAAAAAEEEEEEEEIIIIIIIIOOOOOOOOOOUUUUUUUUCC" As Character
+	Local nCont As Numeric
+	Local cRet := "" As Character
+	Local cCar As Character
+	Local nPos As Numeric
+	For nCont:=1 to Len(cTexto)
+		cCar	:= SubStr(cTexto,nCont,1)
+		If Asc(cCar)>127 .AND. (nPos := At(cCar,cDe))>0
+			cCar	:= SubStr(cPara,nPos,1)
+		EndIf
+		cRet	+= cCar
+	Next
+Return Upper(cRet)
+
+/*/{Protheus.doc} LerRef
+Lê uma referência L1C1 (ou intervalo de linhas/colunas L1:L3, C1:C3) na posição informada
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cTxt, character, Fórmula
+@param nPos, numeric, Posição inicial (por referência, avança quando encontra)
+@param aRef, array, Referência encontrada {nTipo,aParte1,aParte2} (por referência)
+@return logical, encontrou referência
+/*/
+Static Function LerRef(cTxt As Character, nPos As Numeric, aRef As Array)
+	Local nP := nPos As Numeric
+	Local nP2 As Numeric
+	Local aP1 As Array
+	Local aP2 As Array
+	aP1	:= LerParte(cTxt,@nP)
+	If aP1==nil
+		Return .F.
+	EndIf
+	aRef	:= {aP1[1],aP1,nil}
+	If aP1[1]!=REF_CEL .AND. SubStr(cTxt,nP,1)==":"	//Intervalo de linhas ou colunas inteiras
+		nP2	:= nP+1
+		aP2	:= LerParte(cTxt,@nP2)
+		If aP2!=nil .AND. aP2[1]==aP1[1]
+			aRef[3]	:= aP2
+			nP		:= nP2
+		EndIf
+	EndIf
+	nPos	:= nP
+Return .T.
+
+/*/{Protheus.doc} LerParte
+Lê L<n>|L[<k>]|L seguido de C<n>|C[<k>]|C (L pode ser R)
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cTxt, character, Fórmula
+@param nPos, numeric, Posição inicial (por referência)
+@return array, {nTipo,aLinha,aColuna} (aLinha/aColuna = {lAbsoluta,nValor}) ou nil
+/*/
+Static Function LerParte(cTxt As Character, nPos As Numeric)
+	Local nP := nPos As Numeric
+	Local cCar := Upper(SubStr(cTxt,nP,1)) As Character
+	Local aL As Array
+	Local aC As Array
+	Local cProx As Character
+	If cCar=="L" .OR. cCar=="R"
+		nP++
+		aL	:= LerNum(cTxt,@nP)
+		If aL==nil
+			Return nil
+		EndIf
+		cCar	:= Upper(SubStr(cTxt,nP,1))
+	EndIf
+	If cCar=="C"
+		nP++
+		aC	:= LerNum(cTxt,@nP)
+		If aC==nil
+			Return nil
+		EndIf
+	EndIf
+	If aL==nil .AND. aC==nil
+		Return nil
+	EndIf
+	cProx	:= SubStr(cTxt,nP,1)
+	If CarPalavra(cProx) .OR. cProx=="(" .OR. cProx=="!"	//Faz parte de um nome/função (LN, CONT.SE...)
+		Return nil
+	EndIf
+	nPos	:= nP
+Return {If(aL!=nil .AND. aC!=nil,REF_CEL,If(aL!=nil,REF_LIN,REF_COL)),aL,aC}
+
+//Lê o número após L/C: <n> absoluto, [<k>] relativo, omitido = relativo 0. Retorna {lAbsoluta,nValor} ou nil
+Static Function LerNum(cTxt As Character, nPos As Numeric)
+	Local nFim := nPos As Numeric
+	Local cNum As Character
+	If IsDigit(SubStr(cTxt,nFim,1))
+		While IsDigit(SubStr(cTxt,nFim,1))
+			nFim++
+		EndDo
+		cNum	:= SubStr(cTxt,nPos,nFim-nPos)
+		If Val(cNum)<=0
+			Return nil
+		EndIf
+		nPos	:= nFim
+		Return {.T.,Val(cNum)}
+	ElseIf SubStr(cTxt,nFim,1)=="["
+		nFim	:= At("]",cTxt,nPos)
+		If nFim==0
+			Return nil
+		EndIf
+		cNum	:= AllTrim(SubStr(cTxt,nPos+1,nFim-nPos-1))
+		If Left(cNum,1)$"+-" .AND. Len(cNum)>1
+			If !IsNumero(SubStr(cNum,2))
+				Return nil
+			EndIf
+		ElseIf !IsNumero(cNum)
+			Return nil
+		EndIf
+		nPos	:= nFim+1
+		Return {.F.,Val(cNum)}
+	EndIf
+Return {.F.,0}
+
+//Texto só com dígitos
+Static Function IsNumero(cNum As Character)
+	Local nCont As Numeric
+	If Empty(cNum)
+		Return .F.
+	EndIf
+	For nCont:=1 to Len(cNum)
+		If !IsDigit(SubStr(cNum,nCont,1))
+			Return .F.
+		EndIf
+	Next
+Return .T.
+
+/*/{Protheus.doc} PreparaRefs
+Deixa as referências L1C1 prontas para o Converter: as partes absolutas já viram texto ($C, $2) e as relativas
+guardam só o deslocamento. Referência: {nTipo,aParteA,aParteB} (célula: coluna e linha; linhas/colunas: início e fim),
+parte: {lAbsoluta,cTexto,nDeslocamento,lColuna}
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param oFml, object, Fórmula
+/*/
+Static Function PreparaRefs(oFml As Object)
+	Local nCont As Numeric
+	Local aRef As Array
+	Local aP2 As Array
+	For nCont:=1 to Len(oFml:aTokens)
+		aRef	:= oFml:aTokens[nCont]
+		If ValType(aRef)=="A"
+			aP2	:= If(aRef[3]==nil,aRef[2],aRef[3])
+			If aRef[1]==REF_CEL
+				oFml:aTokens[nCont]	:= {REF_CEL,PreparaParte(oFml,aRef[2][3],.T.),PreparaParte(oFml,aRef[2][2],.F.)}
+			ElseIf aRef[1]==REF_LIN
+				oFml:aTokens[nCont]	:= {REF_LIN,PreparaParte(oFml,aRef[2][2],.F.),PreparaParte(oFml,aP2[2],.F.)}
+			Else
+				oFml:aTokens[nCont]	:= {REF_COL,PreparaParte(oFml,aRef[2][3],.T.),PreparaParte(oFml,aP2[3],.T.)}
+			EndIf
+		EndIf
+	Next
+Return
+
+//Parte {lAbsoluta,nValor} -> {lAbsoluta,cTexto,nDeslocamento,lColuna}
+Static Function PreparaParte(oFml As Object, aNum As Array, lColuna As Logical)
+	If !aNum[1]
+		Return {.F.,"",aNum[2],lColuna}
+	EndIf
+	If aNum[2]>If(lColuna,MAX_COL,MAX_LIN)
+		ErroRef(oFml)
+	EndIf
+Return {.T.,"$"+If(lColuna,ColLetra(aNum[2]),cValToChar(aNum[2])),0,lColuna}
+
+//Parte da referência em A1 para a célula
+Static Function ParteA1(oFml As Object, aParte As Array, nLinha As Numeric, nColuna As Numeric)
+	Local nRet As Numeric
+	If aParte[1]
+		Return aParte[2]
+	EndIf
+	If aParte[4]
+		nRet	:= nColuna+aParte[3]
+		If nRet<1 .OR. nRet>MAX_COL
+			ErroRef(oFml,nLinha,nColuna)
+		EndIf
+		Return ColLetra(nRet)
+	EndIf
+	nRet	:= nLinha+aParte[3]
+	If nRet<1 .OR. nRet>MAX_LIN
+		ErroRef(oFml,nLinha,nColuna)
+	EndIf
+Return cValToChar(nRet)
+
+//Letra da coluna (1=A, 27=AA), com cache
+Static Function ColLetra(nCol As Numeric)
+	Local cRet := "" As Character
+	Local nNum := nCol As Numeric
+	If nCol<=Len(aColLetra) .AND. aColLetra[nCol]!=nil
+		Return aColLetra[nCol]
+	EndIf
+	While nNum>0
+		nNum--
+		cRet	:= Chr(65+(nNum%26))+cRet
+		nNum	:= Int(nNum/26)
+	EndDo
+	If nCol>Len(aColLetra)
+		ASize(aColLetra,nCol)
+	EndIf
+	aColLetra[nCol]	:= cRet
+Return cRet
+
+Static Function ErroRef(oFml As Object, nLinha As Numeric, nColuna As Numeric)
+	Local cCelula := "" As Character
+	If ValType(nLinha)=="N"
+		cCelula	:= " gravada na linha "+cValToChar(nLinha)+", coluna "+cValToChar(nColuna)
+	EndIf
+	UserException("Formula - referência L1C1 fora da planilha na fórmula '"+oFml:cTexto+"'"+cCelula)
+Return
+
+/*/{Protheus.doc} DicPtEn
+Dicionário dos nomes das funções em PT-BR (Excel em português) para o inglês, carregado com FromJson.
+As chaves já estão normalizadas (maiúsculas e sem acento, como NormPt) e cobrem as funções do motor de cálculo;
+as que têm o mesmo nome nos dois idiomas não precisam estar aqui.
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@return json, chave = nome PT-BR normalizado, valor = nome em inglês
+/*/
+Static Function DicPtEn()
+	Local cJson := "" As Character
+	If jDicPt!=nil
+		Return jDicPt
+	EndIf
+	//Matemáticas e trigonométricas
+	cJson	+= '{"SOMA":"SUM","SOMASE":"SUMIF","SOMASES":"SUMIFS","SOMARPRODUTO":"SUMPRODUCT","SOMAQUAD":"SUMSQ","SOMAX2DY2":"SUMX2MY2"'
+	cJson	+= ',"SOMAX2SY2":"SUMX2PY2","SOMAXMY2":"SUMXMY2","SOMASEQUENCIA":"SERIESSUM","MULT":"PRODUCT","ARRED":"ROUND","ARREDONDAR.PARA.CIMA":"ROUNDUP"'
+	cJson	+= ',"ARREDONDAR.PARA.BAIXO":"ROUNDDOWN","MARRED":"MROUND","TETO":"CEILING","TETO.MAT":"CEILING.MATH","TETO.PRECISO":"CEILING.PRECISE"'
+	cJson	+= ',"ISO.TETO":"ISO.CEILING","ECMA.TETO":"ECMA.CEILING","ARREDMULTB":"FLOOR","ARREDMULTB.MAT":"FLOOR.MATH","ARREDMULTB.PRECISO":"FLOOR.PRECISE"'
+	cJson	+= ',"TRUNCAR":"TRUNC","PAR":"EVEN","IMPAR":"ODD","SINAL":"SIGN","RAIZ":"SQRT","RAIZPI":"SQRTPI","POTENCIA":"POWER","ALEATORIO":"RAND"'
+	cJson	+= ',"ALEATORIOENTRE":"RANDBETWEEN","MATRIZALEATORIA":"RANDARRAY","SEQUENCIA":"SEQUENCE","FATORIAL":"FACT","FATDUPLO":"FACTDOUBLE"'
+	cJson	+= ',"MDC":"GCD","MMC":"LCM","QUOCIENTE":"QUOTIENT","ROMANO":"ROMAN","ARABICO":"ARABIC","GRAUS":"DEGREES","RADIANOS":"RADIANS"'
+	cJson	+= ',"SEN":"SIN","SENH":"SINH","ASEN":"ASIN","ASENH":"ASINH","COSEC":"CSC","COSECH":"CSCH","MATRIZ.DETERM":"MDETERM"'
+	cJson	+= ',"MATRIZ.INVERSO":"MINVERSE","MATRIZ.MULT":"MMULT","MATRIZ.UNIDADE":"MUNIT","AGREGAR":"AGGREGATE","PORCENTAGEMDE":"PERCENTOF"'
+	//Lógicas e informações
+	cJson	+= ',"SE":"IF","SES":"IFS","E":"AND","OU":"OR","NAO":"NOT","OUX":"XOR","SEERRO":"IFERROR","SENAODISP":"IFNA","PARAMETRO":"SWITCH"'
+	cJson	+= ',"VERDADEIRO":"TRUE","FALSO":"FALSE","ECEL.VAZIA":"ISBLANK","EERRO":"ISERR","EERROS":"ISERROR","EPAR":"ISEVEN","EIMPAR":"ISODD"'
+	cJson	+= ',"ELOGICO":"ISLOGICAL","E.NAO.DISP":"ISNA","E.NAO.TEXTO":"ISNONTEXT","ENUM":"ISNUMBER","EREF":"ISREF","ETEXTO":"ISTEXT"'
+	cJson	+= ',"EFORMULA":"ISFORMULA","EOMITIDO":"ISOMITTED","NAO.DISP":"NA","TIPO.ERRO":"ERROR.TYPE","TIPO":"TYPE","CEL":"CELL"'
+	cJson	+= ',"INFORMACAO":"INFO","PLAN":"SHEET","PLANS":"SHEETS","CRIARMATRIZ":"MAKEARRAY"'
+	//Texto
+	cJson	+= ',"CONCATENAR":"CONCATENATE","UNIRTEXTO":"TEXTJOIN","ESQUERDA":"LEFT","ESQUERDAB":"LEFTB","DIREITA":"RIGHT","DIREITAB":"RIGHTB"'
+	cJson	+= ',"EXT.TEXTO":"MID","EXT.TEXTOB":"MIDB","NUM.CARACT":"LEN","NUM.CARACTB":"LENB","MINUSCULA":"LOWER","MAIUSCULA":"UPPER"'
+	cJson	+= ',"PRI.MAIUSCULA":"PROPER","ARRUMAR":"TRIM","TIRAR":"CLEAN","SUBSTITUIR":"SUBSTITUTE","MUDAR":"REPLACE","MUDARB":"REPLACEB"'
+	cJson	+= ',"PROCURAR":"FIND","PROCURARB":"FINDB","LOCALIZAR":"SEARCH","LOCALIZARB":"SEARCHB","TEXTO":"TEXT","VALOR":"VALUE"'
+	cJson	+= ',"VALORNUMERICO":"NUMBERVALUE","DEF.NUM.DEC":"FIXED","MOEDA":"DOLLAR","EXATO":"EXACT","CARACT":"CHAR","CODIGO":"CODE"'
+	cJson	+= ',"CARACTUNICODE":"UNICHAR","TEXTOANTES":"TEXTBEFORE","TEXTODEPOIS":"TEXTAFTER","DIVIDIRTEXTO":"TEXTSPLIT","VALORPARATEXTO":"VALUETOTEXT"'
+	cJson	+= ',"MATRIZPARATEXTO":"ARRAYTOTEXT","FONETICA":"PHONETIC","REGEXTESTE":"REGEXTEST","REGEXEXTRAIR":"REGEXEXTRACT","REGEXSUBSTITUIR":"REGEXREPLACE"'
+	cJson	+= ',"ARRUMARINTERVALO":"TRIMRANGE","CODIFURL":"ENCODEURL","FILTROXML":"FILTERXML","SERVICOWEB":"WEBSERVICE","TRADUZIR":"TRANSLATE"'
+	cJson	+= ',"DETECTARIDIOMA":"DETECTLANGUAGE"'
+	//Data e hora
+	cJson	+= ',"DATA":"DATE","TEMPO":"TIME","ANO":"YEAR","MES":"MONTH","DIA":"DAY","HORA":"HOUR","MINUTO":"MINUTE","SEGUNDO":"SECOND"'
+	cJson	+= ',"HOJE":"TODAY","AGORA":"NOW","DATA.VALOR":"DATEVALUE","VALOR.TEMPO":"TIMEVALUE","DIA.DA.SEMANA":"WEEKDAY","NUMSEMANA":"WEEKNUM"'
+	cJson	+= ',"NUMSEMANAISO":"ISOWEEKNUM","DATAM":"EDATE","FIMMES":"EOMONTH","DIAS":"DAYS","DIAS360":"DAYS360","DATADIF":"DATEDIF"'
+	cJson	+= ',"FRACAOANO":"YEARFRAC","DIATRABALHOTOTAL":"NETWORKDAYS","DIATRABALHOTOTAL.INTL":"NETWORKDAYS.INTL","DIATRABALHO":"WORKDAY"'
+	cJson	+= ',"DIATRABALHO.INTL":"WORKDAY.INTL"'
+	//Pesquisa e referência
+	cJson	+= ',"PROCV":"VLOOKUP","PROCH":"HLOOKUP","PROCX":"XLOOKUP","PROC":"LOOKUP","CORRESP":"MATCH","CORRESPX":"XMATCH","INDICE":"INDEX"'
+	cJson	+= ',"DESLOC":"OFFSET","INDIRETO":"INDIRECT","ENDERECO":"ADDRESS","LIN":"ROW","LINS":"ROWS","COL":"COLUMN","COLS":"COLUMNS"'
+	cJson	+= ',"ESCOLHER":"CHOOSE","AREAS":"AREAS","TRANSPOR":"TRANSPOSE","HIPERLINK":"HYPERLINK","INFODADOSTABELADINAMICA":"GETPIVOTDATA"'
+	cJson	+= ',"FORMULATEXTO":"FORMULATEXT","CLASSIFICAR":"SORT","CLASSIFICARPOR":"SORTBY","FILTRO":"FILTER","UNICO":"UNIQUE","ESCOLHERCOLS":"CHOOSECOLS"'
+	cJson	+= ',"ESCOLHERLINS":"CHOOSEROWS","DESCARTAR":"DROP","TOMAR":"TAKE","EMPILHARH":"HSTACK","EMPILHARV":"VSTACK","PARACOL":"TOCOL"'
+	cJson	+= ',"PARALIN":"TOROW","QUEBRARCOLS":"WRAPCOLS","QUEBRARLINS":"WRAPROWS","EXPANDIR":"EXPAND","AGRUPARPOR":"GROUPBY","DINAMIZARPOR":"PIVOTBY"'
+	cJson	+= ',"IMAGEM":"IMAGE","MAPA":"MAP","REDUZIR":"REDUCE","VARRER":"SCAN","PORLIN":"BYROW","PORCOL":"BYCOL"'
+	//Estatísticas
+	cJson	+= ',"MEDIA":"AVERAGE","MEDIAA":"AVERAGEA","MEDIASE":"AVERAGEIF","MEDIASES":"AVERAGEIFS","CONT.NUM":"COUNT","CONT.VALORES":"COUNTA"'
+	cJson	+= ',"CONTAR.VAZIO":"COUNTBLANK","CONT.SE":"COUNTIF","CONT.SES":"COUNTIFS","MAXIMO":"MAX","MAXIMOA":"MAXA","MAXIMOSES":"MAXIFS"'
+	cJson	+= ',"MINIMO":"MIN","MINIMOA":"MINA","MINIMOSES":"MINIFS","DESV.MEDIO":"AVEDEV","MED":"MEDIAN","MODO":"MODE","MODO.UNICO":"MODE.SNGL"'
+	cJson	+= ',"MODO.MULT":"MODE.MULT","MAIOR":"LARGE","MENOR":"SMALL","ORDEM":"RANK","ORDEM.EQ":"RANK.EQ","ORDEM.MED":"RANK.AVG"'
+	cJson	+= ',"PERCENTIL":"PERCENTILE","PERCENTIL.INC":"PERCENTILE.INC","PERCENTIL.EXC":"PERCENTILE.EXC","QUARTIL":"QUARTILE"'
+	cJson	+= ',"QUARTIL.INC":"QUARTILE.INC","QUARTIL.EXC":"QUARTILE.EXC","ORDEM.PORCENTUAL":"PERCENTRANK","ORDEM.PORCENTUAL.INC":"PERCENTRANK.INC"'
+	cJson	+= ',"ORDEM.PORCENTUAL.EXC":"PERCENTRANK.EXC","MEDIA.GEOMETRICA":"GEOMEAN","MEDIA.HARMONICA":"HARMEAN","MEDIA.INTERNA":"TRIMMEAN"'
+	cJson	+= ',"CURT":"KURT","DISTORCAO":"SKEW","DISTORCAO.P":"SKEW.P","DESVQ":"DEVSQ","RQUAD":"RSQ","INCLINACAO":"SLOPE","INTERCEPCAO":"INTERCEPT"'
+	cJson	+= ',"EPADYX":"STEYX","PREVISAO":"FORECAST","PREVISAO.LINEAR":"FORECAST.LINEAR","PREVISAO.ETS":"FORECAST.ETS","PREVISAO.ETS.CONFINT":"FORECAST.ETS.CONFINT"'
+	cJson	+= ',"PREVISAO.ETS.SAZONALIDADE":"FORECAST.ETS.SEASONALITY","PREVISAO.ETS.STAT":"FORECAST.ETS.STAT","TENDENCIA":"TREND"'
+	cJson	+= ',"CRESCIMENTO":"GROWTH","PROJ.LIN":"LINEST","PROJ.LOG":"LOGEST","COVARIACAO.P":"COVARIANCE.P","COVARIACAO.S":"COVARIANCE.S"'
+	cJson	+= ',"FREQUENCIA":"FREQUENCY","PADRONIZAR":"STANDARDIZE","PERMUTAS":"PERMUTATIONA","GAMA":"GAMMA","LNGAMA":"GAMMALN"'
+	cJson	+= ',"LNGAMA.PRECISO":"GAMMALN.PRECISE","DESVPAD":"STDEV","DESVPAD.A":"STDEV.S","DESVPAD.P":"STDEV.P","DESVPADP":"STDEVP"'
+	cJson	+= ',"DESVPADA":"STDEVA","DESVPADPA":"STDEVPA","VAR.A":"VAR.S","DIST.GAMA":"GAMMA.DIST","INV.GAMA":"GAMMA.INV","DISTGAMA":"GAMMADIST"'
+	cJson	+= ',"INVGAMA":"GAMMAINV","DIST.NORM.N":"NORM.DIST","INV.NORM.N":"NORM.INV","DIST.NORMP.N":"NORM.S.DIST","INV.NORMP.N":"NORM.S.INV"'
+	cJson	+= ',"DIST.NORM":"NORMDIST","INV.NORM":"NORMINV","DIST.NORMP":"NORMSDIST","INV.NORMP":"NORMSINV","DISTR.BINOM":"BINOM.DIST"'
+	cJson	+= ',"DISTRBINOM":"BINOMDIST","INV.BINOM":"BINOM.INV","INTERV.DISTR.BINOM":"BINOM.DIST.RANGE","CRIT.BINOM":"CRITBINOM"'
+	cJson	+= ',"DIST.BIN.NEG.N":"NEGBINOM.DIST","DIST.BIN.NEG":"NEGBINOMDIST","DIST.POISSON":"POISSON.DIST","DIST.EXPON":"EXPON.DIST"'
+	cJson	+= ',"DISTEXPON":"EXPONDIST","DIST.WEIBULL":"WEIBULL.DIST","DIST.LOGNORMAL.N":"LOGNORM.DIST","INV.LOGNORMAL":"LOGNORM.INV"'
+	cJson	+= ',"DIST.LOGNORMAL":"LOGNORMDIST","INVLOG":"LOGINV","DIST.BETA":"BETA.DIST","INV.BETA":"BETA.INV","DISTBETA":"BETADIST"'
+	cJson	+= ',"BETA.ACUM.INV":"BETAINV","DIST.QUIQUA":"CHISQ.DIST","DIST.QUIQUA.CD":"CHISQ.DIST.RT","INV.QUIQUA":"CHISQ.INV","INV.QUIQUA.CD":"CHISQ.INV.RT"'
+	cJson	+= ',"TESTE.QUIQUA":"CHISQ.TEST","DIST.QUI":"CHIDIST","INV.QUI":"CHIINV","TESTE.QUI":"CHITEST","DIST.F":"F.DIST","DIST.F.CD":"F.DIST.RT"'
+	cJson	+= ',"INV.F":"F.INV","INV.F.CD":"F.INV.RT","TESTE.F":"F.TEST","DISTF":"FDIST","INVF":"FINV","TESTEF":"FTEST","DIST.T":"T.DIST"'
+	cJson	+= ',"DIST.T.BC":"T.DIST.2T","DIST.T.CD":"T.DIST.RT","INV.T":"T.INV","INV.T.BC":"T.INV.2T","TESTE.T":"T.TEST","DISTT":"TDIST"'
+	cJson	+= ',"INVT":"TINV","TESTET":"TTEST","TESTE.Z":"Z.TEST","TESTEZ":"ZTEST","DIST.HIPERGEOM.N":"HYPGEOM.DIST","DIST.HIPERGEOM":"HYPGEOMDIST"'
+	cJson	+= ',"INT.CONFIANCA":"CONFIDENCE","INT.CONFIANCA.NORM":"CONFIDENCE.NORM","INT.CONFIANCA.T":"CONFIDENCE.T"'
+	//Financeiras
+	cJson	+= ',"JUROSACUM":"ACCRINT","JUROSACUMV":"ACCRINTM","CUPDIASINLIQ":"COUPDAYBS","CUPDIAS":"COUPDAYS","CUPDIASPROX":"COUPDAYSNC"'
+	cJson	+= ',"CUPDATAPROX":"COUPNCD","CUPNUM":"COUPNUM","CUPDATAANT":"COUPPCD","PGTOJURACUM":"CUMIPMT","PGTOCAPACUM":"CUMPRINC"'
+	cJson	+= ',"BD":"DB","BDD":"DDB","BDV":"VDB","DESC":"DISC","MOEDADEC":"DOLLARDE","MOEDAFRA":"DOLLARFR","DURACAO":"DURATION"'
+	cJson	+= ',"MDURACAO":"MDURATION","PDURACAO":"PDURATION","EFETIVA":"EFFECT","VF":"FV","VFPLANO":"FVSCHEDULE","TAXAJUROS":"INTRATE"'
+	cJson	+= ',"IPGTO":"IPMT","TIR":"IRR","MTIR":"MIRR","XTIR":"XIRR","EPGTO":"ISPMT","VPL":"NPV","XVPL":"XNPV","PGTO":"PMT","PPGTO":"PPMT"'
+	cJson	+= ',"VP":"PV","TAXA":"RATE","PRECOPRIMINC":"ODDFPRICE","LUCROPRIMINC":"ODDFYIELD","PRECOULTINC":"ODDLPRICE","LUCROULTINC":"ODDLYIELD"'
+	cJson	+= ',"PRECO":"PRICE","PRECODESC":"PRICEDISC","PRECOVENC":"PRICEMAT","RECEBER":"RECEIVED","TAXAJUROSEQUIV":"RRI","DPD":"SLN"'
+	cJson	+= ',"SDA":"SYD","OTN":"TBILLEQ","OTNVALOR":"TBILLPRICE","OTNLUCRO":"TBILLYIELD","LUCRO":"YIELD","LUCRODESC":"YIELDDISC"'
+	cJson	+= ',"LUCROVENC":"YIELDMAT","CONVERTEREURO":"EUROCONVERT"'
+	//Engenharia
+	cJson	+= ',"BINADEC":"BIN2DEC","BINAHEX":"BIN2HEX","BINAOCT":"BIN2OCT","DECABIN":"DEC2BIN","DECAHEX":"DEC2HEX","DECAOCT":"DEC2OCT"'
+	cJson	+= ',"HEXABIN":"HEX2BIN","HEXADEC":"HEX2DEC","HEXAOCT":"HEX2OCT","OCTABIN":"OCT2BIN","OCTADEC":"OCT2DEC","OCTAHEX":"OCT2HEX"'
+	cJson	+= ',"COMPLEXO":"COMPLEX","CONVERTER":"CONVERT","DEGRAU":"GESTEP","FUNERRO":"ERF","FUNERRO.PRECISO":"ERF.PRECISE","FUNERROCOMPL":"ERFC"'
+	cJson	+= ',"FUNERROCOMPL.PRECISO":"ERFC.PRECISE","IMAGINARIO":"IMAGINARY","IMARG":"IMARGUMENT","IMCONJ":"IMCONJUGATE","IMPOT":"IMPOWER"'
+	cJson	+= ',"IMPROD":"IMPRODUCT","IMSENO":"IMSIN","IMSENH":"IMSINH","IMRAIZ":"IMSQRT","IMSUBTR":"IMSUB","IMSOMA":"IMSUM","IMCOSEC":"IMCSC"'
+	cJson	+= ',"IMCOSECH":"IMCSCH"'
+	//Banco de dados
+	cJson	+= ',"BDMEDIA":"DAVERAGE","BDCONTAR":"DCOUNT","BDCONTARA":"DCOUNTA","BDEXTRAIR":"DGET","BDMAX":"DMAX","BDMIN":"DMIN"'
+	cJson	+= ',"BDMULTIPL":"DPRODUCT","BDEST":"DSTDEV","BDDESVPA":"DSTDEVP","BDSOMA":"DSUM","BDVAREST":"DVAR","BDVARP":"DVARP"'
+	//Cubo, suplementos e web
+	cJson	+= ',"VALORCUBO":"CUBEVALUE","MEMBROCUBO":"CUBEMEMBER","CONJUNTOCUBO":"CUBESET","CONTAGEMCONJUNTOCUBO":"CUBESETCOUNT"'
+	cJson	+= ',"MEMBROKPICUBO":"CUBEKPIMEMBER","PROPRIEDADEMEMBROCUBO":"CUBEMEMBERPROPERTY","MEMBROCLASSIFICADOCUBO":"CUBERANKEDMEMBER"'
+	cJson	+= ',"CHAMAR":"CALL","REGISTRO.ID":"REGISTER.ID","HISTORICODEACOES":"STOCKHISTORY","VALORDOCAMPO":"FIELDVALUE"}'
+	jDicPt	:= JsonObject():New()
+	jDicPt:FromJson(cJson)
+Return jDicPt

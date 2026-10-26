@@ -189,6 +189,7 @@ Class Xlsx
 	Public METHOD SetValue()		//Grava conteudo da celulas posicionada
 	Public METHOD SetDateTime()		//Grava conteudo com data e hora
 	Public METHOD GetFormula()		//Retorna a formula da celula posicionada
+	Public METHOD Formula()			//Prepara fórmula em PT-BR e/ou L1C1 (convertida no SetValue)
 	Public METHOD SetCalcFormula()	//Define se as fórmulas sem valor são calculadas ao salvar
 	Public METHOD AddFuncFormula()	//Registra função para o cálculo de fórmulas
 	Public METHOD SetCalcLocal()	//Localidade do cálculo de fórmulas (pt-BR/en-US)
@@ -612,6 +613,9 @@ Method Open(cFile As Character, cSenha As Character) Class Xlsx
 		cFile	:= Rtrim(cFile)
 		::lArquivo	:= .F.
 		::lMemoria	:= .T.
+		If ExistDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,.F.)	//Sobra de execução anterior com o mesmo nome temporário (o descompactador pararia perguntando se substitui)
+			DelPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile)
+		EndIf
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
 
@@ -647,7 +651,7 @@ Method Open(cFile As Character, cSenha As Character) Class Xlsx
 				lTem7Zip(self)
 			EndIf
 			If c7Zip=="S"
-				If WaitRunSrv('"'+cAr7Zip+'" x "'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+'" -o"'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\"',.T.,"C:\")
+				If WaitRunSrv('"'+cAr7Zip+'" x "'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+cNome+'" -o"'+cRootPath+"\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\" -y',.T.,"C:\")
 					nRet	:= 0
 				Else
 					nRet	:= -1
@@ -1982,16 +1986,16 @@ Grava o conteudo de uma célula
 @param nLinha, numeric, Linha a ser gravada
 @param nColuna, numeric, Coluna a ser gravada
 @param xValor, variadic, Valor a ser gravado(texto,numero,data,logico)
-@param cFormula, characters, Formula da célula
+@param cFormula, characters, Formula da célula (texto em inglês/A1 ou objeto do método :Formula())
 @param nStyle, numeric, posição do estilo criado pelo metodo :AddStyles()
 @type method
 /*/
-METHOD Cell(nLinha As Numeric, nColuna As Numeric, xValor As Variant, cFormula As Character, xStyle As Variant) Class Xlsx
+METHOD Cell(nLinha As Numeric, nColuna As Numeric, xValor As Variant, cFormula As Variant, xStyle As Variant) Class Xlsx
 	Local cTipo := ValType(xValor) As Character
 	Local cTpStyle := ValType(xStyle) As Character
 	PARAMTYPE 0	VAR nLinha			AS NUMERIC			OPTIONAL DEFAULT ::nLinha
 	PARAMTYPE 1	VAR nColuna			AS NUMERIC			OPTIONAL DEFAULT ::nColuna
-	PARAMTYPE 3	VAR cFormula		AS CHARACTER		OPTIONAL
+	PARAMTYPE 3	VAR cFormula		AS CHARACTER,OBJECT	OPTIONAL
 	PARAMTYPE 4	VAR xStyle			AS NUMERIC,OBJECT	OPTIONAL
 
 	If ValType(nColuna)=="C"
@@ -2320,10 +2324,10 @@ Alteração de valores da célula posicionada
 @author Saulo Gomes Martins
 @since 06/07/2020
 @param xValor, variadic, valor a ser gravado
-@param cFormula, character, formula a ser gravada
+@param cFormula, character, formula a ser gravada (texto em inglês/A1 ou objeto do método :Formula(), convertido para a célula posicionada)
 @return object, self
 /*/
-Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
+Method SetValue(xValor As Variant, cFormula As Variant) Class Xlsx
 	Local cTipo := ValType(xValor) As Character
 	Local lAchou As Logical
 	Local nPos As Numeric
@@ -2337,6 +2341,9 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 	//Local cTmpVar
 	If ::nLinha<=0 .OR. ::nColuna<=0
 		Return self
+	EndIf
+	If ValType(cFormula)=="O"	//Fórmula preparada pelo método :Formula() (PT-BR/L1C1)
+		cFormula	:= cFormula:Converter(::nLinha,::nColuna)
 	EndIf
 	::CalcDimAtu(::nPlanilhaAt,::nLinha,::nColuna)
 	If ::lCalcFormula .AND. (!Empty(::aFmlPend) .OR. ValType(cFormula)=="C")
@@ -2821,6 +2828,32 @@ Method Getformula() Class Xlsx
 		Endif
 	EndIf
 Return ""
+
+/*/{Protheus.doc} Xlsx::Formula
+Prepara uma fórmula escrita em português (PT-BR) e/ou em notação L1C1 para ser gravada com :SetValue/:Cell.
+A conversão para inglês/A1 é feita no SetValue, relativa à célula posicionada; o mesmo objeto pode ser
+reutilizado em várias células (ex.: dentro de um laço). Libere com FreeObj() após o último uso.
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param cFormula, character, Fórmula sem o = inicial
+@param lPtBr, logical, .T. (padrão) fórmula em PT-BR: nomes das funções (SOMA, SE, PROCV...), VERDADEIRO/FALSO, erros (#N/D...), ";" separando argumentos, "," decimal e "\" separando colunas em matriz constante. .F. fórmula em inglês
+@param lL1C1, logical, .T. (padrão) referências L1C1: L2C3 absoluta ($C$2), L[-1]C[2] relativa, L/C omitido = linha/coluna atual, L2 linha inteira, C3 coluna inteira (aceita R no lugar de L). .F. referências A1
+@return object, custom.excel.Formula
+@example
+	oFml := oExcel:Formula('SE(LC[-1]>0;LC[-2]/LC[-1];0)')	//PT-BR + L1C1
+	For nLinha := 2 To 100
+		oExcel:Cell(nLinha,5,,oFml)							//IF(D2>0,C2/D2,0), IF(D3>0,C3/D3,0)...
+	Next
+	FreeObj(oFml)
+	oExcel:Pos(101,5):SetValue(,oExcel:Formula('SOMA(L2C:L[-1]C)'))		//SUM(E$2:E100)
+	oExcel:Pos(102,5):SetValue(,oExcel:Formula('SUM(R2C:R[-1]C)',.F.))	//só L1C1
+	oExcel:Pos(103,5):SetValue(,oExcel:Formula('SOMA(E2:E100)',,.F.))	//só PT-BR
+/*/
+Method Formula(cFormula As Character, lPtBr As Logical, lL1C1 As Logical) Class Xlsx
+Return custom.excel.Formula():New(cFormula,lPtBr,lL1C1)
+
 /*/{Protheus.doc} Xlsx::ColTam
 Retorna a coluna mínima e máxima de um intervalo de linhas
 @type method

@@ -1272,3 +1272,260 @@ User Function XCALCCOB()
 	FreeObj(oMotor)
 	FwFreeArray(aCat)
 Return 0
+
+/*/{Protheus.doc} XFMLPTTST
+Testes do facilitador de fórmulas (oExcel:Formula / custom.excel.Formula): PT-BR e L1C1 convertidos para inglês/A1.
+Execução sem interface: appserver.exe -run=U_XFMLPTTST -env=<ambiente>. Resultado em \xfmlpt_teste.log
+@type user function
+@author Saulo Gomes Martins
+@since 26/10/2026
+/*/
+User Function XFMLPTTST()
+	Local aCasos := CasosFmlPt() As Array
+	Local oFml As Object
+	Local oErr As Object
+	Local cRes As Character
+	Local cLog := "" As Character
+	Local nOk := 0 As Numeric
+	Local nFalha := 0 As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to Len(aCasos)
+		oFml	:= nil
+		Try
+			oFml	:= custom.excel.Formula():New(aCasos[nCont][1],aCasos[nCont][2],aCasos[nCont][3])
+			cRes	:= oFml:Converter(aCasos[nCont][4],aCasos[nCont][5])
+		Catch oErr
+			cRes	:= "#EXC"
+		EndTry
+		If ValType(oFml)=="O"
+			FreeObj(oFml)
+		EndIf
+		If cRes==aCasos[nCont][6]
+			nOk++
+		Else
+			nFalha++
+			cLog	+= "FALHA ["+aCasos[nCont][1]+"] L"+cValToChar(aCasos[nCont][4])+"C"+cValToChar(aCasos[nCont][5])+" esperado="+aCasos[nCont][6]+" obtido="+cRes+Chr(13)+Chr(10)
+		EndIf
+	Next
+	//Mesmo objeto reaproveitado em várias células
+	oFml	:= custom.excel.Formula():New('SE(LC[-1]>0;LC[-2]/LC[-1];0)')
+	For nCont:=2 to 4
+		cRes	:= oFml:Converter(nCont,5)
+		If cRes=="IF(D"+cValToChar(nCont)+">0,C"+cValToChar(nCont)+"/D"+cValToChar(nCont)+",0)"
+			nOk++
+		Else
+			nFalha++
+			cLog	+= "FALHA [reuso] linha "+cValToChar(nCont)+" obtido="+cRes+Chr(13)+Chr(10)
+		EndIf
+	Next
+	FreeObj(oFml)
+	//Integração: grava no xlsx e confere os valores calculados
+	Try
+		cLog	+= IntFmlPt(@nOk,@nFalha)
+	Catch oErr
+		nFalha++
+		cLog	+= "Integração EXCEPTION: "+oErr:Description+Chr(13)+Chr(10)
+	EndTry
+	cLog	:= "XFMLPTTST: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas"+Chr(13)+Chr(10)+cLog
+	MemoWrite("\xfmlpt_teste.log",cLog)
+	ConOut(cLog)
+	FwFreeArray(aCasos)
+Return 0
+
+/*/{Protheus.doc} CasosFmlPt
+Casos {fórmula, lPtBr, lL1C1, linha, coluna, esperado} - "#EXC" = exceção esperada
+/*/
+Static Function CasosFmlPt()
+	Local aRet := {} As Array
+	//Parâmetros
+	AADD(aRet,{'SUM(A1:B2)',.F.,.F.,5,5,'SUM(A1:B2)'})
+	AADD(aRet,{'SOMA(A1:B2)',nil,.F.,5,5,'SUM(A1:B2)'})
+	AADD(aRet,{'SUM(R2C:R[-1]C)',.F.,nil,10,5,'SUM(E$2:E9)'})
+	AADD(aRet,{'SUM(1.5,LC[-1])',.F.,.T.,5,5,'SUM(1.5,D5)'})
+	AADD(aRet,{'SOMA(L2C:L[-1]C)',nil,nil,10,5,'SUM(E$2:E9)'})
+	//Referências L1C1
+	AADD(aRet,{'L1C1',nil,nil,5,5,'$A$1'})
+	AADD(aRet,{'L[1]C[-1]',nil,nil,5,5,'D6'})
+	AADD(aRet,{'LC',nil,nil,5,5,'E5'})
+	AADD(aRet,{'l2c[2]',nil,nil,5,5,'G$2'})
+	AADD(aRet,{'SOMA(L2:L4)',nil,nil,5,5,'SUM($2:$4)'})
+	AADD(aRet,{'SOMA(L)',nil,nil,5,5,'SUM(5:5)'})
+	AADD(aRet,{'SOMA(C[1])',nil,nil,5,5,'SUM(F:F)'})
+	AADD(aRet,{'SOMA(C2:C3)',nil,nil,5,5,'SUM($B:$C)'})
+	AADD(aRet,{'L1C27+L1C703',nil,nil,5,5,'$AA$1+$AAA$1'})
+	AADD(aRet,{"'Plan 1'!L1C1+Plan2!LC",nil,nil,5,5,"'Plan 1'!$A$1+Plan2!E5"})
+	AADD(aRet,{'PROCV(LC[-1];Plan2!C1:C3;2;FALSO)',nil,nil,5,5,'VLOOKUP(D5,Plan2!$A:$C,2,FALSE)'})
+	AADD(aRet,{'LN(L1C1)+LOG10(C1)',nil,nil,5,5,'LN($A$1)+LOG10($A:$A)'})
+	AADD(aRet,{'Tabela1[Valor]*L1C2',nil,nil,5,5,'Tabela1[Valor]*$B$1'})
+	AADD(aRet,{'L[-5]C',nil,nil,5,5,'#EXC'})
+	AADD(aRet,{'LC[-5]',nil,nil,5,5,'#EXC'})
+	//PT-BR
+	AADD(aRet,{'CONCATENAR("a;b,c";LC[-1])',nil,nil,5,5,'CONCATENATE("a;b,c",D5)'})
+	AADD(aRet,{'LC[-1]*1,5',nil,nil,5,5,'D5*1.5'})
+	AADD(aRet,{'1E+3+L1C1',nil,nil,5,5,'1E+3+$A$1'})
+	AADD(aRet,{'SOMA({1\2;3\4})',nil,.F.,5,5,'SUM({1,2;3,4})'})
+	AADD(aRet,{'SOMA({1,5\2})',nil,.F.,5,5,'SUM({1.5,2})'})
+	AADD(aRet,{'SE(VERDADEIRO;FALSO())',nil,.F.,5,5,'IF(TRUE,FALSE())'})
+	AADD(aRet,{'SEERRO(A1;#N/D)+SE(ÉERRO(#VALOR!);#NOME?;#NÚM!)',nil,.F.,5,5,'IFERROR(A1,#N/A)+IF(ISERR(#VALUE!),#NAME?,#NUM!)'})
+	AADD(aRet,{'CONT.SE(A1:A5;">2")',nil,.F.,5,5,'COUNTIF(A1:A5,">2")'})
+	AADD(aRet,{'MEDIA(A1:A2)+MÉDIA(A1:A2)+média(A1)',nil,.F.,5,5,'AVERAGE(A1:A2)+AVERAGE(A1:A2)+AVERAGE(A1)'})
+	AADD(aRet,{'ARRED(EXT.TEXTO(B1;2;3)*1;2)',nil,.F.,5,5,'ROUND(MID(B1,2,3)*1,2)'})
+	AADD(aRet,{'MinhaFuncao(LC[-1])+SUM(A1)',nil,nil,5,5,'MinhaFuncao(D5)+SUM(A1)'})
+	AADD(aRet,{'$A$1+A1',nil,.F.,5,5,'$A$1+A1'})
+	AADD(aRet,{'SE(LC[-1]<>"";"a"&"""b""";"")',nil,nil,5,5,'IF(D5<>"","a"&"""b""","")'})
+Return aRet
+
+//Gera xlsx com fórmulas PT-BR/L1C1 (mesmo objeto em laço) e confere os valores calculados
+Static Function IntFmlPt(nOk As Numeric, nFalha As Numeric)
+	Local oExcel := custom.excel.Xlsx():New("xfmlpt") As Object
+	Local oLer As Object
+	Local oFml As Object
+	Local aEsp := {{2,3,8},{3,3,18},{4,3,32},{5,3,58},{6,3,"alto"}} As Array
+	Local cArq As Character
+	Local cRet := "" As Character
+	Local xVal As Variant
+	Local nCont As Numeric
+	FWMakeDir("\xcalc\",.F.)
+	FErase("\xcalc\xfmlpt.xlsx")
+	oExcel:ADDPlan("Dados")
+	oExcel:Cell(1,1,"Qtd")
+	oExcel:Cell(1,2,"Preco")
+	oExcel:Cell(1,3,"Total")
+	oFml	:= oExcel:Formula('LC[-2]*LC[-1]')
+	For nCont:=2 to 4
+		oExcel:Cell(nCont,1,nCont)
+		oExcel:Cell(nCont,2,nCont*2)
+		oExcel:Cell(nCont,3,,oFml)
+	Next
+	FreeObj(oFml)
+	oExcel:Pos(5,3):SetValue(,oExcel:Formula('SOMA(L2C:L[-1]C)'))
+	oExcel:Cell(6,3,,oExcel:Formula('SE(L[-1]C>50;"alto";"baixo")'))
+	cArq	:= oExcel:Save("\xcalc")
+	oExcel:Close()
+	FreeObj(oExcel)
+	oLer	:= custom.excel.Xlsx():New(,cArq)
+	For nCont:=1 to Len(aEsp)
+		xVal	:= oLer:GetValue(aEsp[nCont][1],aEsp[nCont][2])
+		If ValType(xVal)==ValType(aEsp[nCont][3]) .AND. xVal==aEsp[nCont][3]
+			nOk++
+		Else
+			nFalha++
+			cRet	+= "FALHA [integração] "+oLer:Ref(aEsp[nCont][1],aEsp[nCont][2])+" esperado="+cValToChar(aEsp[nCont][3])+" obtido="+cValToChar(xVal)+Chr(13)+Chr(10)
+		EndIf
+	Next
+	oLer:Close()
+	FreeObj(oLer)
+	FwFreeArray(aEsp)
+Return cRet
+
+/*/{Protheus.doc} XFMLBENCH
+Desempenho do facilitador de fórmulas: New() com fórmulas típicas, Converter() e o cenário completo de gravação
+(texto A1 montado com Ref() x Formula() reaproveitada x Formula() criada a cada linha).
+Execução sem interface: appserver.exe -run=U_XFMLBENCH -env=<ambiente>. Resultado em \xfmlpt_bench.log
+@type user function
+@author Saulo Gomes Martins
+@since 26/10/2026
+/*/
+User Function XFMLBENCH()
+	Local aFml := FmlBench() As Array
+	Local nVezes := 3000 As Numeric
+	Local nVez As Numeric
+	Local nCont As Numeric
+	Local nIni As Numeric
+	Local cLog := "" As Character
+	Local oFml As Object
+	cLog	+= "XFMLBENCH "+DToC(Date())+" "+Time()+" - "+GetBuild()+Chr(13)+Chr(10)
+	//Primeira chamada (inclui a carga do dicionário)
+	nIni	:= Seconds()
+	oFml	:= custom.excel.Formula():New(aFml[Len(aFml)])
+	FreeObj(oFml)
+	cLog	+= "Primeira chamada: "+Ms(Seconds()-nIni)+Chr(13)+Chr(10)
+	//New() por fórmula típica
+	For nCont:=1 to Len(aFml)
+		nIni	:= Seconds()
+		For nVez:=1 to nVezes
+			oFml	:= custom.excel.Formula():New(aFml[nCont])
+			FreeObj(oFml)
+		Next
+		cLog	+= "New() x"+cValToChar(nVezes)+" "+PadR(Left(aFml[nCont],60),62)+Ms(Seconds()-nIni)+Chr(13)+Chr(10)
+	Next
+	//Converter: fórmula longa com 10 referências
+	oFml	:= custom.excel.Formula():New(aFml[Len(aFml)])
+	nIni	:= Seconds()
+	For nVez:=1 to 200000
+		oFml:Converter((nVez%1000)+10,10)
+	Next
+	cLog	+= "Converter() x200000 (fórmula longa): "+Ms(Seconds()-nIni)+Chr(13)+Chr(10)
+	FreeObj(oFml)
+	//Cenário completo: 20 mil linhas, 3 colunas de fórmula
+	cLog	+= GravaBench(1)+GravaBench(2)+GravaBench(3)
+	MemoWrite("\xfmlpt_bench.log",cLog)
+	ConOut(cLog)
+	FwFreeArray(aFml)
+Return 0
+
+//Fórmulas típicas (curta a longa) em PT-BR e L1C1
+Static Function FmlBench()
+	Local aRet := {} As Array
+	AADD(aRet,'SOMA(L2C:L[-1]C)')
+	AADD(aRet,'SE(LC[-1]>0;LC[-2]/LC[-1];0)')
+	AADD(aRet,'PROCV(LC[-1];Plan2!C1:C3;2;FALSO)')
+	AADD(aRet,'SEERRO(ÍNDICE(Plan2!C3;CORRESP(LC[-2];Plan2!C1;0));"")')
+	AADD(aRet,'ARRED(SOMASES(Dados!C5;Dados!C1;LC1;Dados!C2;">="&LC2)*1,05;2)')
+	AADD(aRet,'CONCATENAR(TEXTO(LC[-3];"dd/mm/aaaa");" - ";MAIÚSCULA(EXT.TEXTO(LC[-2];1;10)))')
+	AADD(aRet,'SE(E(LC[-1]>0;LC[-2]<>"");SOMA(L2C[-3]:L[-1]C[-3])/CONT.VALORES(L2C[-2]:L[-1]C[-2]);SE(OU(É.NÃO.DISP(LC[-4]);ÉERRO(LC[-5]));0;MÉDIA(L2C[-6]:LC[-6])))')
+Return aRet
+
+/*/{Protheus.doc} GravaBench
+Grava 20 mil linhas com 3 colunas de fórmula (sem cálculo) e mede o laço de gravação
+@param nModo, numeric, 1=texto A1 montado com Ref(), 2=Formula() reaproveitada, 3=Formula() criada a cada linha
+/*/
+Static Function GravaBench(nModo As Numeric)
+	Local aNomes := {"texto A1 com Ref()","Formula() reaproveitada","Formula() a cada linha"} As Array
+	Local oExcel := custom.excel.Xlsx():New("xfmlbench"+cValToChar(nModo)) As Object
+	Local oF1 As Object
+	Local oF2 As Object
+	Local oF3 As Object
+	Local nLin As Numeric
+	Local nIni As Numeric
+	Local nQtd := 20000 As Numeric
+	Local cRet As Character
+	oExcel:SetCalcFormula(.F.)
+	oExcel:ADDPlan("Dados")
+	If nModo==2
+		oF1	:= oExcel:Formula('LC[-2]*LC[-1]')
+		oF2	:= oExcel:Formula('SE(LC[-1]>100;"alto";"baixo")')
+		oF3	:= oExcel:Formula('SOMA(L2C[-3]:LC[-3])')
+	EndIf
+	nIni	:= Seconds()
+	For nLin:=2 to nQtd+1
+		oExcel:Cell(nLin,1,nLin)
+		oExcel:Cell(nLin,2,nLin%7)
+		If nModo==1
+			oExcel:Cell(nLin,3,,oExcel:Ref(nLin,1)+"*"+oExcel:Ref(nLin,2))
+			oExcel:Cell(nLin,4,,'IF('+oExcel:Ref(nLin,3)+'>100,"alto","baixo")')
+			oExcel:Cell(nLin,5,,"SUM("+oExcel:Ref(2,3,.T.)+":"+oExcel:Ref(nLin,3)+")")
+		ElseIf nModo==2
+			oExcel:Cell(nLin,3,,oF1)
+			oExcel:Cell(nLin,4,,oF2)
+			oExcel:Cell(nLin,5,,oF3)
+		Else
+			oExcel:Cell(nLin,3,,oExcel:Formula('LC[-2]*LC[-1]'))
+			oExcel:Cell(nLin,4,,oExcel:Formula('SE(LC[-1]>100;"alto";"baixo")'))
+			oExcel:Cell(nLin,5,,oExcel:Formula('SOMA(L2C[-3]:LC[-3])'))
+		EndIf
+	Next
+	cRet	:= "Gravação "+cValToChar(nQtd)+" linhas x 3 fórmulas - "+PadR(aNomes[nModo],26)+Ms(Seconds()-nIni)+Chr(13)+Chr(10)
+	If nModo==2
+		FreeObj(oF1)
+		FreeObj(oF2)
+		FreeObj(oF3)
+	EndIf
+	oExcel:Close()
+	FreeObj(oExcel)
+	FwFreeArray(aNomes)
+Return cRet
+
+//Segundos -> texto em milissegundos
+Static Function Ms(nSeg As Numeric)
+Return AllTrim(Transform(nSeg*1000,"@E 999,999,999"))+" ms"
