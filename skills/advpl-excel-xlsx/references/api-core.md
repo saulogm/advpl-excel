@@ -126,7 +126,7 @@ Para editar um arquivo aberto, basta posicionar, fazer `SetValue` e chamar `Save
 
 | Método | Descrição |
 |---|---|
-| `mergeCells(nLinha, nColuna, nLinha2, nColuna2)` | Os 4 parâmetros são obrigatórios. O valor e o estilo vão na célula superior esquerda (escreva-a antes) |
+| `mergeCells(nLinha, nColuna, nLinha2, nColuna2)` | Os 4 parâmetros são obrigatórios. O valor e o estilo vão na célula superior esquerda; as demais células recebem o mesmo estilo (bordas em toda a área), sem preencher manualmente. Modo `"A"`: chame com a primeira célula posicionada (estilo antes ou depois) e continue gravando à direita/abaixo normalmente. Modos `"M"`/`"B"`: aplique o estilo antes do `mergeCells` |
 | `AddTamCol(nMin, nMax, nWidth, lbestFit, lcustomWidth)` | Largura das colunas `nMin..nMax` (padrão 12). Chame depois do ADDPlan e antes de escrever |
 | `ColHidden(nColuna, lHidden)` | Oculta a coluna (padrão `.T.`) |
 | `SetRowH(nHeight, nLinha, nLinha2)` | Altura das linhas. Sem linha informada, vale para as linhas criadas depois. No modo `"A"`, chamar antes de gravar as linhas do intervalo (linha já gravada gera erro) |

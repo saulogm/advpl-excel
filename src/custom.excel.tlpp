@@ -79,6 +79,7 @@ Class Xlsx
 	Public Data nColunaAtual		As Numeric //Ultima Coluna
 	Public Data nQtdStyle			As Numeric //Quantidade de styles
 	Public Data oMergeCell			As Object //HashMap com celulas mescladas
+	Public Data aMergeArq			As Array //Mesclagens pendentes de estilo (tipo arquivo) {nLin,nCol,nLin2,nCol2,nStyle}
 	Public Data aDadosBulk			As Array //Bloco de código para preenchimento de linha em massa
 	Public Data aBulkValor			As Array //Valores para adicionar ao Bulk
 	Public Data cCampo				As Character //Nome do campo quando preenchimento em bulk
@@ -264,6 +265,10 @@ Class Xlsx
 
 	//Interno
 	Public METHOD FimEscrita()		//Finaliza a gravação do arquivo de linhas (tipo arquivo)
+	Public METHOD MergeArqSty()		//Guarda o estilo da primeira célula mesclada (tipo arquivo)
+	Public METHOD MergeArqCel()		//Grava as células mescladas vazias com estilo (tipo arquivo)
+	Public METHOD MergeArqLin()		//Grava as linhas intermediárias mescladas (tipo arquivo)
+	Public METHOD MergeArqFim()		//Finaliza as mesclagens pendentes (tipo arquivo)
 	Public METHOD CalcPendente()	//Registra fórmula pendente de cálculo
 	Public METHOD CalcDimAtu()		//Atualiza área usada da planilha
 	Public METHOD CalcPr()			//Marca o arquivo para recálculo ao abrir
@@ -437,6 +442,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::aMaxCol		:= {}
 	::lEscritaFim	:= .F.
 	::aTamLinhaArq	:= {}
+	::aMergeArq		:= {}
 	::nLinhaArq		:= 0
 	::lHtml			:= .T.	//Sempre preserva os dados para o Save2Html após o Save
 	::lCalcFormula	:= .T.
@@ -865,6 +871,9 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 		If ::lEscritaFim
 			UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível adicionar planilhas.")
 		EndIf
+		If !Empty(::aMergeArq)
+			::MergeArqFim()
+		EndIf
 		If ValType(::oC)=="O"
 			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
@@ -913,7 +922,7 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 	//Adiciona dentro do workbooks o relacionamento na planilha
 	cID	:= ::add_rels("\xl\_rels\workbook.xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet","worksheets/sheet"+cValToChar(nQtdPlanilhas)+".xml")
 
-	AADD(::aPlanilhas,{cID,cNome,/*3-id draw*/,/*4-drawsID*/,{}/*5-atable*/,Tag():New("tableParts",{},,self)/*6-tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/})
+	AADD(::aPlanilhas,{cID,cNome,/*3-id draw*/,/*4-drawsID*/,{}/*5-atable*/,Tag():New("tableParts",{},,self)/*6-tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/,{}/*10-mesclagens pendentes*/})
 	AADD(::aMaxCol,0)
 	::nPlanilhaAt	:= nQtdPlanilhas
 	::SetFooter("TOTVS","","Página &P/&N")
@@ -1006,7 +1015,7 @@ Method LerPasta(cCaminho As Character, cCamIni As Character, cSufFiltro As Chara
 					::xls_sheet(cCaminho+"\"+cCamSheet,cArqSheet)
 					fErase(cCaminho+"\"+cCamSheet)
 
-					AADD(::aPlanilhas,{cID,cName,/*id draw*/,/*drawsID*/,{}/*atable*/,Tag():New("tableParts",{})/*tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/})
+					AADD(::aPlanilhas,{cID,cName,/*id draw*/,/*drawsID*/,{}/*atable*/,Tag():New("tableParts",{})/*tableParts*/,tHashMap():new(),0/*8-quantida de linhas*/,If(::lMemoria,.F.,.T.)/*9-necessario ordenar xml*/,{}/*10-mesclagens pendentes*/})
 					AADD(::aFiles,cCaminho+"\"+cCamSheet)
 					::nPlanilhaAt	:= Len(::aPlanilhas)
 					SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:sheetPr", "codeName"	, cName)
@@ -2816,15 +2825,24 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 					UserException("Xlsx - gravação em arquivo deve ser sequencial. Coluna Atual "+cValToChar(::nColuna)+" Coluna enviada "+cValToChar(nColuna))
 				EndIf
 			EndIf
+			If !Empty(::aMergeArq)
+				::MergeArqSty(::oC)
+			EndIf
 			::oC:GetTag(::oFile,.T.)
 			FreeObj(::oC)
 			::oC	:= nil
+			If !Empty(::aMergeArq)	//Células mescladas restantes da linha atual
+				::MergeArqCel(::nLinha,::nColuna+1,If(nLinha==::nLinha,nColuna-1,16384))
+			EndIf
 		EndIf
 		If ::nLinha<>nLinha .OR. ValType(::oRow)=="U"
 			If ValType(::oRow)=="O"
 				::oFile:Write("</row>")
 				FreeObj(::oRow)
 				::oRow	:= nil
+			EndIf
+			If !Empty(::aMergeArq)	//Linhas intermediárias com células mescladas
+				::MergeArqLin(::nLinha+1,nLinha-1)
 			EndIf
 			::GravaLinhaAlt(nLinha-1)	//Linhas vazias com altura definida antes da linha atual
 			::nLinhaArq	:= nLinha
@@ -2844,6 +2862,9 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 				::oRow:AddAtributo("ht",nAltura)
 			Endif
 			::oRow:GetTag(::oFile,.F.)
+			If !Empty(::aMergeArq)	//Células mescladas antes da coluna atual
+				::MergeArqCel(nLinha,1,nColuna-1)
+			EndIf
 		Endif
 	EndIf
 	::nLinha		:= nLinha
@@ -3469,6 +3490,10 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 	Local nCol As Numeric
 	Local cRet As Character
 	Local cPathColuna As Character
+	Local cPathLinha As Character
+	Local cRef As Character
+	Local nCQtd := 0 As Numeric
+	Local lVerOrdem As Logical
 	If nLinha2<nLinha
 		UserException("Xlsx - metodo mergeCells. Linha final não pode ser menor que linha inicial.")
 	Endif
@@ -3506,17 +3531,36 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 		Next
 	Next
 
-	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:mergeCells","count", cValToChar(Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("xmlns:worksheet/xmlns:mergeCells","count"))+1) )
-	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:mergeCells","mergeCell", "" )
-	::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:mergeCells/xmlns:mergeCell[last()]","ref", cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2) )
+	//Guarda a referência; o nó <mergeCells> é gravado de uma vez no Save (MergeMarca/MergeTroca)
+	AADD(::aPlanilhas[::nPlanilhaAt][10],cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2))
 
 	//Copia o estilo para as demais celulas
 	If !::lArquivo
 		If ::lMemoria
-			If !::aPlanilhas[::nPlanilhaAt][7]:Get(::Ref(nLinha,nColuna),@cPathColuna)
+			If ::aPlanilhas[::nPlanilhaAt][7]:Get(::Ref(nLinha,nColuna),@cPathColuna)
 				cStyAtu	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathColuna,"s")
-				If !Empty(cStyAtu)
-					::SetStyle(Val(cStyAtu),nLinha,nColuna,nLinha2,nColuna2)
+				If !Empty(cStyAtu)	//Célula a célula: o SetStyle de intervalo faz XPath por linha
+					For nLin:=nLinha to nLinha2
+						lVerOrdem	:= !::aPlanilhas[::nPlanilhaAt][9]
+						For nCol:=nColuna to nColuna2
+							If nLin<>nLinha .OR. nCol<>nColuna
+								cRef	:= ::Ref(nLin,nCol)
+								If lVerOrdem .AND. !::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
+									//A célula nova é incluída no fim da linha (ou a linha no fim): se ficar fora de ordem, o Save reorganiza o xml
+									lVerOrdem	:= .F.
+									If ::aPlanilhas[::nPlanilhaAt][7]:Get(nLin,@cPathLinha)
+										::aPlanilhas[::nPlanilhaAt][7]:Get("C|"+cValToChar(nLin),@nCQtd)
+										If nCQtd>0 .AND. ::LocRef(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPathLinha+"/*["+cValToChar(nCQtd)+"]","r"))[2]>nCol
+											::aPlanilhas[::nPlanilhaAt][9]	:= .T.
+										EndIf
+									ElseIf ::aPlanilhas[::nPlanilhaAt][8]>0 .AND. Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt(::cPathsheetData+"/*["+cValToChar(::aPlanilhas[::nPlanilhaAt][8])+"]","r"))>nLin
+										::aPlanilhas[::nPlanilhaAt][9]	:= .T.
+									EndIf
+								EndIf
+								SetAtrr(::asheet[::nPlanilhaAt][1],::NewColunaM(cRef,nLin),"s",cStyAtu)
+							EndIf
+						Next
+					Next
 				Endif
 			EndIf
 		Else
@@ -3526,13 +3570,9 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 				Endif
 			Endif
 		EndIf
-	//Else
-	//	nStyle	:= ::GetStyle(nLinha,nColuna)
-	//	//Copia para outras colunas
-	//	For nCont:=nColuna+1 to nColuna2
-	//		::Pos(nLinha,nCont):SetValue(""):SetStyle(nStyle)
-	//	Next
-	//	//Não copia para outras linhas, pois ainda pode existir informação na mesma linha
+	ElseIf (nLinha<>nLinha2 .OR. nColuna<>nColuna2) .AND. (nLinha>::nLinha .OR. (nLinha==::nLinha .AND. (nColuna>::nColuna .OR. (nColuna==::nColuna .AND. ValType(::oC)=="O"))))
+		//Gravação sequencial: as demais células são gravadas com o estilo da primeira célula quando o posicionamento passar por elas
+		AADD(::aMergeArq,{nLinha,nColuna,nLinha2,nColuna2,nil})
 	EndIf
 
 Return
@@ -6737,6 +6777,7 @@ Grava o excel processado
 @type method
 /*/
 Method Save(cLocal As Character) Class Xlsx
+	Local lMerge As Logical
 	Local nCont As Numeric
 	Local nQtdPlanilhas As Numeric
 	Local nCont2 As Numeric
@@ -6933,6 +6974,10 @@ Method Save(cLocal As Character) Class Xlsx
 						,{"pane","selection","rowBreaks","colBreaks","pageMargins","printOptions","pageSetup","headerFooter","autoFilter","extLst"};
 					};
 					}
+		lMerge	:= !Empty(::aPlanilhas[nCont][10])
+		If lMerge	//Nó marcador expandido em texto após gravar o xml da planilha
+			MergeMarca(::asheet[nCont][1],Len(::aPlanilhas[nCont][10]))
+		EndIf
 		//Cria o xml ordenado conforme array
 		If ::aPlanilhas[nCont][9]
 			//Cria o sheet na ordem obrigatoria
@@ -6956,8 +7001,17 @@ Method Save(cLocal As Character) Class Xlsx
 		EndIf
 		If ::lMemoria
 			oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2])
+			If lMerge
+				MergeTroca("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\"+::asheet[nCont][2],::aPlanilhas[nCont][10])
+			EndIf
 		Else
 			oXmlSheet:Save2File("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2])
+			If lMerge
+				MergeTroca("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmp"+::asheet[nCont][2],::aPlanilhas[nCont][10])
+			EndIf
+		EndIf
+		If lMerge	//Retira o marcador do xml da planilha (mantido para o Save2Html)
+			::asheet[nCont][1]:XPathDelNode("/xmlns:worksheet/xmlns:mergeCells/xmlns:mergeCell[last()]")
 		EndIf
 		If ::aPlanilhas[nCont][9]	//Libera somente a cópia ordenada, o xml da planilha é mantido para o Save2Html
 			FreeObj(oXmlSheet)
@@ -7266,8 +7320,105 @@ Method NewHtml() Class Xlsx
 Return oHtml
 
 //NÃO DOCUMENTAR
+//Guarda o estilo da célula atual nas mesclagens que iniciam nela (tipo arquivo)
+Method MergeArqSty(oC As Object) Class Xlsx
+	Local nCont As Numeric
+	Local xSty As Variant
+	For nCont:=Len(::aMergeArq) to 1 STEP -1
+		If ValType(::aMergeArq[nCont][5])=="U" .AND. ::aMergeArq[nCont][1]==::nLinha .AND. ::aMergeArq[nCont][2]==::nColuna
+			xSty	:= oC:GetAtributo("s")
+			If ValType(xSty)=="U"	//Sem estilo, não precisa preencher as demais células
+				ADel(::aMergeArq,nCont)
+				ASize(::aMergeArq,Len(::aMergeArq)-1)
+			Else
+				::aMergeArq[nCont][5]	:= xSty
+			EndIf
+		EndIf
+	Next
+Return
+
+//NÃO DOCUMENTAR
+//Grava as células vazias das mesclagens pendentes na linha, entre as colunas informadas (tipo arquivo)
+Method MergeArqCel(nLin As Numeric, nColDe As Numeric, nColAte As Numeric) Class Xlsx
+	Local nCont As Numeric
+	Local nCol As Numeric
+	Local aCel := {} As Array
+	If nColDe>nColAte
+		Return
+	EndIf
+	For nCont:=1 to Len(::aMergeArq)
+		If ValType(::aMergeArq[nCont][5])!="U" .AND. nLin>=::aMergeArq[nCont][1] .AND. nLin<=::aMergeArq[nCont][3]
+			For nCol:=Max(nColDe,::aMergeArq[nCont][2]) to Min(nColAte,::aMergeArq[nCont][4])
+				If nLin<>::aMergeArq[nCont][1] .OR. nCol<>::aMergeArq[nCont][2]	//A primeira célula é gravada pelo SetValue
+					AADD(aCel,{nCol,::aMergeArq[nCont][5]})
+				EndIf
+			Next
+		EndIf
+	Next
+	If Len(aCel)>1
+		ASort(aCel,,,{|x,y| x[1]<y[1]})
+	EndIf
+	For nCont:=1 to Len(aCel)
+		::oFile:Write('<c r="'+::Ref(nLin,aCel[nCont][1])+'" s="'+cValToChar(aCel[nCont][2])+'"/>')
+	Next
+	If !Empty(aCel) .AND. ::nPlanilhaAt<=Len(::aMaxCol) .AND. aCel[Len(aCel)][1]>::aMaxCol[::nPlanilhaAt]
+		::aMaxCol[::nPlanilhaAt]	:= aCel[Len(aCel)][1]
+	EndIf
+	FwFreeArray(aCel)
+Return
+
+//NÃO DOCUMENTAR
+//Descarta as mesclagens encerradas e grava as linhas intermediárias que só têm células mescladas (tipo arquivo)
+Method MergeArqLin(nDe As Numeric, nAte As Numeric) Class Xlsx
+	Local nCont As Numeric
+	Local nLin As Numeric
+	Local nLinFim := 0 As Numeric
+	Local nAltura As Variant
+	For nCont:=Len(::aMergeArq) to 1 STEP -1
+		If ::aMergeArq[nCont][3]<nDe .OR. (ValType(::aMergeArq[nCont][5])=="U" .AND. ::aMergeArq[nCont][1]<nDe)
+			ADel(::aMergeArq,nCont)
+			ASize(::aMergeArq,Len(::aMergeArq)-1)
+		ElseIf ValType(::aMergeArq[nCont][5])!="U"
+			nLinFim	:= Max(nLinFim,::aMergeArq[nCont][3])
+		EndIf
+	Next
+	For nLin:=Max(nDe,::nLinhaArq+1) to Min(nAte,nLinFim)
+		If AScan(::aMergeArq,{|x| ValType(x[5])!="U" .AND. nLin>=x[1] .AND. nLin<=x[3]})>0
+			::GravaLinhaAlt(nLin-1)
+			nAltura	:= ::AltLinhaArq(nLin,.T.)
+			::oFile:Write('<row r="'+cValToChar(nLin)+'"'+If(ValType(nAltura)=="N",' customHeight="1" ht="'+cValToChar(nAltura)+'"','')+'>')
+			::MergeArqCel(nLin,1,16384)
+			::oFile:Write('</row>')
+			::nLinhaArq	:= nLin
+		EndIf
+	Next
+Return
+
+//NÃO DOCUMENTAR
+//Grava as células mescladas pendentes até o fim (tipo arquivo)
+Method MergeArqFim() Class Xlsx
+	If ValType(::oC)=="O"
+		::MergeArqSty(::oC)
+		::oC:GetTag(::oFile,.T.)
+		FreeObj(::oC)
+		::oC	:= nil
+	EndIf
+	If ValType(::oRow)=="O"
+		::MergeArqCel(::nLinha,::nColuna+1,16384)
+		::oFile:Write("</row>")
+		FreeObj(::oRow)
+		::oRow	:= nil
+	EndIf
+	::MergeArqLin(::nLinha+1,1048576)
+	::aMergeArq	:= {}
+Return
+
+//NÃO DOCUMENTAR
 //Finaliza a gravação do arquivo de linhas (tipo arquivo)
 Method FimEscrita() Class Xlsx
+	If !Empty(::aMergeArq)
+		::MergeArqFim()
+	EndIf
 	If ValType(::oC)=="O"
 		::oC:GetTag(::oFile,.T.)
 		FreeObj(::oC)
@@ -11038,6 +11189,78 @@ Static Function Xml2Xml(oXml As Object, oXml2 As Object, cPath As Character, cFi
 			oXml:XPathSetNode(cPath+"/xmlns:"+aChildren[nCont][1]+"["+cPos+"]",aChildren[nCont][1],cValor)
 		EndIf
 	Next
+Return
+
+//NÃO DOCUMENTAR
+//Adiciona ao <mergeCells> um nó marcador que o MergeTroca expande com as mesclagens pendentes
+Static Function MergeMarca(oXml As Object, nQtd As Numeric)
+	If !oXml:XPathHasNode("/xmlns:worksheet/xmlns:mergeCells")
+		oXml:XPathAddNode("/xmlns:worksheet","mergeCells","")
+	EndIf
+	nQtd	+= Len(oXml:XPathGetChildArray("/xmlns:worksheet/xmlns:mergeCells"))
+	SetAtrr(oXml,"/xmlns:worksheet/xmlns:mergeCells","count",cValToChar(nQtd))
+	oXml:XPathAddNode("/xmlns:worksheet/xmlns:mergeCells","mergeCell","")
+	oXml:XPathAddAtt("/xmlns:worksheet/xmlns:mergeCells/xmlns:mergeCell[last()]","ref","#XLSXMERGE#")
+Return
+
+//NÃO DOCUMENTAR
+//Troca no arquivo o marcador do MergeMarca pelas mesclagens: ref="#XLSXMERGE#" vira ref="R1"/>...<mergeCell ref="Rn"
+Static Function MergeTroca(cArquivo As Character, aRefs As Array)
+	Local cMarca := '#XLSXMERGE#"' As Character
+	Local cTmp := cArquivo+".mrg" As Character
+	Local nHOri As Numeric
+	Local oFile As Object
+	Local cBuffer As Character
+	Local cBloco As Character
+	Local cResto := "" As Character
+	Local cGrv As Character
+	Local nLidos As Numeric
+	Local nPos As Numeric
+	Local nCont As Numeric
+	Local lAchou := .F. As Logical
+	nHOri	:= FOpen(cArquivo,FO_READ+FO_SHARED,,.F.)
+	If nHOri<0
+		UserException("Xlsx - Erro ao abrir "+cArquivo+" para gravar as mesclagens. Ferror = "+cValToChar(FError()))
+	EndIf
+	oFile	:= FWFileWriter():New(cTmp,.T.)
+	oFile:SetCaseSensitive(.T.)
+	oFile:Create()
+	cBuffer	:= Space(65536)
+	While (nLidos:=FRead(nHOri,@cBuffer,65536))>0
+		cBloco	:= cResto+Left(cBuffer,nLidos)
+		cResto	:= ""
+		If lAchou
+			oFile:Write(cBloco)
+			Loop
+		EndIf
+		nPos	:= At(cMarca,cBloco)
+		If nPos>0
+			lAchou	:= .T.
+			oFile:Write(Left(cBloco,nPos-1)+aRefs[1])
+			cGrv	:= ""
+			For nCont:=2 to Len(aRefs)
+				cGrv	+= '"/><mergeCell ref="'+aRefs[nCont]
+				If nCont%500==0
+					oFile:Write(cGrv)
+					cGrv	:= ""
+				EndIf
+			Next
+			oFile:Write(cGrv+'"'+SubStr(cBloco,nPos+Len(cMarca)))
+		Else	//Guarda o final do bloco, o marcador pode estar dividido entre dois blocos
+			cResto	:= Right(cBloco,Len(cMarca)-1)
+			oFile:Write(Left(cBloco,Len(cBloco)-Len(cResto)))
+		EndIf
+	EndDo
+	If !Empty(cResto)
+		oFile:Write(cResto)
+	EndIf
+	FClose(nHOri)
+	oFile:Close()
+	FreeObj(oFile)
+	FErase(cArquivo,,.F.)
+	If FRename(cTmp,cArquivo,,.F.)<>0
+		UserException("Xlsx - Erro ao gravar as mesclagens em "+cArquivo+". Ferror = "+cValToChar(FError()))
+	EndIf
 Return
 
 /*/{Protheus.doc} xls_table

@@ -914,11 +914,15 @@ Static Function Contexto(oHtml As Object, nPlan As Numeric, cNome As Character, 
 
 	//Mesclagens
 	aChild	:= oXml:XPathGetChildArray("/xmlns:worksheet/xmlns:mergeCells")
+	For nCont:=1 to Len(aChild)	//Mesclagens lidas do arquivo + pendentes do mergeCells
+		aChild[nCont]	:= oXml:XPathGetAtt(aChild[nCont][2],"ref")
+	Next
+	AEval(oExcel:aPlanilhas[nPlan][10],{|x| AADD(aChild,x)})
 	If !Empty(aChild)
 		aCtx[CT_MERGE]	:= JsonObject():New()
 		aCtx[CT_COB]	:= JsonObject():New()
 		For nCont:=1 to Len(aChild)
-			aRef	:= oExcel:LocRef(oXml:XPathGetAtt(aChild[nCont][2],"ref"))
+			aRef	:= oExcel:LocRef(aChild[nCont])
 			If aRef[3]==0
 				Loop
 			EndIf

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Células mescladas: borda e desempenho
+
+- Correção ([#24](https://github.com/saulogm/advpl-excel/issues/24)): a borda (e o preenchimento) ficava só na primeira célula de um intervalo mesclado. Agora as demais células recebem o estilo da primeira:
+  - Modo `"A"`: são gravadas vazias com o estilo da primeira quando o posicionamento passa por elas, inclusive em mesclagens de várias linhas, entre linhas com `SetRowH` e na troca de planilha/`Save`. Continua sendo possível gravar à direita e abaixo da mesclagem; o estilo pode ser aplicado antes ou depois do `mergeCells`.
+  - Modo `"M"`: a cópia do estilo não funcionava (condição invertida). Agora é feita célula a célula e, se as células criadas ficarem fora de ordem, o `Save` reorganiza o xml.
+- Desempenho: o `mergeCells` deixou de alterar o xml da planilha a cada chamada (XPath com `[last()]`, custo quadrático); as referências são guardadas e gravadas de uma vez no `Save`. Com 10 mil mesclagens no modo `"A"`, o `mergeCells` caiu de 4,6 s para 0,5 s e o `Save` de 12,8 s para 0,2 s; no modo `"M"`, a gravação das mesclagens caiu de 6,2 s para 0,7 s, e a cópia do estilo para as células mescladas (que antes não ocorria) acrescenta cerca de 4,3 s, o custo de criar 20 mil células.
+- Correção: o atributo `count` de `<mergeCells>` ficava sempre `"1"`.
+- `Save2Html` lê as mesclagens pendentes junto com as do arquivo aberto.
+
 ### Altura de linhas no modo arquivo
 
 - Correção: no modo `"A"` (arquivo), `SetRowH(nHeight, nLinha, nLinha2)` ignorava o intervalo e alterava a altura de todas as linhas seguintes. Agora aplica a altura só às linhas `nLinha` a `nLinha2` (inclusive no `SetBulkLine`); linhas do intervalo sem células são gravadas vazias com a altura. Sem linha informada, continua valendo para as próximas linhas.
