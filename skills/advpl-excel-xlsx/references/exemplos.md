@@ -2,6 +2,7 @@
 
 Os exemplos de referência completos estão no repositório advpl-excel:
 - `exemplo/custom.excel.teste.tlpp`: `U_tstXlsx` demonstra quase todos os recursos (estilos, fórmulas, nomes, hyperlink, comentário, formatação condicional, imagens, tabela, Alias2Tab SB1/SA1, agrupamento, impressão, proteção). Também traz leitura (`YTstRW`), edição (`TstEdit`), memória (`tstMemoria`) e bulk (`tstBulk`).
+- `exemplo/custom.excel.teste.tlpp`, função `tstDashboard` (aba "Dashboard" de `U_tstXlsx`): painel em tema escuro com cards de KPI, gráficos com `SetCores` e tabelas com formatação condicional; mostra como montar o layout numa matriz e gravar em ordem no modo arquivo.
 - `exemplo/custom.excel.grafico.teste.tlpp`: todos os tipos de gráfico.
 - `exemplo/custom.excel.crypto.teste.tlpp`: senha de abertura (`tstXlsxSenha`).
 

@@ -455,6 +455,11 @@ User Function tstXlsx()
 	oExcel:FormatCondTempo(cRefDe = "G2", cRefAte = "G7", nEstilo = nPosVerd, cPeriodo = "thisWeek")	//Esta semana
 
 	//----------------------------------------------------------------------
+	//Dashboard em tema escuro: cards de KPI, gráficos com Chart:SetCores e tabelas
+	//----------------------------------------------------------------------
+	tstDashboard(oExcel = oExcel)
+
+	//----------------------------------------------------------------------
 	//Graficos (custom.excel.chart): reaproveita as demonstracoes dos testes
 	//tstGrafico/tstGrafico2/tstGraficoComb, passando o oExcel atual para que
 	//cada uma adicione sua propria planilha de dados+graficos neste mesmo
@@ -470,6 +475,438 @@ User Function tstXlsx()
 	oExcel:OpenApp()
 	oExcel:Close()
 	conout( "Tempo: " + LTrim( Str( Seconds()-nStart ) ) + " segundos" )
+Return
+
+/*/{Protheus.doc} tstDashboard
+Aba "Dashboard" do teste completo: painel de vendas com visual moderno em tema escuro.
+Cards de KPI, gráfico de combinação (colunas + linha) e rosca com cores de tema
+(Chart:SetCores) e tabelas com formatação condicional (cores, barra de dados).
+Os KPIs, as colunas calculadas e os gráficos usam fórmulas sobre as tabelas da própria aba.
+@author Saulo Gomes Martins
+@since 26/10/2026
+@version 1.0
+@type function
+@param oExcel, object, Instância de custom.excel.Xlsx em uso
+@obs Em modo arquivo ("A") as células precisam ser gravadas em ordem (linha e coluna),
+por isso o layout é montado antes numa matriz (aGrid) e gravado linha a linha no final.
+Estilos e gráficos pertencem ao oExcel e são liberados no Destroy/Close dele.
+/*/
+Static Function tstDashboard(oExcel As Object)
+	Local cPlan := "Dashboard" As Character
+	Local cFonte := "Segoe UI" As Character
+	Local cBg := "FF0F172A" As Character		//Fundo da aba
+	Local cCard := "FF1E293B" As Character		//Fundo dos cards
+	Local cZebra := "FF172033" As Character		//Linha alternada das tabelas
+	Local cBorda := "FF334155" As Character		//Bordas e grade dos gráficos
+	Local cTexto := "FFE2E8F0" As Character		//Texto principal
+	Local cTexto2 := "FF94A3B8" As Character	//Texto secundário
+	Local cBranco := "FFF8FAFC" As Character	//Valores em destaque
+	Local nLinhas := 45 As Numeric
+	Local nColunas := 17 As Numeric
+	Local aGrid As Array
+	Local aMerge As Array
+	Local aAltura As Array
+	Local aMeses As Array
+	Local aFat As Array
+	Local aMeta As Array
+	Local aPed As Array
+	Local aRegiao As Array
+	Local aPartic As Array
+	Local aMargem As Array
+	Local aRegFat As Array
+	Local aRegPed As Array
+	Local aKpi As Array
+	Local aColKpi As Array
+	Local aAcento As Array
+	Local aKpiVal As Array
+	Local aTxt As Array
+	Local aMoeda As Array
+	Local aMoeda2 As Array
+	Local aInt As Array
+	Local aPct As Array
+	Local aCel As Array
+	Local nLin As Numeric
+	Local nCol As Numeric
+	Local nCont As Numeric
+	Local nZebra As Numeric
+	Local nTotFat := 0 As Numeric
+	Local nTotMeta := 0 As Numeric
+	Local nTotPed := 0 As Numeric
+	Local nMargPond := 0 As Numeric
+	Local nAcumFat := 0 As Numeric
+	Local nAcumPed := 0 As Numeric
+	Local nFmtMoeda As Numeric
+	Local nFmtMoeda2 As Numeric
+	Local nFmtPct As Numeric
+	Local nFmtDelta As Numeric
+	Local nFillBg As Numeric
+	Local nFillCard As Numeric
+	Local nFillZebra As Numeric
+	Local nFillTot As Numeric
+	Local nBordaCab As Numeric
+	Local nFontTit As Numeric
+	Local nFontSub As Numeric
+	Local nFontRot As Numeric
+	Local nFontVal As Numeric
+	Local nFontDelta As Numeric
+	Local nFontSecao As Numeric
+	Local nFontCab As Numeric
+	Local nFontTab As Numeric
+	Local nFontTot As Numeric
+	Local nDxfVerde As Numeric
+	Local nDxfVerm As Numeric
+	Local nDxfLaranja As Numeric
+	Local oAliEsq As Object
+	Local oAliDir As Object
+	Local oAliCentro As Object
+	Local oAliBase As Object
+	Local oFundo As Object
+	Local oTitulo As Object
+	Local oSubtit As Object
+	Local oAtualiz As Object
+	Local oCard As Object
+	Local oKpiRot As Object
+	Local oKpiDelta As Object
+	Local oKpiObs As Object
+	Local oSecao As Object
+	Local oTabCab As Object
+	Local oTabCabD As Object
+	Local oTotTxt As Object
+	Local oTotMoeda As Object
+	Local oTotMoeda2 As Object
+	Local oTotInt As Object
+	Local oTotPct As Object
+	Local oCol As Object
+	Local oLin As Object
+	Local oCombo As Object
+	Local oRosca As Object
+
+	//Dados de exemplo: faturamento, meta e pedidos por mês
+	aMeses	:= {"Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"}
+	aFat	:= {1280000,1350000,1190000,1420000,1510000,1480000,1620000,1580000,1710000,1690000,1840000,1960000}
+	aMeta	:= {1300000,1300000,1350000,1350000,1400000,1450000,1500000,1550000,1600000,1650000,1700000,1800000}
+	aPed	:= {812,845,770,880,930,905,990,962,1035,1018,1102,1164}
+	For nCont := 1 to Len(aFat)
+		nTotFat		+= aFat[nCont]
+		nTotMeta	+= aMeta[nCont]
+		nTotPed		+= aPed[nCont]
+	Next
+	//Regiões: participação no total do ano (a última recebe a diferença de arredondamento)
+	aRegiao	:= {"Sudeste","Sul","Nordeste","Centro-Oeste","Norte"}
+	aPartic	:= {0.42,0.21,0.17,0.11,0.09}
+	aMargem	:= {0.24,0.22,0.17,0.21,0.15}
+	aRegFat	:= Array(Len(aRegiao))
+	aRegPed	:= Array(Len(aRegiao))
+	For nCont := 1 to Len(aRegiao)
+		If nCont<Len(aRegiao)
+			aRegFat[nCont]	:= Round(nTotFat*aPartic[nCont],0)
+			aRegPed[nCont]	:= Round(nTotPed*aPartic[nCont],0)
+		Else
+			aRegFat[nCont]	:= nTotFat-nAcumFat
+			aRegPed[nCont]	:= nTotPed-nAcumPed
+		EndIf
+		nAcumFat	+= aRegFat[nCont]
+		nAcumPed	+= aRegPed[nCont]
+		nMargPond	+= aRegFat[nCont]*aMargem[nCont]
+	Next
+	nMargPond	:= nMargPond/nTotFat
+
+	//Formatos, preenchimentos, bordas e fontes do tema escuro
+	nFmtMoeda	:= oExcel:AddFmt('"R$ "#,##0')
+	nFmtMoeda2	:= oExcel:AddFmt('"R$ "#,##0.00')
+	nFmtPct		:= oExcel:AddFmt("0.0%")
+	nFmtDelta	:= oExcel:AddFmt("+0.0%;-0.0%;0.0%")
+	nFillBg		:= oExcel:CorPreenc(cBg)
+	nFillCard	:= oExcel:CorPreenc(cCard)
+	nFillZebra	:= oExcel:CorPreenc(cZebra)
+	nFillTot	:= oExcel:CorPreenc(cBorda)
+	nBordaCab	:= oExcel:Borda(cTipo = "B", cCor = cBorda, cModelo = "medium")
+	nFontTit	:= oExcel:AddFont(nTamanho = 22, xCorRGB = cBranco, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+	nFontSub	:= oExcel:AddFont(nTamanho = 10, xCorRGB = cTexto2, cNome = cFonte, cfamily = "2")
+	nFontRot	:= oExcel:AddFont(nTamanho = 9, xCorRGB = cTexto2, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+	nFontVal	:= oExcel:AddFont(nTamanho = 22, xCorRGB = cBranco, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+	nFontDelta	:= oExcel:AddFont(nTamanho = 10, xCorRGB = cTexto, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+	nFontSecao	:= oExcel:AddFont(nTamanho = 12, xCorRGB = cTexto, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+	nFontCab	:= oExcel:AddFont(nTamanho = 9, xCorRGB = cTexto2, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+	nFontTab	:= oExcel:AddFont(nTamanho = 10, xCorRGB = cTexto, cNome = cFonte, cfamily = "2")
+	nFontTot	:= oExcel:AddFont(nTamanho = 10, xCorRGB = cBranco, cNome = cFonte, cfamily = "2", lNegrito = .T.)
+
+	oAliEsq		:= oExcel:Alinhamento(cHorizontal = "left", cVertical = "center", nRecuo = 1)
+	oAliDir		:= oExcel:Alinhamento(cHorizontal = "right", cVertical = "center", nRecuo = 1)
+	oAliCentro	:= oExcel:Alinhamento(cHorizontal = "center", cVertical = "center")
+	oAliBase	:= oExcel:Alinhamento(cHorizontal = "left", cVertical = "bottom", nRecuo = 1)
+
+	oFundo		:= oExcel:NewStyle():SetFill(nFillBg)
+	oTitulo		:= oExcel:NewStyle():SetFont(nFontTit):SetFill(nFillBg):SetaValores({oAliBase})
+	oSubtit		:= oExcel:NewStyle():SetFont(nFontSub):SetFill(nFillBg):SetaValores({oAliEsq})
+	oAtualiz	:= oExcel:NewStyle():SetFont(nFontSub):SetFill(nFillBg):SetaValores({oAliDir})
+	oCard		:= oExcel:NewStyle():SetFill(nFillCard)
+	oKpiRot		:= oExcel:NewStyle():SetFont(nFontRot):SetFill(nFillCard):SetaValores({oAliBase})
+	oKpiDelta	:= oExcel:NewStyle():SetFont(nFontDelta):SetFill(nFillCard):SetnumFmt(nFmtDelta):SetaValores({oAliEsq})
+	oKpiObs		:= oExcel:NewStyle():SetFont(nFontSub):SetFill(nFillCard):SetaValores({oAliEsq})
+	oSecao		:= oExcel:NewStyle():SetFont(nFontSecao):SetFill(nFillBg):SetaValores({oAliBase})
+	oTabCab		:= oExcel:NewStyle():SetFont(nFontCab):SetFill(nFillCard):Setborder(nBordaCab):SetaValores({oAliEsq})
+	oTabCabD	:= oExcel:NewStyle():SetFont(nFontCab):SetFill(nFillCard):Setborder(nBordaCab):SetaValores({oAliDir})
+	oTotTxt		:= oExcel:NewStyle():SetFont(nFontTot):SetFill(nFillTot):SetaValores({oAliEsq})
+	oTotMoeda	:= oExcel:NewStyle():SetFont(nFontTot):SetFill(nFillTot):SetnumFmt(nFmtMoeda):SetaValores({oAliDir})
+	oTotMoeda2	:= oExcel:NewStyle():SetFont(nFontTot):SetFill(nFillTot):SetnumFmt(nFmtMoeda2):SetaValores({oAliDir})
+	oTotInt		:= oExcel:NewStyle():SetFont(nFontTot):SetFill(nFillTot):SetnumFmt(3):SetaValores({oAliDir})
+	oTotPct		:= oExcel:NewStyle():SetFont(nFontTot):SetFill(nFillTot):SetnumFmt(nFmtPct):SetaValores({oAliDir})
+	//Barra de destaque no topo de cada card (azul, verde, laranja, roxo)
+	aAcento		:= {oExcel:NewStyle():SetFill(oExcel:CorPreenc("FF38BDF8")),;
+					oExcel:NewStyle():SetFill(oExcel:CorPreenc("FF22C55E")),;
+					oExcel:NewStyle():SetFill(oExcel:CorPreenc("FFF97316")),;
+					oExcel:NewStyle():SetFill(oExcel:CorPreenc("FFA855F7"))}
+	//Valor principal dos cards: moeda, inteiro, moeda com centavos e percentual
+	aKpiVal		:= {oExcel:NewStyle():SetFont(nFontVal):SetFill(nFillCard):SetnumFmt(nFmtMoeda):SetaValores({oAliEsq}),;
+					oExcel:NewStyle():SetFont(nFontVal):SetFill(nFillCard):SetnumFmt(3):SetaValores({oAliEsq}),;
+					oExcel:NewStyle():SetFont(nFontVal):SetFill(nFillCard):SetnumFmt(nFmtMoeda2):SetaValores({oAliEsq}),;
+					oExcel:NewStyle():SetFont(nFontVal):SetFill(nFillCard):SetnumFmt(nFmtPct):SetaValores({oAliEsq})}
+	//Linhas das tabelas: [1]=card e [2]=zebra
+	aTxt		:= {oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillCard):SetaValores({oAliEsq}),;
+					oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillZebra):SetaValores({oAliEsq})}
+	aMoeda		:= {oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillCard):SetnumFmt(nFmtMoeda):SetaValores({oAliDir}),;
+					oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillZebra):SetnumFmt(nFmtMoeda):SetaValores({oAliDir})}
+	aMoeda2		:= {oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillCard):SetnumFmt(nFmtMoeda2):SetaValores({oAliDir}),;
+					oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillZebra):SetnumFmt(nFmtMoeda2):SetaValores({oAliDir})}
+	aInt		:= {oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillCard):SetnumFmt(3):SetaValores({oAliDir}),;
+					oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillZebra):SetnumFmt(3):SetaValores({oAliDir})}
+	aPct		:= {oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillCard):SetnumFmt(nFmtPct):SetaValores({oAliDir}),;
+					oExcel:NewStyle():SetFont(nFontTab):SetFill(nFillZebra):SetnumFmt(nFmtPct):SetaValores({oAliDir})}
+
+	//Estilos da formatação condicional: texto verde (positivo), vermelho (negativo) e laranja (atenção)
+	nDxfVerde	:= oExcel:ADDdxf(aFont = oExcel:Font(nTamanho = 10, cCorRGB = "22C55E", cNome = cFonte, cfamily = "2", lNegrito = .T.))
+	nDxfVerm	:= oExcel:ADDdxf(aFont = oExcel:Font(nTamanho = 10, cCorRGB = "EF4444", cNome = cFonte, cfamily = "2", lNegrito = .T.))
+	nDxfLaranja	:= oExcel:ADDdxf(aFont = oExcel:Font(nTamanho = 10, cCorRGB = "F97316", cNome = cFonte, cfamily = "2", lNegrito = .T.))
+
+	//----------------------------------------------------------------------
+	//Montagem do layout na matriz: {valor, fórmula, id do estilo} por célula
+	//Colunas: A margem | B-D card 1 | E respiro | F-H card 2 | I respiro | J-L card 3 | M respiro | N-P card 4 | Q margem
+	//----------------------------------------------------------------------
+	aGrid	:= Array(nLinhas)
+	For nLin := 1 to nLinhas
+		aGrid[nLin]	:= Array(nColunas)
+		For nCol := 1 to nColunas
+			aGrid[nLin][nCol]	:= {Nil, Nil, oFundo:GetId()}
+		Next
+	Next
+	aMerge	:= {}
+	aAltura	:= Array(nLinhas)
+	aAltura[1]	:= 8
+	aAltura[2]	:= 34
+	aAltura[3]	:= 18
+	aAltura[4]	:= 10
+	aAltura[5]	:= 4
+	aAltura[6]	:= 22
+	aAltura[7]	:= 36
+	aAltura[8]	:= 20
+	aAltura[9]	:= 8
+	aAltura[10]	:= 14
+	aAltura[29]	:= 14
+	aAltura[30]	:= 26
+	aAltura[31]	:= 22
+	For nLin := 32 to 44
+		aAltura[nLin]	:= 20
+	Next
+	aAltura[45]	:= 8
+
+	//Cabeçalho
+	DashArea(aGrid, aMerge, 2, 2, 2, 8, "Painel de Vendas "+cValToChar(Year(Date())), oTitulo)
+	DashArea(aGrid, aMerge, 2, 14, 2, 16, "Atualizado em "+DToC(Date()), oAtualiz)
+	DashArea(aGrid, aMerge, 3, 2, 3, 8, "Faturamento, pedidos e metas · visão consolidada por mês e região", oSubtit)
+
+	//Cards de KPI: {rótulo, fórmula, valor, fórmula da variação, variação}
+	//Os valores apontam para a linha de total (44) e para os dois últimos meses (42 e 43) da tabela mensal
+	aColKpi	:= {2,6,10,14}
+	aKpi	:= {;
+		{"FATURAMENTO"			, "C44", nTotFat			, "C43/C42-1", aFat[12]/aFat[11]-1},;
+		{"PEDIDOS"				, "F44", nTotPed			, "F43/F42-1", aPed[12]/aPed[11]-1},;
+		{"TICKET MÉDIO"			, "G44", nTotFat/nTotPed	, "G43/G42-1", (aFat[12]/aPed[12])/(aFat[11]/aPed[11])-1},;
+		{"ATINGIMENTO DA META"	, "H44", nTotFat/nTotMeta	, "H43-H42"  , aFat[12]/aMeta[12]-aFat[11]/aMeta[11]};
+	}
+	For nCont := 1 to Len(aKpi)
+		nCol	:= aColKpi[nCont]
+		DashArea(aGrid, aMerge, 5, nCol, 5, nCol+2, Nil, aAcento[nCont])
+		DashArea(aGrid, aMerge, 6, nCol, 6, nCol+2, aKpi[nCont][1], oKpiRot)
+		DashArea(aGrid, aMerge, 7, nCol, 7, nCol+2, aKpi[nCont][3], aKpiVal[nCont], aKpi[nCont][2])
+		DashArea(aGrid, aMerge, 8, nCol, 8, nCol, aKpi[nCont][5], oKpiDelta, aKpi[nCont][4])
+		DashArea(aGrid, aMerge, 8, nCol+1, 8, nCol+2, "vs mês anterior", oKpiObs)
+		DashArea(aGrid, aMerge, 9, nCol, 9, nCol+2, Nil, oCard)
+	Next
+
+	//Área dos gráficos (o fundo das células acompanha o fundo dos gráficos)
+	DashArea(aGrid, aMerge, 11, 2, 28, 8, Nil, oCard)
+	DashArea(aGrid, aMerge, 11, 10, 28, 16, Nil, oCard)
+
+	//Títulos das seções das tabelas
+	DashArea(aGrid, aMerge, 30, 2, 30, 8, "Evolução mensal", oSecao)
+	DashArea(aGrid, aMerge, 30, 10, 30, 16, "Desempenho por região", oSecao)
+
+	//Tabela mensal (B31:H44) - colunas: Mês, Faturamento, Meta, (respiro), Pedidos, Ticket médio, Atingimento
+	DashArea(aGrid, aMerge, 31, 2, 31, 2, "Mês", oTabCab)
+	DashArea(aGrid, aMerge, 31, 3, 31, 3, "Faturamento", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 4, 31, 4, "Meta", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 5, 31, 5, Nil, oTabCab)
+	DashArea(aGrid, aMerge, 31, 6, 31, 6, "Pedidos", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 7, 31, 7, "Ticket médio", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 8, 31, 8, "Atingimento", oTabCabD)
+	For nCont := 1 to Len(aMeses)
+		nLin	:= 31+nCont
+		nZebra	:= If(nCont%2==1,1,2)
+		DashArea(aGrid, aMerge, nLin, 2, nLin, 2, aMeses[nCont], aTxt[nZebra])
+		DashArea(aGrid, aMerge, nLin, 3, nLin, 3, aFat[nCont], aMoeda[nZebra])
+		DashArea(aGrid, aMerge, nLin, 4, nLin, 4, aMeta[nCont], aMoeda[nZebra])
+		DashArea(aGrid, aMerge, nLin, 5, nLin, 5, Nil, aTxt[nZebra])
+		DashArea(aGrid, aMerge, nLin, 6, nLin, 6, aPed[nCont], aInt[nZebra])
+		DashArea(aGrid, aMerge, nLin, 7, nLin, 7, aFat[nCont]/aPed[nCont], aMoeda2[nZebra], "C"+cValToChar(nLin)+"/F"+cValToChar(nLin))
+		DashArea(aGrid, aMerge, nLin, 8, nLin, 8, aFat[nCont]/aMeta[nCont], aPct[nZebra], "C"+cValToChar(nLin)+"/D"+cValToChar(nLin))
+	Next
+	DashArea(aGrid, aMerge, 44, 2, 44, 2, "Total", oTotTxt)
+	DashArea(aGrid, aMerge, 44, 3, 44, 3, nTotFat, oTotMoeda, "SUM(C32:C43)")
+	DashArea(aGrid, aMerge, 44, 4, 44, 4, nTotMeta, oTotMoeda, "SUM(D32:D43)")
+	DashArea(aGrid, aMerge, 44, 5, 44, 5, Nil, oTotTxt)
+	DashArea(aGrid, aMerge, 44, 6, 44, 6, nTotPed, oTotInt, "SUM(F32:F43)")
+	DashArea(aGrid, aMerge, 44, 7, 44, 7, nTotFat/nTotPed, oTotMoeda2, "C44/F44")
+	DashArea(aGrid, aMerge, 44, 8, 44, 8, nTotFat/nTotMeta, oTotPct, "C44/D44")
+
+	//Tabela por região (J31:P37) - colunas: Região, Faturamento, Participação, (respiro), Pedidos, Margem, Status
+	DashArea(aGrid, aMerge, 31, 10, 31, 10, "Região", oTabCab)
+	DashArea(aGrid, aMerge, 31, 11, 31, 11, "Faturamento", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 12, 31, 12, "Participação", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 13, 31, 13, Nil, oTabCab)
+	DashArea(aGrid, aMerge, 31, 14, 31, 14, "Pedidos", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 15, 31, 15, "Margem", oTabCabD)
+	DashArea(aGrid, aMerge, 31, 16, 31, 16, "Status", oTabCab)
+	For nCont := 1 to Len(aRegiao)
+		nLin	:= 31+nCont
+		nZebra	:= If(nCont%2==1,1,2)
+		DashArea(aGrid, aMerge, nLin, 10, nLin, 10, aRegiao[nCont], aTxt[nZebra])
+		DashArea(aGrid, aMerge, nLin, 11, nLin, 11, aRegFat[nCont], aMoeda[nZebra])
+		DashArea(aGrid, aMerge, nLin, 12, nLin, 12, aRegFat[nCont]/nTotFat, aPct[nZebra], "K"+cValToChar(nLin)+"/$K$37")
+		DashArea(aGrid, aMerge, nLin, 13, nLin, 13, Nil, aTxt[nZebra])
+		DashArea(aGrid, aMerge, nLin, 14, nLin, 14, aRegPed[nCont], aInt[nZebra])
+		DashArea(aGrid, aMerge, nLin, 15, nLin, 15, aMargem[nCont], aPct[nZebra])
+		DashArea(aGrid, aMerge, nLin, 16, nLin, 16, If(aMargem[nCont]>=0.2,"No alvo","Abaixo"), aTxt[nZebra], 'IF(O'+cValToChar(nLin)+'>=0.2,"No alvo","Abaixo")')
+	Next
+	DashArea(aGrid, aMerge, 37, 10, 37, 10, "Total", oTotTxt)
+	DashArea(aGrid, aMerge, 37, 11, 37, 11, nTotFat, oTotMoeda, "SUM(K32:K36)")
+	DashArea(aGrid, aMerge, 37, 12, 37, 12, 1, oTotPct, "SUM(L32:L36)")
+	DashArea(aGrid, aMerge, 37, 13, 37, 13, Nil, oTotTxt)
+	DashArea(aGrid, aMerge, 37, 14, 37, 14, nTotPed, oTotInt, "SUM(N32:N36)")
+	DashArea(aGrid, aMerge, 37, 15, 37, 15, nMargPond, oTotPct, "SUMPRODUCT(K32:K36,O32:O36)/K37")	//Margem ponderada pelo faturamento
+	DashArea(aGrid, aMerge, 37, 16, 37, 16, Nil, oTotTxt)
+
+	//----------------------------------------------------------------------
+	//Gravação sequencial: linha a linha, coluna a coluna
+	//----------------------------------------------------------------------
+	oExcel:ADDPlan(cNome = cPlan, cCor = "38BDF8")
+	oExcel:showGridLines(.F.)
+	oExcel:AddTamCol(nMin = 1, nMax = 1, nWidth = 2)
+	For nCont := 1 to Len(aColKpi)
+		oExcel:AddTamCol(nMin = aColKpi[nCont], nMax = aColKpi[nCont]+2, nWidth = 15)
+		oExcel:AddTamCol(nMin = aColKpi[nCont]+3, nMax = aColKpi[nCont]+3, nWidth = 2)	//Respiro entre os cards (a última é a margem Q)
+	Next
+	For nLin := 1 to nLinhas
+		oExcel:SetRowH(nHeight = aAltura[nLin])	//Nil volta para a altura padrão
+		For nCol := 1 to nColunas
+			aCel	:= aGrid[nLin][nCol]
+			If ValType(aCel[1])=="U" .and. ValType(aCel[2])=="U"
+				oExcel:Pos(nLin,nCol):SetStyle(aCel[3])
+			Else
+				oExcel:Pos(nLin,nCol):SetValue(xValor = aCel[1], cFormula = aCel[2]):SetStyle(aCel[3])
+			EndIf
+		Next
+	Next
+	oExcel:SetRowH()
+	For nCont := 1 to Len(aMerge)
+		oExcel:mergeCells(nLinha = aMerge[nCont][1], nColuna = aMerge[nCont][2], nLinha2 = aMerge[nCont][3], nColuna2 = aMerge[nCont][4])
+	Next
+
+	//Formatação condicional: variação dos KPIs, atingimento da meta e status das regiões
+	For nCont := 1 to Len(aColKpi)
+		oExcel:FormatCond(cRefDe = oExcel:Ref(8,aColKpi[nCont]), cRefAte = oExcel:Ref(8,aColKpi[nCont]), nEstilo = nDxfVerde, cOperator = ">=", xFormula = 0)
+		oExcel:FormatCond(cRefDe = oExcel:Ref(8,aColKpi[nCont]), cRefAte = oExcel:Ref(8,aColKpi[nCont]), nEstilo = nDxfVerm, cOperator = "<", xFormula = 0)
+	Next
+	oExcel:FormatCond(cRefDe = "H32", cRefAte = "H43", nEstilo = nDxfVerde, cOperator = ">=", xFormula = 1)
+	oExcel:FormatCond(cRefDe = "H32", cRefAte = "H43", nEstilo = nDxfVerm, cOperator = "<", xFormula = 1)
+	oExcel:FormatCond(cRefDe = "P32", cRefAte = "P36", nEstilo = nDxfVerde, cOperator = "=", xFormula = '"No alvo"')
+	oExcel:FormatCond(cRefDe = "P32", cRefAte = "P36", nEstilo = nDxfLaranja, cOperator = "=", xFormula = '"Abaixo"')
+	oExcel:DataBar(cRefDe = "K32", cRefAte = "K36", cCor = "FF38BDF8")	//Barra de dados no faturamento por região
+
+	//Gráfico de combinação: colunas de faturamento + linha da meta, com as cores do tema
+	oCol	:= custom.excel.chart.ChartBar():New(oExcel)
+	oCol:SetGapWidth(60)
+	oCol:AddSerie(cNome = "Faturamento", cRefVal = cPlan+"!$C$32:$C$43", cRefCat = cPlan+"!$B$32:$B$43", aVal = aFat, aCat = aMeses, cCor = "FF38BDF8")
+	oLin	:= custom.excel.chart.ChartLine():New(oExcel)
+	oLin:SetMarcador(.T.)
+	oLin:AddSerie(cNome = "Meta", cRefVal = cPlan+"!$D$32:$D$43", cRefCat = cPlan+"!$B$32:$B$43", aVal = aMeta, aCat = aMeses, cCor = "FFF97316")
+	oCombo	:= oExcel:NewChart("combo")
+	oCombo:SetTitulo("Faturamento mensal x Meta")
+	oCombo:SetLegenda(lExibir = .T., cPosicao = "b")
+	oCombo:SetCores(cFundo = cCard, cTexto = cTexto, cGrade = cBorda)
+	oCombo:AddChart(oCol)
+	oCombo:AddChart(oLin)
+	oCombo:Insert(nLinha = 11, nColuna = 2, nLinha2 = 28, nColuna2 = 8)
+
+	//Rosca: participação de cada região no faturamento
+	oRosca	:= oExcel:NewChart("doughnut")
+	oRosca:SetTitulo("Faturamento por região")
+	oRosca:SetFuro(60)
+	oRosca:SetRotulos(lExibir = .T., lPercentual = .T.)
+	oRosca:SetLegenda(lExibir = .T., cPosicao = "r")
+	oRosca:SetCores(cFundo = cCard, cTexto = cTexto)
+	oRosca:AddSerie(cNome = "Faturamento", cRefVal = cPlan+"!$K$32:$K$36", cRefCat = cPlan+"!$J$32:$J$36", aVal = aRegFat, aCat = aRegiao)
+	oRosca:Insert(nLinha = 11, nColuna = 10, nLinha2 = 28, nColuna2 = 16)
+
+	//aAcento, aKpiVal, aTxt, aMoeda, aMoeda2, aInt e aPct guardam estilos do oExcel e não são liberados aqui
+	FwFreeArray(aGrid)
+	FwFreeArray(aMerge)
+	FwFreeArray(aAltura)
+	FwFreeArray(aMeses)
+	FwFreeArray(aFat)
+	FwFreeArray(aMeta)
+	FwFreeArray(aPed)
+	FwFreeArray(aRegiao)
+	FwFreeArray(aPartic)
+	FwFreeArray(aMargem)
+	FwFreeArray(aRegFat)
+	FwFreeArray(aRegPed)
+	FwFreeArray(aKpi)
+	FwFreeArray(aColKpi)
+Return
+
+/*/{Protheus.doc} DashArea
+Preenche uma área da matriz de layout do tstDashboard: aplica o estilo em todas as células,
+grava valor/fórmula na primeira e registra a mesclagem quando a área tem mais de uma célula com conteúdo
+@author Saulo Gomes Martins
+@since 26/10/2026
+@version 1.0
+@type function
+@param aGrid, array, Matriz de layout {valor, fórmula, id do estilo} por célula
+@param aMerge, array, Áreas a mesclar {lin, col, lin2, col2}
+@param nLinha, numeric, Linha inicial
+@param nColuna, numeric, Coluna inicial
+@param nLinha2, numeric, Linha final
+@param nColuna2, numeric, Coluna final
+@param xValor, variant, Valor da primeira célula (Nil = só estilo)
+@param oStyle, object, Estilo (custom.excel.Style) aplicado na área
+@param cFormula, character, Fórmula da primeira célula (opcional)
+/*/
+Static Function DashArea(aGrid As Array, aMerge As Array, nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna2 As Numeric, xValor As Variant, oStyle As Object, cFormula As Character)
+	Local nLin As Numeric
+	Local nCol As Numeric
+	For nLin := nLinha to nLinha2
+		For nCol := nColuna to nColuna2
+			aGrid[nLin][nCol]	:= {Nil, Nil, oStyle:GetId()}
+		Next
+	Next
+	If ValType(xValor)!="U" .or. ValType(cFormula)!="U"
+		aGrid[nLinha][nColuna][1]	:= xValor
+		aGrid[nLinha][nColuna][2]	:= cFormula
+		If nLinha!=nLinha2 .or. nColuna!=nColuna2
+			AADD(aMerge,{nLinha, nColuna, nLinha2, nColuna2})
+		EndIf
+	EndIf
 Return
 
 /*/{Protheus.doc} YxlsRead

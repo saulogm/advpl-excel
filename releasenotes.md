@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Dashboard em tema escuro e cores nos gráficos
+
+- Novo método `Chart:SetCores(cFundo, cTexto, cGrade)` (`src/custom.excel.chart.tlpp`): fundo do gráfico (`c:chartSpace/c:spPr`, área de plotagem transparente), cor dos textos (`c:txPr`, também aplicada no título) e das linhas de grade. Sem chamar o método, o XML gerado não muda.
+- Html (`Save2Html`): gráficos respeitam `SetCores` (fundo, moldura, título, legenda, eixos, grade e contorno das fatias).
+- Correção (html): o gráfico ficava uma linha e uma coluna menor que no Excel; a âncora final do `Insert` passa a ser inclusiva, como no `xdr:to` do xlsx.
+- Exemplo: aba "Dashboard" em `u_tstXlsx` (`tstDashboard`, `exemplo/custom.excel.teste.tlpp`) com cards de KPI, combinação colunas + linha, rosca e tabelas com formatação condicional, tudo por fórmulas.
+
 ### Fórmula em português e L1C1
 
 - Novo método `oExcel:Formula(cFormula, lPtBr = .T., lL1C1 = .T.)` (classe `custom.excel.Formula`, `src/custom.excel.formula.tlpp`): fórmula escrita como no Excel em português (nomes das funções, `VERDADEIRO`/`FALSO`, erros, `;` e `,` decimal) e com referências L1C1 (`L2C3`, `L[-1]C`, linhas/colunas inteiras). A conversão para inglês/A1 é feita no `SetValue`/`Cell`, relativa à célula posicionada, permitindo reutilizar o mesmo objeto em um laço.

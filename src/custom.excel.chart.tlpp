@@ -228,6 +228,9 @@ Class Chart
 	Public Data nRotX			As Numeric		//Rotação X do 3D em graus (c:rotX)
 	Public Data nRotY			As Numeric		//Rotação Y do 3D em graus (c:rotY)
 	Public Data nPerspectiva	As Numeric		//Perspectiva do 3D (c:perspective)
+	Public Data cCorFundo		As Character	//Cor de fundo do gráfico (vazio=padrão do Excel)
+	Public Data cCorTexto		As Character	//Cor dos textos: título, legenda e eixos (vazio=padrão)
+	Public Data cCorGrade		As Character	//Cor das linhas de grade principais (vazio=padrão)
 
 	Public Method New()			As Object
 	Public Method ClassName()
@@ -236,6 +239,7 @@ Class Chart
 	Public Method SetLegenda()	As Object
 	Public Method SetGrade()	As Object
 	Public Method Set3D()		As Object
+	Public Method SetCores()	As Object
 	Public Method Insert()
 	Public Method ChecarSeries()
 	Public Method XmlPlot()
@@ -244,6 +248,7 @@ Class Chart
 	Public Method XmlView3D()
 	Public Method XmlTitulo()
 	Public Method XmlLegenda()
+	Public Method XmlGrade()
 EndClass
 
 /*/{Protheus.doc} Chart::New
@@ -273,6 +278,9 @@ Method New(oExcel As Object) as Object Class Chart
 	::nRotX			:= 15
 	::nRotY			:= 20
 	::nPerspectiva	:= 30
+	::cCorFundo		:= ""
+	::cCorTexto		:= ""
+	::cCorGrade		:= ""
 	If ValType(oExcel)=="O"
 		AADD(oExcel:aCleanObj,self)	//Registra para limpeza no Destroy do Excel
 	Endif
@@ -376,6 +384,29 @@ Method Set3D(lAtivo As Logical, nRotX As Numeric, nRotY As Numeric, nPerspectiva
 	::nRotX			:= nRotX
 	::nRotY			:= nRotY
 	::nPerspectiva	:= nPerspectiva
+Return self
+
+/*/{Protheus.doc} Chart::SetCores
+Define as cores do gráfico, útil para temas escuros (dashboard).
+O fundo é aplicado na área do gráfico (c:chartSpace/c:spPr, com a área de plotagem transparente),
+o texto em c:chartSpace/c:txPr (herdado por título, legenda e rótulos dos eixos) e a grade
+nas linhas de grade principais do eixo de valores. Também respeitado pelo Save2Html.
+@author Saulo Gomes Martins
+@since 26/10/2026
+@version 1.0
+@param cFundo, characters, Cor de fundo RGB ou ARGB (ex: "1E293B"). Vazio mantém o padrão do Excel
+@param cTexto, characters, Cor dos textos RGB ou ARGB (ex: "E2E8F0"). Vazio mantém o padrão
+@param cGrade, characters, Cor das linhas de grade RGB ou ARGB (ex: "334155"). Vazio mantém o padrão
+@return object, self
+@type method
+/*/
+Method SetCores(cFundo As Character, cTexto As Character, cGrade As Character) as Object Class Chart
+	PARAMTYPE 0	VAR cFundo		AS CHARACTER	OPTIONAL DEFAULT ""
+	PARAMTYPE 1	VAR cTexto		AS CHARACTER	OPTIONAL DEFAULT ""
+	PARAMTYPE 2	VAR cGrade		AS CHARACTER	OPTIONAL DEFAULT ""
+	::cCorFundo	:= AllTrim(cFundo)
+	::cCorTexto	:= AllTrim(cTexto)
+	::cCorGrade	:= AllTrim(cGrade)
 Return self
 
 /*/{Protheus.doc} Chart::ChecarSeries
@@ -484,11 +515,20 @@ Method Insert(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nColuna
 	cXml	+= '<c:plotArea>'
 	cXml	+= '<c:layout/>'
 	cXml	+= ::XmlPlot()	//Miolo do plotArea gerado pela classe filha
+	If !Empty(::cCorFundo)	//Área de plotagem transparente, deixa aparecer o fundo do gráfico
+		cXml	+= '<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>'
+	Endif
 	cXml	+= '</c:plotArea>'
 	cXml	+= ::XmlLegenda()
 	cXml	+= '<c:plotVisOnly val="1"/>'
 	cXml	+= '<c:dispBlanksAs val="gap"/>'
 	cXml	+= '</c:chart>'
+	If !Empty(::cCorFundo)	//Fundo do gráfico sem borda (SetCores)
+		cXml	+= '<c:spPr>'+XmlCor(::cCorFundo)+'<a:ln><a:noFill/></a:ln></c:spPr>'
+	Endif
+	If !Empty(::cCorTexto)	//Cor padrão de todos os textos do gráfico (SetCores)
+		cXml	+= '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr>'+XmlCor(::cCorTexto)+'</a:defRPr></a:pPr><a:endParaRPr lang="'+::cIdioma+'"/></a:p></c:txPr>'
+	Endif
 	cXml	+= '</c:chartSpace>'
 
 	//Grava a parte do gráfico e adiciona ao pacote
@@ -602,9 +642,7 @@ Method XmlEixos(cPosCat As Character, cPosVal As Character) Class Chart
 	cXml	+= '<c:scaling><c:orientation val="minMax"/></c:scaling>'
 	cXml	+= '<c:delete val="0"/>'
 	cXml	+= '<c:axPos val="'+cPosVal+'"/>'
-	If ::lGrade
-		cXml	+= '<c:majorGridlines/>'
-	Endif
+	cXml	+= ::XmlGrade()
 	cXml	+= '<c:numFmt formatCode="General" sourceLinked="1"/>'
 	cXml	+= '<c:tickLblPos val="nextTo"/>'
 	cXml	+= '<c:crossAx val="'+cValToChar(::nIdEixo1)+'"/>'
@@ -668,10 +706,33 @@ Method XmlTitulo() Class Chart
 		cXml	+= '<c:title>'
 		cXml	+= '<c:tx><c:rich>'
 		cXml	+= '<a:bodyPr/><a:lstStyle/>'
-		cXml	+= '<a:p><a:r><a:rPr lang="'+::cIdioma+'"/><a:t>'+EscXml(::cTitulo)+'</a:t></a:r></a:p>'
+		If Empty(::cCorTexto)
+			cXml	+= '<a:p><a:r><a:rPr lang="'+::cIdioma+'"/><a:t>'+EscXml(::cTitulo)+'</a:t></a:r></a:p>'
+		Else	//O texto rico do título não herda o c:txPr do chartSpace no Excel
+			cXml	+= '<a:p><a:r><a:rPr lang="'+::cIdioma+'">'+XmlCor(::cCorTexto)+'</a:rPr><a:t>'+EscXml(::cTitulo)+'</a:t></a:r></a:p>'
+		Endif
 		cXml	+= '</c:rich></c:tx>'
 		cXml	+= '<c:overlay val="0"/>'
 		cXml	+= '</c:title>'
+	Endif
+Return cXml
+
+/*/{Protheus.doc} Chart::XmlGrade
+Gera as linhas de grade principais do eixo de valores (c:majorGridlines), com a cor do SetCores
+@author Saulo Gomes Martins
+@since 26/10/2026
+@version 1.0
+@return characters, XML da grade (vazio se desativada)
+@type method
+/*/
+Method XmlGrade() Class Chart
+	Local cXml := "" As Character
+	If ::lGrade
+		If Empty(::cCorGrade)
+			cXml	+= '<c:majorGridlines/>'
+		Else
+			cXml	+= '<c:majorGridlines><c:spPr><a:ln w="9525">'+XmlCor(::cCorGrade)+'</a:ln></c:spPr></c:majorGridlines>'
+		Endif
 	Endif
 Return cXml
 
@@ -1364,9 +1425,7 @@ Method XmlEixosVal() Class ChartScatter
 	cXml	+= '<c:scaling><c:orientation val="minMax"/></c:scaling>'
 	cXml	+= '<c:delete val="0"/>'
 	cXml	+= '<c:axPos val="l"/>'
-	If ::lGrade
-		cXml	+= '<c:majorGridlines/>'
-	Endif
+	cXml	+= ::XmlGrade()
 	cXml	+= '<c:numFmt formatCode="General" sourceLinked="1"/>'
 	cXml	+= '<c:tickLblPos val="nextTo"/>'
 	cXml	+= '<c:crossAx val="'+cValToChar(::nIdEixo1)+'"/>'

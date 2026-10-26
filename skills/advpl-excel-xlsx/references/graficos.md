@@ -49,6 +49,7 @@ Também é possível instanciar a classe direto: `custom.excel.chart.ChartScatte
 - `SetLegenda(lExibir, cPosicao)`: `cPosicao` é `"r"` (padrão), `"l"`, `"t"` ou `"b"`.
 - `SetGrade(lExibir)`.
 - `Set3D(lAtivo, nRotX = 15, nRotY = 20, nPerspectiva = 30)`: só para Bar, Line, Pie, Area e Surface. Nos demais gera UserException.
+- `SetCores(cFundo, cTexto, cGrade)`: cores RGB/ARGB do fundo do gráfico, dos textos (título, legenda, eixos, rótulos) e da grade; vazio mantém o padrão. Para tema escuro (dashboard), ex.: `SetCores(cFundo = "1E293B", cTexto = "E2E8F0", cGrade = "334155")`. Na combinação, chamar no `ChartCombo`. O `Save2Html` aplica as mesmas cores.
 - `Insert(nLinha = 1, nColuna = 1, nLinha2 = +15, nColuna2 = +8)`: índices a partir de 1.
 
 **Serie:**
