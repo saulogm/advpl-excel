@@ -1,16 +1,18 @@
 // Testes do motor de fórmulas (custom.excel.calc) com provedor de células em memória
-// Execução sem interface: appserver.exe -run=U_XCALCTST -env=<ambiente>
+// Execução sem interface: appserver.exe -run=custom.excel.teste.U_tstCalc -env=<ambiente>
 // Resultado gravado em \xcalc_teste.log (RootPath)
 #include "tlpp-core.th"
 #include "totvs.ch"
 
-/*/{Protheus.doc} XCalcProv
+Namespace custom.excel.teste
+
+/*/{Protheus.doc} ProvMemoria
 Provedor de células em memória para testes do motor
 @type class
 @author Saulo Gomes Martins
 @since 25/10/2026
 /*/
-Class XCalcProv
+Class ProvMemoria
 	Public Data oCel		As Object
 	Public Data aCel		As Array
 	Public Data aPlan		As Array
@@ -31,7 +33,7 @@ Class XCalcProv
 	Public Method CalcOculta()
 EndClass
 
-Method New() As Object Class XCalcProv
+Method New() As Object Class ProvMemoria
 	::oCel		:= tHashMap():New()
 	::aCel		:= {}
 	::aPlan		:= {"Plan1","Dados"}
@@ -41,20 +43,20 @@ Method New() As Object Class XCalcProv
 Return self
 
 //Grava célula: valor ou fórmula pendente
-Method Set(nPla As Numeric, nLin As Numeric, nCol As Numeric, xValor As Variant, cFormula As Character) Class XCalcProv
+Method Set(nPla As Numeric, nLin As Numeric, nCol As Numeric, xValor As Variant, cFormula As Character) Class ProvMemoria
 	Default cFormula	:= ""
 	::oCel:Set(cValToChar(nPla)+"|"+cValToChar(nLin)+"|"+cValToChar(nCol),{xValor,cFormula,!Empty(cFormula)})
 	AADD(::aCel,{nPla,nLin,nCol})
 Return
 
-Method CalcCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class XCalcProv
+Method CalcCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class ProvMemoria
 	Local aRet As Array
 	If ::oCel:Get(cValToChar(nPla)+"|"+cValToChar(nLin)+"|"+cValToChar(nCol),@aRet)
 		Return aRet
 	EndIf
 Return nil
 
-Method CalcFaixa(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric, nC2 As Numeric) Class XCalcProv
+Method CalcFaixa(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric, nC2 As Numeric) Class ProvMemoria
 	Local aRet := {} As Array
 	Local nCont As Numeric
 	Local aCel As Array
@@ -69,34 +71,34 @@ Method CalcFaixa(nPla As Numeric, nL1 As Numeric, nC1 As Numeric, nL2 As Numeric
 	aSort(aRet,,,{|x,y| x[1]<y[1] .OR. (x[1]==y[1] .AND. x[2]<y[2]) })
 Return aRet
 
-Method CalcPlan(cNome As Character) Class XCalcProv
+Method CalcPlan(cNome As Character) Class ProvMemoria
 Return aScan(::aPlan,{|x| Upper(x)==Upper(cNome) })
 
-Method CalcNomePlan(nPla As Numeric) Class XCalcProv
+Method CalcNomePlan(nPla As Numeric) Class ProvMemoria
 Return ::aPlan[nPla]
 
-Method CalcQtdPlan() Class XCalcProv
+Method CalcQtdPlan() Class ProvMemoria
 Return Len(::aPlan)
 
-Method CalcDim(nPla As Numeric) Class XCalcProv
+Method CalcDim(nPla As Numeric) Class ProvMemoria
 	Local nL := 0 As Numeric
 	Local nC := 0 As Numeric
 	aEval(::aCel,{|x| If(x[1]==nPla,(nL:=Max(nL,x[2]),nC:=Max(nC,x[3])),nil) })
 Return {nL,nC}
 
-Method CalcNome(cNome As Character, nPla As Numeric) Class XCalcProv
+Method CalcNome(cNome As Character, nPla As Numeric) Class ProvMemoria
 	Local cRet := "" As Character
 	::oNomes:Get(Upper(cNome),@cRet)
 Return cRet
 
-Method CalcTabela(cNome As Character) Class XCalcProv
+Method CalcTabela(cNome As Character) Class ProvMemoria
 	Local nPos := aScan(::aTabelas,{|x| Upper(x[1])==Upper(cNome) }) As Numeric
 	If nPos==0
 		Return nil
 	EndIf
 Return ::aTabelas[nPos][2]
 
-Method CalcTabCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class XCalcProv
+Method CalcTabCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class ProvMemoria
 	Local nCont As Numeric
 	Local aTab As Array
 	For nCont:=1 to Len(::aTabelas)
@@ -107,17 +109,17 @@ Method CalcTabCel(nPla As Numeric, nLin As Numeric, nCol As Numeric) Class XCalc
 	Next
 Return ""
 
-Method CalcOculta(nPla As Numeric, nLin As Numeric) Class XCalcProv
+Method CalcOculta(nPla As Numeric, nLin As Numeric) Class ProvMemoria
 Return aScan(::aOcultas,{|x| x[1]==nPla .AND. x[2]==nLin })>0
 
-/*/{Protheus.doc} XCALCTST
+/*/{Protheus.doc} tstCalc
 Executa os casos de teste do motor e grava o relatório
-@type user function
+@type function
 @author Saulo Gomes Martins
 @since 25/10/2026
 /*/
-User Function XCALCTST()
-	Local oProv := XCalcProv():New() As Object
+User Function tstCalc()
+	Local oProv := ProvMemoria():New() As Object
 	Local oMotor As Object
 	Local aCasos As Array
 	Local nCont As Numeric
@@ -167,7 +169,7 @@ User Function XCALCTST()
 	oMotor:SetLocal("pt-BR")
 	aCasos	:= CasosPtBr()
 	RodaCasos(oMotor,aCasos,cFiltro,@nOk,@nFalha,@cLog)
-	cLog	:= "XCALCTST: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas, "+cValToChar(Seconds()-nSeg)+"s"+Chr(13)+Chr(10)+cLog
+	cLog	:= "tstCalc: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas, "+cValToChar(Seconds()-nSeg)+"s"+Chr(13)+Chr(10)+cLog
 	MemoWrite("\xcalc_teste.log",cLog)
 	ConOut(cLog)
 	oMotor:Limpar()
@@ -235,6 +237,9 @@ Return cValToChar(xVal)
 
 /*/{Protheus.doc} CasosTeste
 Casos {fórmula, esperado, [linha], [coluna]} - célula padrão Plan1!H1
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function CasosTeste()
 	Local aRet := {} As Array
@@ -927,14 +932,14 @@ Static Function CasosTeste()
 	AADD(aRet,{"PlanX!A1","#REF!"})
 Return aRet
 
-/*/{Protheus.doc} XCALCINT
+/*/{Protheus.doc} tstCalcInt
 Teste de integração: gera xlsx nos modos arquivo (A), memória (M) e banco (B) com fórmulas sem valor,
 reabre o arquivo e confere os valores calculados. Resultado em \xcalc_int.log
-@type user function
+@type function
 @author Saulo Gomes Martins
 @since 25/10/2026
 /*/
-User Function XCALCINT()
+User Function tstCalcInt()
 	Local aModos := {"A","M","B"} As Array
 	Local nModo As Numeric
 	Local cLog := "" As Character
@@ -1058,15 +1063,15 @@ Static Function ConfInt(cArq As Character)
 	FwFreeArray(aEsp)
 Return cRet
 
-/*/{Protheus.doc} XCALCHTML
+/*/{Protheus.doc} tstCalcHtml
 Teste do cálculo de fórmulas no html: gera xlsx e html nos modos A, M e B com fórmulas sem valor,
 input na coluna de quantidade, linha de subtotais, nome definido, tabela formatada e gráfico.
 Os html ficam em \xcalc\xcalc_html_<modo>.html para conferência no navegador
-@type user function
+@type function
 @author Saulo Gomes Martins
 @since 25/10/2026
 /*/
-User Function XCALCHTML()
+User Function tstCalcHtml()
 	Local aModos := {"A","M","B"} As Array
 	Local nModo As Numeric
 	Local cLog := "" As Character
@@ -1157,6 +1162,9 @@ Return cHtml
 
 /*/{Protheus.doc} CasosPtBr
 Casos executados com a localidade pt-BR
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function CasosPtBr()
 	Local aRet := {} As Array
@@ -1176,14 +1184,14 @@ Static Function CasosPtBr()
 	AADD(aRet,{'TEXT(0.5,"0,0%")',"50,0%"})
 Return aRet
 
-/*/{Protheus.doc} XCALCPERF
+/*/{Protheus.doc} tstCalcPerf
 Desempenho: 20 mil linhas em bulk (modo arquivo) com fórmula por linha, PROCV em outra planilha e total.
 Resultado em \xcalc_perf.log
-@type user function
+@type function
 @author Saulo Gomes Martins
 @since 25/10/2026
 /*/
-User Function XCALCPERF()
+User Function tstCalcPerf()
 	Local oExcel As Object
 	Local aCampos := {} As Array
 	Local nCont As Numeric
@@ -1231,14 +1239,14 @@ User Function XCALCPERF()
 	FwFreeArray(aCampos)
 Return 0
 
-/*/{Protheus.doc} XCALCCOB
+/*/{Protheus.doc} tstCalcCobertura
 Gera a tabela de cobertura das funções do motor (markdown) em \xcalc_cobertura.md
-@type user function
+@type function
 @author Saulo Gomes Martins
 @since 25/10/2026
 /*/
-User Function XCALCCOB()
-	Local oMotor := custom.excel.calc.Motor():New(XCalcProv():New()) As Object
+User Function tstCalcCobertura()
+	Local oMotor := custom.excel.calc.Motor():New(ProvMemoria():New()) As Object
 	Local aCat := aClone(oMotor:aCatalogo) As Array
 	Local cMd := "" As Character
 	Local cCatAnt := "" As Character
@@ -1273,14 +1281,14 @@ User Function XCALCCOB()
 	FwFreeArray(aCat)
 Return 0
 
-/*/{Protheus.doc} XFMLPTTST
+/*/{Protheus.doc} tstFormula
 Testes do facilitador de fórmulas (oExcel:Formula / custom.excel.Formula): PT-BR e L1C1 convertidos para inglês/A1.
-Execução sem interface: appserver.exe -run=U_XFMLPTTST -env=<ambiente>. Resultado em \xfmlpt_teste.log
-@type user function
+Execução sem interface: appserver.exe -run=custom.excel.teste.U_tstFormula -env=<ambiente>. Resultado em \xfmlpt_teste.log
+@type function
 @author Saulo Gomes Martins
 @since 26/10/2026
 /*/
-User Function XFMLPTTST()
+User Function tstFormula()
 	Local aCasos := CasosFmlPt() As Array
 	Local oFml As Object
 	Local oErr As Object
@@ -1326,7 +1334,7 @@ User Function XFMLPTTST()
 		nFalha++
 		cLog	+= "Integração EXCEPTION: "+oErr:Description+Chr(13)+Chr(10)
 	EndTry
-	cLog	:= "XFMLPTTST: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas"+Chr(13)+Chr(10)+cLog
+	cLog	:= "tstFormula: "+cValToChar(nOk)+" ok, "+cValToChar(nFalha)+" falhas"+Chr(13)+Chr(10)+cLog
 	MemoWrite("\xfmlpt_teste.log",cLog)
 	ConOut(cLog)
 	FwFreeArray(aCasos)
@@ -1334,6 +1342,9 @@ Return 0
 
 /*/{Protheus.doc} CasosFmlPt
 Casos {fórmula, lPtBr, lL1C1, linha, coluna, esperado} - "#EXC" = exceção esperada
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
 /*/
 Static Function CasosFmlPt()
 	Local aRet := {} As Array
@@ -1418,15 +1429,15 @@ Static Function IntFmlPt(nOk As Numeric, nFalha As Numeric)
 	FwFreeArray(aEsp)
 Return cRet
 
-/*/{Protheus.doc} XFMLBENCH
+/*/{Protheus.doc} tstFormulaPerf
 Desempenho do facilitador de fórmulas: New() com fórmulas típicas, Converter() e o cenário completo de gravação
 (texto A1 montado com Ref() x Formula() reaproveitada x Formula() criada a cada linha).
-Execução sem interface: appserver.exe -run=U_XFMLBENCH -env=<ambiente>. Resultado em \xfmlpt_bench.log
-@type user function
+Execução sem interface: appserver.exe -run=custom.excel.teste.U_tstFormulaPerf -env=<ambiente>. Resultado em \xfmlpt_bench.log
+@type function
 @author Saulo Gomes Martins
 @since 26/10/2026
 /*/
-User Function XFMLBENCH()
+User Function tstFormulaPerf()
 	Local aFml := FmlBench() As Array
 	Local nVezes := 3000 As Numeric
 	Local nVez As Numeric
@@ -1434,7 +1445,7 @@ User Function XFMLBENCH()
 	Local nIni As Numeric
 	Local cLog := "" As Character
 	Local oFml As Object
-	cLog	+= "XFMLBENCH "+DToC(Date())+" "+Time()+" - "+GetBuild()+Chr(13)+Chr(10)
+	cLog	+= "tstFormulaPerf "+DToC(Date())+" "+Time()+" - "+GetBuild()+Chr(13)+Chr(10)
 	//Primeira chamada (inclui a carga do dicionário)
 	nIni	:= Seconds()
 	oFml	:= custom.excel.Formula():New(aFml[Len(aFml)])
@@ -1478,6 +1489,9 @@ Return aRet
 
 /*/{Protheus.doc} GravaBench
 Grava 20 mil linhas com 3 colunas de fórmula (sem cálculo) e mede o laço de gravação
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
 @param nModo, numeric, 1=texto A1 montado com Ref(), 2=Formula() reaproveitada, 3=Formula() criada a cada linha
 /*/
 Static Function GravaBench(nModo As Numeric)
@@ -1526,6 +1540,13 @@ Static Function GravaBench(nModo As Numeric)
 	FwFreeArray(aNomes)
 Return cRet
 
-//Segundos -> texto em milissegundos
+/*/{Protheus.doc} Ms
+Converte segundos em texto com milissegundos
+@type function
+@author Saulo Gomes Martins
+@since 26/10/2026
+@param nSeg, numeric, segundos
+@return character, texto com milissegundos
+/*/
 Static Function Ms(nSeg As Numeric)
 Return AllTrim(Transform(nSeg*1000,"@E 999,999,999"))+" ms"
