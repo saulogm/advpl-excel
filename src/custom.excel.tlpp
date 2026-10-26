@@ -74,6 +74,8 @@ Class Xlsx
 	Public Data aPlanilhas			As Array //Dados das planilhas
 	Public Data lRowDef				As Logical //deprecated
 	Public Data nTamLinha			As variant //Tamanho da linha atual
+	Public Data aTamLinhaArq		As Array //Alturas por intervalo de linhas ainda não gravadas (tipo arquivo) {nLinIni,nLinFim,nAltura}
+	Public Data nLinhaArq			As Numeric //Última linha gravada no arquivo de linhas (tipo arquivo)
 	Public Data nColunaAtual		As Numeric //Ultima Coluna
 	Public Data nQtdStyle			As Numeric //Quantidade de styles
 	Public Data oMergeCell			As Object //HashMap com celulas mescladas
@@ -229,6 +231,8 @@ Class Xlsx
 	Public METHOD SetsumRight()		//Configurar coluna resumo a direita
 	Public METHOD SetRowLevel()		//Configurar as linhas para agrupamento
 	Public METHOD SetRowH()			//Configurar tamanho das linhas
+	Public METHOD AltLinhaArq()		//Altura da linha no tipo arquivo
+	Public METHOD GravaLinhaAlt()	//Grava linhas vazias com altura definida (tipo arquivo)
 	Public METHOD SetColLevel()		//Configurar as linhas para agrupamento
 	Public METHOD AddRow()			//Adiciona linhas acima e move as demais para baixo
 	Public METHOD AddCol()			//Adiciona Colunas a direita e move as demais para esquerda
@@ -432,6 +436,8 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 	::aImgPos		:= {}
 	::aMaxCol		:= {}
 	::lEscritaFim	:= .F.
+	::aTamLinhaArq	:= {}
+	::nLinhaArq		:= 0
 	::lHtml			:= .T.	//Sempre preserva os dados para o Save2Html após o Save
 	::lCalcFormula	:= .T.
 	::aFmlPend		:= {}
@@ -604,6 +610,9 @@ Method Open(cFile As Character, cSenha As Character) Class Xlsx
 		::aImgPos		:= {}
 		::aMaxCol		:= {}
 		::lEscritaFim	:= .F.
+		FwFreeArray(::aTamLinhaArq)
+		::aTamLinhaArq	:= {}
+		::nLinhaArq		:= 0
 		::aPlanilhas	:= {}
 		::aPadraoSty	:= {}
 		::nIdRelat	:= 0
@@ -867,9 +876,13 @@ METHOD ADDPlan(cNome As Character, cCor As Character) Class Xlsx
 			::oRow	:= nil
 		EndIf
 		If ValType(::oFile)=="O"
+			::GravaLinhaAlt()	//Linhas restantes com altura definida no SetRowH
 			::oFile:close()
 			::oFile	:= nil
 		EndIf
+		FwFreeArray(::aTamLinhaArq)
+		::aTamLinhaArq	:= {}
+		::nLinhaArq		:= 0
 		::oFile := FWFileWriter():New("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\worksheets\tmprow"+cValToChar(nQtdPlanilhas)+".xml",.T.)
 		::oFile:SetCaseSensitive(.T.)
 		::oFile:CreateDirectory()
@@ -2112,6 +2125,7 @@ Definir altura das llinhas. Se não enviado linha de/ate, considerar as próximas 
 @param nHeight, numeric, Altura da linha
 @param nLinha, numeric, Opcional se vai alterar linha inicial
 @param nLinha2, numeric, Opcional linha final para alteração
+@obs No tipo arquivo (gravação sequencial) o intervalo não pode incluir linhas já gravadas; linhas do intervalo sem células são gravadas vazias com a altura definida.
 /*/
 Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class Xlsx
 	Local cCHeight := "1" As Character
@@ -2120,8 +2134,18 @@ Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class 
 	PARAMTYPE 0	VAR nHeight			AS NUMERIC			OPTIONAL
 	PARAMTYPE 1	VAR nLinha			AS NUMERIC			OPTIONAL
 	PARAMTYPE 2	VAR nLinha2			AS NUMERIC			OPTIONAL	DEFAULT nLinha
-	If ::lArquivo .OR. ValType(nLinha)!="N"
+	If ValType(nLinha)!="N"
 		::nTamLinha	:= nHeight
+	ElseIf ::lArquivo
+		If ::lEscritaFim
+			UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível alterar a altura das linhas.")
+		EndIf
+		If nLinha<=::nLinhaArq
+			UserException("Xlsx - gravação em arquivo deve ser sequencial, a linha "+cValToChar(nLinha)+" já foi gravada. Última linha gravada "+cValToChar(::nLinhaArq))
+		EndIf
+		If nLinha2>=nLinha
+			AADD(::aTamLinhaArq,{nLinha,nLinha2,nHeight})	//Aplicado na gravação da linha
+		EndIf
 	Else
 		If ValType(nHeight)=="U"
 			cCHeight	:= " "
@@ -2148,6 +2172,55 @@ Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class 
 			Endif
 		Endif
 	EndIf
+Return
+
+//NÃO DOCUMENTAR
+//Altura da linha no tipo arquivo: intervalo definido no SetRowH (o último prevalece) ou a altura padrão das próximas linhas
+Method AltLinhaArq(nLinha As Numeric, lSoIntervalo As Logical) Class Xlsx
+	Local nCont As Numeric
+	Local xRet := If(lSoIntervalo==.T.,nil,::nTamLinha) As Variant
+	For nCont:=Len(::aTamLinhaArq) to 1 STEP -1
+		If nLinha>=::aTamLinhaArq[nCont][1] .AND. nLinha<=::aTamLinhaArq[nCont][2]
+			xRet	:= ::aTamLinhaArq[nCont][3]
+			Exit
+		EndIf
+	Next
+Return xRet
+
+//NÃO DOCUMENTAR
+//Grava as linhas vazias com altura definida no SetRowH ainda não gravadas, até a linha informada (tipo arquivo)
+Method GravaLinhaAlt(nLinhaAte As Numeric) Class Xlsx
+	Local nCont As Numeric
+	Local nLin As Numeric
+	Local nLinIni := 0 As Numeric
+	Local nLinFim := 0 As Numeric
+	Local nAltura As Variant
+	Local aPendente := {} As Array
+	If Empty(::aTamLinhaArq)
+		Return
+	EndIf
+	//Descarta os intervalos já gravados
+	For nCont:=1 to Len(::aTamLinhaArq)
+		If ::aTamLinhaArq[nCont][2]>::nLinhaArq
+			AADD(aPendente,::aTamLinhaArq[nCont])
+			If nLinIni==0 .OR. ::aTamLinhaArq[nCont][1]<nLinIni
+				nLinIni	:= ::aTamLinhaArq[nCont][1]
+			EndIf
+			nLinFim	:= Max(nLinFim,::aTamLinhaArq[nCont][2])
+		EndIf
+	Next
+	::aTamLinhaArq	:= aPendente
+	nLinIni	:= Max(nLinIni,::nLinhaArq+1)
+	If ValType(nLinhaAte)=="N"
+		nLinFim	:= Min(nLinFim,nLinhaAte)
+	EndIf
+	For nLin:=nLinIni to nLinFim
+		nAltura	:= ::AltLinhaArq(nLin,.T.)
+		If ValType(nAltura)=="N"
+			::oFile:Write('<row r="'+cValToChar(nLin)+'" customHeight="1" ht="'+cValToChar(nAltura)+'"/>')
+			::nLinhaArq	:= nLin
+		EndIf
+	Next
 Return
 
 /*/{Protheus.doc} Xlsx::InsertRowEmpty
@@ -2727,6 +2800,7 @@ Posiciona em uma celula
 @return object, self
 /*/
 Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xlsx
+	Local nAltura As Variant
 	PARAMTYPE 0	VAR nLinha		AS NUMERIC
 	PARAMTYPE 1	VAR nColuna		AS NUMERIC
 	PARAMTYPE 2	VAR nPlanilha	AS NUMERIC OPTIONAL DEFAULT ::nPlanilhaAt
@@ -2752,6 +2826,8 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 				FreeObj(::oRow)
 				::oRow	:= nil
 			EndIf
+			::GravaLinhaAlt(nLinha-1)	//Linhas vazias com altura definida antes da linha atual
+			::nLinhaArq	:= nLinha
 			::oRow	:= Tag():New("row",{},{{"r",cValToChar(nLinha)}})
 			If ValType(::nRowoutlineLevel)=="N"
 				::oRow:AddAtributo("outlineLevel",cValToChar(::nRowoutlineLevel))
@@ -2762,9 +2838,10 @@ Method Pos(nLinha As Numeric, nColuna As Numeric, nPlanilha As Numeric) Class Xl
 			If ::lRowhidden
 				::oRow:AddAtributo("hidden","1")
 			Endif
-			If ValType(::nTamLinha)=="N"
+			nAltura	:= ::AltLinhaArq(nLinha)
+			If ValType(nAltura)=="N"
 				::oRow:AddAtributo("customHeight","1")
-				::oRow:AddAtributo("ht",::nTamLinha)
+				::oRow:AddAtributo("ht",nAltura)
 			Endif
 			::oRow:GetTag(::oFile,.F.)
 		Endif
@@ -7202,6 +7279,7 @@ Method FimEscrita() Class Xlsx
 		::oRow	:= nil
 	EndIf
 	If ValType(::oFile)=="O"
+		::GravaLinhaAlt()	//Linhas restantes com altura definida no SetRowH
 		::oFile:Close()
 		FreeObj(::oFile)
 		::oFile	:= nil
@@ -7891,14 +7969,12 @@ Method DefBulkLine(aCampos As Array, xRegraStyle As Variant, lMontarLin As Logic
 				If(ValType(::nRowoutlineLevel)=='N',' outlineLevel="'+cValToChar(::nRowoutlineLevel)+'"','')+;
 				If(::lRowcollapsed,' collapsed="1"','')+;
 				If(::lRowhidden,' hidden="1"','')+;
-				If(ValType(::nTamLinha)=='N',' customHeight="1" ht="'+cValToChar(::nTamLinha)+'"','')+;
 				 '>'}
 	Else
 		cBloco	:= "{|cLin| '<row r="+chr(34)+"'+cLin+'"+chr(34)+;
 				If(ValType(::nRowoutlineLevel)=='N',' outlineLevel="'+cValToChar(::nRowoutlineLevel)+'"','')+;
 				If(::lRowcollapsed,' collapsed="1"','')+;
 				If(::lRowhidden,' hidden="1"','')+;
-				If(ValType(::nTamLinha)=='N',' customHeight="1" ht="'+cValToChar(::nTamLinha)+'"','')+;
 				 ">'}"
 		bRow	:= &(cBloco)
 	EndIf
@@ -8144,12 +8220,19 @@ Method SetBulkLine() Class Xlsx
 	Local nHT As Numeric
 	Local cTexto As Character
 	Local nStyle As Numeric
+	Local nAltura As Variant
 	Local cTpVlr As Character
 	If ::lArquivo .AND. ::lEscritaFim
 		UserException("Xlsx - Gravação em arquivo finalizada (Save/Save2Html), não é possível gravar novas linhas.")
 	EndIf
 	If ::lArquivo
+		::GravaLinhaAlt(::nLinha-1)	//Linhas vazias com altura definida antes da linha atual
+		::nLinhaArq	:= ::nLinha
 		cTexto	:= Eval(::aDadosBulk[1],cLinha)	//Criação da linha
+		nAltura	:= ::AltLinhaArq(::nLinha)
+		If ValType(nAltura)=="N"
+			cTexto	:= Left(cTexto,Len(cTexto)-1)+' customHeight="1" ht="'+cValToChar(nAltura)+'">'
+		EndIf
 		::oFile:Write(cTexto)
 		For nCont:=1 to Len(aValores)
 			nCont2		:= nCont+1

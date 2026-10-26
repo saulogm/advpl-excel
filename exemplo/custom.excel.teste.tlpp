@@ -188,11 +188,11 @@ User Function tstXlsx()
 	oExcel:Pos(1,1):SetValue("TESTE EXCEL"):SetStyle(oPosStyle)
 	oExcel:mergeCells(nLinha = 1, nColuna = 1, nLinha2 = 2, nColuna2 = 6)											//Mescla as células A1:F2
 	//Textos
+	oExcel:SetRowH(nHeight = 30.75, nLinha = 3)	//Defini o tamanho da linha 3
 	oExcel:Pos(3,1):SetValue("Olá Mundo!"):SetStyle(oPosBorVerm)						//Texto simples
 	oExcel:Pos(3,2):SetValue("Texto grande para quebra em linhas"):SetStyle(oPosQuebra)	//Texto grande
 	oExcel:Pos(3,3):SetValue("Negrito,Italico,Sublinhado,Tachado"):SetStyle(oPosFonts)	//Formatando letra
 	oExcel:Pos(3,7):SetValue("Texto 45º"):SetStyle(oPosM45G)				//Texto com rotação de 45 graus
-	oExcel:SetRowH(nHeight = 30.75, nLinha = 3)	//Defini o tamanho da linha 3
 	//Numeros
 	oExcel:Pos(5,1):SetValue(100):SetStyle(oPos3Dec)				//Numero
 	oExcel:Pos(5,2):SetValue(-100.2):SetStyle(oPos3Dec)				//Numero negativo

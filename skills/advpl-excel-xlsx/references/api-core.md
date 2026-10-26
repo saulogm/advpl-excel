@@ -129,7 +129,7 @@ Para editar um arquivo aberto, basta posicionar, fazer `SetValue` e chamar `Save
 | `mergeCells(nLinha, nColuna, nLinha2, nColuna2)` | Os 4 parâmetros são obrigatórios. O valor e o estilo vão na célula superior esquerda (escreva-a antes) |
 | `AddTamCol(nMin, nMax, nWidth, lbestFit, lcustomWidth)` | Largura das colunas `nMin..nMax` (padrão 12). Chame depois do ADDPlan e antes de escrever |
 | `ColHidden(nColuna, lHidden)` | Oculta a coluna (padrão `.T.`) |
-| `SetRowH(nHeight, nLinha, nLinha2)` | Altura das linhas. Sem linha informada, vale para as linhas criadas depois |
+| `SetRowH(nHeight, nLinha, nLinha2)` | Altura das linhas. Sem linha informada, vale para as linhas criadas depois. No modo `"A"`, chamar antes de gravar as linhas do intervalo (linha já gravada gera erro) |
 | `SetdefaultRowHeight(nHeight)` | Altura padrão (15) |
 
 ## 7. Congelar, filtro, grade

@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Altura de linhas no modo arquivo
+
+- Correção: no modo `"A"` (arquivo), `SetRowH(nHeight, nLinha, nLinha2)` ignorava o intervalo e alterava a altura de todas as linhas seguintes. Agora aplica a altura só às linhas `nLinha` a `nLinha2` (inclusive no `SetBulkLine`); linhas do intervalo sem células são gravadas vazias com a altura. Sem linha informada, continua valendo para as próximas linhas.
+- Como a gravação é sequencial, informar uma linha já gravada gera erro: chame `SetRowH` antes de gravar o intervalo.
+
 ### Dashboard em tema escuro e cores nos gráficos
 
 - Novo método `Chart:SetCores(cFundo, cTexto, cGrade)` (`src/custom.excel.chart.tlpp`): fundo do gráfico (`c:chartSpace/c:spPr`, área de plotagem transparente), cor dos textos (`c:txPr`, também aplicada no título) e das linhas de grade. Sem chamar o método, o XML gerado não muda.
