@@ -3,7 +3,7 @@ Classe em ADVPL para criar, ler ou editar planilhas do excel no formato xlsx
 
 Exemplo de uso:
 
-[tstyexcel.prw](exemplo/tstyexcel.prw)<br>
+[custom.excel.teste.tlpp](exemplo/custom.excel.teste.tlpp)<br>
 [Olá Mundo](https://github.com/saulogm/advpl-excel/wiki/Ol%C3%A1-Mundo)
 
 # Recursos disponíveis
