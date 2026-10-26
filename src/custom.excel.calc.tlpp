@@ -168,6 +168,8 @@ Return self
 /*/{Protheus.doc} Err
 Retorna o objeto de erro do código informado (cache)
 @type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cCod, character, Código do erro (#DIV/0!, #N/A, ...)
 @return object, objeto Erro
 /*/
@@ -951,6 +953,8 @@ Return self
 /*/{Protheus.doc} Motor::Registrar
 Registra uma função
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cNome, character, Nome da função em inglês (como gravado no xlsx)
 @param bBloco, codeblock, Bloco {|oMotor,aArgs| xRetorno}
 @param nMin, numeric, Mínimo de argumentos
@@ -978,6 +982,8 @@ Return nil
 /*/{Protheus.doc} Motor::Var
 Procura variável de LET/LAMBDA nos escopos
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cNome, character, Nome da variável (maiúsculo)
 @param xValor, variant, (referência) valor encontrado
 @return logical, encontrou
@@ -1023,6 +1029,8 @@ Return aNo
 /*/{Protheus.doc} Motor::Calcular
 Avalia uma fórmula no contexto de uma célula
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cFormula, character, Fórmula (com ou sem "=")
 @param nPla, numeric, Planilha da célula
 @param nLin, numeric, Linha da célula
@@ -1120,6 +1128,8 @@ Return xRet
 /*/{Protheus.doc} Motor::Celulas
 Células existentes de uma referência
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param oRef, object, Referência
 @param lSubTot, logical, Ignora células com SUBTOTAL/AGGREGATE
 @param lOcultas, logical, Ignora linhas ocultas
@@ -1324,6 +1334,8 @@ Return xVal	//Erro
 /*/{Protheus.doc} Motor::Numeros
 Coleta os números dos argumentos (regras das funções de agregação do Excel)
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param aArgs, array, Argumentos avaliados
 @param aNums, array, (referência) números coletados
 @param nModo, numeric, 0=SUM/AVERAGE (texto/lógico em referência ignorados) 1=modo A (texto=0, lógico=1/0)
@@ -1413,6 +1425,8 @@ Return nil
 /*/{Protheus.doc} Motor::Lista
 Lista todos os valores dos argumentos (células vazias como nil quando lVazio)
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param aArgs, array, Argumentos avaliados
 @param lVazio, logical, Inclui células vazias das referências
 @return array, valores
@@ -1449,6 +1463,8 @@ Return aRet
 /*/{Protheus.doc} Motor::Avaliar
 Avalia um nó da árvore sintática
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param aNo, array, Nó
 @return variant, valor (pode ser Ref, Mat, Erro ou Lambda)
 /*/
@@ -1536,7 +1552,6 @@ Return Ref():New(nPla,aNo[3],aNo[4],aNo[5],aNo[6],nPla2)
 //Variável de LET/LAMBDA ou nome definido
 Method Nome(cNome As Character, cPlan As Character) Class Motor
 	Local cUp := Upper(cNome) As Character
-	Local nCont As Numeric
 	Local nPla := ::nPla As Numeric
 	Local cForm As Character
 	Local xRet As Variant
@@ -1660,6 +1675,8 @@ Return Ref():New(aTab[1],nL1,nC1,nL2,nC2)
 /*/{Protheus.doc} Motor::Chamar
 Chama uma função registrada
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cNome, character, Nome da função (maiúsculo)
 @param aNos, array, Nós dos argumentos
 /*/
@@ -1668,14 +1685,7 @@ Method Chamar(cNome As Character, aNos As Array) Class Motor
 	Local aArgs As Array
 	Local nCont As Numeric
 	Local cFlags As Character
-	Local xRet As Variant
 	Local xLam As Variant
-	Local lMat := .F. As Logical
-	Local nL := 1 As Numeric
-	Local nC := 1 As Numeric
-	Local nI As Numeric
-	Local nJ As Numeric
-	Local aEsc As Array
 	Local oRes As Object
 	Local xArg As Variant
 	If cNome=="_UNIAO"	//União de referências (A1:B2,D1:D3)
@@ -1724,6 +1734,8 @@ Return ::ChamarVal(cNome,aArgs,aFunc)
 /*/{Protheus.doc} Motor::ChamarVal
 Chama a função com os argumentos já avaliados
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cNome, character, Nome da função
 @param aArgs, array, Valores dos argumentos
 @param aFunc, array, Definição (opcional)
@@ -1801,6 +1813,8 @@ Return xRet
 /*/{Protheus.doc} Motor::ChamarLambda
 Executa uma LAMBDA
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param oLam, object, Lambda
 @param aArgs, array, Nós (lAval=.F.) ou valores já avaliados (lAval=.T.)
 @param lAval, logical, Argumentos já avaliados
@@ -1846,6 +1860,8 @@ Return xRet
 /*/{Protheus.doc} Motor::Binario
 Operadores binários com expansão matricial
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Method Binario(cOp As Character, xA As Variant, xB As Variant) Class Motor
 	Local oA As Object
@@ -1982,6 +1998,8 @@ Return
 /*/{Protheus.doc} Compara
 Compara dois escalares conforme o Excel (número < texto < lógico; texto sem diferenciar maiúsculas)
 @type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 @return numeric, -1, 0 ou 1
 /*/
 Static Function Compara(xA As Variant, xB As Variant)
@@ -2038,6 +2056,9 @@ Return xRet
 
 /*/{Protheus.doc} TxtNum
 Monta número a partir da mantissa e do expoente em texto
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function TxtNum(cNum As Character, cExp As Character)
 	Local nRet As Numeric
@@ -2051,6 +2072,9 @@ Return nRet
 
 /*/{Protheus.doc} TxtParaNum
 Converte texto em número como o Excel (número, percentual, notação científica); nil se não for número
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function TxtParaNum(cTxt As Character, cSepDec As Character)
 	Local cT := AllTrim(cTxt) As Character
@@ -2122,6 +2146,9 @@ Return nSinal*TxtNum(cMant,cExp)/nPct
 
 /*/{Protheus.doc} NumTxt
 Converte número em texto no formato Geral do Excel (até 15 dígitos significativos, separador decimal ".")
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function NumTxt(nNum As Numeric, cSepDec As Character)
 	Local nAbs := Abs(nNum) As Numeric
@@ -2168,6 +2195,9 @@ Return cSinal+Left(cDig,nExp+1)+cSepDec+SubStr(cDig,nExp+2)
 
 /*/{Protheus.doc} NomeFunc
 Normaliza o nome da função (remove prefixos _xlfn. _xlws.)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function NomeFunc(cNome As Character)
 	cNome	:= Upper(cNome)
@@ -2184,6 +2214,9 @@ Return cNome
 
 /*/{Protheus.doc} PalavraEm
 Palavra (letras, dígitos, _ . $) a partir da posição
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function PalavraEm(cTxt As Character, nPos As Numeric)
 	Local nIni := nPos As Numeric
@@ -2200,6 +2233,9 @@ Return SubStr(cTxt,nIni,nPos-nIni)
 
 /*/{Protheus.doc} RefCel
 Converte "A1"/"$A$1" em {nLin,nCol,lLinhaAbsoluta,lColunaAbsoluta}; {} se não for referência de célula
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function RefCel(cRef As Character)
 	Local nCont As Numeric
@@ -2245,6 +2281,9 @@ Return {nLin,nCol,lAbsLin,lAbsCol}
 
 /*/{Protheus.doc} RefColuna
 Converte "A"/"$A" em número da coluna; 0 se não for coluna
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function RefColuna(cRef As Character)
 	Local cCol := StrTran(Upper(cRef),"$","") As Character
@@ -2328,6 +2367,8 @@ Return ColLetra(nCol)
 /*/{Protheus.doc} Motor::Criterio
 Compila o critério das funções *IF/*IFS/D* (">10", "<>", "a*", 5, ...)
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param xCrit, variant, Critério (escalar)
 @return array, {cOperador,xValor,lCuringa,lNumero}
 /*/
@@ -2364,6 +2405,8 @@ Return {cOp,xVal,("*" $ cTxt .OR. "?" $ cTxt .OR. "~" $ cTxt) .AND. (cOp=="=" .O
 /*/{Protheus.doc} Motor::TestaCrit
 Testa um valor contra o critério compilado
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Method TestaCrit(aCrit As Array, xVal As Variant) Class Motor
 	Local cOp := aCrit[1] As Character
@@ -2434,6 +2477,8 @@ Return .F.
 /*/{Protheus.doc} Motor::Curinga
 Compara texto com padrão de curingas do Excel (* ? e ~ como escape), sem diferenciar maiúsculas
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Method Curinga(cPadrao As Character, cTxt As Character) Class Motor
 Return Curinga(Maius(cPadrao),1,Maius(cTxt),1)
@@ -2482,6 +2527,8 @@ Return nT>Len(cT)
 /*/{Protheus.doc} Motor::Precisa
 Áreas de células lidas pela fórmula (análise estática da árvore)
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cFormula, character, Fórmula
 @param nPla, numeric, Planilha da célula da fórmula
 @param nLin, numeric, Linha da célula
@@ -2502,6 +2549,7 @@ Method Precisa(cFormula As Character, nPla As Numeric, nLin As Numeric, nCol As 
 		lRet	:= PrecisaNo(self,::ArvoreRel(cFormula,nLin,nCol,@nDL,@nDC),@aAreas,0,nDL,nDC)
 	Catch oErro
 		lRet	:= .T.	//Fórmula inválida não lê células
+		FWLogMsg( "WARN", /*cTransactionId*/,"ADVPLEXCEL"/*cGroup*/,/*cCategory*/,/*cStep*/,/*cMsgId*/,oErro:Description/*cMessage*/,/*nMensure*/,/*nElapseTime*/,/*aMessage*/)
 	EndTry
 	::nPla	:= aSalva[1]
 	::nLin	:= aSalva[2]
@@ -2583,6 +2631,8 @@ Return .T.
 /*/{Protheus.doc} Motor::SetLocal
 Define a localidade usada nas conversões texto/número e nos formatos de TEXT/FIXED/DOLLAR/VALUE
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cLocal, character, "pt-BR" (padrão) ou "en-US"
 /*/
 Method SetLocal(cLocal As Character) Class Motor
@@ -2609,6 +2659,9 @@ Return Minus(cTxt)
 
 /*/{Protheus.doc} Maius
 Converte em maiúsculas incluindo letras acentuadas da página de código 1252
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Maius(cTxt As Character)
 	Local cRet As Character
@@ -2635,6 +2688,9 @@ Return cRet
 
 /*/{Protheus.doc} Minus
 Converte em minúsculas incluindo letras acentuadas da página de código 1252
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Minus(cTxt As Character)
 	Local cRet As Character
@@ -2672,6 +2728,8 @@ Return .F.
 /*/{Protheus.doc} Motor::SerialData
 Data serial do Excel (sistema 1900) para {ano,mês,dia}; serial 60 é o 29/02/1900 fictício do Excel
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Method SerialData(nSerial As Numeric) Class Motor
 	Local dData As Date
@@ -2692,6 +2750,8 @@ Return {Year(dData),Month(dData),Day(dData)}
 /*/{Protheus.doc} Motor::DataSerial
 {ano,mês,dia} para data serial do Excel com as regras da função DATE (ano 0-1899 soma 1900, mês e dia excedentes)
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @return variant, serial ou Erro #NUM!
 /*/
 Method DataSerial(nAno As Numeric, nMes As Numeric, nDia As Numeric) Class Motor
@@ -2735,6 +2795,8 @@ Return Mod(Int(nSerial)+6,7)+1
 Converte texto de data e/ou hora em serial do Excel conforme a localidade
 ("31/12/2024", "2024-12-31", "15-jan-2024", "15 de janeiro de 2024", "10:30", "31/12/2024 10:30:15", "1:05 PM")
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @return variant, serial ou nil
 /*/
 Method TxtData(cTxt As Character) Class Motor
@@ -2893,6 +2955,8 @@ Return nPos
 /*/{Protheus.doc} Motor::Indice
 Índice (hash) de busca exata de uma linha/coluna de matriz para PROCV/CORRESP/PROCX em áreas grandes
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param oMat, object, Matriz
 @param nPos, numeric, Coluna (lColuna) ou linha
 @param lColuna, logical, .T. indexa a coluna nPos
@@ -2946,6 +3010,8 @@ Return Mat():New(aV)
 /*/{Protheus.doc} Motor::NumData
 Número de data/hora: aceita texto de data ("31/12/2024") além de número
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Method NumData(xVal As Variant) Class Motor
 	Local nRet As Variant
@@ -2966,6 +3032,8 @@ Return ::Num(xVal)
 Árvore da fórmula reaproveitando o modelo: fórmulas que só diferem pelas referências relativas
 (ex.: =A2*B2, =A3*B3) compartilham a árvore, e as referências são deslocadas na avaliação
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param cFormula, character, Fórmula
 @param nLin, numeric, Linha da célula
 @param nCol, numeric, Coluna da célula
@@ -3022,6 +3090,9 @@ Return Ref():New(nPla,nL1,nC1,nL2,nC2,nPla2)
 /*/{Protheus.doc} ModeloChave
 Chave do modelo da fórmula: referências de célula relativas viram deslocamentos em relação à célula
 (como no estilo L1C1); textos, nomes e referências absolutas ficam como estão
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function ModeloChave(cFormula As Character, nLin As Numeric, nCol As Numeric)
 	Local cRet := "" As Character
@@ -3092,6 +3163,9 @@ Return cRet
 /*/{Protheus.doc} MenorIg
 a <= b com precisão total: os operadores de comparação do AdvPL consideram iguais números com diferença
 menor que ~1e-8; a diferença escalada (a-b)*1e8 recupera a precisão até ~1e-15
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function MenorIg(nA As Numeric, nB As Numeric)
 Return (nA-nB)*100000000<=0

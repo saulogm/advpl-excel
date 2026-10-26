@@ -120,6 +120,9 @@ Procura o valor no vetor
 @param nBusca, numeric, 1=início ao fim -1=fim ao início 2=binária crescente -2=binária decrescente
 @param oIdx, object, Índice hash para busca exata (opcional)
 @return numeric, posição (0 se não encontrou)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Procura(oM As Object, xProc As Variant, aVet As Array, nModo As Numeric, nBusca As Numeric, oIdx As Variant)
 	Local nCont As Numeric
@@ -254,6 +257,9 @@ Return If(aArgs[1]:aAreas==nil,1,Len(aArgs[1]:aAreas))
 
 /*/{Protheus.doc} fAddress
 ADDRESS(linha,coluna,[abs 1-4],[a1],[planilha])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fAddress(oM As Object, aArgs As Array)
 	Local nLin := oM:Num(aArgs[1]) As Variant
@@ -331,6 +337,9 @@ Return aArgs[nIdx+1]
 
 /*/{Protheus.doc} fIndex
 INDEX(matriz|referência,linha,[coluna],[área]) - retorna referência quando recebe referência
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fIndex(oM As Object, aArgs As Array)
 	Local xArg := aArgs[1] As Variant
@@ -407,6 +416,9 @@ Return oMat
 
 /*/{Protheus.doc} fOffset
 OFFSET(referência,linhas,colunas,[altura],[largura])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fOffset(oM As Object, aArgs As Array)
 	Local oRef := aArgs[1] As Variant
@@ -446,12 +458,14 @@ Return oM:NovaRef(oRef:nPla,nL1,nC1,nL1+nAlt-1,nC1+nLarg-1)
 
 /*/{Protheus.doc} fIndirect
 INDIRECT(texto,[a1]) - referência A1 ou L1C1 (R1C1, R[1]C[-1], Plan!R1C1:R2C2) ou nome
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fIndirect(oM As Object, aArgs As Array)
 	Local cRef := oM:Txt(aArgs[1]) As Variant
 	Local lA1 := If(Len(aArgs)>=2 .AND. ValType(aArgs[2])!="U",oM:Log(aArgs[2]),.T.) As Variant
 	Local xRet As Variant
-	Local oErro As Object
 	Local cPlan := "" As Character
 	Local nPla As Numeric
 	Local aPartes As Array
@@ -540,6 +554,9 @@ Return nil
 
 /*/{Protheus.doc} fMatch
 MATCH(valor,matriz,[tipo 1|0|-1])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fMatch(oM As Object, aArgs As Array)
 	Local xProc := oM:Esc(aArgs[1]) As Variant
@@ -576,6 +593,9 @@ Return nPos
 
 /*/{Protheus.doc} fXMatch
 XMATCH(valor,matriz,[correspondência 0|-1|1|2],[pesquisa 1|-1|2|-2])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fXMatch(oM As Object, aArgs As Array)
 	Local xProc := aArgs[1] As Variant
@@ -585,7 +605,6 @@ Static Function fXMatch(oM As Object, aArgs As Array)
 	Local aVet As Variant
 	Local lColuna := .T. As Logical
 	Local oRes As Object
-	Local oProc As Object
 	Local nI As Numeric
 	Local nJ As Numeric
 	Local nPos As Numeric
@@ -622,6 +641,9 @@ Return If(nPos==0,oM:Err("#N/A"),nPos)
 
 /*/{Protheus.doc} fVHLookup
 VLOOKUP/HLOOKUP(valor,tabela,índice,[aproximado=VERDADEIRO])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fVHLookup(oM As Object, aArgs As Array, lVertical As Logical)
 	Local xProc := oM:Esc(aArgs[1]) As Variant
@@ -664,6 +686,9 @@ Return oMat:aV[nIdx][nPos]
 
 /*/{Protheus.doc} fLookup
 LOOKUP(valor,vetor,[resultado]) e forma matricial LOOKUP(valor,matriz)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fLookup(oM As Object, aArgs As Array)
 	Local xProc := oM:Esc(aArgs[1]) As Variant
@@ -705,6 +730,9 @@ Return oMat:aV[oMat:nL][nPos]
 
 /*/{Protheus.doc} fXLookup
 XLOOKUP(valor,matriz_procura,matriz_retorno,[se_não_encontrado],[correspondência],[pesquisa])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fXLookup(oM As Object, aArgs As Array)
 	Local xProc := oM:Valor(aArgs[1]) As Variant
@@ -803,6 +831,9 @@ Return oRes
 
 /*/{Protheus.doc} fFilter
 FILTER(matriz,incluir,[se_vazio])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fFilter(oM As Object, aArgs As Array)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -874,6 +905,9 @@ Return oM:Compara(xA,xB)
 
 /*/{Protheus.doc} OrdenaIdx
 Ordena índices de linhas (ou colunas) por chaves {aValores,nOrdem} - ordenação estável
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function OrdenaIdx(oM As Object, nQtd As Numeric, aChaves As Array)
 	Local aIdx := Array(nQtd) As Array
@@ -920,6 +954,9 @@ Return oRes
 
 /*/{Protheus.doc} fSort
 SORT(matriz,[índice],[ordem 1|-1],[por_coluna])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fSort(oM As Object, aArgs As Array)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -957,6 +994,9 @@ Return Reordena(oM,oMat,aIdxOrd,lPorCol)
 
 /*/{Protheus.doc} fSortBy
 SORTBY(matriz,por_matriz1,[ordem1],por_matriz2,[ordem2],...)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fSortBy(oM As Object, aArgs As Array)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -989,6 +1029,9 @@ Return Reordena(oM,oMat,OrdenaIdx(oM,If(lCol,oMat:nC,oMat:nL),aChaves),lCol)
 
 /*/{Protheus.doc} fUnique
 UNIQUE(matriz,[por_coluna],[exatamente_uma_vez])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fUnique(oM As Object, aArgs As Array)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -1065,6 +1108,9 @@ Return oRes
 
 /*/{Protheus.doc} fTakeDrop
 TAKE/DROP(matriz,linhas,[colunas]) - negativo conta a partir do fim
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fTakeDrop(oM As Object, aArgs As Array, lTake As Logical)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -1124,6 +1170,9 @@ Return oRes
 
 /*/{Protheus.doc} fChooseRC
 CHOOSEROWS/CHOOSECOLS(matriz,n1,[n2],...) - negativo conta a partir do fim
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fChooseRC(oM As Object, aArgs As Array, lLinhas As Logical)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -1178,6 +1227,9 @@ Return oRes
 
 /*/{Protheus.doc} fStack
 VSTACK/HSTACK(matriz1,...) - completa com #N/A
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fStack(oM As Object, aArgs As Array, lVertical As Logical)
 	Local aMats := {} As Array
@@ -1219,6 +1271,9 @@ Return oRes
 
 /*/{Protheus.doc} fToColRow
 TOCOL/TOROW(matriz,[ignorar 0-3],[por_coluna])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fToColRow(oM As Object, aArgs As Array, lCol As Logical)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -1262,6 +1317,9 @@ Return oRes
 
 /*/{Protheus.doc} fWrap
 WRAPROWS/WRAPCOLS(vetor,quantidade,[preencher])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fWrap(oM As Object, aArgs As Array, lLinhas As Logical)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -1296,6 +1354,9 @@ Return oRes
 
 /*/{Protheus.doc} fTrimRange
 TRIMRANGE(referência,[linhas 0-3],[colunas 0-3]) - retira linhas/colunas vazias das bordas
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fTrimRange(oM As Object, aArgs As Array)
 	Local oRef := aArgs[1] As Variant
@@ -1358,6 +1419,9 @@ Return oM:ChamarLambda(xLam,aVals,.T.)
 
 /*/{Protheus.doc} fMap
 MAP(matriz1,[matriz2,...],lambda)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fMap(oM As Object, aArgs As Array)
 	Local xLam := aArgs[Len(aArgs)] As Variant
@@ -1389,6 +1453,9 @@ Return oRes
 
 /*/{Protheus.doc} fReduce
 REDUCE/SCAN([valor_inicial],matriz,lambda(acumulador,valor))
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fReduce(oM As Object, aArgs As Array, lScan As Logical)
 	Local xAcum := If(Len(aArgs)==3,oM:Valor(aArgs[1]),nil) As Variant
@@ -1415,6 +1482,9 @@ Return xAcum
 
 /*/{Protheus.doc} fByRowCol
 BYROW/BYCOL(matriz,lambda(linha|coluna))
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fByRowCol(oM As Object, aArgs As Array, lLinha As Logical)
 	Local oMat := MatArg(oM,aArgs[1]) As Object
@@ -1470,6 +1540,9 @@ Return oRes
 /*/{Protheus.doc} Agrupa
 Agrupa linhas por chave e aplica a função de agregação (GROUPBY/PIVOTBY)
 @return array, {{cChave,aValoresCampos,aLinhas},...} na ordem de primeira ocorrência
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Agrupa(oM As Object, oCampos As Object, aLinhas As Array)
 	Local oIdx := tHashMap():New() As Object
@@ -1537,6 +1610,9 @@ Return nCab==1 .OR. nCab==3
 
 /*/{Protheus.doc} fGroupBy
 GROUPBY(campos_linha,valores,função,[cabeçalhos],[total],[ordem],[filtro],[relação])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fGroupBy(oM As Object, aArgs As Array)
 	Local oCampos := MatArg(oM,aArgs[1]) As Object
@@ -1621,6 +1697,9 @@ Return oRes
 
 /*/{Protheus.doc} fPivotBy
 PIVOTBY(campos_linha,campos_coluna,valores,função,[cabeçalhos],[total_linhas],[ordem_linhas],[total_colunas],[ordem_colunas],[filtro],[relativo])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fPivotBy(oM As Object, aArgs As Array)
 	Local oLin := MatArg(oM,aArgs[1]) As Object

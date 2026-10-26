@@ -131,7 +131,7 @@ Class Xlsx
 	Public Data nRowoutlineLevel	As variant
 	Public Data lRowcollapsed		As Logical
 	Public Data lRowHidden			As Logical
-	
+
 	Public Data osharedStrings		As Object
 	Public Data lArquivo			As Logical
 	Public Data lMemoria			As Logical
@@ -220,15 +220,15 @@ Class Xlsx
 	Public METHOD NewFldTab()		//Cria definição de campo para Alias2Tab
 	Public METHOD DefSubTotal()		//Cria definição de subtotal
 	Public METHOD AddSubTotal()		//Cria nova definição de subtotal para alias2tab
-	
+
 	Public METHOD InsertRowEmpty()	//Cria linhas vazia
 	Public METHOD InsertCellEmpty()	//Cria células vazias
 	Public METHOD NivelLinha()
 	Public METHOD SetsumBelow()		//Configurar linha resumo de agrupamento de linhas abaixo
 	Public METHOD SetsumRight()		//Configurar coluna resumo a direita
-	Public METHOD SetRowLevel()		//Configurar as linhas para agrupamento 
+	Public METHOD SetRowLevel()		//Configurar as linhas para agrupamento
 	Public METHOD SetRowH()			//Configurar tamanho das linhas
-	Public METHOD SetColLevel()		//Configurar as linhas para agrupamento 
+	Public METHOD SetColLevel()		//Configurar as linhas para agrupamento
 	Public METHOD AddRow()			//Adiciona linhas acima e move as demais para baixo
 	Public METHOD AddCol()			//Adiciona Colunas a direita e move as demais para esquerda
 	//Controle de layout, impressão e pagina
@@ -551,7 +551,7 @@ METHOD New(cNomeFile As Character, cFileOpen As Character, cTipo As Character) a
 		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument","xl/workbook.xml")
 		::add_rels(nPos,"http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties","docProps/core.xml")
 		::add_rels(nPos,"http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties","docProps/app.xml")
-		
+
 		If ::lMemoria
 			::osharedStrings	:= ::new_sharedString()
 		Else
@@ -614,7 +614,7 @@ Method Open(cFile As Character, cSenha As Character) Class Xlsx
 		::lMemoria	:= .T.
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\',.F.)
 		FWMakeDir("\tmpxls\"+::cTmpFile+'\'+::cNomeFile+'\',.F.)
-		
+
 		If Rat("\",cFile)>0
 			cNome	:= SubStr(cFile,Rat("\",cFile)+1)
 		else
@@ -687,7 +687,7 @@ Method Open(cFile As Character, cSenha As Character) Class Xlsx
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile,,"sharedstrings.rels")	//Ler todos sharedstrings
 		::LerPasta("\tmpxls\"+::cTmpFile+'\'+::cNomeFile)
 		LerChvStys(::self)
-		
+
 		aChildren	:= ::asheet[::nPlanilhaAt][1]:XPathGetChildArray("/xmlns:worksheet")
 		nPos	:= aScan(aChildren,{|x| lower(x[1])=="sheetdata"})
 		If nPos>0
@@ -1067,7 +1067,7 @@ Method LerPasta(cCaminho As Character, cCamIni As Character, cSufFiltro As Chara
 								(::cAliasCol)->TPVLR		:= "C"
 								(::cAliasCol)->TPSTY		:= "N"
 								// If "E" $ cValor
-									
+
 									// nPosE	:= At("E",cValor)
 									// cNumero	:= SubStr(cValor,1,nPosE-1)
 									// nFator	:= Val(SubStr(cValor,nPosE+2))
@@ -1134,7 +1134,7 @@ Method LerPasta(cCaminho As Character, cCamIni As Character, cSufFiltro As Chara
 						::asheet[::nPlanilhaAt][6]	:= cTarget
 						fErase(cTarget)
 					EndIf
-					
+
 					// If ::asheet[::nPlanilhaAt][1]:XPathHasNode("/xmlns:worksheet/xmlns:tableParts")
 					// 	For nCont3:=1 to ::asheet[::nPlanilhaAt][1]:XPathChildCount("/xmlns:worksheet/xmlns:tableParts")
 					// 		cIDTable	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt("/xmlns:worksheet/xmlns:tableParts/xmlns:tablePart["+cValToChar(nCont3)+"]","id")
@@ -1689,7 +1689,7 @@ Configurar o Cabeçalho
 @since 17/03/2021
 @param cLeft, character, Texto seção da esquerda
 @param cCenter, character, Texto seção central
-@param cRight, character, Texto seção direita 
+@param cRight, character, Texto seção direita
 /*/
 METHOD SetHeader(cLeft As Character, cCenter As Character, cRight As Character) Class Xlsx
 	Local cValor := "" As Character
@@ -1722,7 +1722,7 @@ Configurar o Rodapé
 @since 17/03/2021
 @param cLeft, character, Texto seção da esquerda
 @param cCenter, character, Texto seção central
-@param cRight, character, Texto seção direita 
+@param cRight, character, Texto seção direita
 /*/
 METHOD SetFooter(cLeft As Character, cCenter As Character, cRight As Character) Class Xlsx
 	Local cValor := "" As Character
@@ -2022,7 +2022,7 @@ METHOD Cell(nLinha As Numeric, nColuna As Numeric, xValor As Variant, cFormula A
 	If ::adimension[1][2]<nColuna	//Maior Coluna
 		::adimension[1][2]	:= nColuna
 	Endif
-	
+
 Return self
 /*/{Protheus.doc} Xlsx::AddCol
 Adiciona colunas vazias e move para esquerdas as demais
@@ -2123,7 +2123,7 @@ Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class 
 			cCHeight	:= " "
 			nHeight		:= 0
 		Endif
-		
+
 
 		If ::lMemoria
 			For nCont:=nLinha to nLinha2
@@ -2135,7 +2135,7 @@ Method SetRowH(nHeight As Numeric, nLinha As Numeric, nLinha2 As Numeric) Class 
 					SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"customHeight",cCHeight)
 					SetAtrr(::asheet[::nPlanilhaAt][1],cPathLinha,"ht",cValToChar(nHeight))
 				EndIf
-			Next 
+			Next
 		Else
 			//Inserir linhas que não existe para definir o tamanho
 			::InsertRowEmpty(nLinha,nLinha2)
@@ -2337,7 +2337,7 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 	//Local cTmpVar
 	If ::nLinha<=0 .OR. ::nColuna<=0
 		Return self
-	EndIf	
+	EndIf
 	::CalcDimAtu(::nPlanilhaAt,::nLinha,::nColuna)
 	If ::lCalcFormula .AND. (!Empty(::aFmlPend) .OR. ValType(cFormula)=="C")
 		::CalcPendente(::nPlanilhaAt,::nLinha,::nColuna,cFormula,ValType(cFormula)=="C" .AND. !Empty(cFormula) .AND. cTipo=="U")
@@ -2577,7 +2577,7 @@ Method SetValue(xValor As Variant, cFormula As Character) Class Xlsx
 			(::cAliasCol)->VLR		:= GetNumDtTm(xValor)
 			// (::cAliasCol)->VLRNUM	:= xValor:nNumero
 			// (::cAliasCol)->VLRDEC	:= xValor:nDecimal
-			
+
 			// (::cAliasCol)->VLRTXT	:= cValToChar(xValor:GetStrNumber())
 			// (::cAliasCol)->TPVLR	:= "C"	//Caracteres
 		ElseIf cTipo=="U"
@@ -3395,7 +3395,7 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 			Endif
 		Next
 	Next
-	
+
 	SetAtrr(::asheet[::nPlanilhaAt][1],"/xmlns:worksheet/xmlns:mergeCells","count", cValToChar(Val(::asheet[::nPlanilhaAt][1]:XPathGetAtt("xmlns:worksheet/xmlns:mergeCells","count"))+1) )
 	::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:mergeCells","mergeCell", "" )
 	::asheet[::nPlanilhaAt][1]:XPathAddAtt( "/xmlns:worksheet/xmlns:mergeCells/xmlns:mergeCell[last()]","ref", cColuna+cValToChar(nLinha)+":"+cColuna2+cValToChar(nLinha2) )
@@ -3422,7 +3422,7 @@ Method mergeCells(nLinha As Numeric, nColuna As Numeric, nLinha2 As Numeric, nCo
 	//	For nCont:=nColuna+1 to nColuna2
 	//		::Pos(nLinha,nCont):SetValue(""):SetStyle(nStyle)
 	//	Next
-	//	//Não copia para outras linhas, pois ainda pode existir informação na mesma linha 
+	//	//Não copia para outras linhas, pois ainda pode existir informação na mesma linha
 	EndIf
 
 Return
@@ -3998,7 +3998,7 @@ METHOD CorPreenc(cFgCor As Character, cBgCor As Character, cType As Character, c
 		Elseif ValType(cFgCor)=="N"
 			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:fgColor", "indexed"	, cValToChar(cFgCor) )
 		Else
-			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:fgColor", "indexed"	, "64" )	
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:fgColor", "indexed"	, "64" )
 		Endif
 		::oStyle:XPathAddNode( cLocal+"/xmlns:fill[last()]/xmlns:patternFill", "bgColor", "" )
 		If ValType(cBgCor)=="C"
@@ -4006,7 +4006,7 @@ METHOD CorPreenc(cFgCor As Character, cBgCor As Character, cType As Character, c
 		Elseif ValType(cBgCor)=="N"
 			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:bgColor", "indexed"	, cValToChar(cBgCor) )
 		Else
-			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:bgColor", "indexed"	, "65" )	
+			::oStyle:XPathAddAtt( cLocal+"/xmlns:fill[last()]/xmlns:patternFill/xmlns:bgColor", "indexed"	, "65" )
 		Endif
 	Endif
 
@@ -4046,7 +4046,7 @@ METHOD EfeitoPreenc(nAngulo As Numeric, aCores As Array, ctype As Character, nle
 	If ValType(nPos)=="N"
 		Return nPos
 	EndIf
-	
+
 	::oStyle:XPathAddNode( cLocal, "fill", "" )
 	nPos	:= Val(::oStyle:XPathGetAtt(cLocal,"count"))+1
 	If cLocal=="/xmlns:styleSheet/xmlns:fills"
@@ -4691,7 +4691,7 @@ Informa o id do formato de numero (numFmtId) do estilo
 /*/
 Method SetnumFmt(numFmtId As Numeric, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::numFmtId	:= numFmtId
 	Endif
@@ -4717,7 +4717,7 @@ Informa o id da fonte do estilo
 /*/
 Method Setfont(fontId As Variant, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::fontId	:= fontId
 	Endif
@@ -4743,7 +4743,7 @@ Informa o id do preenchimento (cor de fundo) do estilo
 /*/
 Method Setfill(fillId As Variant, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::fillId	:= fillId
 	Endif
@@ -4769,7 +4769,7 @@ Informa o id da borda do estilo
 /*/
 Method Setborder(nborderId As Numeric, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::borderId	:= nborderId
 	Endif
@@ -4795,7 +4795,7 @@ Informa o xfId (estilo base) do estilo
 /*/
 Method SetxfId(xfId As Variant, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::xfId	:= xfId
 	Endif
@@ -4821,7 +4821,7 @@ Informa o array de alinhamentos/protecao do estilo
 /*/
 Method SetaValores(aValores As Array, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::aValores	:= aValores
 	Endif
@@ -4847,7 +4847,7 @@ Informa outros atributos xml do estilo, nao mapeados pelos demais setters
 /*/
 Method SetAtt(aOutrosAtributos As Array, lProprio As Logical) Class Style
 	Local nCont As Numeric
-	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai 
+	Default lProprio	:= .T.	//Se .T. é um estilo proprio, se não é do pai
 	If lProprio
 		::aOutrosAtributos	:= aOutrosAtributos
 	Endif
@@ -4989,7 +4989,7 @@ Method SetStyFmt(nStyle As Numeric, numFmtId As Numeric) Class Xlsx
 	Local cChave As Character
 	PARAMTYPE 0	VAR nStyle				AS NUMERIC
 	PARAMTYPE 1	VAR numFmtId			AS NUMERIC		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
@@ -5037,7 +5037,7 @@ Method SetStyFont(nStyle As Numeric, fontId As Variant) Class Xlsx
 	Local cChave As Character
 	PARAMTYPE 0	VAR nStyle				AS NUMERIC
 	PARAMTYPE 1	VAR fontId			AS NUMERIC		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(fontId)=="N" .AND. (fontId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fonts","count"))
@@ -5086,7 +5086,7 @@ Method SetStyFill(nStyle As Numeric, fillId As Variant) Class Xlsx
 	Local cChave As Character
 	PARAMTYPE 0	VAR nStyle			AS NUMERIC
 	PARAMTYPE 1	VAR fillId			AS NUMERIC		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(fillId)=="N" .AND. (fillId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:fills","count"))
@@ -5135,7 +5135,7 @@ Method SetStyborder(nStyle As Numeric, nborderId As Numeric) Class Xlsx
 	Local cChave As Character
 	PARAMTYPE 0	VAR nStyle			AS NUMERIC
 	PARAMTYPE 1	VAR nborderId		AS NUMERIC		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	ElseIf ValType(nborderId)=="N" .AND. (nborderId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
@@ -5184,7 +5184,7 @@ Method SetStyxf(nStyle As Numeric, xfId As Variant) Class Xlsx
 	Local cChave As Character
 	PARAMTYPE 0	VAR nStyle		AS NUMERIC
 	PARAMTYPE 1	VAR xfId		AS NUMERIC		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
@@ -5226,7 +5226,7 @@ Method SetStyaValores(nStyle As Numeric, aValores As Array) Class Xlsx
 	Local cChave As Character
 	PARAMTYPE 0	VAR nStyle			AS NUMERIC
 	PARAMTYPE 1	VAR aValores		AS ARRAY		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
@@ -5306,7 +5306,7 @@ Method SetStyaOutrosAtributos(nStyle As Numeric, aOutrosAtributos As Array) Clas
 	Local aDel := {} As Array
 	PARAMTYPE 0	VAR nStyle					AS NUMERIC
 	PARAMTYPE 1	VAR aOutrosAtributos		AS ARRAY		OPTIONAL
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
@@ -5375,7 +5375,7 @@ Method CreateStyle(nStyle As Numeric, numFmtId As Numeric, fontId As Variant, fi
 	PARAMTYPE 5	VAR xfId				AS NUMERIC		OPTIONAL
 	PARAMTYPE 6	VAR aValores			AS ARRAY		OPTIONAL
 	PARAMTYPE 7	VAR aOutrosAtributos	AS ARRAY		OPTIONAL DEFAULT {}
-	
+
 	If nStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(nStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
@@ -5389,7 +5389,7 @@ Method CreateStyle(nStyle As Numeric, numFmtId As Numeric, fontId As Variant, fi
 	ElseIf ValType(nborderId)=="N" .AND. (nborderId+1)>Val(::oStyle:XPathGetAtt("/xmlns:styleSheet/xmlns:borders","count"))
 		UserException("Xlsx - Borda informada("+cValToChar(nborderId)+") não definido. Utilize o indice informado pelo metodo :Borda()")
 	Endif
-	
+
 	If ValType(numFmtId)=="U" .AND. ::oStyle:XPathGetAtt(cXPath,"applyNumberFormat")=="1"
 		numFmtId	:= Val(::oStyle:XPathGetAtt(cXPath,"numFmtId"))
 	Endif
@@ -5734,9 +5734,9 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 	EndIf
 	If ValType(xStyle)=="O" .AND. xStyle:ClassName()=="CUSTOM.EXCEL.STYLE"
 		xStyle	:= xStyle:GetId()
-		cTpAlte	:= "N"	
+		cTpAlte	:= "N"
 	Endif
-	
+
 	If cTpAlte=="N" .AND. xStyle>=0 .AND. xStyle+1>::nQtdStyle
 		UserException("Xlsx - Estilo informado("+cValToChar(xStyle)+") não definido. Utilize o indice informado pelo metodo AddStyles")
 	Endif
@@ -5833,7 +5833,7 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 			Else
 				cAliasQry := GetNextAlias()
 				//Verifica se tem celula com tipo datatime definido
-				cQuery	:= "SELECT DISTINCT STY FROM "+::cTabCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" "	
+				cQuery	:= "SELECT DISTINCT STY FROM "+::cTabCol+" WHERE PLA="+cValToChar(::nPlanilhaAt)+" AND LIN>="+cValToChar(nLinha)+" AND LIN<="+cValToChar(nLinha2)+" AND COL>="+cValToChar(nColuna)+" AND COL<="+cValToChar(nColuna2)+" "
 				cQuery	+= " AND D_E_L_E_T_=' '"
 				If !::ExecSql(cAliasQry,cQuery,::cDriver)
 					UserException("Xlsx - Erro ao atualiza estilo. "+TCSqlError())
@@ -5859,7 +5859,7 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 		If ::lArquivo
 			nStyAtu		:= oC:GetAtributo("s")
 			nStyle		:= xStyle:GetId(nLinha,nColuna)
-			If ValType(nStyAtu)=="N" .AND. ::GetStyleAtt(nStyle,"applyNumberFormat")!="1" .AND. ::GetStyleAtt(nStyAtu,"applyNumberFormat")=="1" 
+			If ValType(nStyAtu)=="N" .AND. ::GetStyleAtt(nStyle,"applyNumberFormat")!="1" .AND. ::GetStyleAtt(nStyAtu,"applyNumberFormat")=="1"
 				nNumFmtId	:= Val(::GetStyleAtt(nStyAtu,"numFmtId"))
 				nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
 			Endif
@@ -5911,8 +5911,8 @@ METHOD SetStyle(xStyle As Variant, nLinha As Numeric, nColuna As Numeric, nLinha
 				For nCol:=nColuna to nColuna2		//Ler as colunas
 					nStyle		:= xStyle:GetId(nLin,nCol)
 					If (::cAliasCol)->(DbSeek(Str(::nPlanilhaAt,10)+Str(nLin,10)+Str(nCol,10)))
-						//Se não tem fmrid no estilo da regra e tem no estilo atual 
-						If ::GetStyleAtt(nStyle,"applyNumberFormat")!="1" .AND. ::GetStyleAtt((::cAliasCol)->STY,"applyNumberFormat")=="1" 
+						//Se não tem fmrid no estilo da regra e tem no estilo atual
+						If ::GetStyleAtt(nStyle,"applyNumberFormat")!="1" .AND. ::GetStyleAtt((::cAliasCol)->STY,"applyNumberFormat")=="1"
 							nNumFmtId	:= Val(::GetStyleAtt((::cAliasCol)->STY,"numFmtId"))
 							nStyle		:= ::CreateStyle(nStyle,nNumFmtId)	//Cria outro com base no atual com formato data
 						Endif
@@ -6065,7 +6065,7 @@ Return nPos
 METHOD Pane(cActivePane As Character, cState As Character, cRef As Character, nySplit As Numeric, nxSplit As Numeric) Class Xlsx
 	Local nPos As Numeric
 	Default cActivePane	:= "bottomLeft"
-	
+
 	//::asheet[::nPlanilhaAt][1]:XPathDelNode( "/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView" )
 	//::asheet[::nPlanilhaAt][1]:XPathAddNode( "/xmlns:worksheet/xmlns:sheetViews", "sheetView", "" )
 	// ::asheet[::nPlanilhaAt][1]:XPathSetAtt("/xmlns:worksheet/xmlns:sheetViews/xmlns:sheetView", "workbookViewId"	, "0" )
@@ -6156,7 +6156,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 	PARAMTYPE 1	VAR cAutor		AS CHARACTER		OPTIONAL Default ""
 	Default nWidth	:= 96
 	Default nHeight	:= 64.5
-	
+
 	If Empty(::asheet[::nPlanilhaAt][3])
 		::asheet[::nPlanilhaAt][3]	:= ::new_comment()
 		::add_rels("\xl\worksheets\_rels\sheet"+cValToChar(::nPlanilhaAt)+".xml.rels","http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments","../comments"+cValToChar(::nPlanilhaAt)+".xml")
@@ -6173,7 +6173,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 			::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Default[last()]", "Extension"	, "vml" )
 			::ocontent_types:XPathAddAtt( "/xmlns:Types/xmlns:Default[last()]", "ContentType", "application/vnd.openxmlformats-officedocument.vmlDrawing" )
 		EndIf
-		
+
 		::asheet[::nPlanilhaAt][5]	:= ::new_vmlDrawing()
 		::asheet[::nPlanilhaAt][6]	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\xl\drawings\vmlDrawing"+cValToChar(::nPlanilhaAt)+".vml"
 
@@ -6297,7 +6297,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 		else
 			cPos	:= cValToChar(nPos-1)
 		EndIf
-		
+
 		::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList","comment","")
 		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]","ref",cRef)
 		::asheet[::nPlanilhaAt][3]:XPathAddAtt("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]","authorId",cPos)
@@ -6352,7 +6352,7 @@ METHOD AddComment(cText As Character, cAutor As Character, nleft As Numeric, nto
 		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to","row","10")
 		// ::asheet[::nPlanilhaAt][3]:XPathAddNode("/xmlns:comments/xmlns:commentList/xmlns:comment[last()]/xmlns:commentPr/xmlns:anchor/xmlns:to","rowOff","0")
 	EndIf
-	
+
 
 Return self
 
@@ -6614,7 +6614,7 @@ Fecha o processamento, libera os objetos internos e remove os arquivos e tabelas
 @since 04/07/2026
 /*/
 Method Destroy() Class Xlsx
-	
+
 Return ::Close()
 
 /*/{Protheus.doc} Save
@@ -6712,7 +6712,7 @@ Method Save(cLocal As Character) Class Xlsx
 			UserException("Xlsx - Erro ao limpar celulas vazias celulas. "+TCSqlError())
 		EndIf
 	EndIf
-	
+
 	FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\")
 	//FWMakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docprops")
 	MakeDir("\tmpxls\"+::cTmpFile+"\"+::cNomeFile+"\docProps",,.F.)
@@ -6786,7 +6786,7 @@ Method Save(cLocal As Character) Class Xlsx
 			::nPlanilhaAt	:= nCont
 			::AddTamCol(1,1,12,.T.,.F.)
 		Endif
-		
+
 		If !Empty(::aPlanilhas[nCont][5])	//tableParts
 			::aPlanilhas[nCont][6]:PutTxml(::asheet[nCont][1],"/xmlns:worksheet")
 		Endif
@@ -7437,7 +7437,7 @@ Method SetColLevel(nMin As Numeric, nMax As Numeric, nNivel As Numeric, lFechado
 
 	For nCont:=nMin to nMax
 		cPath	:= ColNew(self,nCont)
-		
+
 		cNivelAtu	:= ::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "outlineLevel")
 		If !Empty(cNivelAtu)
 			If nNivel>Val(cNivelAtu)
@@ -7502,7 +7502,7 @@ Static Function ColNew(oExcel As Object, nCont As Numeric)
 	Else
 		oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathAddAtt(cPath, "min"		, cValToChar(nCont) )
 	Endif
-	
+
 	If !Empty(oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathGetAtt(cPath, "max"))
 		oExcel:asheet[oExcel:nPlanilhaAt][1]:XPathSetAtt(cPath, "max"		, cValToChar(nCont) )
 	Else
@@ -7531,7 +7531,7 @@ Method AddTamCol(nMin As Numeric, nMax As Numeric, nWidth As Numeric, lbestFit A
 	PARAMTYPE 3	VAR lbestFit		AS LOGICAL		OPTIONAL DEFAULT .T.
 	PARAMTYPE 4	VAR lcustomWidth	AS LOGICAL		OPTIONAL DEFAULT .T.
 	nWidth := nWidth+0.7109375	//Microsoft excel soma esse valor na coluna
-	
+
 	If ValType(::nPlanilhaAt)=="U"
 		UserException("Xlsx - Planilha não inicializada. Utilize o metodo ADDPlan")
 	EndIf
@@ -7539,7 +7539,7 @@ Method AddTamCol(nMin As Numeric, nMax As Numeric, nWidth As Numeric, lbestFit A
 
 	For nCont:=nMin to nMax
 		cPath	:= ColNew(self,nCont)
-		
+
 		If !Empty(::asheet[::nPlanilhaAt][1]:XPathGetAtt(cPath, "width"))
 			::asheet[::nPlanilhaAt][1]:XPathSetAtt(cPath, "width"	, cValToChar(nWidth) )
 		Else
@@ -7869,7 +7869,7 @@ Method DefBulkLine(aCampos As Array, xRegraStyle As Variant, lMontarLin As Logic
 				 ">'}"
 		bRow	:= &(cBloco)
 	EndIf
-	
+
 	AADD(aDadosBulk,bRow)	//Primeiro dado é a definição da linha
 	If ::lArquivo
 		For nCont:=1 to Len(aCampos)
@@ -8323,7 +8323,7 @@ Preeencher excel com conteudo de alias
 @param lExibirCab, logical, Se vai exibir o cabeçario
 @param lCombo, logical, Se vai traduzir os campos do tipo combobox
 @param aOnlyFieds, array, Se enviado somente os campos enviado vai ser exibido
-@param xRegraStyle, variant, Array com regra para formatação dinamica de linhas 
+@param xRegraStyle, variant, Array com regra para formatação dinamica de linhas
 @param oStyleLinha, object, Estilo padrão para as linhas
 @param lFiltro, logical, Habilitar filtro automatico
 @param lRTrim, logical, Habilitar rtrim para campos caractere
@@ -8483,7 +8483,7 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 		nTamDados	:= aCamposAlias[nCont][3]
 		If lSx3		//Verificar estrutura do SX3 para formatar os campos
 			cNomeCampo		:= AllTrim(FWX3Titulo(cCampo))
-			aStruct			:= FWSX3Util():GetFieldStruct( cCampo ) 
+			aStruct			:= FWSX3Util():GetFieldStruct( cCampo )
 			IF Empty(aStruct)
 				cNomeCampo	:= cCampo
 				nTamCampo	:= 1.2*Max(Len(cNomeCampo),aCamposAlias[nCont][3])
@@ -8556,7 +8556,7 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 				oStyTmp	:= ::Masc2Style(cMascara,oStyTmp)		//Criar Estilo baseado na picture numerica
 			EndIf
 		EndIf
-		
+
 		AADD(aCampos,::BulkNewField(nColAtu,cTipo,nTamDados,If(lCombo,cCombo,nil),oStyTmp,.F.,.F.,cCampo,cDados))
 		If lExibirCab .OR. lTabela
 			If lTabela
@@ -8661,7 +8661,7 @@ METHOD Alias2Tab(cAlias As Character, oStyle As Object, lSx3 As Logical, jCab As
 				cCampo	:= aCampos[nCont]["dados"]
 				xValor	:= (cAlias)->(&(cCampo))
 				::SetValueBulk(xValor,"")		//Seta valores em bulk
-				
+
 				If aCamposAlias[nCont][7]	//SubTotal
 					Eval(aCamposAlias[nCont][6],@aCamposAlias[nCont][8],xValor,cChave)
 				EndIf
@@ -9955,14 +9955,14 @@ Method NumToDateTime(nData As Numeric, nDec8 As Numeric) Class DateTime
 	EndIf
 
 	::dData	:= STOD("19000101")-2+nInt
-	
+
 	fSeg		:= DEC_MUL(fNumTime,f86400)
 	fMinuto		:= DEC_DIV(fSeg,f60)
 	fHora		:= DEC_DIV(fMinuto,f60)
 	nHora		:= Int(DEC_TO_DBL(fHora))
 	nMinuto		:= Int(DEC_TO_DBL(DEC_SUB(fMinuto,DEC_CREATE(cValToChar(nHora*60), 20, 19 ))))
 	nSegundo	:= Round(DEC_TO_DBL(DEC_SUB(fSeg,DEC_CREATE(cValToChar((nMinuto*60)+(nHora*60*60)), 20, 19 ))),0)
-	
+
 	::cTime	:= ""
 	// nHora	:= Int(nDec*86400/60/60)
 	// nMinuto	:= Int(((nDec*86400/60/60)-nHora)*60)
@@ -10881,7 +10881,7 @@ Static Function Xml2Xml(oXml As Object, oXml2 As Object, cPath As Character, cFi
 	Local nPosOrdem As Numeric
 	Default lAdd	:= .T.
 	Default cPath2	:= cPath
-	If !Empty(aOrdem) 
+	If !Empty(aOrdem)
 		nPosOrdem	:= aScan(aOrdem,{|x| x[1]==Replace(Replace(cPath,"[1]",""),"[last()]","")})
 	Endif
 	aChildren	:=  oXML2:XPathGetChildArray(cPath2)	//1-Titulo,2-Path,3-Value
@@ -11444,7 +11444,7 @@ Return(cRet)
 // 	If !DbSqlExec(::cAliasLin,"INSERT INTO "+::cTabLin+" (PLA,LIN) SELECT DISTINCT C.PLA,C.LIN FROM "+::cTabCol+" C LEFT JOIN "+::cTabLin+" L ON C.PLA=L.PLA AND C.LIN=L.LIN WHERE L.LIN IS NULL",::cDriver)
 // 		UserException("Xlsx - Erro ao incluir linhas. "+TCSqlError())
 // 	Endif
-// SELECT ROW_NUMBER() OVER (ORDER BY STR.ROWID)-1 SEQUENCIA,* 
+// SELECT ROW_NUMBER() OVER (ORDER BY STR.ROWID)-1 SEQUENCIA,*
 // FROM STRSC049180 STR
 // LEFT JOIN COLSC049160 COL
 // ON COL.TIPO='s' AND COL.VLRNUM=STR.POS
@@ -11452,211 +11452,6 @@ Return(cRet)
 // ORDER BY 1
 // ;
 // Return
-//EM DESENVOLVIMENTO
-/*
-formula=
- expression ;
-expression=
- "(", expression, ")" |
- constant |
- prefix-operator, expression |
- expression, infix-operator, expression |
- expression, postfix-operator |
- cell-reference |
- function-call |
- name ;
-*/
-Class xVariavel
-	Public Data cTipo				As Character //T=TEXTO;N=NUMERO;L=LOGICO;R=REFERENCIA;F=FUNÇÃO;E=EXPRESSÃO
-	Public Data xValor				As Variant //VALOR
-	Public Data cFuncao			As Character //Nome da função
-	Public Data cPrefixOper		As Character //Operador inicio
-	Public Data cPosfixOper		As Character //Operador final
-	Public Data cFormula    As Character
-	Public Method New()    As Object
-	Public Method GetValue()
-	Public Method SetValue()
-	Public Method ADDValue()
-	Public Method GetLen()
-	Public Method SetType()
-	Public Method SetFomula()
-	Public Method GetPre()
-	Public Method SetPre()
-	Public Method SetPos()
-	Public Method SetFuncao()
-EndClass
-
-Method New(cTipo As Character) as Object Class xVariavel
-	::xValor		:= {}
-	::cTipo			:= cTipo
-Return Self
-
-Method GetValue() Class xVariavel
-Return ::xValor
-
-Method GetLen() Class xVariavel
-Return Len(::xValor)
-
-Method SetValue(xValor As Variant) Class xVariavel
-	::xValor	:= xValor
-Return self
-
-Method ADDValue(xValorPar As Variant) Class xVariavel
-	// Local oValor	:= Var():New()
-	AADD(::xValor,xValorPar)
-	// oValor:SetValue(xValor)
-Return xValorPar
-
-Method SetType(cTipo As Character) Class xVariavel
-	::cTipo	:= cTipo
-Return self
-
-Method SetFomula(cFormula As Character) Class xVariavel
-	::cFormula	:= cFormula
-Return self
-
-Method GetPre(cPrefixOper As Character) Class xVariavel
-Return ::cPrefixOper
-
-Method SetPre(cPrefixOper As Character) Class xVariavel
-	::cPrefixOper	:= cPrefixOper
-	cPrefixOper		:= ""
-Return self
-
-Method SetPos(cPosfixOper As Character) Class xVariavel
-	::cPosfixOper	:= cPosfixOper
-	cPosfixOper		:= ""
-Return self
-
-Method SetFuncao(cFuncao As Character) Class xVariavel
-	::cFuncao	:= cFuncao
-Return self
-
-Static aAriOpe	:= {"-","%","^","*","/","+"}
-Static cTexOpe := "&" As Character
-Static aLogOpe := {"=","<",">"} As Array//{"=","<>","<","<=",">",">="}
-
-Static aModicadores := {"(",")","=","+","%","^","*","/","+","&","<",">",","}
-
-//User Function ytstfor2()
-//	Local cFormula := '"Valor:"&A1+SUM(C3:C4)+123.132*' As Character
-//	Local oRet As Object
-//	oParseFor	:= Formula():New()
-//	oRet	:= oParseFor:Parse(cFormula)
-//	VarInfo("oRet",oRet,,.F.)
-//Return
-
-Class Formula
-	Public Data aDados    As Array
-	Public Method New()    As Object
-	Public Method Parse()
-EndClass
-
-Method New() Class Formula
-Return self
-
-Method Parse(cFormula As Character, nQtdLido As Numeric) Class Formula
-	Local cTexto := "" As Character
-	Local cTexto2 := "" As Character
-	Local nTam := Len(cFormula) As Numeric
-	Local cTipo := "" As Character
-	Local cNumero := "" As Character
-	Local cValor As Character
-	Local lRef As Logical
-	Local oRet := xVariavel():New() As Object
-	Local nQtdSoma := 0 As Numeric
-	Local cPre := "" As Character
-	Local cPos As Character
-	Local nCont As Numeric
-	Local oTmp As Object
-
-	nQtdLido		:= 0
-	oRet:SetValue(Array(0))
-	For nCont:=1 to Len(cFormula)
-		nQtdSoma	:= 0
-		cNumero		:= ""
-		cValor		:= ""
-		cTexto		:= SubStr(cFormula,nCont,1)
-		cTexto2		:= SubStr(cFormula,nCont+1,1)	//Proximo letra
-		cTipo		:= tpExpressao(cTexto)
-		If cTexto=='"'	//Texto
-			cValor		:= ""
-			nCont++
-			While nCont<=nTam
-				cTexto		:= SubStr(cFormula,nCont,1)
-				If cTexto=='"'
-					Exit
-				Endif
-				cValor		+= cTexto
-				nCont++
-			EndDo
-			oTmp:=xVariavel():New()
-			oTmp:SetValue(cValor):SetType("T"):SetPre(@cPre):SetPos(@cPos)
-			oRet:ADDValue(oTmp)
-		ElseIf aScan(aAriOpe,cTexto)>0	//Operadores simples
-			cPre	+= cTexto
-		ElseIf aScan(aLogOpe,cTexto)>0	//Operadores logicos
-				cPre	+= cTexto
-		ElseIf cTexto=="&"				//Operadores texto
-			cPre	+= cTexto
-		ElseIf cTexto=="("
-			oTmp	:= ::Parse(SubStr(cFormula,nCont+1),@nQtdSoma)
-			oTmp:SetFuncao("("):SetType("E"):SetPre(@cPre):SetPos(@cPos)
-			oRet:ADDValue(oTmp)
-			nCont	+= nQtdSoma+2			
-		ElseIf cTexto==")"	//Sair da função
-			Exit
-		ElseIf cTexto==","
-			Loop
-		ElseIf cTipo=="N"
-			cNumero	:= cTexto
-			While (cTexto2=="." .OR. tpExpressao(cTexto2)=="N") .AND. nCont<=nTam
-				cNumero	+= cTexto2
-				nCont++
-				cTexto2	:= SubStr(cFormula,nCont+1,1)
-			EndDo
-			oTmp:=xVariavel():New()
-			oTmp:SetValue(Val(cNumero)):SetType("N"):SetPre(@cPre):SetPos(@cPos)
-			oRet:ADDValue(oTmp)
-		ElseIf cTipo=="C"
-			lRef		:= .F.
-			cValor		:= ""
-			While aScan(aModicadores,cTexto)==0 .AND. nCont<=nTam
-				If tpExpressao(cTexto)=="N" .OR. cTexto==":"
-					lRef		:= .T.
-				Endif
-				cValor		+= cTexto
-				nCont++
-				cTexto		:= SubStr(cFormula,nCont,1)
-			EndDo
-			If lRef
-				oTmp:=xVariavel():New()
-				oTmp:SetValue(cValor):SetType("R"):SetPre(@cPre):SetPos(@cPos)
-				oRet:ADDValue(oTmp)
-			ElseIf cTexto=="("		//Formula
-				// oRet:SetFuncao(cValor)
-				oTmp	:= ::Parse(SubStr(cFormula,nCont+1),@nQtdSoma)
-				oTmp:SetFuncao(cValor):SetType("F"):SetPre(@cPre):SetPos(@cPos)
-				oRet:ADDValue(oTmp)
-				nCont	+= nQtdSoma+2
-			ElseIf cValor=="TRUE".or.cValor=="FALSE"
-				oTmp:=xVariavel():New()
-				oTmp:SetValue(cValor=="TRUE"):SetType("L"):SetPre(@cPre):SetPos(@cPos)
-				oRet:ADDValue(oTmp)
-			Else
-				oTmp:=xVariavel():New()
-				oTmp:SetValue(cValor):SetType("R"):SetPre(@cPre):SetPos(@cPos)
-				oRet:ADDValue(oTmp)
-			Endif
-			nCont--
-		Endif
-	Next
-	// If !Empty(cPos) .AND. oRet:GetLen()>0
-	// 	oRet:GetValue()[oRet:GetLen()]:SetPos(@cPos)
-	// Endif
-	nQtdLido	:= nCont-1
-	oRet:SetFomula(SubStr(cFormula,1,nQtdLido))
-Return oRet
 
 Static Function tpExpressao(cExpression As Character)
 	Local cTipo :="" As Character

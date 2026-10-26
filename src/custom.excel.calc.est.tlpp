@@ -71,6 +71,9 @@ Calcula a função de agregação pelo código do SUBTOTAL/AGGREGATE
 @param nFn, numeric, 1=AVERAGE 2=COUNT 4=MAX 5=MIN 6=PRODUCT 7=STDEV.S 8=STDEV.P 9=SUM 10=VAR.S 11=VAR.P 12=MEDIAN 13=MODE 14=LARGE 15=SMALL 16=PERCENTILE.INC 17=QUARTILE.INC 18=PERCENTILE.EXC 19=QUARTILE.EXC
 @param aNums, array, Números
 @param nK, numeric, Parâmetro k (14 a 19)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Calcula(oM As Object, nFn As Numeric, aNums As Array, nK As Variant)
 	Local nRet := 0 As Numeric
@@ -386,6 +389,9 @@ Return .T.
 
 /*/{Protheus.doc} fSubTotal
 SUBTOTAL(função, ref1, ...) - ignora outros SUBTOTAL/AGGREGATE; 101 a 111 ignoram linhas ocultas
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fSubTotal(oM As Object, aArgs As Array)
 	Local nFn := oM:Num(aArgs[1]) As Variant
@@ -413,6 +419,9 @@ Return AgregaRefs(oM,nFn,aRefs,.T.,lOcultas,.F.,nil)
 
 /*/{Protheus.doc} fAggregate
 AGGREGATE(função, opções, ref1, [ref2|k])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fAggregate(oM As Object, aArgs As Array)
 	Local nFn := oM:Num(aArgs[1]) As Variant
@@ -530,6 +539,9 @@ Return
 
 /*/{Protheus.doc} Descr
 Medidas descritivas: 1=AVEDEV 2=DEVSQ 3=GEOMEAN 4=HARMEAN 5=KURT 6=SKEW 7=SKEW.P
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Descr(oM As Object, aArgs As Array, nTipo As Numeric)
 	Local aNums := {} As Array
@@ -784,7 +796,6 @@ Static Function fModeMult(oM As Object, aArgs As Array)
 	Local nQtd As Numeric
 	Local nCont As Numeric
 	Local oRes As Object
-	Local lUsado As Logical
 	If xErro!=nil
 		Return xErro
 	EndIf
@@ -844,6 +855,9 @@ Return nil
 
 /*/{Protheus.doc} Par
 Estatísticas de pares (y,x): 1=CORREL/PEARSON 2=RSQ 3=SLOPE 4=INTERCEPT 5=STEYX 6=COVARIANCE.P 7=COVARIANCE.S
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Par(oM As Object, aArgs As Array, nTipo As Numeric)
 	Local aY := {} As Array
@@ -923,6 +937,9 @@ Regressão linear múltipla por mínimos quadrados (equações normais com Gauss-Jord
 @param aX, array, linhas de x (n x k)
 @param lConst, logical, Calcula o intercepto
 @return array, {aCoef(k+1: b0,b1..bk),aInvXtX,nSsResid,nSsReg,nGl} ou Erro
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function Regressao(oM As Object, aY As Array, aX As Array, lConst As Logical)
 	Local nN := Len(aY) As Numeric
@@ -1084,6 +1101,9 @@ Return nil
 
 /*/{Protheus.doc} fLinest
 LINEST/LOGEST(y_conhecidos,[x_conhecidos],[constante],[estatísticas])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fLinest(oM As Object, aArgs As Array, lLog As Logical)
 	Local aY := {} As Array
@@ -1141,6 +1161,9 @@ Return oRes
 
 /*/{Protheus.doc} fTrend
 TREND/GROWTH(y_conhecidos,[x_conhecidos],[novos_x],[constante])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fTrend(oM As Object, aArgs As Array, lLog As Logical)
 	Local aY := {} As Array

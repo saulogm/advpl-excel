@@ -78,6 +78,8 @@ Return
 /*/{Protheus.doc} FuncTxt::Formata
 Formata número com o código de formato do Excel (usado por TEXT e pela exibição de células)
 @type method
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param oM, object, Motor (localidade)
 @param xVal, variant, Valor (número ou texto)
 @param cFmt, character, Código de formato
@@ -654,6 +656,9 @@ Return cRet
 
 /*/{Protheus.doc} fTextAntesDepois
 TEXTBEFORE/TEXTAFTER(texto,delimitador,[instância],[sem_caixa],[fim_como_delim],[se_não_encontrado])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fTextAntesDepois(oM As Object, aArgs As Array, lAntes As Logical)
 	Local cTxt := oM:Txt(aArgs[1]) As Variant
@@ -664,7 +669,6 @@ Static Function fTextAntesDepois(oM As Object, aArgs As Array, lAntes As Logical
 	Local xErro := PrimErro(oM,{cTxt,nInst,nSemCaixa,nFimDelim}) As Variant
 	Local cBusca As Character
 	Local aPos As Array
-	Local nCont As Numeric
 	Local nIdx As Numeric
 	Local nIni As Numeric
 	Local nTam As Numeric
@@ -739,6 +743,9 @@ Return aRet
 
 /*/{Protheus.doc} fTextSplit
 TEXTSPLIT(texto,delim_coluna,[delim_linha],[ignora_vazio],[sem_caixa],[preencher_com])
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function fTextSplit(oM As Object, aArgs As Array)
 	Local cTxt := oM:Txt(aArgs[1]) As Variant
@@ -961,6 +968,9 @@ Return cRet
 
 /*/{Protheus.doc} Formata
 Formata o valor com o código de formato
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 @param lInvariante, logical, Formato do xlsx (separadores invariantes) - na saída usa a localidade
 /*/
 Static Function Formata(oM As Object, xVal As Variant, cFmt As Character, lInvariante As Logical)
@@ -1196,6 +1206,9 @@ Return cRet
 
 /*/{Protheus.doc} Tokens
 Quebra a seção do formato em tokens
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 @return array, {cTipo("N" número, "D" data, "G" geral),aTokens}; token {cTipo,cTexto,nTam}
 	tipos: L literal, 0 # ? dígitos, . decimal, , milhar, % percentual, E expoente, / fração,
 	y m d h s data/hora, AMPM, AP, [h] [m] [s] tempo decorrido, @ texto, G geral
@@ -1356,6 +1369,9 @@ Return oM:NumLoc(nMant)+"E"+If(nExp<0,"-","+")+StrZero(Abs(nExp),2)
 
 /*/{Protheus.doc} FmtNum
 Formata número com os tokens (dígitos, decimais, milhar, percentual, científico e fração)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function FmtNum(oM As Object, nVal As Numeric, aTok As Array)
 	Local nCont As Numeric
@@ -1433,7 +1449,6 @@ Static Function Monta(oM As Object, nVal As Numeric, aTok As Array, aIntPh As Ar
 	Local nIdxDec := 0 As Numeric
 	Local nSobra As Numeric
 	Local cTipo As Character
-	Local cDig As Character
 	Local nMinInt := 0 As Numeric
 	Local lUsouInt := .F. As Logical
 	nVal	:= ArredExc(Abs(nVal),nDecs)
@@ -1674,6 +1689,9 @@ Return cRet
 
 /*/{Protheus.doc} FmtData
 Formata data/hora serial com os tokens (d, m, y, h, s, AM/PM, tempo decorrido)
+@type function
+@author Saulo Gomes Martins
+@since 25/10/2026
 /*/
 Static Function FmtData(oM As Object, nVal As Numeric, aTok As Array)
 	Local aData As Array
