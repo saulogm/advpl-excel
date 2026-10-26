@@ -49,7 +49,23 @@ Auto Filtros,Congelar painéis,Agrupar linhas e colunas, formatar com regras:
 
 Formatar como tabela:
 
-![Exemplo2](/exemplo/excel3.png)
+![Exemplo3](/exemplo/excel3.png)
+
+Fomatação Condicional:
+
+![Exemplo4](/exemplo/excel4.png)
+
+DashBoard:
+
+![Exemplo5](/exemplo/excel5.png)
+
+Gráficos:
+
+![Exemplo6](/exemplo/excel6.png)
+
+Gerar dados HTML:
+
+![Html](/exemplo/TstYExcel.html)
 
 # Instalação
 1. Compilar Fontes da pasta src
