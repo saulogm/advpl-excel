@@ -1,0 +1,233 @@
+#include "tlpp-core.th"
+#include "protheus.ch"
+Namespace custom.excel.teste
+
+#define CRLF_T	Chr(13)+Chr(10)
+
+/*/{Protheus.doc} tstDados
+Teste do Save2Json e do Save2Csv nos modos A, M e B: CSV antes do Save, JSON depois do Save,
+JSON nos modos registros e celulas, CSV formatado (padrão) e bruto. Arquivos em \xdados\<modo>\ e resultado em \xdados_teste.log
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@return numeric, quantidade de falhas
+/*/
+User Function tstDados()
+	Local aModos := {"A","M","B"} As Array
+	Local nModo As Numeric
+	Local nFalhas := 0 As Numeric
+	Local cLog := "" As Character
+	Local oErr As Object
+	If Type("__TTSInUse")=="U"	//Sem ambiente preparado: modo banco (B) usa SQLite local
+		Public __TTSInUse := .F.
+		Public __cLogSiga := ""
+	EndIf
+	For nModo:=1 to Len(aModos)
+		Try
+			cLog	+= "Modo "+aModos[nModo]+":"+CRLF_T+GeraDados(aModos[nModo],@nFalhas)
+		Catch oErr
+			nFalhas++
+			cLog	+= "Modo "+aModos[nModo]+" EXCEPTION: "+oErr:Description+CRLF_T+oErr:ErrorStack+CRLF_T
+		EndTry
+	Next
+	cLog	+= "Falhas: "+cValToChar(nFalhas)+CRLF_T
+	MemoWrite("\xdados_teste.log",cLog)
+	ConOut(cLog)
+	FwFreeArray(aModos)
+Return nFalhas
+
+/*/{Protheus.doc} tstDadosVer
+Gera o xlsx de exemplo no tipo M com Save2Json e Save2Csv no client e abre a pasta temporária
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@return character, caminho do json gerado
+/*/
+User Function tstDadosVer()
+	Local oExcel As Object
+	Local oDados As Object
+	Local aCsv As Array
+	Local cJson := "" As Character
+	Local oErro As Object
+	oExcel	:= custom.excel.Xlsx():New(cNomeFile = "TstDados", cTipo = "M")
+	Try
+		Planilhas(oExcel)
+		oDados	:= oExcel:NewDados()
+		oDados:SetLinhaCab(nLinha = 1)
+		cJson	:= oExcel:Save2Json(GetTempPath(),oDados)
+		aCsv	:= oExcel:Save2Csv(GetTempPath(),oDados)
+		ConOut("Json: "+cJson)
+		aEval(aCsv,{|x| ConOut("Csv: "+x) })
+		FwFreeArray(aCsv)
+	Catch oErro
+		ConOut("Erro ao gerar json/csv: "+oErro:Description+" Stack: "+oErro:ERRORSTACK)
+	EndTry
+	oExcel:Destroy()
+	FreeObj(oExcel)
+Return cJson
+
+/*/{Protheus.doc} Planilhas
+Grava as planilhas Vendas e Resumo usadas nos testes
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oExcel, object, custom.excel.Xlsx
+/*/
+Static Function Planilhas(oExcel As Object)
+	Local oStyMoeda := oExcel:NewStyle():SetnumFmt(oExcel:AddFmt("#,##0.00")) As Object
+	Local aCab := {"Produto","Qtd","Preço","Total","Data","Ativo","Obs"} As Array
+	Local nCont As Numeric
+	oExcel:ADDPlan("Vendas")
+	For nCont:=1 to Len(aCab)
+		oExcel:Cell(1,nCont,aCab[nCont])
+	Next
+	oExcel:Cell(2,1,"Teclado")
+	oExcel:Cell(2,2,10)
+	oExcel:Pos(2,3):SetValue(89.9):SetStyle(oStyMoeda)
+	oExcel:Pos(2,4):SetValue(,"B2*C2"):SetStyle(oStyMoeda)
+	oExcel:Cell(2,5,STOD("20261027"))
+	oExcel:Cell(2,6,.T.)
+	oExcel:Cell(2,7,"a;b")
+	oExcel:Cell(3,1,"Mouse")
+	oExcel:Cell(3,2,2)
+	oExcel:Pos(3,3):SetValue(45.5):SetStyle(oStyMoeda)
+	oExcel:Pos(3,4):SetValue(,"B3*C3"):SetStyle(oStyMoeda)
+	oExcel:Cell(3,5,STOD("20261026"))
+	oExcel:Cell(3,6,.F.)
+	oExcel:Cell(3,7,'diz "oi"')
+	oExcel:Cell(5,1,"Total")	//Linha 4 vazia
+	oExcel:Pos(5,4):SetValue(,"SUM(D2:D3)"):SetStyle(oStyMoeda)
+	oExcel:Cell(5,7,"linha1"+Chr(10)+"linha2")
+	oExcel:ADDPlan("Resumo")
+	oExcel:Cell(1,1,"Chave")
+	oExcel:Cell(1,2,"Chave")	//Chave repetida
+	oExcel:Cell(4,1,"x")
+	oExcel:Cell(4,3,1.5)
+	FwFreeArray(aCab)
+Return
+
+/*/{Protheus.doc} GeraDados
+Gera os arquivos de um modo e confere o conteúdo
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cTipo, character, Tipo de gravação (A, M ou B)
+@param nFalhas, numeric, (referência) quantidade de falhas
+@return character, log
+/*/
+Static Function GeraDados(cTipo As Character, nFalhas As Numeric)
+	Local oExcel := custom.excel.Xlsx():New("xdados_"+cTipo,,cTipo) As Object
+	Local cPasta := "\xdados\"+cTipo As Character
+	Local oBruto As Object
+	Local oCel As Object
+	Local aCsv As Array
+	Local aCsvB As Array
+	Local cLog := "" As Character
+	Local cTexto As Character
+	Local cJson As Character
+	Local cJsonC As Character
+	Local jJson As Json
+	Local jPlan As Json
+	Local cEsp As Character
+	FWMakeDir(cPasta+"\bruto",.F.)
+	FWMakeDir(cPasta+"\cel",.F.)
+	Planilhas(oExcel)
+	//CSV antes do Save: padrão (formatado, ";", UTF-8 com BOM)
+	aCsv	:= oExcel:Save2Csv(cPasta)
+	//CSV bruto, separador "," e UTF-8 sem BOM
+	oBruto	:= oExcel:NewDados():SetFormatado(.F.):SetSeparador(","):SetEncoding("utf8")
+	aCsvB	:= oExcel:Save2Csv(cPasta+"\bruto",oBruto)
+	oExcel:Save(cPasta)
+	//JSON depois do Save
+	cJson	:= oExcel:Save2Json(cPasta)
+	oCel	:= oExcel:NewDados():SetModoJson("celulas")
+	cJsonC	:= oExcel:Save2Json(cPasta+"\cel",oCel)
+
+	Confere(@cLog,@nFalhas,"csv quantidade",Len(aCsv),2)
+	Confere(@cLog,@nFalhas,"csv nome",If(Len(aCsv)>0,aCsv[1],""),cPasta+"\xdados_"+cTipo+"_Vendas.csv")
+	cTexto	:= If(Len(aCsv)>0,MemoRead(aCsv[1]),"")
+	Confere(@cLog,@nFalhas,"csv BOM",Left(cTexto,3),Chr(239)+Chr(187)+Chr(191))
+	cTexto	:= DecodeUTF8(SubStr(cTexto,4))
+	Confere(@cLog,@nFalhas,"csv cabeçalho",Left(cTexto,At(Chr(13),cTexto)-1),"Produto;Qtd;Preço;Total;Data;Ativo;Obs")
+	Confere(@cLog,@nFalhas,"csv aspas separador",'Teclado;10;' $ cTexto .and. ';"a;b"'+CRLF_T $ cTexto,.T.)
+	Confere(@cLog,@nFalhas,"csv lógico formatado",';VERDADEIRO;' $ cTexto .and. ';FALSO;' $ cTexto,.T.)
+	cLog	+= "  csv formatado:"+CRLF_T+cTexto
+
+	cEsp	:= "Produto,Qtd,Preço,Total,Data,Ativo,Obs"+CRLF_T
+	cEsp	+= "Teclado,10,89.9,899,2026-10-27,TRUE,a;b"+CRLF_T
+	cEsp	+= 'Mouse,2,45.5,91,2026-10-26,FALSE,"diz ""oi"""'+CRLF_T
+	cEsp	+= ",,,,,,"+CRLF_T
+	cEsp	+= 'Total,,,990,,,"linha1'+Chr(10)+'linha2"'+CRLF_T
+	cTexto	:= If(Len(aCsvB)>0,MemoRead(aCsvB[1]),"")
+	Confere(@cLog,@nFalhas,"csv bruto Vendas",DecodeUTF8(cTexto),cEsp)
+	cEsp	:= "Chave,Chave,"+CRLF_T+","+","+CRLF_T+",,"+CRLF_T+"x,,1.5"+CRLF_T
+	cTexto	:= If(Len(aCsvB)>1,MemoRead(aCsvB[2]),"")
+	Confere(@cLog,@nFalhas,"csv bruto Resumo",cTexto,cEsp)
+
+	//JSON registros (valor bruto)
+	jJson	:= JsonObject():New()
+	cTexto	:= jJson:FromJson(MemoRead(cJson))
+	Confere(@cLog,@nFalhas,"json válido",ValType(cTexto),"U")
+	If ValType(cTexto)=="U"
+		Confere(@cLog,@nFalhas,"json planilhas",Len(jJson["planilhas"]),2)
+		jPlan	:= jJson["planilhas"][1]
+		Confere(@cLog,@nFalhas,"json nome",jPlan["nome"],"Vendas")
+		Confere(@cLog,@nFalhas,"json colunas",Len(jPlan["colunas"]),7)
+		Confere(@cLog,@nFalhas,"json registros",Len(jPlan["dados"]),3)
+		Confere(@cLog,@nFalhas,"json texto",jPlan["dados"][1]["Produto"],"Teclado")
+		Confere(@cLog,@nFalhas,"json número",jPlan["dados"][1]["Qtd"],10)
+		Confere(@cLog,@nFalhas,"json fórmula",jPlan["dados"][1]["Total"],899)
+		Confere(@cLog,@nFalhas,"json data",jPlan["dados"][1]["Data"],"2026-10-27")
+		Confere(@cLog,@nFalhas,"json lógico",jPlan["dados"][2]["Ativo"],.F.)
+		Confere(@cLog,@nFalhas,"json aspas",jPlan["dados"][2]["Obs"],'diz "oi"')
+		Confere(@cLog,@nFalhas,"json nulo",ValType(jPlan["dados"][3]["Qtd"]),"U")
+		Confere(@cLog,@nFalhas,"json quebra",jPlan["dados"][3]["Obs"],"linha1"+Chr(10)+"linha2")
+		Confere(@cLog,@nFalhas,"json soma",jPlan["dados"][3]["Total"],990)
+		jPlan	:= jJson["planilhas"][2]
+		Confere(@cLog,@nFalhas,"json chave repetida",jPlan["colunas"][2],"Chave_2")
+		Confere(@cLog,@nFalhas,"json chave vazia",jPlan["colunas"][3],"C")
+		Confere(@cLog,@nFalhas,"json registro Resumo",jPlan["dados"][1]["C"],1.5)
+	EndIf
+	FreeObj(jJson)
+
+	//JSON células
+	jJson	:= JsonObject():New()
+	cTexto	:= jJson:FromJson(MemoRead(cJsonC))
+	Confere(@cLog,@nFalhas,"json células válido",ValType(cTexto),"U")
+	If ValType(cTexto)=="U"
+		jPlan	:= jJson["planilhas"][1]
+		Confere(@cLog,@nFalhas,"json células qtd",Len(jPlan["celulas"]),24)
+		Confere(@cLog,@nFalhas,"json células ref",jPlan["celulas"][11]["ref"],"D2")
+		Confere(@cLog,@nFalhas,"json células fórmula",jPlan["celulas"][11]["formula"],"B2*C2")
+		Confere(@cLog,@nFalhas,"json células valor",jPlan["celulas"][11]["valor"],899)
+		Confere(@cLog,@nFalhas,"json células tipo",jPlan["celulas"][12]["tipo"],"D")
+	EndIf
+	FreeObj(jJson)
+
+	oExcel:Close()
+	FreeObj(oExcel)
+	FwFreeArray(aCsv)
+	FwFreeArray(aCsvB)
+Return cLog
+
+/*/{Protheus.doc} Confere
+Compara o valor obtido com o esperado e registra a falha no log
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cLog, character, (referência) log
+@param nFalhas, numeric, (referência) quantidade de falhas
+@param cCaso, character, Descrição do caso
+@param xObtido, variant, Valor obtido
+@param xEsperado, variant, Valor esperado
+/*/
+Static Function Confere(cLog As Character, nFalhas As Numeric, cCaso As Character, xObtido As Variant, xEsperado As Variant)
+	If ValType(xObtido)==ValType(xEsperado) .and. xObtido==xEsperado
+		cLog	+= "  ok    "+cCaso+CRLF_T
+	Else
+		nFalhas++
+		cLog	+= "  FALHA "+cCaso+" esperado=["+cValToChar(xEsperado)+"] obtido=["+cValToChar(xObtido)+"] ("+ValType(xObtido)+")"+CRLF_T
+	EndIf
+Return

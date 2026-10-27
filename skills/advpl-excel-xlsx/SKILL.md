@@ -1,6 +1,6 @@
 ---
 name: advpl-excel-xlsx
-description: Gera, lê e edita arquivos Excel (.xlsx) em AdvPL/TLPP/Protheus usando a biblioteca advpl-excel — classe custom.excel.Xlsx():New() (antiga YExcel():New()). Cobre planilhas, estilos, fórmulas, tabelas formatadas, preenchimento por alias/query (Alias2Tab), bulk de grande volume, formatação condicional, imagens, gráficos (custom.excel.chart), proteção/senha, leitura de xlsx e gravação dos mesmos dados em html (Save2Html, com colunas como input e blocos de código). Use SEMPRE que o usuário pedir para gerar/exportar relatório ou planilha Excel/xlsx em Protheus, ADVPL ou TLPP, mencionar custom.excel.Xlsx, YExcel, YExcel_Style, Save2Html, "exportar para excel", "planilha com gráfico", "xlsx com senha", "ler planilha xlsx no Protheus", "relatório em html a partir do excel", "tabela html com campos editáveis", ou editar um fonte que já usa YExcel (nesse caso migrar para custom.excel.Xlsx). Não use para FWMsExcel/FWMsExcelXlsx/FWPrinterXlsx, a menos que o usuário peça para migrar para a advpl-excel.
+description: Gera, lê e edita arquivos Excel (.xlsx) em AdvPL/TLPP/Protheus usando a biblioteca advpl-excel — classe custom.excel.Xlsx():New() (antiga YExcel():New()). Cobre planilhas, estilos, fórmulas, tabelas formatadas, preenchimento por alias/query (Alias2Tab), bulk de grande volume, formatação condicional, imagens, gráficos (custom.excel.chart), proteção/senha, leitura de xlsx e gravação dos mesmos dados em html (Save2Html, com colunas como input e blocos de código), json (Save2Json) e csv (Save2Csv). Use SEMPRE que o usuário pedir para gerar/exportar relatório ou planilha Excel/xlsx em Protheus, ADVPL ou TLPP, mencionar custom.excel.Xlsx, YExcel, YExcel_Style, Save2Html, Save2Json, Save2Csv, "exportar planilha para json/csv", "exportar para excel", "planilha com gráfico", "xlsx com senha", "ler planilha xlsx no Protheus", "relatório em html a partir do excel", "tabela html com campos editáveis", ou editar um fonte que já usa YExcel (nesse caso migrar para custom.excel.Xlsx). Não use para FWMsExcel/FWMsExcelXlsx/FWPrinterXlsx, a menos que o usuário peça para migrar para a advpl-excel.
 ---
 
 # advpl-excel: gerar Excel com `custom.excel.Xlsx`
@@ -122,6 +122,7 @@ Cada regra existe porque o erro correspondente acontece na prática:
 - **Combo:** só `ChartBar`, `ChartLine` e `ChartArea` sem 3D podem ser membros, e eles são criados com `New(oExcel)` (`New(Nil)` falha).
 - **Gráfico:** cada gráfico recebe `Insert(...)` uma única vez, antes do `Save`. `Set3D` só existe para barras, linhas, pizza, área e superfície; nos outros gera exceção.
 - **Html (`Save2Html`):** o html mostra o valor das fórmulas calculado pelo motor AdvPL (ou o `xValor` informado) e recalcula no navegador quando um input muda (funções extras via formula.js, `oHtml:SetFormulaJs(cUrl)` sem internet). No tipo "A", o primeiro `Save`/`Save2Html` encerra a gravação. As linhas e imagens ficam preservadas após o `Save` até o `Destroy`, então `Save2Html` pode vir depois do `Save` sem `NewHtml()` (o `NewHtml()` serve só para configurar o html). Não chame `FreeObj` no objeto do `NewHtml()` (o `Destroy` libera). Detalhes em [references/html.md](references/html.md).
+- **Json/csv (`Save2Json`/`Save2Csv`):** mesmas regras de ordem do `Save2Html`. `Save2Csv` retorna um **array** (um arquivo por planilha); o json padrão é "registros" (1ª linha com valor = chaves, use `oDados:SetLinhaCab(n)` quando há título acima). Detalhes em [references/json-csv.md](references/json-csv.md).
 - **Datas:** `SetValue(date())` grava uma data. Para data e hora use `SetValue(oExcel:GetDateTime(dData = dDate, cTime = cHora))` ou `SetDateTime(dDate, cTime)`. Na leitura, uma célula de data e hora retorna um objeto `DateTime` (`:GetDate()`, `:GetTime()`).
 
 ## 5. Ciclo de vida e liberação de memória
@@ -130,7 +131,7 @@ Cada regra existe porque o erro correspondente acontece na prática:
 New → (estilos) → ADDPlan → escrever → Save(cLocal) → [OpenApp()] → Destroy() → FreeObj(oExcel)
 ```
 
-Para gerar também o html: `oHtml := oExcel:NewHtml()` (opcional, para configurar), depois `oExcel:Save2Html(cLocal, oHtml)` antes ou depois do `Save`, sempre antes do `Destroy()`. `OpenApp()` abre o último arquivo gerado.
+Para gerar também o html: `oHtml := oExcel:NewHtml()` (opcional, para configurar), depois `oExcel:Save2Html(cLocal, oHtml)` antes ou depois do `Save`, sempre antes do `Destroy()`. `OpenApp()` abre o último arquivo gerado. Json e csv seguem o mesmo padrão: `oDados := oExcel:NewDados()` (opcional), `oExcel:Save2Json(cLocal, oDados)` / `oExcel:Save2Csv(cLocal, oDados)`.
 
 - `Save(cLocal)` retorna o caminho do arquivo. Se `cLocal` for uma pasta local (ex.: `GetTempPath()`), o arquivo é copiado para o client. Um caminho do servidor (ex.: `"\temp"`) mantém o arquivo no servidor.
 - `OpenApp()` faz ShellExecute no client. Não o use em job, schedule, REST ou `RpcSetEnv` sem interface.
@@ -177,12 +178,13 @@ Monte as strings entre parênteses ou em variáveis: em PowerShell a `,` tem pre
 | Senha de abertura (SetPassword/Open), proteção de planilha, área de impressão, cabeçalho/rodapé, orientação | [references/protecao-impressao.md](references/protecao-impressao.md) |
 | Cálculo automático de fórmulas: funções suportadas, SetCalcFormula, AddFuncFormula, SetCalcLocal, fórmula em PT-BR/L1C1 (Formula), limitações | [references/formulas.md](references/formulas.md) |
 | Gravar em html (Save2Html, NewHtml): inputs por coluna, blocos de código por planilha/linha/coluna/célula, CSS/JS, formulário, limitações | [references/html.md](references/html.md) |
+| Gravar em json e csv (Save2Json, Save2Csv, NewDados): registros x células, cabeçalho, separador, encoding, formatado x bruto | [references/json-csv.md](references/json-csv.md) |
 | Converter código YExcel/v1 (Cell, AddStyles, Gravar, OpenRead/CellRead) para o padrão novo | [references/migracao-yexcel.md](references/migracao-yexcel.md) |
 | Receitas completas prontas (relatório SX3 com subtotal, tabela, gráfico, senha, leitura) | [references/exemplos.md](references/exemplos.md) |
 
 ## 8. Requisitos do ambiente (vale mencionar ao usuário quando relevante)
 
-- A lib precisa estar compilada no RPO: `custom.excel.tlpp`, `custom.excel.chart.tlpp`, `custom.excel.crypto.tlpp`, `custom.excel.html.tlpp` (Save2Html), os fontes do cálculo de fórmulas `custom.excel.calc*.tlpp`, `custom.excel.formula.tlpp` (fórmula em PT-BR/L1C1) e, para legado, `YEXCEL.prw`.
+- A lib precisa estar compilada no RPO: `custom.excel.tlpp`, `custom.excel.chart.tlpp`, `custom.excel.crypto.tlpp`, `custom.excel.html.tlpp` (Save2Html), `custom.excel.dados.tlpp` (Save2Json/Save2Csv, usa também o `custom.excel.html.tlpp`), os fontes do cálculo de fórmulas `custom.excel.calc*.tlpp`, `custom.excel.formula.tlpp` (fórmula em PT-BR/L1C1) e, para legado, `YEXCEL.prw`.
 - Gráficos no html usam o Chart.js de `cdn.jsdelivr.net`: sem internet no navegador, informe outro caminho com `oHtml:SetChartJs(cUrl)`.
 - Os temporários ficam em `\tmpxls\` no RootPath. A compactação usa FZip. Para compatibilidade com LibreOffice em servidor Windows, é possível instalar o 7-Zip e configurar `[GENERAL] LOCAL7ZIP` no appserver.ini.
 - `Alias2Tab` com `lSx3 = .T.` precisa de ambiente aberto (dicionário SX3 disponível).

@@ -106,6 +106,13 @@ Class Html
 	Public Method InfoEstilo()
 	Public Method FmtValor()
 	Public Method FmtFormula()
+	Public Method LerAbrir()
+	Public Method LerProx()
+	Public Method LerMaxCol()
+	Public Method LerFechar()
+	Public Method NomePlanilha()
+	Public Method DataHoraIso()
+	Public Method TextoUtf8()
 	Public Method Destroy()
 EndClass
 
@@ -664,6 +671,41 @@ Method FmtFormula(nStyle As Numeric) Class Html
 		::jFmtF[cChave]	:= aInfo[3]
 	EndIf
 Return
+
+//NÃO DOCUMENTAR
+//Abre a leitura das linhas da planilha (tipos A, M e B), usada também pelo custom.excel.Dados
+Method LerAbrir(nPlan As Numeric) Class Html
+Return LeitorAbrir(self,nPlan)
+
+//NÃO DOCUMENTAR
+//Próxima linha {nLinha,nNivel,lFechado,lOculta,nAltura,aCelulas} ou Nil no fim. Célula: {nCol,xValor,cTipo,nSty,cFormula}
+Method LerProx(aSt As Array) Class Html
+Return LeitorProx(aSt)
+
+//NÃO DOCUMENTAR
+//Última coluna da planilha na leitura aberta com LerAbrir (no tipo M só é conhecida após a abertura)
+Method LerMaxCol(aSt As Array) Class Html
+Return aSt[ST_MAXCOL]
+
+//NÃO DOCUMENTAR
+//Encerra a leitura aberta com LerAbrir
+Method LerFechar(aSt As Array) Class Html
+Return LeitorFechar(self,aSt)
+
+//NÃO DOCUMENTAR
+//Nome da planilha (CP-1252)
+Method NomePlanilha(nPlan As Numeric) Class Html
+Return NomePlan(::oExcel,nPlan)
+
+//NÃO DOCUMENTAR
+//Data e hora serial do Excel em ISO (yyyy-mm-ddThh:mm)
+Method DataHoraIso(nSerial As Numeric) Class Html
+Return DtHrIso(nSerial)
+
+//NÃO DOCUMENTAR
+//Converte texto CP-1252 em UTF-8 (sem caracteres de controle inválidos)
+Method TextoUtf8(cTexto As Character) Class Html
+Return Utf8(cTexto)
 
 //----------------------------------------------------------------------
 //GERAÇÃO DA PLANILHA

@@ -170,6 +170,9 @@ Class Xlsx
 	Public METHOD OpenApp()			//Abre arquivo gravado
 	Public METHOD Save()			//Salva xlsx
 	Public METHOD Save2Html()		//Salva html
+	Public METHOD Save2Json()		//Salva json
+	Public METHOD Save2Csv()		//Salva csv (um arquivo por planilha)
+	Public METHOD NewDados()		//Cria a configuração do json/csv (custom.excel.Dados)
 	Public METHOD NewHtml()			//Cria a configuração do html (custom.excel.Html)
 	Public METHOD Close()			//fecha arquivo aberto e limpa temporario
 	Public METHOD Destroy()			//fecha arquivo aberto e limpa temporario
@@ -289,6 +292,8 @@ Class Xlsx
 	Public METHOD CalcArqPla()
 	Public METHOD CopiaClient()		//Copia arquivo do servidor para o client
 	Public METHOD DirHtml()			//Pasta temporária preservada para o Save2Html
+	Public METHOD PrepSave2()		//Prepara a gravação do Save2Html/Save2Json/Save2Csv
+	Public METHOD PastaSave2()		//Pasta no servidor do arquivo do Save2Html/Save2Json/Save2Csv
 	Public METHOD CriarFile()		//Cria arquivos temporarios
 	Public METHOD GravaFile()		//Grava em arquivos temporarios
 	Public METHOD AddFormatCond()	//Formatação condicional(todos rercusos)
@@ -7268,34 +7273,13 @@ Method Save2Html(cLocal As Character, oHtml As Object) Class Xlsx
 	Local lServidor As Logical
 	Local cArquivo As Character
 	Default cLocal	:= If(!IsBlind(),GetTempPath(),"\")
-	If Empty(::aPlanilhas)
-		UserException("Xlsx - Nenhuma planilha criada, usar o método ADDPlan()")
-	EndIf
-	If ::lArquivo
-		::FimEscrita()
-	EndIf
-	If ::lCanUseBulk
-		::FlushBulk()
-	EndIf
-	::CalcFormulas()	//Calcula as fórmulas gravadas sem valor
+	::PrepSave2()
 	If ValType(oHtml)!="O"
 		oHtml	:= ::NewHtml()
 	EndIf
-	::lHtml		:= .T.
 	cLocal		:= AllTrim(cLocal)
 	lServidor	:= !Empty(cLocal) .AND. SubStr(cLocal,1,1)=="\"
-	If Right(cLocal,1)=="\"
-		cLocal	:= SubStr(cLocal,1,Len(cLocal)-1)
-	EndIf
-	If lServidor
-		If !Empty(cLocal)
-			FWMakeDir(cLocal,.F.)
-		EndIf
-		cArquivo	:= cLocal+"\"+::cNomeFile2+".html"
-	Else
-		FWMakeDir("\tmpxls\"+::cTmpFile,.F.)
-		cArquivo	:= "\tmpxls\"+::cTmpFile+"\"+::cNomeFile2+".html"
-	EndIf
+	cArquivo	:= ::PastaSave2(@cLocal,lServidor)+"\"+::cNomeFile2+".html"
 	oHtml:Gerar(cArquivo)
 	If !lServidor .AND. !Empty(cLocal)
 		::cLocalFile	:= cLocal
@@ -7318,6 +7302,136 @@ Method NewHtml() Class Xlsx
 	oHtml	:= custom.excel.Html():New(self)
 	AADD(::aCleanObj,oHtml)
 Return oHtml
+
+/*/{Protheus.doc} Xlsx::Save2Json
+Grava os dados das planilhas em um arquivo JSON (UTF-8) e retorna o caminho do arquivo gerado.
+Modo "registros" (padrão): um objeto por linha com as chaves da linha de cabeçalho. Modo "celulas": lista de células.
+Pode ser usado junto com o Save() e o Save2Html(), antes ou depois deles, e sempre antes do Destroy()/Close()
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cLocal, character, Pasta no client (ex: GetTempPath()) ou pasta no servidor iniciando com "\"
+@param oDados, object, Configuração criada com NewDados() (opcional)
+@return character, caminho do arquivo json gerado
+/*/
+Method Save2Json(cLocal As Character, oDados As Object) Class Xlsx
+	Local lServidor As Logical
+	Local cArquivo As Character
+	Default cLocal	:= If(!IsBlind(),GetTempPath(),"\")
+	::PrepSave2()
+	If ValType(oDados)!="O"
+		oDados	:= ::NewDados()
+	EndIf
+	cLocal		:= AllTrim(cLocal)
+	lServidor	:= !Empty(cLocal) .AND. SubStr(cLocal,1,1)=="\"
+	cArquivo	:= ::PastaSave2(@cLocal,lServidor)+"\"+::cNomeFile2+".json"
+	oDados:GerarJson(cArquivo)
+	If !lServidor .AND. !Empty(cLocal)
+		::cLocalFile	:= cLocal
+		cArquivo		:= ::CopiaClient(cArquivo,cLocal)
+	EndIf
+Return cArquivo
+
+/*/{Protheus.doc} Xlsx::Save2Csv
+Grava os dados em CSV, um arquivo por planilha, e retorna os caminhos dos arquivos gerados.
+Com uma planilha o arquivo é <nome>.csv; com várias, <nome>_<planilha>.csv.
+Padrão: separador ";", UTF-8 com BOM e texto formatado como no Excel (configurável no NewDados()).
+Pode ser usado junto com o Save() e o Save2Html(), antes ou depois deles, e sempre antes do Destroy()/Close()
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cLocal, character, Pasta no client (ex: GetTempPath()) ou pasta no servidor iniciando com "\"
+@param oDados, object, Configuração criada com NewDados() (opcional)
+@return array, caminhos dos arquivos csv gerados
+/*/
+Method Save2Csv(cLocal As Character, oDados As Object) Class Xlsx
+	Local lServidor As Logical
+	Local cPasta As Character
+	Local cArquivo As Character
+	Local cNome As Character
+	Local aPlan As Array
+	Local aNomes := {} As Array
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Default cLocal	:= If(!IsBlind(),GetTempPath(),"\")
+	::PrepSave2()
+	If ValType(oDados)!="O"
+		oDados	:= ::NewDados()
+	EndIf
+	cLocal		:= AllTrim(cLocal)
+	lServidor	:= !Empty(cLocal) .AND. SubStr(cLocal,1,1)=="\"
+	cPasta		:= ::PastaSave2(@cLocal,lServidor)
+	aPlan		:= oDados:Planilhas()
+	For nCont:=1 to Len(aPlan)
+		cNome	:= ::cNomeFile2
+		If Len(aPlan)>1
+			cNome	+= "_"+NomeArq(oDados:Abrir():NomePlanilha(aPlan[nCont]))
+			If aScan(aNomes,{|x| Upper(x)==Upper(cNome)})>0	//Nomes iguais após retirar os caracteres inválidos
+				cNome	+= "_"+cValToChar(aPlan[nCont])
+			EndIf
+		EndIf
+		AADD(aNomes,cNome)
+		cArquivo	:= cPasta+"\"+cNome+".csv"
+		oDados:GerarCsv(cArquivo,aPlan[nCont])
+		If !lServidor .AND. !Empty(cLocal)
+			::cLocalFile	:= cLocal
+			cArquivo		:= ::CopiaClient(cArquivo,cLocal)
+		EndIf
+		AADD(aRet,cArquivo)
+	Next
+	FwFreeArray(aPlan)
+	FwFreeArray(aNomes)
+Return aRet
+
+/*/{Protheus.doc} Xlsx::NewDados
+Cria a configuração do JSON/CSV (custom.excel.Dados) usada no Save2Json e no Save2Csv: planilhas, linha de cabeçalho,
+modo do JSON, separador e encoding do CSV, texto formatado ou valor bruto
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@return object, custom.excel.Dados
+/*/
+Method NewDados() Class Xlsx
+	Local oDados As Object
+	::lHtml	:= .T.	//Preserva os dados no tipo A para gerar depois do Save
+	oDados	:= custom.excel.Dados():New(self)
+	AADD(::aCleanObj,oDados)
+Return oDados
+
+//NÃO DOCUMENTAR
+//Prepara a gravação do Save2Html/Save2Json/Save2Csv: encerra a escrita, descarrega o bulk e calcula as fórmulas
+Method PrepSave2() Class Xlsx
+	If Empty(::aPlanilhas)
+		UserException("Xlsx - Nenhuma planilha criada, usar o método ADDPlan()")
+	EndIf
+	If ::lArquivo
+		::FimEscrita()
+	EndIf
+	If ::lCanUseBulk
+		::FlushBulk()
+	EndIf
+	::CalcFormulas()	//Calcula as fórmulas gravadas sem valor
+	::lHtml	:= .T.
+Return
+
+//NÃO DOCUMENTAR
+//Pasta no servidor onde o Save2Html/Save2Json/Save2Csv grava: a própria pasta quando é do servidor, senão a temporária.
+//Retira a barra final de cLocal (referência)
+Method PastaSave2(cLocal As Character, lServidor As Logical) Class Xlsx
+	If Right(cLocal,1)=="\"
+		cLocal	:= SubStr(cLocal,1,Len(cLocal)-1)
+	EndIf
+	If lServidor
+		If !Empty(cLocal)
+			FWMakeDir(cLocal,.F.)
+		EndIf
+		Return cLocal
+	EndIf
+	FWMakeDir("\tmpxls\"+::cTmpFile,.F.)
+Return "\tmpxls\"+::cTmpFile
 
 //NÃO DOCUMENTAR
 //Guarda o estilo da célula atual nas mesclagens que iniciam nela (tipo arquivo)
@@ -7457,6 +7571,25 @@ Return cRet
 //Pasta temporária com os dados preservados para o Save2Html
 Method DirHtml() Class Xlsx
 Return "\tmpxls\"+::cTmpFile+"\html\"
+
+/*/{Protheus.doc} NomeArq
+Troca os caracteres inválidos em nome de arquivo por "_"
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cNome, character, Nome
+@return character, Nome válido para arquivo
+/*/
+Static Function NomeArq(cNome As Character)
+	Local cRet := "" As Character
+	Local cChar As Character
+	Local nCont As Numeric
+	cNome	:= AllTrim(cNome)
+	For nCont:=1 to Len(cNome)
+		cChar	:= SubStr(cNome,nCont,1)
+		cRet	+= If(Asc(cChar)<32 .or. cChar $ '\/:*?"<>|',"_",cChar)
+	Next
+Return cRet
 
 Static Function WarnLogMsg(cTexto As Character)
 	FWLogMsg("WARN", "LAST"/*cTransactionId*/, "CUSTOM.XLSX", ""/*cCategory*/, ""/*cStep*/,"" /*cMsgId*/, cTexto, /*nMensure*/, /*nElapseTime*/, /*aMessage*/)

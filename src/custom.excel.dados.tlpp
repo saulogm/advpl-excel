@@ -1,0 +1,770 @@
+// Gravação do conteúdo da classe custom.excel.Xlsx em JSON e CSV (Save2Json/Save2Csv)
+// Lê as células em streaming nos tipos A, M e B pelo leitor do custom.excel.Html
+#include "tlpp-core.th"
+#include "totvs.ch"
+#include "fileio.ch"
+#include "parmtype.ch"
+
+Namespace custom.excel
+
+#define DADOS_TAMBUF	65536	//Tamanho do buffer de escrita
+
+/*/{Protheus.doc} Dados
+Configuração e geração dos dados de um objeto custom.excel.Xlsx em JSON (Save2Json) e CSV (Save2Csv).
+JSON no modo "registros" (padrão): por planilha, um objeto por linha usando a linha de cabeçalho como chaves.
+JSON no modo "celulas": por planilha, a lista de células com referência, valor, tipo, texto formatado e fórmula.
+CSV: um arquivo por planilha, com o texto formatado (padrão) ou o valor bruto de cada célula.
+@type class
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@see custom.excel.Xlsx
+/*/
+Class Dados
+	Public Data oExcel			As Object		//Instância de custom.excel.Xlsx
+	Public Data cClassName		As Character
+	Public Data aPlanFiltro		As Array		//Planilhas a gerar (vazio = todas)
+	Public Data nLinCab			As Numeric		//Linha de cabeçalho do JSON registros (0 = primeira linha com valor)
+	Public Data cModoJson		As Character	//registros|celulas
+	Public Data cSeparador		As Character	//Separador do CSV
+	Public Data cEncoding		As Character	//Encoding do CSV: utf8bom|utf8|cp1252
+	Public Data xFormatado		As Variant		//Texto formatado (Nil = padrão: CSV formatado, JSON valor bruto)
+	//Controle interno da geração
+	Public Data oHtml			As Object		//Leitor das células e formatação dos valores
+	Public Data oFile			As Object
+	Public Data cBuffer			As Character
+	Public Data lUtf8			As Logical		//Converte o buffer (CP-1252) para UTF-8 ao gravar
+
+	Public Method New()				As Object
+	Public Method ClassName()
+	Public Method SetPlanilhas()	As Object
+	Public Method SetLinhaCab()		As Object
+	Public Method SetModoJson()		As Object
+	Public Method SetSeparador()	As Object
+	Public Method SetEncoding()		As Object
+	Public Method SetFormatado()	As Object
+	Public Method GerarJson()
+	Public Method GerarCsv()
+	//Interno
+	Public Method Planilhas()
+	Public Method Abrir()
+	Public Method Fechar()
+	Public Method Escreve()
+	Public Method Descarrega()
+	Public Method Destroy()
+EndClass
+
+/*/{Protheus.doc} Dados::New
+Construtor. Normalmente criado por oExcel:NewDados()
+@type method
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oExcel, object, Instância de custom.excel.Xlsx
+@return object, self
+/*/
+Method New(oExcel As Object) As Object Class Dados
+	::oExcel		:= oExcel
+	::cClassName	:= "CUSTOM.EXCEL.DADOS"
+	::aPlanFiltro	:= {}
+	::nLinCab		:= 0
+	::cModoJson		:= "registros"
+	::cSeparador	:= ";"
+	::cEncoding		:= "utf8bom"
+	::xFormatado	:= nil
+	::oHtml			:= nil
+	::oFile			:= nil
+	::cBuffer		:= ""
+	::lUtf8			:= .T.
+Return self
+
+/*/{Protheus.doc} Dados::ClassName
+Retorna o nome da classe
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@return character, Nome da classe
+/*/
+Method ClassName() Class Dados
+Return ::cClassName
+
+/*/{Protheus.doc} Dados::SetPlanilhas
+Define quais planilhas serão geradas
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param aPlanilhas, array, Números ou nomes das planilhas
+@return object, self
+/*/
+Method SetPlanilhas(aPlanilhas As Array) As Object Class Dados
+	PARAMTYPE 0	VAR aPlanilhas	AS ARRAY
+	::aPlanFiltro	:= aClone(aPlanilhas)
+Return self
+
+/*/{Protheus.doc} Dados::SetLinhaCab
+Linha de cabeçalho usada como chaves no JSON "registros". As linhas anteriores são ignoradas
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param nLinha, numeric, Linha do cabeçalho (0 = primeira linha com valor, padrão)
+@return object, self
+/*/
+Method SetLinhaCab(nLinha As Numeric) As Object Class Dados
+	PARAMTYPE 0	VAR nLinha	AS NUMERIC	OPTIONAL DEFAULT 0
+	::nLinCab	:= nLinha
+Return self
+
+/*/{Protheus.doc} Dados::SetModoJson
+Estrutura do JSON: "registros" (um objeto por linha, chaves do cabeçalho) ou "celulas" (lista de células)
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cModo, character, registros|celulas
+@return object, self
+/*/
+Method SetModoJson(cModo As Character) As Object Class Dados
+	PARAMTYPE 0	VAR cModo	AS CHARACTER	OPTIONAL DEFAULT "registros"
+	cModo	:= Lower(AllTrim(cModo))
+	If !(cModo $ "registros|celulas")
+		UserException("Xlsx - Modo do JSON inválido: "+cModo+" (use registros ou celulas)")
+	EndIf
+	::cModoJson	:= cModo
+Return self
+
+/*/{Protheus.doc} Dados::SetSeparador
+Separador de colunas do CSV (padrão ";")
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cSeparador, character, Separador (ex: ";", ",", Chr(9))
+@return object, self
+/*/
+Method SetSeparador(cSeparador As Character) As Object Class Dados
+	PARAMTYPE 0	VAR cSeparador	AS CHARACTER	OPTIONAL DEFAULT ";"
+	If Empty(cSeparador) .and. !(cSeparador==Chr(9))
+		UserException("Xlsx - Separador do CSV não informado")
+	EndIf
+	::cSeparador	:= cSeparador
+Return self
+
+/*/{Protheus.doc} Dados::SetEncoding
+Encoding do CSV. O JSON é sempre UTF-8 sem BOM
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cEncoding, character, utf8bom (padrão, abre com acentos no Excel), utf8 ou cp1252
+@return object, self
+/*/
+Method SetEncoding(cEncoding As Character) As Object Class Dados
+	PARAMTYPE 0	VAR cEncoding	AS CHARACTER	OPTIONAL DEFAULT "utf8bom"
+	cEncoding	:= Lower(StrTran(StrTran(AllTrim(cEncoding),"-",""),"_",""))
+	If cEncoding=="windows1252"
+		cEncoding	:= "cp1252"
+	EndIf
+	If !(cEncoding $ "utf8bom|utf8|cp1252")
+		UserException("Xlsx - Encoding do CSV inválido: "+cEncoding+" (use utf8bom, utf8 ou cp1252)")
+	EndIf
+	::cEncoding	:= cEncoding
+Return self
+
+/*/{Protheus.doc} Dados::SetFormatado
+Grava o texto formatado conforme o formato do estilo (como exibido no Excel, ex: 1.234,56 e 31/12/2026)
+ou o valor bruto (número com ponto, data yyyy-mm-dd, data e hora yyyy-mm-ddThh:mm, lógico).
+Sem chamar: CSV formatado e JSON com o valor bruto
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param lFormatado, logical, .T. texto formatado, .F. valor bruto
+@return object, self
+/*/
+Method SetFormatado(lFormatado As Logical) As Object Class Dados
+	PARAMTYPE 0	VAR lFormatado	AS LOGICAL	OPTIONAL DEFAULT .T.
+	::xFormatado	:= lFormatado
+Return self
+
+/*/{Protheus.doc} Dados::Planilhas
+Retorna os números das planilhas a gerar conforme o SetPlanilhas
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@return array, Números das planilhas
+/*/
+Method Planilhas() Class Dados
+	Local aPlan := {} As Array
+	Local nCont As Numeric
+	Local cNome As Character
+	For nCont:=1 to Len(::oExcel:aPlanilhas)
+		If Empty(::aPlanFiltro)
+			AADD(aPlan,nCont)
+		Else
+			cNome	:= Upper(AllTrim(::Abrir():NomePlanilha(nCont)))
+			If aScan(::aPlanFiltro,{|x| (ValType(x)=="N" .and. x==nCont) .or. (ValType(x)=="C" .and. Upper(AllTrim(x))==cNome) })>0
+				AADD(aPlan,nCont)
+			EndIf
+		EndIf
+	Next
+Return aPlan
+
+/*/{Protheus.doc} Dados::Abrir
+Retorna a instância Html usada como leitor das células (criada na primeira chamada)
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@return object, custom.excel.Html
+/*/
+Method Abrir() Class Dados
+	If ValType(::oHtml)!="O"
+		::oHtml	:= custom.excel.Html():New(::oExcel)
+	EndIf
+Return ::oHtml
+
+/*/{Protheus.doc} Dados::Fechar
+Encerra a geração: grava o buffer, fecha o arquivo e libera o leitor. Com lErro apaga o arquivo parcial
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cArquivo, character, Arquivo em geração
+@param lErro, logical, Geração interrompida por erro
+/*/
+Method Fechar(cArquivo As Character, lErro As Logical) Class Dados
+	If ValType(::oFile)=="O"
+		If lErro
+			::cBuffer	:= ""
+		Else
+			::Descarrega()
+		EndIf
+		::oFile:Close()
+		FreeObj(::oFile)
+	EndIf
+	::oFile		:= nil
+	::cBuffer	:= ""
+	If lErro
+		FErase(cArquivo,,.F.)
+	EndIf
+	::Destroy()
+Return
+
+/*/{Protheus.doc} Dados::Destroy
+Libera o leitor e os caches internos
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+/*/
+Method Destroy() Class Dados
+	If ValType(::oHtml)=="O"
+		::oHtml:Destroy()
+		FreeObj(::oHtml)
+	EndIf
+	::oHtml	:= nil
+Return
+
+/*/{Protheus.doc} Dados::Escreve
+Acumula texto (CP-1252) no buffer e grava quando atinge o limite
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cTexto, character, Texto (CP-1252) a ser gravado
+/*/
+Method Escreve(cTexto As Character) Class Dados
+	::cBuffer	+= cTexto
+	If Len(::cBuffer)>=DADOS_TAMBUF
+		::Descarrega()
+	EndIf
+Return
+
+/*/{Protheus.doc} Dados::Descarrega
+Grava o conteúdo pendente do buffer (convertido para UTF-8 quando lUtf8) e o esvazia
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+/*/
+Method Descarrega() Class Dados
+	If !Empty(::cBuffer)
+		::oFile:Write(If(::lUtf8,::oHtml:TextoUtf8(::cBuffer),::cBuffer))
+		::cBuffer	:= ""
+	EndIf
+Return
+
+/*/{Protheus.doc} Dados::GerarJson
+Gera o arquivo JSON (UTF-8) com as planilhas no servidor:
+{"arquivo":"Nome","planilhas":[{"nome":"Plan1","colunas":[...],"dados":[{...}]}]} no modo registros ou
+{"arquivo":"Nome","planilhas":[{"nome":"Plan1","celulas":[{"ref":"A1","lin":1,"col":1,"valor":...,"tipo":"C","texto":"..."}]}]} no modo celulas
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cArquivo, character, Caminho do arquivo no servidor
+@return logical, .T. se gerou
+/*/
+Method GerarJson(cArquivo As Character) Class Dados
+	Local aPlan As Array
+	Local nCont As Numeric
+	Local lFmt := ValType(::xFormatado)=="L" .and. ::xFormatado As Logical
+	Local oErro As Object
+	CriaArq(self,cArquivo,.T.)
+	aPlan	:= ::Planilhas()
+	Try
+		::Escreve('{"arquivo":'+JsonTxt(::oExcel:cNomeFile2)+',"planilhas":[')
+		For nCont:=1 to Len(aPlan)
+			::Escreve(If(nCont>1,',','')+Chr(10)+'{"nome":'+JsonTxt(::oHtml:NomePlanilha(aPlan[nCont]))+',"indice":'+cValToChar(aPlan[nCont]))
+			If ::cModoJson=="celulas"
+				JsonCelulas(self,aPlan[nCont],lFmt)
+			Else
+				JsonRegistros(self,aPlan[nCont],lFmt)
+			EndIf
+			::Escreve('}')
+		Next
+		::Escreve(Chr(10)+']}'+Chr(10))
+	Catch oErro
+		::Fechar(cArquivo,.T.)
+		FwFreeArray(aPlan)
+		UserException(oErro:Description)
+	EndTry
+	::Fechar(cArquivo,.F.)
+	FwFreeArray(aPlan)
+Return .T.
+
+/*/{Protheus.doc} Dados::GerarCsv
+Gera o arquivo CSV de uma planilha no servidor: da primeira linha com valor até a última, colunas de A até a
+última coluna usada, linhas vazias intermediárias mantidas, campos entre aspas quando necessário (RFC 4180) e fim de linha CRLF
+@type method
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cArquivo, character, Caminho do arquivo no servidor
+@param nPlan, numeric, Número da planilha
+@return logical, .T. se gerou
+/*/
+Method GerarCsv(cArquivo As Character, nPlan As Numeric) Class Dados
+	Local lFmt := ValType(::xFormatado)!="L" .or. ::xFormatado As Logical
+	Local aSt As Variant
+	Local aRow As Variant
+	Local aLinha As Array
+	Local nMaxCol As Numeric
+	Local nLinAnt := 0 As Numeric
+	Local nCont As Numeric
+	Local nPos As Numeric
+	Local cVazia As Character
+	Local oErro As Object
+	CriaArq(self,cArquivo,::cEncoding!="cp1252")
+	If ::cEncoding=="utf8bom"
+		::oFile:Write(Chr(239)+Chr(187)+Chr(191))
+	EndIf
+	Try
+		aSt		:= ::oHtml:LerAbrir(nPlan)
+		nMaxCol	:= Max(::oHtml:LerMaxCol(aSt),1)
+		cVazia	:= Replicate(::cSeparador,nMaxCol-1)+Chr(13)+Chr(10)
+		While ValType(aRow:=::oHtml:LerProx(aSt))=="A"
+			If !TemValor(aRow[6])
+				FwFreeArray(aRow)
+				Loop
+			EndIf
+			If nLinAnt>0
+				For nCont:=nLinAnt+1 to aRow[1]-1	//Linhas vazias intermediárias
+					::Escreve(cVazia)
+				Next
+			EndIf
+			nLinAnt	:= aRow[1]
+			aLinha	:= Array(nMaxCol)
+			aFill(aLinha,"")
+			For nCont:=1 to Len(aRow[6])
+				nPos	:= aRow[6][nCont][1]
+				If nPos>=1 .and. nPos<=nMaxCol
+					aLinha[nPos]	:= CsvCampo(TextoCsv(self,aRow[6][nCont],lFmt),::cSeparador)
+				EndIf
+			Next
+			For nCont:=1 to nMaxCol
+				::Escreve(If(nCont>1,::cSeparador,"")+aLinha[nCont])
+			Next
+			::Escreve(Chr(13)+Chr(10))
+			FwFreeArray(aLinha)
+			FwFreeArray(aRow)
+		EndDo
+	Catch oErro
+		If ValType(aSt)=="A"
+			::oHtml:LerFechar(aSt)
+		EndIf
+		::Fechar(cArquivo,.T.)
+		UserException(oErro:Description)
+	EndTry
+	::oHtml:LerFechar(aSt)
+	::Fechar(cArquivo,.F.)
+Return .T.
+
+//----------------------------------------------------------------------
+//GERAÇÃO
+//----------------------------------------------------------------------
+/*/{Protheus.doc} CriaArq
+Cria o arquivo de saída e o leitor das células
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param cArquivo, character, Caminho do arquivo no servidor
+@param lUtf8, logical, Converte o texto para UTF-8 ao gravar
+/*/
+Static Function CriaArq(oDados As Object, cArquivo As Character, lUtf8 As Logical)
+	Local cErro As Character
+	oDados:Destroy()
+	oDados:Abrir()
+	oDados:cBuffer	:= ""
+	oDados:lUtf8	:= lUtf8
+	oDados:oFile	:= FWFileWriter():New(cArquivo,.T.)
+	oDados:oFile:SetCaseSensitive(.T.)
+	If !oDados:oFile:Create()
+		cErro	:= oDados:oFile:Error():Message
+		FreeObj(oDados:oFile)
+		oDados:oFile	:= nil
+		oDados:Destroy()
+		UserException("Xlsx - Falha ao criar o arquivo "+cArquivo+": "+cErro)
+	EndIf
+Return
+
+/*/{Protheus.doc} JsonRegistros
+Grava "colunas" e "dados" de uma planilha no modo registros
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param nPlan, numeric, Número da planilha
+@param lFmt, logical, Valores como texto formatado
+/*/
+Static Function JsonRegistros(oDados As Object, nPlan As Numeric, lFmt As Logical)
+	Local oHtml := oDados:oHtml As Object
+	Local aSt As Variant
+	Local aRow As Variant
+	Local aChaves := {} As Array
+	Local aValores As Array
+	Local nMaxCol As Numeric
+	Local nCont As Numeric
+	Local nPos As Numeric
+	Local nQtd := 0 As Numeric
+	Local lCab := .F. As Logical
+	Local cTexto As Character
+	Local oErro As Object
+	aSt		:= oHtml:LerAbrir(nPlan)
+	Try
+		nMaxCol	:= oHtml:LerMaxCol(aSt)
+		While ValType(aRow:=oHtml:LerProx(aSt))=="A"
+			If (oDados:nLinCab>0 .and. aRow[1]<oDados:nLinCab) .or. !TemValor(aRow[6])
+				FwFreeArray(aRow)
+				Loop
+			EndIf
+			If !lCab	//Linha de cabeçalho
+				lCab	:= .T.
+				aEval(aRow[6],{|x| nMaxCol := Max(nMaxCol,x[1]) })
+				aChaves	:= Chaves(oDados,aRow[6],nMaxCol)
+				cTexto	:= ',"linhaCab":'+cValToChar(aRow[1])+',"colunas":['
+				For nCont:=1 to Len(aChaves)
+					cTexto	+= If(nCont>1,',','')+aChaves[nCont]
+				Next
+				oDados:Escreve(cTexto+'],"dados":[')
+				FwFreeArray(aRow)
+				Loop
+			EndIf
+			aValores	:= Array(nMaxCol)
+			aFill(aValores,"null")
+			For nCont:=1 to Len(aRow[6])
+				nPos	:= aRow[6][nCont][1]
+				If nPos>=1 .and. nPos<=nMaxCol
+					aValores[nPos]	:= ValorJson(oDados,aRow[6][nCont],lFmt)
+				EndIf
+			Next
+			cTexto	:= If(nQtd>0,',','')+Chr(10)+'{'
+			For nCont:=1 to nMaxCol
+				cTexto	+= If(nCont>1,',','')+aChaves[nCont]+':'+aValores[nCont]
+			Next
+			oDados:Escreve(cTexto+'}')
+			nQtd++
+			FwFreeArray(aValores)
+			FwFreeArray(aRow)
+		EndDo
+	Catch oErro
+		oHtml:LerFechar(aSt)
+		FwFreeArray(aChaves)
+		UserException(oErro:Description)
+	EndTry
+	If !lCab
+		oDados:Escreve(',"colunas":[],"dados":[')
+	EndIf
+	oDados:Escreve(If(nQtd>0,Chr(10),'')+']')
+	oHtml:LerFechar(aSt)
+	FwFreeArray(aChaves)
+Return
+
+/*/{Protheus.doc} JsonCelulas
+Grava "celulas" de uma planilha no modo celulas
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param nPlan, numeric, Número da planilha
+@param lFmt, logical, Valores como texto formatado
+/*/
+Static Function JsonCelulas(oDados As Object, nPlan As Numeric, lFmt As Logical)
+	Local oHtml := oDados:oHtml As Object
+	Local oExcel := oDados:oExcel As Object
+	Local aSt As Variant
+	Local aRow As Variant
+	Local aCel As Array
+	Local nCont As Numeric
+	Local nQtd := 0 As Numeric
+	Local cCor := "" As Character
+	Local cTexto As Character
+	Local oErro As Object
+	aSt		:= oHtml:LerAbrir(nPlan)
+	oDados:Escreve(',"celulas":[')
+	Try
+		While ValType(aRow:=oHtml:LerProx(aSt))=="A"
+			For nCont:=1 to Len(aRow[6])
+				aCel	:= aRow[6][nCont]
+				If aCel[3]=="U" .and. Empty(aCel[5])
+					Loop
+				EndIf
+				cTexto	:= If(nQtd>0,',','')+Chr(10)+'{"ref":"'+oExcel:Ref(aRow[1],aCel[1])+'","lin":'+cValToChar(aRow[1])+',"col":'+cValToChar(aCel[1])
+				cTexto	+= ',"valor":'+ValorJson(oDados,aCel,lFmt)+',"tipo":"'+aCel[3]+'"'
+				cTexto	+= ',"texto":'+JsonTxt(oHtml:FmtValor(aCel[2],aCel[3],aCel[4],@cCor))
+				If !Empty(aCel[5])
+					cTexto	+= ',"formula":'+JsonTxt(aCel[5])
+				EndIf
+				oDados:Escreve(cTexto+'}')
+				nQtd++
+			Next
+			FwFreeArray(aRow)
+		EndDo
+	Catch oErro
+		oHtml:LerFechar(aSt)
+		UserException(oErro:Description)
+	EndTry
+	oDados:Escreve(If(nQtd>0,Chr(10),'')+']')
+	oHtml:LerFechar(aSt)
+Return
+
+/*/{Protheus.doc} Chaves
+Monta as chaves do JSON registros a partir das células da linha de cabeçalho: texto formatado da célula,
+letra da coluna quando vazio e sufixo _2, _3... quando repetido
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param aCelulas, array, Células da linha de cabeçalho
+@param nMaxCol, numeric, Última coluna
+@return array, Chaves já serializadas em JSON (entre aspas)
+/*/
+Static Function Chaves(oDados As Object, aCelulas As Array, nMaxCol As Numeric)
+	Local aNomes := Array(nMaxCol) As Array
+	Local aRet := {} As Array
+	Local nCont As Numeric
+	Local nPos As Numeric
+	Local nSeq As Numeric
+	Local cNome As Character
+	Local cCor := "" As Character
+	For nCont:=1 to Len(aCelulas)
+		nPos	:= aCelulas[nCont][1]
+		If nPos>=1 .and. nPos<=nMaxCol
+			aNomes[nPos]	:= AllTrim(oDados:oHtml:FmtValor(aCelulas[nCont][2],aCelulas[nCont][3],aCelulas[nCont][4],@cCor))
+		EndIf
+	Next
+	For nCont:=1 to nMaxCol
+		cNome	:= If(ValType(aNomes[nCont])=="C" .and. !Empty(aNomes[nCont]),aNomes[nCont],oDados:oExcel:NumToString(nCont))
+		If aScan(aRet,{|x| Upper(x)==Upper(cNome)})>0
+			nSeq	:= 2
+			While aScan(aRet,{|x| Upper(x)==Upper(cNome+"_"+cValToChar(nSeq))})>0
+				nSeq++
+			EndDo
+			cNome	+= "_"+cValToChar(nSeq)
+		EndIf
+		AADD(aRet,cNome)
+	Next
+	For nCont:=1 to Len(aRet)
+		aRet[nCont]	:= JsonTxt(aRet[nCont])
+	Next
+	FwFreeArray(aNomes)
+Return aRet
+
+/*/{Protheus.doc} TemValor
+Indica se a linha possui alguma célula com valor
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param aCelulas, array, Células da linha {nCol,xValor,cTipo,nSty,cFormula}
+@return logical, .T. se existe valor
+/*/
+Static Function TemValor(aCelulas As Array)
+Return aScan(aCelulas,{|x| x[3]!="U" .and. !(x[3]=="C" .and. Empty(x[2])) })>0
+
+/*/{Protheus.doc} ValorJson
+Valor da célula serializado em JSON
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param aCel, array, Célula {nCol,xValor,cTipo,nSty,cFormula}
+@param lFmt, logical, Valor como texto formatado
+@return character, Valor JSON
+/*/
+Static Function ValorJson(oDados As Object, aCel As Array, lFmt As Logical)
+	Local cCor := "" As Character
+	If aCel[3]=="U" .or. ValType(aCel[2])=="U"
+		Return "null"
+	ElseIf lFmt
+		Return JsonTxt(oDados:oHtml:FmtValor(aCel[2],aCel[3],aCel[4],@cCor))
+	ElseIf aCel[3]=="C"
+		Return JsonTxt(aCel[2])
+	ElseIf aCel[3]=="L"
+		Return If(aCel[2],"true","false")
+	ElseIf aCel[3] $ "DT"
+		Return '"'+DataBruta(oDados,aCel[2],aCel[3])+'"'
+	EndIf
+Return NumTxt(aCel[2])
+
+/*/{Protheus.doc} TextoCsv
+Texto da célula no CSV (antes do tratamento de aspas)
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param aCel, array, Célula {nCol,xValor,cTipo,nSty,cFormula}
+@param lFmt, logical, Texto formatado
+@return character, Texto
+/*/
+Static Function TextoCsv(oDados As Object, aCel As Array, lFmt As Logical)
+	Local cCor := "" As Character
+	If aCel[3]=="U" .or. ValType(aCel[2])=="U"
+		Return ""
+	ElseIf lFmt .or. aCel[3]=="C"
+		Return oDados:oHtml:FmtValor(aCel[2],aCel[3],aCel[4],@cCor)
+	ElseIf aCel[3]=="L"
+		Return If(aCel[2],"TRUE","FALSE")
+	ElseIf aCel[3] $ "DT"
+		Return DataBruta(oDados,aCel[2],aCel[3])
+	EndIf
+Return NumTxt(aCel[2])
+
+/*/{Protheus.doc} DataBruta
+Data serial do Excel em texto ISO: yyyy-mm-dd (D), yyyy-mm-ddThh:mm (T) ou hh:mm (T sem data)
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param oDados, object, Instância Dados
+@param nSerial, numeric, Data serial
+@param cTipo, character, D ou T
+@return character, Data/hora em texto
+/*/
+Static Function DataBruta(oDados As Object, nSerial As Numeric, cTipo As Character)
+	Local cRet As Character
+	If cTipo=="D"
+		Return Transform(DToS(STOD("18991230")+Int(nSerial)),"@R 9999-99-99")
+	EndIf
+	cRet	:= oDados:oHtml:DataHoraIso(nSerial)
+	If nSerial>=0 .and. nSerial<1	//Somente hora
+		cRet	:= SubStr(cRet,At("T",cRet)+1)
+	EndIf
+Return cRet
+
+/*/{Protheus.doc} NumTxt
+Número em texto com ponto decimal e sem notação científica
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param nValor, numeric, Número
+@return character, Texto
+/*/
+Static Function NumTxt(nValor As Numeric)
+	Local cRet := AllTrim(cValToChar(nValor)) As Character
+	If "E" $ Upper(cRet) .or. "*" $ cRet
+		cRet	:= AllTrim(Str(nValor,40,15))
+		If "." $ cRet
+			While Right(cRet,1)=="0"
+				cRet	:= Left(cRet,Len(cRet)-1)
+			EndDo
+			If Right(cRet,1)=="."
+				cRet	:= Left(cRet,Len(cRet)-1)
+			EndIf
+		EndIf
+	EndIf
+Return cRet
+
+/*/{Protheus.doc} JsonTxt
+Texto (CP-1252) como string JSON, com escape de aspas, barra invertida e caracteres de controle
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cTexto, variant, Texto
+@return character, String JSON entre aspas
+/*/
+Static Function JsonTxt(cTexto As Variant)
+	Local cRet := "" As Character
+	Local nCont As Numeric
+	Local nAsc As Numeric
+	Local cChar As Character
+	If ValType(cTexto)!="C"
+		cTexto	:= cValToChar(cTexto)
+	EndIf
+	If "\" $ cTexto
+		cTexto	:= StrTran(cTexto,"\","\\")
+	EndIf
+	If '"' $ cTexto
+		cTexto	:= StrTran(cTexto,'"','\"')
+	EndIf
+	If !TemControle(cTexto)
+		Return '"'+cTexto+'"'
+	EndIf
+	For nCont:=1 to Len(cTexto)
+		cChar	:= SubStr(cTexto,nCont,1)
+		nAsc	:= Asc(cChar)
+		If nAsc>=32
+			cRet	+= cChar
+		ElseIf nAsc==10
+			cRet	+= "\n"
+		ElseIf nAsc==13
+			cRet	+= "\r"
+		ElseIf nAsc==9
+			cRet	+= "\t"
+		Else
+			cRet	+= "\u00"+Lower(Right(Hex(nAsc),2))
+		EndIf
+	Next
+Return '"'+cRet+'"'
+
+/*/{Protheus.doc} TemControle
+Indica se o texto possui caracteres de controle (Asc < 32)
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cTexto, character, Texto
+@return logical, .T. se possui
+/*/
+Static Function TemControle(cTexto As Character)
+	Local nCont As Numeric
+	For nCont:=0 to 31
+		If Chr(nCont) $ cTexto
+			Return .T.
+		EndIf
+	Next
+Return .F.
+
+/*/{Protheus.doc} Hex
+Número (0-255) em hexadecimal com 2 dígitos
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param nNum, numeric, Número
+@return character, Hexadecimal
+/*/
+Static Function Hex(nNum As Numeric)
+	Local cDig := "0123456789ABCDEF" As Character
+Return SubStr(cDig,Int(nNum/16)+1,1)+SubStr(cDig,Mod(nNum,16)+1,1)
+
+/*/{Protheus.doc} CsvCampo
+Campo do CSV entre aspas (com aspas duplicadas) quando contém separador, aspas ou quebra de linha
+@type function
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cTexto, character, Texto
+@param cSeparador, character, Separador
+@return character, Campo
+/*/
+Static Function CsvCampo(cTexto As Character, cSeparador As Character)
+	If cSeparador $ cTexto .or. '"' $ cTexto .or. Chr(10) $ cTexto .or. Chr(13) $ cTexto
+		Return '"'+StrTran(cTexto,'"','""')+'"'
+	EndIf
+Return cTexto

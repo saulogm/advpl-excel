@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Gravação em json e csv (Save2Json, Save2Csv)
+
+- Novos métodos `Save2Json(cLocal, oDados)` e `Save2Csv(cLocal, oDados)` na classe `Xlsx`, e `NewDados()` para configurar (nova classe `custom.excel.Dados`, fonte `src/custom.excel.dados.tlpp`). Funcionam nos tipos `"A"`, `"M"` e `"B"`, antes ou depois do `Save`/`Save2Html`, lendo as células em streaming com o mesmo leitor do html; as fórmulas sem valor são calculadas antes.
+- Json (UTF-8): modo `"registros"` (padrão, um objeto por linha com as chaves da linha de cabeçalho, `SetLinhaCab`) ou `"celulas"` (referência, valor, tipo, texto formatado e fórmula). Valor bruto por padrão (data `yyyy-mm-dd`, data e hora `yyyy-mm-ddThh:mm`) ou texto formatado com `SetFormatado(.T.)`.
+- Csv: um arquivo por planilha (`<nome>.csv` ou `<nome>_<planilha>.csv`, retorno em array), separador `;` e UTF-8 com BOM por padrão (`SetSeparador`, `SetEncoding("utf8"|"cp1252")`), texto formatado como no Excel ou valor bruto (`SetFormatado(.F.)`), aspas conforme RFC 4180.
+- `Save2Html` passou a usar os métodos internos `PrepSave2`/`PastaSave2`, compartilhados com os novos métodos (sem mudança de comportamento).
+- Teste `custom.excel.teste.U_tstDados` (`exemplo/custom.excel.dados.teste.tlpp`), log em `\xdados_teste.log`.
+
 ### Data e hora (DateTime)
 
 - A classe `DateTime` deixou de usar as funções `DEC_*` (ponto fixo). O `DEC_DIV` imprimia `Err 001/002 Attempt to perform an illogical operation division by zero.` no console do AppServer em alguns builds (24.3.1.x), mesmo com o resultado correto. Os cálculos passaram a usar o numérico nativo (double): o número serial gravado no xml é gerado por divisão longa com inteiros (17 casas, exato) em `StrNumber` e, nos demais casos, em dois blocos de 8 casas, contornando o limite de 8 casas do `cValToChar`/`Str`.
