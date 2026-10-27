@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Data e hora (DateTime)
+
+- A classe `DateTime` deixou de usar as funções `DEC_*` (ponto fixo). O `DEC_DIV` imprimia `Err 001/002 Attempt to perform an illogical operation division by zero.` no console do AppServer em alguns builds (24.3.1.x), mesmo com o resultado correto. Os cálculos passaram a usar o numérico nativo (double): o número serial gravado no xml é gerado por divisão longa com inteiros (17 casas, exato) em `StrNumber` e, nos demais casos, em dois blocos de 8 casas, contornando o limite de 8 casas do `cValToChar`/`Str`.
+- Correção: os segundos eram arredondados separadamente e a hora podia sair `hh:mm:60`. Agora o total de segundos é arredondado antes de separar hora, minuto e segundo; ao chegar em 24:00:00, avança para o dia seguinte.
+- Correção: em alguns builds do AppServer, `STOD("19000101")-2+n` resulta em número (a subtração cai antes de 1900), e a data lida ficava numérica em `NumToDateTime`, `GetDate` e na leitura de células de data. A expressão passou a ser `STOD("19000101")+(n-2)`.
+- Correção: no modo `"B"` (banco), o número serial gravado com `DateTime` perdia o alinhamento das casas decimais a partir da 9ª (faltavam zeros à esquerda), e a leitura de célula de data subtraía número do campo texto `VLR`.
+- Correção: os operadores de `DateTime` com hora em texto (`oData + "01:00:00"`) tratavam a hora como data, e a data (`oData - dData`) dependia do formato de data configurado (`CToD("30/12/1899")`). O `New` passou a aceitar o número serial também como texto sem aviso de tipo (`nData` como `Variant`).
+
 ### Células mescladas: borda e desempenho
 
 - Correção ([#24](https://github.com/saulogm/advpl-excel/issues/24)): a borda (e o preenchimento) ficava só na primeira célula de um intervalo mesclado. Agora as demais células recebem o estilo da primeira:

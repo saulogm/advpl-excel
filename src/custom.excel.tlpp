@@ -3087,7 +3087,7 @@ Method GetDate(nLinha As Numeric, nColuna As Numeric) Class Xlsx
 	If ::aPlanilhas[::nPlanilhaAt][7]:Get(cRef,@cPathColuna)
 		xRet	:= ::asheet[::nPlanilhaAt][1]:XPathGetNodeValue(cPathColuna+"/xmlns:v")
 		If !Empty(xRet)
-			xRet	:= STOD("19000101")-2+Val(xRet)
+			xRet	:= STOD("19000101")+(Val(xRet)-2)
 		Endif
 	EndIf
 Return xRet
@@ -3148,7 +3148,7 @@ Method GetValue(nLinha As Numeric, nColuna As Numeric, xDefault As Variant, lAch
 						If Empty(xRet)
 							xRet	:= CTOD("")
 						Else
-							xRet	:= STOD("19000101")-2+Val(xRet)
+							xRet	:= STOD("19000101")+(Val(xRet)-2)
 						Endif
 					ElseIf cStyleTp=="T" .OR. cStyleTp=="DT"
 						xRet	:= DateTime():New(,,xRet)
@@ -3202,7 +3202,7 @@ Method GetValue(nLinha As Numeric, nColuna As Numeric, xDefault As Variant, lAch
 					If Empty((::cAliasCol)->VLR)
 						xRet	:= CTOD("")
 					Else
-						xRet	:= STOD("19000101")-2+(::cAliasCol)->VLR
+						xRet	:= STOD("19000101")+(Val((::cAliasCol)->VLR)-2)
 					Endif
 				ElseIf (::cAliasCol)->TIPO=="d"
 					xRet	:= DateTime():New(,,(::cAliasCol)->VLR)
@@ -10116,7 +10116,7 @@ Class DateTime
 	Public Data dData			As Variant
 	Public Data cTime			As Character
 	Public Data cNumero			As Variant
-	Public Data nNumero			As Numeric //Numero com limite de 8 decimais
+	Public Data nNumero			As Numeric //Numero serial (double)
 	Public Data nDecimal		As Numeric //Numero com limite decimal acima de 8 posições
 	Public Data cClassName		As Character //Nome da Classe
 	Public Data cName			As Character //Nome da Classe
@@ -10148,7 +10148,7 @@ Construtor da classe DateTime
 @type method
 @obs enviar dData e cTime ou somente nData
 /*/
-Method New(dData As Date, cTime As Character, nData As Numeric, nDec8 As Numeric, cDataUTC As Character) as Object Class DateTime
+Method New(dData As Date, cTime As Character, nData As Variant, nDec8 As Numeric, cDataUTC As Character) as Object Class DateTime
 	::dData		:= dData
 	::cTime		:= cTime
 	::nNumero	:= 0
@@ -10174,29 +10174,20 @@ Converte numero do excel em data e hora
 @param nData, numeric, numero da hora, aceita também string
 @type method
 /*/
-Method NumToDateTime(nData As Numeric, nDec8 As Numeric) Class DateTime
+Method NumToDateTime(nData As Variant, nDec8 As Numeric) Class DateTime
 	Local nInt As Numeric
-	Local nDec As Numeric
+	Local nFrac As Numeric
 	Local nHora As Numeric
 	Local nMinuto As Numeric
 	Local nSegundo As Numeric
-	Local f60 := DEC_CREATE( "60" , 20, 19 ) As decimal
-	Local f86400 := DEC_CREATE( "86400" , 20, 19 ) As decimal
-	Local fNumTime As decimal
-	Local fSeg As decimal
-	Local fMinuto As decimal
-	Local fHora As decimal
-	Local lAddDec := .F. As Logical
+	Local nSegTot As Numeric
+	Local nPosPonto As Numeric
+	Local cFrac As Character
 	If ValType(nData)=="N"
-		nInt	:= Int(nData)
-		nDec	:= nData-nInt
-		fNumTime	:= DEC_CREATE(cValToChar(nDec), 20, 19 )
-		::cNumero	:= cValToChar(nData)
-		::nNumero	:= nInt+nDec
-		::nDecimal	:= nDec8
-		If ValType(self:nDecimal)=="N"
-			lAddDec	:= .T.
-		EndIf
+		::cNumero	:= NumSerial2Str(nData,nDec8)
+		::nNumero	:= Val(::cNumero)
+		nInt		:= Int(::nNumero)
+		nFrac		:= ::nNumero-nInt
 	Else
 		nPosPonto	:= At(".",nData)
 		If nPosPonto==0
@@ -10204,40 +10195,29 @@ Method NumToDateTime(nData As Numeric, nDec8 As Numeric) Class DateTime
 		Endif
 		If nPosPonto==0
 			nInt		:= Val(nData)
-			nDec		:= 0
-			::nNumero	:= nInt
-			fNumTime	:= DEC_CREATE("0", 20, 19 )
+			cFrac		:= ""
 		Else
 			nInt		:= Val(SubStr(nData,1,nPosPonto-1))
-			fNumTime	:= DEC_CREATE("0."+SubStr(nData,nPosPonto+1), 20, 19 )
-			// nDec		:= Val("0."+SubStr(nData,nPosPonto+1))
-			::nNumero	:= nInt+(Val("0."+SubStr(nData,nPosPonto+1,8)))
-			::nDecimal	:= Val("0."+SubStr(nData,nPosPonto+8+1))*(10^8)
-			lAddDec		:= .T.
+			cFrac		:= AllTrim(SubStr(nData,nPosPonto+1))
 		Endif
-		::cNumero	:= nData
+		nFrac		:= Val("0."+cFrac)	//Parte fracionária separada da inteira: o double guarda mais casas da hora
+		::nNumero	:= nInt+nFrac
+		::cNumero	:= cValToChar(nInt)+If(Empty(cFrac),"","."+cFrac)
 	Endif
-	If lAddDec
-		fNumTime	:= DEC_ADD(fNumTime,DEC_DIV(DEC_CREATE(cValToChar(self:nDecimal),20,19),DEC_CREATE("10000000000000000",20,19)))
+	cFrac		:= SubStr(::cNumero,At(".",::cNumero+".")+1)
+	::nDecimal	:= Int(Val(PadR(SubStr(cFrac,9,8),8,"0")))	//Casas decimais 9 a 16
+	::dData	:= STOD("19000101")+(nInt-2)	//Soma antes de subtrair: STOD("19000101")-2 fica antes de 1900 e o resultado vira numérico
+
+	//Fração do dia em segundos (no máximo 86400, sem perda de precisão em double)
+	nSegTot		:= Round(nFrac*86400,0)
+	If nSegTot>=86400	//Arredondou para 24:00:00: passa para o dia seguinte
+		nSegTot	:= nSegTot-86400
+		::dData++
 	EndIf
-
-	::dData	:= STOD("19000101")-2+nInt
-
-	fSeg		:= DEC_MUL(fNumTime,f86400)
-	fMinuto		:= DEC_DIV(fSeg,f60)
-	fHora		:= DEC_DIV(fMinuto,f60)
-	nHora		:= Int(DEC_TO_DBL(fHora))
-	nMinuto		:= Int(DEC_TO_DBL(DEC_SUB(fMinuto,DEC_CREATE(cValToChar(nHora*60), 20, 19 ))))
-	nSegundo	:= Round(DEC_TO_DBL(DEC_SUB(fSeg,DEC_CREATE(cValToChar((nMinuto*60)+(nHora*60*60)), 20, 19 ))),0)
-
-	::cTime	:= ""
-	// nHora	:= Int(nDec*86400/60/60)
-	// nMinuto	:= Int(((nDec*86400/60/60)-nHora)*60)
-	// nSegundo:= Round(((nDec*86400/60/60)-nHora-(nMinuto/60))*60*60,0)
-	::cTime	+= StrZero(nHora,2)				//Hora
-	::cTime	+= ":"+StrZero(nMinuto,2)		//Minuto
-	::cTime	+= ":"+StrZero(nSegundo,2)		//Segundos
-	//IntToHora(nDec*86400/60/60)
+	nHora		:= Int(nSegTot/3600)
+	nMinuto		:= Int((nSegTot-(nHora*3600))/60)
+	nSegundo	:= nSegTot-(nHora*3600)-(nMinuto*60)
+	::cTime	:= StrZero(nHora,2)+":"+StrZero(nMinuto,2)+":"+StrZero(nSegundo,2)
 Return Self
 
 /*/{Protheus.doc} DateTime:GetStrNumber
@@ -10283,44 +10263,15 @@ Converte data e hora em string com numero representando data e hora do excel
 /*/
 Method StrNumber() Class DateTime
 	Local aHora := SeparaHora(::cTime) As Array
-	Local nSeg := 0 As Numeric
-	Local cNum As Character
-	Local f1SegDec := DEC_CREATE( "0.00001157407407407407" , 20, 19 ) As Variant
-	Local fSeg As Variant
-	Local fMult As Variant
-	Local fMult2 As Variant
-	Local fSub As Variant
-	Local f10 As Variant
-	Local fMultFim As Variant
-	nSeg		+= aHora[1]*3600
-	nSeg		+= aHora[2]*60
-	nSeg		+= aHora[3]
-	nSeg		+= aHora[4]/1000
-	fSeg		:= DEC_CREATE(cValToChar(nSeg),20, 19)
-	fMult		:= DEC_MUL(fSeg,f1SegDec)
-	fMult2		:= DEC_MUL(fSeg,f1SegDec)
-	fMult2		:= DEC_RESCALE(fMult2, 8, 2)
-	fSub		:= DEC_SUB(fMult,fMult2)
-	f10			:= DEC_CREATE("10000000000000000",20, 19)
-	fMultFim	:= DEC_MUL(f10,fSub)
-
-	::nDecimal	:= Int(Val(cValToChar(DEC_RESCALE( fMultFim , 8, 2))))
-	cNum		:= Replace(cValToChar(DEC_RESCALE(fMult, 8, 2)),"0.","")
-	// nHora		+= (aHora[1]*100000000)				//Hora
-	// nHora		+= (aHora[2]*100000000)/60			//Minuto
-	// nHora		+= (aHora[3]*100000000)/60/60		//Segundo
-	// nHora		+= (aHora[4]*100000000)/60/60/1000	//Milesimo
-	// cNum		:= Replace(cValToChar(nHora/24),"0.","")
-	// If (At(".",cNum)-1)>0
-	// 	cNum:= SubStr(cNum,1,At(".",cNum)-1)
-	// Else
-	// 	cNum:= SubStr(cNum,1,Len(cNum))
-	// Endif
-	::cNumero	:= cValToChar(::dData-STOD("19000101")+2)+"."+cNum
-	::nNumero	:= ::dData-STOD("19000101")+2+(&("0."+SubStr(cNum,1,8)))
-	// If Len(cNum)>8
-	// 	::nDecimal	:= &("0."+SubStr(cNum,9)+"*(10^8)")
-	// Endif
+	Local nDias := ::dData-STOD("19000101")+2 As Numeric
+	Local nMs As Numeric
+	Local cFrac As Character
+	nMs			:= Round((aHora[1]*3600000)+(aHora[2]*60000)+(aHora[3]*1000)+aHora[4],0)
+	cFrac		:= FracDiaStr(nMs)
+	::cNumero	:= cValToChar(nDias)+If(Empty(cFrac),"","." + cFrac)
+	::nNumero	:= nDias+(nMs/86400000)
+	::nDecimal	:= Int(Val(PadR(SubStr(cFrac,9,8),8,"0")))	//Casas decimais 9 a 16
+	FwFreeArray(aHora)
 Return ::cNumero
 
 /*/{Protheus.doc} DateTime::Tipo2Num
@@ -10341,16 +10292,17 @@ Method Tipo2Num(xVar,nDefault) Class DateTime
 	Case cTipo == "N"
 		nRight := xVar
 	Case cTipo == "D"
-		nRight := xVar - CToD("30/12/1899")
+		nRight := xVar-STOD("19000101")+2
 	Case cTipo == "C"
-		If SubStr(xVar,1,3)==":"
+		If SubStr(xVar,3,1)==":"	//Hora HH:mm[:ss[.mmm]]
 			aSepHora := SeparaHora(xVar)
-			nRight := (aSepHora[1] * 3600 + aSepHora[2] * 60 + aSepHora[3]) / 86400
-		Else
-			nRight		:= STOD(Replace(SubStr(xVar,1,10),"-","")) - CToD("30/12/1899")
-			aSepHora	:= SeparaHora(SubStr(xVar,12,8))
-			nRight		+= (aSepHora[1] * 3600 + aSepHora[2] * 60 + aSepHora[3] + (aSepHora[4]/1000)) / 86400
+			nRight := ((aSepHora[1] * 3600000) + (aSepHora[2] * 60000) + (aSepHora[3] * 1000) + aSepHora[4]) / 86400000
+		Else	//Data e hora AAAA-MM-DD[THH:mm:ss[.mmm]]
+			nRight		:= STOD(Replace(SubStr(xVar,1,10),"-",""))-STOD("19000101")+2
+			aSepHora	:= SeparaHora(SubStr(xVar,12))
+			nRight		+= ((aSepHora[1] * 3600000) + (aSepHora[2] * 60000) + (aSepHora[3] * 1000) + aSepHora[4]) / 86400000
 		EndIf
+		FwFreeArray(aSepHora)
 	Case cTipo == "O" .AND. xVar:ClassName() == "CUSTOM.EXCEL.DATETIME"
 		nRight	:= Val(xVar:cNumero)
 	Otherwise
@@ -10484,22 +10436,81 @@ Retornar em string o numero referente a data e hora
 @return character, numero referente a datatime
 /*/
 Static Function GetNumDtTm(oValor As Object)
-	Local nQtdTmp As Numeric
-	Local cNumero := cValToChar(oValor:nNumero) As Character
-	Local nPosPonto As Numeric
-	If oValor:nDecimal<>0
-		nPosPonto	:= At(".",cNumero)
-		If nPosPonto==0
-			cNumero	+= "."+Replicate("0",8)
-		Else
-			nQtdTmp	:= 8-Len(SubStr(cNumero,nPosPonto+1))
-			If nQtdTmp>0
-				cNumero	+= Replicate("0",nQtdTmp)
-			Endif
-		Endif
-		cNumero	+= cValToChar(oValor:nDecimal)
-	Endif
-Return cNumero
+Return oValor:cNumero
+
+/*/{Protheus.doc} NumSerial2Str
+Converte o número serial (data e hora do Excel) em string com até 16 casas decimais. O cValToChar/Str limitam a 8 casas, então a fração é separada em dois blocos de 8 dígitos
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param nNum, numeric, Número serial
+@param nDec8, numeric, (Opcional) Casas decimais 9 a 16 já conhecidas; nesse caso nNum tem até 8 casas
+@return character, Número com até 16 casas decimais, sem zeros à direita
+/*/
+Static Function NumSerial2Str(nNum As Numeric, nDec8 As Numeric)
+	Local cSinal := If(nNum<0,"-","") As Character
+	Local nInt As Numeric
+	Local nFrac As Numeric
+	Local nA As Numeric
+	Local nB As Numeric
+	nNum	:= Abs(nNum)
+	nInt	:= Int(nNum)
+	nFrac	:= (nNum-nInt)*100000000
+	If ValType(nDec8)=="N"
+		nA	:= Round(nFrac,0)
+		nB	:= nDec8
+	Else
+		nA	:= Int(nFrac)
+		nB	:= Round((nFrac-nA)*100000000,0)
+	EndIf
+	If nB>=100000000
+		nB	:= nB-100000000
+		nA++
+	EndIf
+	If nA>=100000000
+		nA	:= nA-100000000
+		nInt++
+	EndIf
+Return cSinal+cValToChar(nInt)+FracStr(StrZero(nA,8)+StrZero(nB,8))
+
+/*/{Protheus.doc} FracDiaStr
+Fração do dia (milissegundos / 86400000) em string com 17 casas, por divisão longa com inteiros (exata em double)
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param nMs, numeric, Milissegundos do dia
+@return character, Casas decimais sem o "0." e sem zeros à direita
+/*/
+Static Function FracDiaStr(nMs As Numeric)
+	Local cFrac := "" As Character
+	Local nResto := nMs As Numeric
+	Local nDigito As Numeric
+	Local nCont As Numeric
+	For nCont:=1 to 17
+		nResto		:= nResto*10
+		nDigito	:= Int(nResto/86400000)
+		cFrac		+= cValToChar(nDigito)
+		nResto		:= nResto-(nDigito*86400000)
+	Next
+Return SubStr(FracStr(cFrac),2)
+
+/*/{Protheus.doc} FracStr
+Remove os zeros à direita das casas decimais e retorna com o ponto
+@type function
+@version 1.0
+@author Saulo Gomes Martins
+@since 27/10/2026
+@param cFrac, character, Casas decimais
+@return character, "."+casas sem zeros à direita, ou vazio
+/*/
+Static Function FracStr(cFrac As Character)
+	Local nTam := Len(cFrac) As Numeric
+	While nTam>0 .AND. SubStr(cFrac,nTam,1)=="0"
+		nTam--
+	EndDo
+Return If(nTam==0,"","."+SubStr(cFrac,1,nTam))
 
 /*/{Protheus.doc} new_content_types
 Criação do arquivo \[content_types].xml
